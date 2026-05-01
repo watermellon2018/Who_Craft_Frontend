@@ -4,7 +4,6 @@ import {useLocation, useNavigate} from 'react-router-dom';
 import {v4 as uuidv4} from 'uuid';
 import {createCharacterFromTreeAPI} from '../../../api/generation/characters/tree_structure';
 import {characterApi} from '../api/characterApi';
-import {notifyCharacterListUpdated, notifyCharacterTreeUpdated} from '../events';
 import AppearanceDescriptionSection from '../components/create/AppearanceDescriptionSection';
 import BasicInformationSection from '../components/create/BasicInformationSection';
 import CharacterCreateHeader from '../components/create/CharacterCreateHeader';
@@ -38,6 +37,14 @@ interface CharacterCreatePageProps {
   activeMode?: CharacterCreateMode;
 }
 
+// State passed back from CharacterVariantsPage when user clicks "Изменить параметры"
+interface CharacterCreateReturnState {
+  formValues?: CharacterCreateFormValues;
+  characterId?: string;
+  sourceTreeNodeId?: string;
+  generationOptions?: GenerationOptions;
+}
+
 const createModeSubtitles: Record<CharacterCreateMode, string> = {
   description: 'Опишите персонажа и сгенерируйте уникальные визуальные варианты.',
   reference: 'Создайте персонажа на основе референс-изображения. Мы извлечём ключевые черты и сохраним идентичность.',
@@ -60,13 +67,24 @@ function CreateCharacterFromDescriptionContent() {
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
   const location = useLocation();
-  const routeState = location.state as {initialCharacterName?: string; sourceTreeNodeId?: string} | null;
-  const initialCharacterName = routeState?.initialCharacterName;
-  const sourceTreeNodeId = routeState?.sourceTreeNodeId;
+
+  const routeState = location.state as (CharacterCreateReturnState & {initialCharacterName?: string; sourceTreeNodeId?: string}) | null;
+
+  // When navigating back from variants page, these carry the previous form values and draft character id
+  const returnFormValues = routeState?.formValues;
+  const existingCharacterId = routeState?.characterId;
+  // sourceTreeNodeId from initial navigation OR preserved from a re-edit return
+  const initialSourceTreeNodeId = routeState?.sourceTreeNodeId ?? null;
+  const initialCharacterName = returnFormValues?.name ?? routeState?.initialCharacterName;
+
   const [form] = Form.useForm<CharacterCreateFormValues>();
   const [saving, setSaving] = useState(false);
-  const [generationOptions, setGenerationOptions] = useState<GenerationOptions>(defaultGenerationOptions);
-  const [visualStyle, setVisualStyle] = useState<VisualStyleValue>('cinematic_realism');
+  const [generationOptions, setGenerationOptions] = useState<GenerationOptions>(
+    routeState?.generationOptions ?? defaultGenerationOptions,
+  );
+  const [visualStyle, setVisualStyle] = useState<VisualStyleValue>(
+    (returnFormValues?.visual_style as VisualStyleValue | undefined) ?? 'cinematic_realism',
+  );
   const characterName = Form.useWatch('name', form);
   const characterType = Form.useWatch('character_type', form);
   const appearanceDescription = Form.useWatch('appearance_description', form);
@@ -75,18 +93,24 @@ function CreateCharacterFromDescriptionContent() {
     [appearanceDescription, characterName, characterType],
   );
 
+  // Pre-fill form when returning from the variants page ("Изменить параметры" flow)
   useEffect(() => {
-    if (initialCharacterName) {
+    if (returnFormValues) {
+      form.setFieldsValue(returnFormValues);
+      if (returnFormValues.visual_style) {
+        setVisualStyle(returnFormValues.visual_style as VisualStyleValue);
+      }
+    } else if (initialCharacterName) {
       form.setFieldValue('name', initialCharacterName);
     }
-  }, [form, initialCharacterName]);
+  }, []); // intentionally runs only on mount to restore form state once
 
   const handleVisualStyleChange = (value: VisualStyleValue) => {
     setVisualStyle(value);
     form.setFieldsValue({visual_style: value});
   };
 
-  const save = async (generate = false) => {
+  const save = async () => {
     try {
       setSaving(true);
       await form.validateFields(['name', 'character_type', 'appearance_description']);
@@ -103,50 +127,53 @@ function CreateCharacterFromDescriptionContent() {
         species: values.character_type || 'human',
         visual_style: values.visual_style || 'cinematic_realism',
       };
-      const response = await characterApi.create(projectId, payload);
-      const character = response.data;
 
-      if (payload.name) {
-        await createCharacterFromTreeAPI(sourceTreeNodeId || uuidv4(), payload.name, 'leaf', projectId, null, null, character.character_id);
-      }
-      notifyCharacterTreeUpdated();
-      notifyCharacterListUpdated();
-
-      let jobId: string | undefined;
-      let createMessage = 'Персонаж создан без генерации';
-      if (generate) {
-        const jobResponse = await characterApi.generateInitial(projectId, character.character_id, {
-          variant_count: generationOptions.count,
-          image_types: ['portrait', 'full_body', 'scene', 'reference_sheet'],
-          creativity: generationOptions.creativity,
-          seed: generationOptions.lockSeed && generationOptions.seed ? Number(generationOptions.seed) : undefined,
-          lock_seed: generationOptions.lockSeed,
-          visual_style: payload.visual_style,
-          text_refinement: payload.appearance_description,
-          character_type: payload.character_type,
-          age: payload.age,
-          lifecycle_stage: payload.lifecycle_stage,
-          body_structure: payload.body_structure,
-          surface_material: payload.surface_material,
-          special_features: payload.special_features,
-          appearance_description: payload.appearance_description,
-        });
-        jobId = jobResponse.data?.job_id;
-        if (jobResponse.data?.status === 'failed') {
-          createMessage = jobResponse.data?.error_message || 'Персонаж создан, но генерация вариантов не удалась';
-        } else if (jobResponse.data?.status === 'completed') {
-          createMessage = 'Персонаж создан, изображения для всех режимов сгенерированы';
-        } else {
-          createMessage = 'Персонаж создан, генерация изображений запущена';
-        }
-      }
-
-      if (generate && createMessage !== 'Персонаж создан, изображения для всех режимов сгенерированы' && createMessage !== 'Персонаж создан, генерация изображений запущена') {
-        message.error(createMessage);
+      let characterId: string;
+      if (existingCharacterId) {
+        // Re-edit flow: update the existing draft character instead of creating a new one
+        await characterApi.update(projectId, existingCharacterId, payload);
+        characterId = existingCharacterId;
       } else {
-        message.success(createMessage);
+        const response = await characterApi.create(projectId, payload);
+        characterId = response.data.character_id;
       }
-      navigate(`/project/${projectId}/characters/${character.character_id}/edit`, {state: {jobId}});
+
+      // Tree node creation and list notifications are deferred to handleContinue in CharacterVariantsPage
+      // so that draft characters never appear in lists before the user confirms a variant.
+      const sourceTreeNodeId = initialSourceTreeNodeId || uuidv4();
+
+      const jobResponse = await characterApi.generateInitial(projectId, characterId, {
+        variant_count: generationOptions.count,
+        image_type: 'portrait',
+        creativity: generationOptions.creativity,
+        seed: generationOptions.lockSeed && generationOptions.seed ? Number(generationOptions.seed) : undefined,
+        lock_seed: generationOptions.lockSeed,
+        visual_style: payload.visual_style,
+        text_refinement: payload.appearance_description,
+        character_type: payload.character_type,
+        age: payload.age,
+        lifecycle_stage: payload.lifecycle_stage,
+        body_structure: payload.body_structure,
+        surface_material: payload.surface_material,
+        special_features: payload.special_features,
+        appearance_description: payload.appearance_description,
+      });
+      const jobId = jobResponse.data?.job_id;
+      if (jobResponse.data?.status === 'failed') {
+        message.error(jobResponse.data?.error_message || 'Персонаж создан, но генерация портретных вариантов не удалась');
+        return;
+      }
+      message.success('Генерируем портретные варианты…');
+      navigate(`/project/${projectId}/characters/${characterId}/variants`, {
+        state: {
+          jobId,
+          formValues: values,
+          characterId,
+          sourceTreeNodeId,
+          characterName: payload.name,
+          generationOptions,
+        },
+      });
     } finally {
       setSaving(false);
     }
@@ -157,7 +184,14 @@ function CreateCharacterFromDescriptionContent() {
       form={form}
       layout="vertical"
       requiredMark={false}
-      initialValues={{name: initialCharacterName, character_type: 'human', visual_style: 'cinematic_realism'}}
+      initialValues={{
+        character_type: 'human',
+        visual_style: 'cinematic_realism',
+        role: 'main',
+        gender: 'female',
+        ...returnFormValues,
+        name: initialCharacterName,
+      }}
       className="character-create-form"
     >
       <div className="character-create-layout">
@@ -173,15 +207,8 @@ function CreateCharacterFromDescriptionContent() {
           <div className="character-create-actions">
             <div>
               <Button
-                className="character-create-button character-create-button--outline"
-                onClick={() => save(false)}
-                loading={saving}
-              >
-                Создать без генерации
-              </Button>
-              <Button
                 className="character-create-button character-create-button--primary"
-                onClick={() => save(true)}
+                onClick={save}
                 loading={saving}
                 disabled={!canGenerate}
               >

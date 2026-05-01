@@ -12,7 +12,7 @@ import {
 import CharacterCreateHeader from '../components/create/CharacterCreateHeader';
 import GenerationSettingsPanel, {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
 import VisualStyleSelector, {VisualStyleValue} from '../components/create/VisualStyleSelector';
-import {characterTypeOptions, genderApplicabilityOptions} from '../components/create/characterCreateOptions';
+import {characterTypeOptions, genderApplicabilityOptions, roleOptions} from '../components/create/characterCreateOptions';
 import './CharacterCreatePage.css';
 import './CreateCharacterFromReferencePage.css';
 
@@ -134,7 +134,7 @@ export function CreateCharacterFromReferenceContent() {
   const [characterType, setCharacterType] = useState<CharacterTypeValue>('human');
   const [lifecycleStage, setLifecycleStage] = useState('');
   const [gender, setGender] = useState<GenderValue | undefined>();
-  const [role, setRole] = useState('');
+  const [role, setRole] = useState('main');
   const [preserveIdentity, setPreserveIdentity] = useState(true);
   const [autoExtractFeatures, setAutoExtractFeatures] = useState(true);
   const [style, setStyle] = useState<CharacterStyle>('cinematic_realism');
@@ -172,15 +172,6 @@ export function CreateCharacterFromReferenceContent() {
     }
 
     setFile(nextFile);
-  };
-
-  const handleCreateWithoutGeneration = () => {
-    if (!name.trim()) {
-      setSubmitAttempted(true);
-      return;
-    }
-
-    message.info('Создание персонажа по референсу без генерации будет подключено на этапе интеграции API');
   };
 
   const handleGenerate = () => {
@@ -227,19 +218,12 @@ export function CreateCharacterFromReferenceContent() {
         <div className="character-create-actions">
           <div>
             <Button
-              className="character-create-button character-create-button--outline"
-              htmlType="button"
-              onClick={handleCreateWithoutGeneration}
-            >
-              Создать без генерации
-            </Button>
-            <Button
               className="character-create-button character-create-button--primary"
               htmlType="button"
               disabled={!canGenerate}
               onClick={handleGenerate}
             >
-              Сгенерировать варианты
+              Сгенерировать
             </Button>
           </div>
           <p>После генерации вы сможете доработать персонажа в редакторе.</p>
@@ -431,12 +415,12 @@ function ReferenceParametersCard({
           </FormField>
 
           <FormField htmlFor="reference-character-role" label="Роль">
-            <Input
+            <SelectField
               id="reference-character-role"
-              className="reference-form-control"
               value={role}
-              placeholder="Например, главный герой"
-              onChange={(event) => onRoleChange(event.target.value)}
+              placeholder="Выберите роль персонажа"
+              options={roleOptions}
+              onChange={(value) => onRoleChange(value ?? 'main')}
             />
           </FormField>
         </div>
@@ -532,6 +516,7 @@ function SelectField({id, options, placeholder, value, onChange}: SelectFieldPro
       placeholder={placeholder}
       options={options.map((option) => ({...option}))}
       onChange={(nextValue) => onChange(nextValue)}
+      popupClassName="character-studio-dropdown"
     />
   );
 }

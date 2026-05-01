@@ -24,6 +24,7 @@ const PathConstants = {
     CHARACTER_STUDIO: '/project/:projectId/characters',
     CHARACTER_STUDIO_CREATE: '/project/:projectId/characters/create',
     CHARACTER_STUDIO_CREATE_REFERENCE: '/project/:projectId/characters/create/reference',
+    CHARACTER_STUDIO_VARIANTS: '/project/:projectId/characters/:characterId/variants',
     CHARACTER_STUDIO_DETAIL: '/project/:projectId/characters/:characterId',
     CHARACTER_STUDIO_EDITOR: '/project/:projectId/characters/:characterId/edit'
 

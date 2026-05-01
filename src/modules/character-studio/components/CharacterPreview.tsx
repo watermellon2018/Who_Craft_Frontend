@@ -15,6 +15,7 @@ import {
   ZoomInOutlined,
 } from '@ant-design/icons';
 import {CharacterImageType, CharacterVariant, CharacterViewMode, StudioCharacter} from '../types/character.types';
+import {AssetJobsMap, AssetJobStatus} from '../hooks/useCharacterAssetJobs';
 
 interface Props {
   character?: StudioCharacter | null;
@@ -22,6 +23,10 @@ interface Props {
   activeViewMode: CharacterViewMode;
   onViewModeChange: (value: CharacterViewMode) => void;
   onGenerateImage: () => void;
+  generatingImageType?: CharacterImageType | null;
+  jobProgress?: number;
+  secondaryJobs?: AssetJobsMap;
+  onRetrySecondary?: (type: CharacterImageType) => void;
 }
 
 const viewTabs: Array<{label: string; value: CharacterViewMode}> = [
@@ -66,10 +71,15 @@ const toolsByMode: Record<CharacterViewMode, Array<{label: string; icon: React.R
 const bodyViews = ['Фронт', 'Левый', 'Правый', 'Назад'];
 const sceneCameraViews = ['Крупный план', 'Средний план', 'Общий план', 'Со спины', 'Сбоку'];
 
-export default function CharacterPreview({character, selectedVariant, activeViewMode, onViewModeChange, onGenerateImage}: Props) {
+export default function CharacterPreview({character, selectedVariant, activeViewMode, onViewModeChange, onGenerateImage, generatingImageType, jobProgress, secondaryJobs, onRetrySecondary}: Props) {
   const imageType = viewModeToImageType(activeViewMode);
   const reference = getPreviewImage(character, selectedVariant, imageType);
   const [imageBroken, setImageBroken] = useState(false);
+  const currentSecondaryJob = secondaryJobs?.[imageType];
+  const secondaryStatus: AssetJobStatus | undefined = currentSecondaryJob?.status;
+  const isSecondaryActive = secondaryStatus === 'queued' || secondaryStatus === 'processing';
+  const isSecondaryFailed = secondaryStatus === 'failed';
+  const isGeneratingCurrent = generatingImageType === imageType || (imageType !== 'portrait' && isSecondaryActive);
 
   useEffect(() => {
     setImageBroken(false);
@@ -78,17 +88,22 @@ export default function CharacterPreview({character, selectedVariant, activeView
   return (
     <section className={`character-preview character-preview--${activeViewMode}`}>
       <div className="character-preview-tabs" role="tablist" aria-label="Режим просмотра">
-        {viewTabs.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            role="tab"
-            className={`character-preview-tabs__item${activeViewMode === tab.value ? ' character-preview-tabs__item--active' : ''}`}
-            onClick={() => onViewModeChange(tab.value)}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {viewTabs.map((tab) => {
+          const tabImageType = viewModeToImageType(tab.value);
+          const tabStatus = getTabStatus(tabImageType, character, secondaryJobs, generatingImageType);
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              className={`character-preview-tabs__item${activeViewMode === tab.value ? ' character-preview-tabs__item--active' : ''}`}
+              onClick={() => onViewModeChange(tab.value)}
+            >
+              <span>{tab.label}</span>
+              <TabStatusDot status={tabStatus} />
+            </button>
+          );
+        })}
       </div>
       {activeViewMode === 'sheet' && reference && !imageBroken
         ? <ReferenceSheetPreview imageUrl={reference} onImageError={() => setImageBroken(true)} />
@@ -106,13 +121,23 @@ export default function CharacterPreview({character, selectedVariant, activeView
             <div className={`character-preview-subject character-preview-subject--${activeViewMode}`}>
               {reference && !imageBroken ? (
                 <Image src={reference} alt="Предпросмотр персонажа" preview={false} onError={() => setImageBroken(true)} />
+              ) : isGeneratingCurrent ? (
+                <GeneratingState viewMode={activeViewMode} progress={jobProgress ?? currentSecondaryJob?.progress} />
+              ) : isSecondaryFailed ? (
+                <FailedState
+                  viewMode={activeViewMode}
+                  errorMessage={currentSecondaryJob?.errorMessage}
+                  onRetry={() => onRetrySecondary?.(imageType)}
+                />
               ) : (
                 <div className={`character-preview-empty character-preview-empty--${activeViewMode}`}>
                   <div className="character-preview-empty__silhouette" />
                   <h3>{emptyCopyByMode[activeViewMode].title}</h3>
                   <p>{emptyCopyByMode[activeViewMode].text}</p>
                   <div className="character-preview-empty__actions">
-                    <button type="button" onClick={onGenerateImage}>Сгенерировать этот режим</button>
+                    <button type="button" onClick={onGenerateImage} disabled={!!generatingImageType}>
+                      Сгенерировать этот режим
+                    </button>
                     <button type="button">Добавить референс</button>
                   </div>
                 </div>
@@ -143,6 +168,87 @@ function getPreviewImage(character?: StudioCharacter | null, selectedVariant?: C
     || character?.outfits?.find((outfit) => outfit.is_default && outfit.reference_image)?.reference_image
     || character?.outfits?.find((outfit) => outfit.reference_image)?.reference_image
     || null;
+}
+
+const generatingCopyByMode: Record<CharacterViewMode, {title: string; text: string}> = {
+  portrait: {
+    title: 'Генерируем портрет…',
+    text: 'Создаём изображение лица и плеч персонажа.',
+  },
+  fullBody: {
+    title: 'Генерируем полный рост…',
+    text: 'Создаём изображение персонажа в полный рост.',
+  },
+  scene: {
+    title: 'Генерируем сцену…',
+    text: 'Создаём персонажа в сцене с фоном и окружением.',
+  },
+  sheet: {
+    title: 'Генерируем референс-лист…',
+    text: 'Создаём фронтальный, боковой и задний вид. Это может занять немного больше времени.',
+  },
+};
+
+type TabStatus = 'ready' | 'generating' | 'failed' | 'idle';
+
+function getTabStatus(
+  imageType: CharacterImageType,
+  character?: StudioCharacter | null,
+  secondaryJobs?: AssetJobsMap,
+  generatingImageType?: CharacterImageType | null,
+): TabStatus {
+  if (generatingImageType === imageType) return 'generating';
+  if (character?.images?.[imageType]?.image_url) return 'ready';
+  const job = secondaryJobs?.[imageType];
+  if (!job) return 'idle';
+  if (job.status === 'queued' || job.status === 'processing') return 'generating';
+  if (job.status === 'failed') return 'failed';
+  if (job.status === 'completed') return 'ready';
+  return 'idle';
+}
+
+function TabStatusDot({status}: {status: TabStatus}) {
+  if (status === 'idle') return null;
+  return <span className={`character-preview-tabs__status character-preview-tabs__status--${status}`} aria-hidden="true" />;
+}
+
+function FailedState({viewMode, errorMessage, onRetry}: {viewMode: CharacterViewMode; errorMessage?: string; onRetry: () => void}) {
+  const copy = generatingCopyByMode[viewMode];
+  return (
+    <div className="character-preview-failed">
+      <div className="character-preview-failed__icon">!</div>
+      <h3>Ошибка генерации</h3>
+      <p>{errorMessage || `Не удалось сгенерировать «${copy.title.replace('Генерируем ', '').replace('…', '')}». Попробуйте ещё раз.`}</p>
+      <button type="button" onClick={onRetry} className="character-preview-failed__retry">
+        Повторить генерацию
+      </button>
+    </div>
+  );
+}
+
+function GeneratingState({viewMode, progress}: {viewMode: CharacterViewMode; progress?: number}) {
+  const copy = generatingCopyByMode[viewMode];
+  const hasProgress = typeof progress === 'number' && progress > 0;
+  return (
+    <div className="character-preview-generating">
+      <div className="character-preview-generating__spinner" />
+      <h3>{copy.title}</h3>
+      <p>{copy.text}</p>
+      {hasProgress ? (
+        <div className="character-preview-generating__progress">
+          <div className="character-preview-generating__progress-bar" style={{width: `${progress}%`}} />
+          <span className="character-preview-generating__progress-label">{progress}%</span>
+        </div>
+      ) : (
+        <div className="character-preview-generating__progress">
+          <div className="character-preview-generating__progress-bar character-preview-generating__progress-bar--indeterminate" />
+        </div>
+      )}
+      <button type="button" className="character-preview-generating__btn" disabled>
+        Генерируется…
+      </button>
+    </div>
+  );
 }
 
 const emptyCopyByMode: Record<CharacterViewMode, {title: string; text: string}> = {

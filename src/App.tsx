@@ -22,6 +22,7 @@ import CharacterGalleryPage from "./modules/character-studio/pages/CharacterGall
 import CharacterCreatePage from "./modules/character-studio/pages/CharacterCreatePage";
 import CharacterEditorPage from "./modules/character-studio/pages/CharacterEditorPage";
 import CharacterDetailPage from "./modules/character-studio/pages/CharacterDetailPage";
+import CharacterVariantsPage from "./modules/character-studio/pages/CharacterVariantsPage";
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 
 // https://ant.design/theme-editor#component-color настройка цветов
@@ -75,13 +76,15 @@ const theme = {
             "colorBorder": "rgb(250, 176, 5)",
         },
         "Select": {
-            "colorTextPlaceholder": "rgb(27, 29, 34)",
-            "colorText": "rgb(27, 29, 34)",
-            "optionSelectedBg": "rgb(27, 29, 34)",
-            "colorBorder": "rgb(27, 29, 34)",
-            "colorBgContainer": "rgb(250, 176, 5)",
+            "colorBgContainer": "#141820",
+            "colorBgElevated": "#1b2029",
+            "colorText": "rgba(255, 255, 255, 0.88)",
+            "colorTextPlaceholder": "#6f7784",
+            "colorBorder": "#3b414d",
+            "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
             "optionSelectedColor": "#fab005",
-            "colorBgElevated": "#fab005",
+            "optionActiveBg": "rgba(255, 255, 255, 0.05)",
+            "selectorBg": "#141820",
         },
         "Checkbox": {
             "colorText": "rgb(27, 29, 34)",
@@ -131,6 +134,7 @@ function App() {
         { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
         { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <CharacterStudioShell><CharacterCreatePage /></CharacterStudioShell> },
         { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <CharacterStudioShell><CharacterCreatePage activeMode="reference" /></CharacterStudioShell> },
+        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <CharacterStudioShell><CharacterVariantsPage /></CharacterStudioShell> },
         { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <CharacterStudioShell><CharacterDetailPage /></CharacterStudioShell> },
         { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <CharacterStudioShell><CharacterEditorPage /></CharacterStudioShell> },
     ], []);

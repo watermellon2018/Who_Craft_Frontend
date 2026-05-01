@@ -601,3 +601,26 @@
     flex: 1 1 140px;
   }
 }
+
+.reference-form-control .ant-select-arrow {
+  color: #6f7784 !important;
+  background: transparent !important;
+}
+
+.reference-form-control .ant-select-selection-item {
+  color: #ffffff !important;
+}
+
+.reference-form-control.ant-select {
+  background: transparent !important;
+}
+
+.reference-form-control .ant-select-arrow * {
+  background: transparent !important;
+}
+
+.reference-form-control .ant-select-clear {
+  background: #141820 !important;
+  color: #6f7784 !important;
+  opacity: 1;
+}

@@ -2,6 +2,7 @@ import React from 'react';
 import {Button, Card, Tag} from 'antd';
 import {CloseOutlined, EditOutlined, LockOutlined} from '@ant-design/icons';
 import {StudioCharacter} from '../types/character.types';
+import {roleLabelMap} from './create/characterCreateOptions';
 
 export default function CharacterCard({character, onEdit, onDelete}: {character: StudioCharacter; onEdit: () => void; onDelete: () => void}) {
   const image = character.images?.portrait?.image_url || character.references?.[0]?.image_url;
@@ -19,7 +20,7 @@ export default function CharacterCard({character, onEdit, onDelete}: {character:
         danger
         style={{position: 'absolute', top: 8, right: 8, zIndex: 1}}
       />
-      <Card.Meta title={character.name} description={character.role || 'No role'} />
+      <Card.Meta title={character.name} description={character.role ? (roleLabelMap[character.role] ?? character.role) : 'Роль не указана'} />
       {character.identity_locked && (
         <div style={{marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap'}}>
           <Tag icon={<LockOutlined />} color="gold">locked</Tag>

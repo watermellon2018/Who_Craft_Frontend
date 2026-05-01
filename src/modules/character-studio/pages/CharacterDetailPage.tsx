@@ -2,6 +2,7 @@ import React from 'react';
 import {Button, Descriptions, List} from 'antd';
 import {useNavigate, useParams} from 'react-router-dom';
 import {useCharacter} from '../hooks/useCharacter';
+import {roleLabelMap} from '../components/create/characterCreateOptions';
 
 export default function CharacterDetailPage() {
   const {projectId = '', characterId = ''} = useParams();
@@ -11,7 +12,7 @@ export default function CharacterDetailPage() {
   return <div style={{padding: 24, minHeight: '100vh', background: '#1b1d22'}}>
     <Button type="primary" onClick={() => navigate(`/project/${projectId}/characters/${characterId}/edit`)}>Open Editor</Button>
     <Descriptions title={character.name} bordered style={{marginTop: 20}}>
-      <Descriptions.Item label="Role">{character.role}</Descriptions.Item>
+      <Descriptions.Item label="Роль">{character.role ? (roleLabelMap[character.role] ?? character.role) : '—'}</Descriptions.Item>
       <Descriptions.Item label="Identity locked">{String(character.identity_locked)}</Descriptions.Item>
       <Descriptions.Item label="Style">{character.visual_style}</Descriptions.Item>
       <Descriptions.Item label="Age">{character.age}</Descriptions.Item>

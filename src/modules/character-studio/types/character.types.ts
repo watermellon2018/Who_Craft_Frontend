@@ -137,7 +137,7 @@ export interface StudioCharacter {
   user_id?: number;
   name: string;
   character_type?: CharacterType;
-  role?: string;
+  role?: 'main' | 'secondary' | 'antagonist' | 'episodic' | 'cameo' | '';
   short_description?: string;
   age?: number | null;
   lifecycle_stage?: string;

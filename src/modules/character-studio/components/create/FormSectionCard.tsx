@@ -246,6 +246,7 @@ export function SelectField({
           options={options}
           value={value}
           onChange={onChange}
+          popupClassName="character-studio-dropdown"
         />
             </Form.Item>
           </FormField>

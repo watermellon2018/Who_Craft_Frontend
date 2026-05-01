@@ -1,7 +1,7 @@
 import React from 'react';
 import {IdcardOutlined} from '@ant-design/icons';
 import FormSectionCard, {NumberField, SelectField, TextField, TextInputWithCounter} from './FormSectionCard';
-import {characterTypeOptions, genderApplicabilityOptions} from './characterCreateOptions';
+import {characterTypeOptions, genderApplicabilityOptions, roleOptions} from './characterCreateOptions';
 
 export default function BasicInformationSection() {
   return (
@@ -30,12 +30,12 @@ export default function BasicInformationSection() {
           required
           rules={[{required: true, message: 'Выберите тип сущности'}]}
         />
-        <TextField
+        <SelectField
           id="description-character-role"
           name="role"
           label="Роль"
-          maxLength={120}
-          placeholder="Например, главный герой, наставник, антагонист"
+          placeholder="Выберите роль персонажа"
+          options={roleOptions}
         />
       </div>
 

@@ -66,7 +66,9 @@ function regionLabel(region: CharacterRegion) {
 function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void}) {
   const update = (key: string, nextValue: unknown) => onChange({...value, [key]: nextValue});
   const age = typeof value.age === 'number' ? value.age : undefined;
-  const gender = (value.gender as string) || 'male';
+  const rawGender = value.gender as string | undefined;
+  const showGenderField = rawGender === 'male' || rawGender === 'female';
+  const gender = rawGender || 'male';
   const faceShape = (value.face_shape as string) || 'oval';
   const skinTone = (value.skin_tone as string) || 'medium';
 
@@ -83,24 +85,26 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
         </div>
         <Slider min={0} max={130} value={age ?? 22} onChange={(nextValue) => update('age', nextValue)} />
 
-        <div className="character-control-block">
-          <span className="character-control-label">Пол</span>
-          <div className="character-segmented">
-            {[
-              ['male', 'Мужской'],
-              ['female', 'Женский'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={gender === key ? 'is-active' : ''}
-                onClick={() => update('gender', key)}
-              >
-                {label}
-              </button>
-            ))}
+        {showGenderField && (
+          <div className="character-control-block">
+            <span className="character-control-label">Пол</span>
+            <div className="character-segmented">
+              {[
+                ['male', 'Мужской'],
+                ['female', 'Женский'],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={gender === key ? 'is-active' : ''}
+                  onClick={() => update('gender', key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="character-control-block">
           <span className="character-control-label">Форма лица</span>

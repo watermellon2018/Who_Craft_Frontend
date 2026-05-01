@@ -32,6 +32,7 @@ import {
   notifyCharacterTreeUpdated,
 } from '../events';
 import {useCharacter} from '../hooks/useCharacter';
+import {useCharacterAssetJobs} from '../hooks/useCharacterAssetJobs';
 import {useCharacterEditor} from '../hooks/useCharacterEditor';
 import {useCharacterRevisions} from '../hooks/useCharacterRevisions';
 import {useGenerationJob} from '../hooks/useGenerationJob';
@@ -173,7 +174,9 @@ export default function CharacterEditorPage() {
   const [hydratedCharacterId, setHydratedCharacterId] = useState<string>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generatingImageType, setGeneratingImageType] = useState<CharacterImageType | null>(null);
   const editor = useCharacterEditor(!!character?.identity_locked);
+  const {jobs: secondaryJobs, retry: retrySecondaryJob} = useCharacterAssetJobs(projectId, characterId, character, refresh);
 
   useEffect(() => {
     const state = location.state as {jobId?: string} | null;
@@ -219,51 +222,75 @@ export default function CharacterEditorPage() {
     if (job.status === 'failed' && notifiedFailedJobId !== job.job_id) {
       message.error(job.error_message || 'Генерация не удалась (backend вернул FAILED)');
       setNotifiedFailedJobId(job.job_id);
+      setGeneratingImageType(null);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[CharacterEditor] generation failed', {jobId: job.job_id, error: job.error_message});
+      }
     }
-    if (job.status === 'completed' && job.variants?.length && previewedJobId !== job.job_id) {
-      setSelectedVariant((current) => current || job.variants[0]);
+    if (job.status === 'completed' && previewedJobId !== job.job_id) {
+      if (job.variants?.length) {
+        setSelectedVariant((current) => current || job.variants[0]);
+      }
       setPreviewedJobId(job.job_id);
+      setGeneratingImageType(null);
       refresh();
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[CharacterEditor] generation completed', {jobId: job.job_id, variants: job.variants?.length ?? 0});
+      }
+    }
+    if (job.status === 'cancelled') {
+      setGeneratingImageType(null);
     }
   }, [job, notifiedFailedJobId, previewedJobId, refresh]);
 
   const generate = async () => {
-    if (!character) return;
+    if (!character || generatingImageType) return;
     const imageType = viewModeToImageType(activeViewMode);
     const region = regionForImageType(imageType, activeTab);
     if (character.identity_locked && region === 'full_character') {
       message.warning('Это может изменить идентичность персонажа. Создайте новую версию перед генерацией.');
       return;
     }
+    setGeneratingImageType(imageType);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[CharacterEditor] starting generation', {imageType, region});
+    }
     const baseControls = controlsFromCharacter(character);
     const diff = diffControls(baseControls, editor.controls);
     const activeImage = character.images?.[imageType];
     editor.setRegion(region);
-    const response = await characterApi.generateEdit(projectId, character.character_id, {
-      ...editor.request,
-      region,
-      image_type: imageType,
-      controls: {
-        ...editor.controls,
+    try {
+      const response = await characterApi.generateEdit(projectId, character.character_id, {
+        ...editor.request,
+        region,
+        image_type: imageType,
+        controls: {
+          ...editor.controls,
+          changed_fields: diff.changedFields,
+          previous_values: diff.previousValues,
+          new_values: diff.newValues,
+        },
         changed_fields: diff.changedFields,
         previous_values: diff.previousValues,
         new_values: diff.newValues,
-      },
-      changed_fields: diff.changedFields,
-      previous_values: diff.previousValues,
-      new_values: diff.newValues,
-      current_image_url: activeImage?.image_url || null,
-      current_asset_id: activeImage?.asset_id || null,
-    });
-    setSelectedVariant(null);
-    setPreviewedJobId(undefined);
-    setNotifiedFailedJobId(undefined);
-    setJobId(response.data.job_id);
-    if (response.data?.status === 'failed') {
-      message.error(response.data?.error_message || 'Генерация не удалась');
-      setNotifiedFailedJobId(response.data.job_id);
-    } else {
-      message.success('Генерация выбранного режима запущена');
+        current_image_url: activeImage?.image_url || null,
+        current_asset_id: activeImage?.asset_id || null,
+      });
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[CharacterEditor] generation job created', {jobId: response.data?.job_id, status: response.data?.status});
+      }
+      setSelectedVariant(null);
+      setPreviewedJobId(undefined);
+      setNotifiedFailedJobId(undefined);
+      setJobId(response.data.job_id);
+      if (response.data?.status === 'failed') {
+        message.error(response.data?.error_message || 'Генерация не удалась');
+        setNotifiedFailedJobId(response.data.job_id);
+        setGeneratingImageType(null);
+      }
+    } catch {
+      message.error('Ошибка при запуске генерации. Попробуйте ещё раз.');
+      setGeneratingImageType(null);
     }
   };
 
@@ -392,7 +419,7 @@ export default function CharacterEditorPage() {
   return <CharacterEditorLayout
     topBar={<EditorTopBar characterName={character?.name || 'Персонаж'} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info('Переименование доступно через дерево персонажей слева')} onRefresh={refresh} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} locked={!!character?.identity_locked} onLock={lock} />}
     sidebar={<CharacterCategorySidebar active={activeTab} onSelect={selectCategory} />}
-    center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} /><EditorLowerDeck activeViewMode={activeViewMode} character={character} onAction={handleQuickAction} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
+    center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} generatingImageType={generatingImageType} jobProgress={job?.progress} secondaryJobs={secondaryJobs} onRetrySecondary={retrySecondaryJob} /><EditorLowerDeck activeViewMode={activeViewMode} character={character} onAction={handleQuickAction} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
     right={right}
   />;
 }

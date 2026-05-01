@@ -7,7 +7,7 @@ const character: StudioCharacter = {
   character_id: 'character-1',
   project_id: 1,
   name: 'Mira',
-  role: 'lead',
+  role: 'main',
   identity_locked: true,
   references: [{asset_id: 'asset-1', image_url: 'https://example.com/mira.png', asset_type: 'portrait'}],
 };
