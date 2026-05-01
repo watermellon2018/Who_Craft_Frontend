@@ -1,0 +1,66 @@
+
+
+.container {
+    /*display: flex;*/
+    /*!*justify-content: center;*!*/
+    height: 80vh; /* Высота контейнера */
+    justify-content: space-between;
+    /*width: 100%;*/
+
+}
+
+.component {
+    /* Стиль вашего компонента */
+    padding: 10px;
+    width: 80% !important;
+}
+
+.editor-container {
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 4px;
+    min-height: 300px;
+}
+
+.editor-input {
+    min-height: 300px;
+    outline: none;
+}
+
+.editor-placeholder {
+    color: #aaa;
+}
+
+.textBold {
+    font-weight: bold;
+}
+
+.textItalic {
+    font-style: italic;
+}
+
+.editorWrapper {
+    position: relative;
+    height: 100%;
+}
+
+.paragraph {
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+.editor {
+    background: white;
+    min-height: 300px;
+    height: 100%;
+    color: black;
+    padding-left: 5px;
+    padding-top: 3px;
+}
+
+.placeholder {
+    color: grey;
+    position: absolute;
+    top: 0vh;
+    left: 5px;
+}

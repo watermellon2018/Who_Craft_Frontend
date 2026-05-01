@@ -1,0 +1,28 @@
+.character-delete-confirm-modal .ant-modal-content {
+  background: #151922;
+  border: 1px solid rgba(250, 176, 5, 0.35);
+  border-radius: 8px;
+}
+
+.character-delete-confirm-modal .ant-modal-confirm-title,
+.character-delete-confirm-modal .ant-modal-confirm-content {
+  color: #f8f9fa;
+}
+
+.character-delete-confirm-modal .ant-btn-primary {
+  background: #fab005;
+  border-color: #fab005;
+  color: #111318;
+  font-weight: 700;
+}
+
+.character-delete-confirm-modal .ant-btn-default {
+  background: #111318;
+  border-color: #30343d;
+  color: #f8f9fa;
+}
+
+.character-tree-sidebar,
+.character-tree-sidebar__body {
+  scrollbar-gutter: auto;
+}

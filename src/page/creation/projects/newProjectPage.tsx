@@ -137,7 +137,7 @@ export const ProjectCreatePage = () => {
             'desc': description,
             'annot': annotation,
             'audience': selectedAudience,
-            'image': (imageUrl == 'https://placehold.co/195x147') ? '' : imageUrl,
+            'image': (imageUrl && imageUrl !== 'https://placehold.co/195x147') ? imageUrl : '',
         };
         return data;
     }

@@ -5,7 +5,7 @@ interface ProjectI {
     desc: string;
     annot: string;
     audience: string[];
-    image: any;
+    image: string;
 }
 
 export type {
