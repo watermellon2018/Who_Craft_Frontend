@@ -7,7 +7,6 @@ jest.mock('../api/characterApi');
 
 const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
 
-// Minimal character fixture without any generated images
 const PROJECT_ID = 'project-1';
 const CHARACTER_ID = 'char-abc';
 
@@ -22,8 +21,8 @@ function makeCharacter(overrides: Partial<StudioCharacter> = {}): StudioCharacte
   };
 }
 
-function makeJobResponse(status: string, jobId = 'job-1') {
-  return {data: {job_id: jobId, status, progress: 0, variants: [], error_message: undefined}};
+function makeJobResponse(status: string, jobId = 'job-1', variants: unknown[] = []) {
+  return {data: {job_id: jobId, status, progress: status === 'completed' ? 100 : 0, variants, error_message: undefined}};
 }
 
 function makeCompletedJobResponse(jobId = 'job-1', variantId = 'var-1') {
@@ -121,7 +120,127 @@ describe('useCharacterAssetJobs – auto-launch', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Polling behaviour
+// Synchronous-completion bug fix
+// The Django backend processes jobs synchronously: generateEdit often returns
+// status='completed' immediately. The polling loop only covers queued/processing
+// entries, so completion must also be handled directly in launchJob.
+// ---------------------------------------------------------------------------
+
+describe('useCharacterAssetJobs – synchronous backend completion', () => {
+  it('calls onCompleted when generateEdit returns status=completed immediately', async () => {
+    // Simulate synchronous backend: first type returns completed right away.
+    mockedApi.generateEdit
+      .mockResolvedValueOnce(makeCompletedJobResponse('job-sync', 'var-sync') as never)
+      .mockResolvedValue(makeJobResponse('queued') as never);
+
+    const onCompleted = jest.fn();
+    renderHook(() =>
+      useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter(), onCompleted),
+    );
+    await act(async () => {
+      // Let launchJob Promises settle (generateEdit + applyVariant)
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onCompleted).toHaveBeenCalled();
+  });
+
+  it('calls applyVariant with the first variant when generateEdit returns completed', async () => {
+    mockedApi.generateEdit
+      .mockResolvedValueOnce(makeCompletedJobResponse('job-sync', 'var-sync') as never)
+      .mockResolvedValue(makeJobResponse('queued') as never);
+
+    renderHook(() => useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter()));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockedApi.applyVariant).toHaveBeenCalledWith(
+      PROJECT_ID,
+      CHARACTER_ID,
+      'var-sync',
+      expect.any(String),
+      expect.any(String),
+    );
+  });
+
+  it('calls onCompleted even when generateEdit returns completed with no variants', async () => {
+    // Backend activates the image during job processing even if variants array is empty in response.
+    mockedApi.generateEdit
+      .mockResolvedValueOnce(makeJobResponse('completed', 'job-novar', []) as never)
+      .mockResolvedValue(makeJobResponse('queued') as never);
+
+    const onCompleted = jest.fn();
+    renderHook(() =>
+      useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter(), onCompleted),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onCompleted).toHaveBeenCalled();
+    expect(mockedApi.applyVariant).not.toHaveBeenCalled();
+  });
+
+  it('does not call onCompleted twice for the same completed job', async () => {
+    mockedApi.generateEdit
+      .mockResolvedValueOnce(makeCompletedJobResponse('job-once', 'var-once') as never)
+      .mockResolvedValue(makeJobResponse('queued') as never);
+    // getJob also returns completed — ensures the polling path won't double-fire.
+    mockedApi.getJob.mockResolvedValue(makeCompletedJobResponse('job-once', 'var-once') as never);
+
+    const onCompleted = jest.fn();
+    renderHook(() =>
+      useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter(), onCompleted),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    // onCompleted should be called once per type that completes synchronously, not more.
+    // The polling loop should not fire a second refresh for the same jobId.
+    const syncCompletedCalls = onCompleted.mock.calls.length;
+    expect(syncCompletedCalls).toBeGreaterThanOrEqual(1);
+    // Advance time more to confirm no further calls.
+    const callsSnapshot = onCompleted.mock.calls.length;
+    await act(async () => {
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+    expect(onCompleted.mock.calls.length).toBe(callsSnapshot);
+  });
+
+  it('still calls onCompleted when applyVariant throws', async () => {
+    mockedApi.generateEdit
+      .mockResolvedValueOnce(makeCompletedJobResponse('job-err', 'var-err') as never)
+      .mockResolvedValue(makeJobResponse('queued') as never);
+    mockedApi.applyVariant.mockRejectedValue(new Error('apply failed'));
+
+    const onCompleted = jest.fn();
+    renderHook(() =>
+      useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter(), onCompleted),
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onCompleted).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Polling behaviour (async backend path — job starts queued, transitions later)
 // ---------------------------------------------------------------------------
 
 describe('useCharacterAssetJobs – polling', () => {
@@ -130,11 +249,9 @@ describe('useCharacterAssetJobs – polling', () => {
     mockedApi.getJob.mockResolvedValue(makeJobResponse('queued', 'job-q') as never);
 
     renderHook(() => useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter()));
-    // Let the launch effects resolve
     await act(async () => {
       await Promise.resolve();
     });
-    // Advance past the poll interval
     await act(async () => {
       jest.advanceTimersByTime(3000);
       await Promise.resolve();
@@ -143,7 +260,7 @@ describe('useCharacterAssetJobs – polling', () => {
     expect(mockedApi.getJob).toHaveBeenCalledWith('job-q');
   });
 
-  it('auto-applies the first variant when a job transitions to completed', async () => {
+  it('auto-applies the first variant when a job transitions to completed via polling', async () => {
     mockedApi.generateEdit.mockResolvedValue(makeJobResponse('queued', 'job-c') as never);
     mockedApi.getJob.mockResolvedValue(makeCompletedJobResponse('job-c', 'var-done') as never);
 
@@ -154,6 +271,7 @@ describe('useCharacterAssetJobs – polling', () => {
     await act(async () => {
       jest.advanceTimersByTime(3000);
       await Promise.resolve();
+      await Promise.resolve();
     });
 
     expect(mockedApi.applyVariant).toHaveBeenCalledWith(
@@ -163,6 +281,26 @@ describe('useCharacterAssetJobs – polling', () => {
       expect.any(String),
       expect.any(String),
     );
+  });
+
+  it('calls onCompleted when a polled job transitions to completed', async () => {
+    mockedApi.generateEdit.mockResolvedValue(makeJobResponse('queued', 'job-poll') as never);
+    mockedApi.getJob.mockResolvedValue(makeCompletedJobResponse('job-poll', 'var-poll') as never);
+
+    const onCompleted = jest.fn();
+    renderHook(() =>
+      useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter(), onCompleted),
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(3000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onCompleted).toHaveBeenCalled();
   });
 
   it('does not start polling when all image types are already present', async () => {
@@ -189,12 +327,10 @@ describe('useCharacterAssetJobs – polling', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    // Should not throw even when polling fails
     await act(async () => {
       jest.advanceTimersByTime(3000);
       await Promise.resolve();
     });
-    // Hook stays alive — jobs map is still accessible
     expect(result.current.jobs).toBeDefined();
   });
 });

@@ -40,6 +40,10 @@ function debug(...args: unknown[]) {
 /**
  * Manages background generation of secondary assets (full_body, scene, reference_sheet)
  * for the character editor. Auto-launches missing jobs once and polls active ones.
+ *
+ * Note: the Django backend processes jobs synchronously — generateEdit often returns
+ * status='completed' immediately. In that case the polling effect never fires for that
+ * job, so we must handle completion directly inside launchJob.
  */
 export function useCharacterAssetJobs(
   projectId: string,
@@ -54,6 +58,41 @@ export function useCharacterAssetJobs(
   const updateJob = useCallback((type: CharacterImageType, patch: Partial<AssetJobState>) => {
     setJobs((prev) => ({...prev, [type]: {...(prev[type] || {status: 'idle'}), ...patch}}));
   }, []);
+
+  /**
+   * Shared completion handler used by both launchJob (synchronous backend completion)
+   * and the polling loop (asynchronous completion).
+   */
+  const handleJobCompleted = useCallback(
+    async (type: CharacterImageType, jobId: string, variants: GenerationJob['variants']) => {
+      const completionKey = `${characterId}:${type}:${jobId}`;
+      if (completionNotifiedRef.current.has(completionKey)) return;
+      completionNotifiedRef.current.add(completionKey);
+
+      debug('job completed', {type, jobId, variantCount: variants?.length ?? 0});
+
+      if (variants?.length) {
+        try {
+          await characterApi.applyVariant(
+            projectId,
+            characterId,
+            variants[0].variant_id,
+            `Автогенерация ${type}`,
+            type,
+          );
+          debug('auto-applied variant', {type, variantId: variants[0].variant_id});
+        } catch (e) {
+          debug('auto-apply failed', {type, error: e});
+        }
+      }
+
+      // Always refresh: the backend activates the image during job processing, so the
+      // character payload contains the URL even if applyVariant above failed.
+      debug('refreshing character after job completion', {type});
+      onCompleted?.();
+    },
+    [characterId, projectId, onCompleted],
+  );
 
   const launchJob = useCallback(
     async (type: CharacterImageType): Promise<string | undefined> => {
@@ -73,12 +112,18 @@ export function useCharacterAssetJobs(
         } as never);
         const jobId = response.data?.job_id;
         const backendStatus = response.data?.status;
-        debug('job created', {type, jobId, backendStatus});
-        updateJob(type, {
-          jobId,
-          status: backendStatus === 'failed' ? 'failed' : mapBackendStatus(backendStatus) || 'queued',
-          errorMessage: response.data?.error_message,
-        });
+        const frontendStatus: AssetJobStatus =
+          backendStatus === 'failed' ? 'failed' : mapBackendStatus(backendStatus) || 'queued';
+        debug('job created', {type, jobId, backendStatus, frontendStatus});
+        updateJob(type, {jobId, status: frontendStatus, errorMessage: response.data?.error_message});
+
+        // The backend processes jobs synchronously: the response often arrives with
+        // status already 'completed'. The polling effect only polls queued/processing
+        // jobs, so it would never fire for this job. Handle completion here directly.
+        if (frontendStatus === 'completed' && jobId) {
+          await handleJobCompleted(type, jobId, response.data?.variants ?? []);
+        }
+
         return jobId;
       } catch (e) {
         debug('job launch failed', {type, error: e});
@@ -86,7 +131,7 @@ export function useCharacterAssetJobs(
         return undefined;
       }
     },
-    [character, characterId, projectId, updateJob],
+    [character, characterId, projectId, updateJob, handleJobCompleted],
   );
 
   // Auto-launch secondary jobs once, when character is loaded and asset is missing.
@@ -109,7 +154,7 @@ export function useCharacterAssetJobs(
     });
   }, [character, jobs, launchJob, updateJob]);
 
-  // Poll active jobs.
+  // Poll jobs that are still queued or processing (covers async/queued backends).
   useEffect(() => {
     const activeEntries = (Object.entries(jobs) as Array<[CharacterImageType, AssetJobState]>).filter(
       ([, state]) => state.jobId && (state.status === 'queued' || state.status === 'processing'),
@@ -126,30 +171,14 @@ export function useCharacterAssetJobs(
             const job = response.data as GenerationJob;
             if (cancelled) return;
             const nextStatus = mapBackendStatus(job.status);
+            debug('poll response', {type, jobId: state.jobId, nextStatus, progress: job.progress});
             updateJob(type, {
               status: nextStatus,
               progress: job.progress,
               errorMessage: job.error_message,
             });
-            // Auto-apply the first variant of completed secondary jobs.
-            if (nextStatus === 'completed' && job.variants?.length) {
-              const completionKey = `${characterId}:${type}:${state.jobId}`;
-              if (!completionNotifiedRef.current.has(completionKey)) {
-                completionNotifiedRef.current.add(completionKey);
-                try {
-                  await characterApi.applyVariant(
-                    projectId,
-                    characterId,
-                    job.variants[0].variant_id,
-                    `Автогенерация ${type}`,
-                    type,
-                  );
-                  debug('auto-applied variant', {type, variantId: job.variants[0].variant_id});
-                  onCompleted?.();
-                } catch (e) {
-                  debug('auto-apply failed', {type, error: e});
-                }
-              }
+            if (nextStatus === 'completed' && state.jobId) {
+              await handleJobCompleted(type, state.jobId, job.variants);
             }
             if (nextStatus === 'failed') {
               debug('job failed', {type, jobId: state.jobId, error: job.error_message});
@@ -167,7 +196,7 @@ export function useCharacterAssetJobs(
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [jobs, characterId, projectId, updateJob, onCompleted]);
+  }, [jobs, handleJobCompleted, updateJob]);
 
   const retry = useCallback(
     (type: CharacterImageType) => {

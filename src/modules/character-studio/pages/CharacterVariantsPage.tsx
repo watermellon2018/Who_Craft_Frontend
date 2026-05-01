@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
@@ -26,19 +26,46 @@ export default function CharacterVariantsPage() {
     const location = useLocation();
     const state = (location.state as VariantsPageState | null) ?? {};
 
-    const jobId = state.jobId;
-    const { job } = useGenerationJob(jobId ?? undefined);
+    // Mutable job id — updated when user clicks Regenerate without navigating away.
+    const [currentJobId, setCurrentJobId] = useState<string | undefined>(state.jobId ?? undefined);
+    const { job } = useGenerationJob(currentJobId);
 
     const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
     const [applying, setApplying] = useState(false);
+    const [regenerating, setRegenerating] = useState(false);
+    const [regenError, setRegenError] = useState<string | undefined>();
 
-    const variants: CharacterVariant[] = job?.variants || [];
-    const effectiveSelectedId = selectedVariantId ?? variants[0]?.variant_id ?? null;
+    // Persist the last successfully loaded variants so the grid stays visible
+    // while a new regeneration job is in flight.
+    const [displayVariants, setDisplayVariants] = useState<CharacterVariant[]>(
+        job?.variants ?? [],
+    );
 
-    const noContext = !jobId;
-    const isLoading = !noContext && (job === null || job.status === 'queued' || job.status === 'processing');
-    const isFailed = !noContext && job?.status === 'failed';
-    const isEmpty = !noContext && job?.status === 'completed' && variants.length === 0;
+    useEffect(() => {
+        if (job?.status === 'completed') {
+            setDisplayVariants(job.variants ?? []);
+            setRegenerating(false);
+            setRegenError(undefined);
+        }
+        if (job?.status === 'failed') {
+            setRegenerating(false);
+            setRegenError(job.error_message || 'Ошибка генерации. Попробуйте ещё раз.');
+        }
+    }, [job]);
+
+    const effectiveSelectedId = selectedVariantId ?? displayVariants[0]?.variant_id ?? null;
+
+    const noContext = !currentJobId;
+    // Full-page loading only for the initial job (no displayVariants yet).
+    const isInitialLoading = !noContext && displayVariants.length === 0 && (
+        job === null || job.status === 'queued' || job.status === 'processing'
+    );
+    // Grid-level loading during regeneration (we still have displayVariants to show).
+    const isRegeneratingGrid = regenerating && (
+        job === null || job.status === 'queued' || job.status === 'processing'
+    );
+    const isFailed = !noContext && !regenerating && job?.status === 'failed';
+    const isEmpty = !noContext && job?.status === 'completed' && displayVariants.length === 0;
 
     const handleBack = () => navigate(-1);
 
@@ -57,10 +84,50 @@ export default function CharacterVariantsPage() {
         });
     };
 
-    const handleRegenerate = () => {
-        navigate(PathConstants.CHARACTER_STUDIO_CREATE.replace(':projectId', projectId), {
-            state: buildEditState(),
-        });
+    // Regenerate: re-run generation with the same params, stay on this page.
+    const handleRegenerate = async () => {
+        if (regenerating) return;
+        const { formValues, generationOptions: opts } = state;
+        if (!formValues) {
+            message.error('Параметры генерации недоступны. Используйте «Изменить параметры».');
+            return;
+        }
+        setRegenerating(true);
+        setRegenError(undefined);
+        setSelectedVariantId(null);
+        try {
+            const jobResponse = await characterApi.generateInitial(projectId, characterId, {
+                variant_count: opts?.count ?? 1,
+                image_type: 'portrait',
+                creativity: opts?.creativity ?? 'balanced',
+                seed: opts?.lockSeed && opts?.seed ? Number(opts.seed) : undefined,
+                lock_seed: opts?.lockSeed ?? false,
+                visual_style: formValues.visual_style,
+                text_refinement: formValues.appearance_description,
+                character_type: formValues.character_type,
+                age: formValues.age,
+                lifecycle_stage: formValues.lifecycle_stage,
+                body_structure: formValues.body_structure,
+                surface_material: formValues.surface_material,
+                special_features: formValues.special_features,
+                appearance_description: formValues.appearance_description,
+            });
+            if (jobResponse.data?.status === 'failed') {
+                setRegenError(jobResponse.data?.error_message || 'Генерация не удалась');
+                setRegenerating(false);
+                return;
+            }
+            const newJobId = jobResponse.data?.job_id;
+            if (newJobId) {
+                setCurrentJobId(newJobId);
+            } else {
+                setRegenError('Сервер не вернул идентификатор задачи');
+                setRegenerating(false);
+            }
+        } catch {
+            setRegenError('Ошибка при запуске генерации. Попробуйте ещё раз.');
+            setRegenerating(false);
+        }
     };
 
     const handleContinue = async () => {
@@ -102,7 +169,7 @@ export default function CharacterVariantsPage() {
         );
     }
 
-    if (isLoading) {
+    if (isInitialLoading) {
         return (
             <div className="cvp-page">
                 <div className="cvp-loading">
@@ -147,7 +214,9 @@ export default function CharacterVariantsPage() {
         );
     }
 
-    const displaySelectedVariant = variants.find(v => v.variant_id === effectiveSelectedId) ?? null;
+    const displaySelectedVariant = displayVariants.find(v => v.variant_id === effectiveSelectedId) ?? null;
+    // Number of skeleton cards to show during regeneration (match expected count).
+    const skeletonCount = state.generationOptions?.count ?? displayVariants.length;
 
     return (
         <div className="cvp-page">
@@ -164,45 +233,70 @@ export default function CharacterVariantsPage() {
                     </div>
                 </div>
                 <div className="cvp-header-actions">
-                    <button className="cvp-btn-secondary" onClick={handleEditParams}>
+                    <button className="cvp-btn-secondary" onClick={handleEditParams} disabled={regenerating}>
                         Изменить параметры
                     </button>
-                    <button className="cvp-btn-accent" onClick={handleRegenerate}>
-                        Перегенерировать
+                    <button
+                        className="cvp-btn-accent"
+                        onClick={handleRegenerate}
+                        disabled={regenerating}
+                    >
+                        {regenerating ? (
+                            <>
+                                <span className="cvp-btn-spinner" />
+                                Генерируем…
+                            </>
+                        ) : (
+                            'Перегенерировать'
+                        )}
                     </button>
                 </div>
             </div>
 
+            {regenError && (
+                <div className="cvp-regen-error">
+                    {regenError}
+                </div>
+            )}
+
             <div className="cvp-grid">
-                {variants.map((variant, idx) => {
-                    const isSelected = (selectedVariantId ?? variants[0]?.variant_id) === variant.variant_id;
-                    return (
-                        <div
-                            key={variant.variant_id}
-                            className={`cvp-card${isSelected ? ' cvp-card--selected' : ''}`}
-                            onClick={() => setSelectedVariantId(variant.variant_id)}
-                        >
-                            {variant.image_url ? (
-                                <img
-                                    className="cvp-card-img"
-                                    src={variant.image_url}
-                                    alt={`Вариант ${idx + 1}`}
-                                />
-                            ) : (
-                                <div className="cvp-card-img-placeholder" />
-                            )}
-                            <span className="cvp-card-label">Вариант {idx + 1}</span>
-                            <div className="cvp-card-footer">
-                                <div className="cvp-radio">
-                                    <span className="cvp-radio-check">✓</span>
-                                </div>
-                                <span className="cvp-select-label">
-                                    {isSelected ? 'Выбрано' : 'Выбрать'}
-                                </span>
-                            </div>
+                {isRegeneratingGrid
+                    ? Array.from({ length: skeletonCount }, (_, i) => (
+                        <div key={`skeleton-${i}`} className="cvp-card cvp-card--skeleton">
+                            <div className="cvp-card-img-placeholder cvp-card-img-placeholder--loading" />
+                            <span className="cvp-card-label">Вариант {i + 1}</span>
                         </div>
-                    );
-                })}
+                    ))
+                    : displayVariants.map((variant, idx) => {
+                        const isSelected = (selectedVariantId ?? displayVariants[0]?.variant_id) === variant.variant_id;
+                        return (
+                            <div
+                                key={variant.variant_id}
+                                className={`cvp-card${isSelected ? ' cvp-card--selected' : ''}`}
+                                onClick={() => setSelectedVariantId(variant.variant_id)}
+                            >
+                                {variant.image_url ? (
+                                    <img
+                                        className="cvp-card-img"
+                                        src={variant.image_url}
+                                        alt={`Вариант ${idx + 1}`}
+                                    />
+                                ) : (
+                                    <div className="cvp-card-img-placeholder" />
+                                )}
+                                <span className="cvp-card-label">Вариант {idx + 1}</span>
+                                <div className="cvp-card-footer">
+                                    <div className="cvp-radio">
+                                        <span className="cvp-radio-check">✓</span>
+                                    </div>
+                                    <span className="cvp-select-label">
+                                        {isSelected ? 'Выбрано' : 'Выбрать'}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })
+                }
             </div>
 
             <div className="cvp-bottom-panel">
@@ -219,14 +313,14 @@ export default function CharacterVariantsPage() {
                     <span className="cvp-selected-label">
                         Выбрано:{' '}
                         <span>
-                            Вариант {(variants.findIndex(v => v.variant_id === effectiveSelectedId) + 1) || 1}
+                            Вариант {(displayVariants.findIndex(v => v.variant_id === effectiveSelectedId) + 1) || 1}
                         </span>
                     </span>
                 </div>
                 <div className="cvp-panel-right">
                     <button
                         className="cvp-btn-continue"
-                        disabled={!effectiveSelectedId || applying}
+                        disabled={!effectiveSelectedId || applying || regenerating}
                         onClick={handleContinue}
                     >
                         {applying ? 'Сохраняем…' : 'Продолжить'}

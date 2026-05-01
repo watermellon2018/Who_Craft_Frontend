@@ -156,8 +156,19 @@ export function viewModeToImageType(mode: CharacterViewMode): CharacterImageType
   return 'portrait';
 }
 
+const REGION_BY_IMAGE_TYPE: Record<CharacterImageType, string> = {
+  portrait: 'face',
+  full_body: 'body',
+  scene: 'style',
+  reference_sheet: 'full_character',
+};
+
 function getPreviewImage(character?: StudioCharacter | null, selectedVariant?: CharacterVariant | null, imageType: CharacterImageType = 'portrait') {
-  if (selectedVariant?.image_url) return selectedVariant.image_url;
+  // Only honor selectedVariant when it actually belongs to the current view's image type;
+  // otherwise a stale portrait variant would leak into full_body / scene / reference tabs.
+  if (selectedVariant?.image_url && selectedVariant.region === REGION_BY_IMAGE_TYPE[imageType]) {
+    return selectedVariant.image_url;
+  }
   const modeImage = character?.images?.[imageType]?.image_url;
   if (modeImage) return modeImage;
   if (imageType !== 'portrait') return null;
