@@ -50,6 +50,7 @@ export function useCharacterAssetJobs(
   characterId: string,
   character: StudioCharacter | null | undefined,
   onCompleted?: () => void,
+  disabled = false,
 ) {
   const [jobs, setJobs] = useState<AssetJobsMap>({});
   const autostartedRef = useRef<Set<string>>(new Set());
@@ -136,6 +137,7 @@ export function useCharacterAssetJobs(
 
   // Auto-launch secondary jobs once, when character is loaded and asset is missing.
   useEffect(() => {
+    if (disabled) return;
     if (!character || !character.character_id) return;
     SECONDARY_TYPES.forEach((type) => {
       const key = `${character.character_id}:${type}`;
@@ -152,10 +154,11 @@ export function useCharacterAssetJobs(
       autostartedRef.current.add(key);
       launchJob(type);
     });
-  }, [character, jobs, launchJob, updateJob]);
+  }, [disabled, character, jobs, launchJob, updateJob]);
 
   // Poll jobs that are still queued or processing (covers async/queued backends).
   useEffect(() => {
+    if (disabled) return;
     const activeEntries = (Object.entries(jobs) as Array<[CharacterImageType, AssetJobState]>).filter(
       ([, state]) => state.jobId && (state.status === 'queued' || state.status === 'processing'),
     );
@@ -196,7 +199,7 @@ export function useCharacterAssetJobs(
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [jobs, handleJobCompleted, updateJob]);
+  }, [disabled, jobs, handleJobCompleted, updateJob]);
 
   const retry = useCallback(
     (type: CharacterImageType) => {

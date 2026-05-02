@@ -2,27 +2,23 @@ import React from 'react';
 import {CharacterRegion} from '../types/character.types';
 import {
   BgColorsOutlined,
-  ClockCircleOutlined,
-  ExperimentOutlined,
   EyeOutlined,
+  SettingOutlined,
   SkinOutlined,
-  SmileOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 
-const tabs: Array<{key: CharacterRegion | 'personality' | 'expressions' | 'history'; label: string; description: string; icon: React.ReactNode}> = [
+const tabs: Array<{key: CharacterRegion | 'personality'; label: string; description: string; icon: React.ReactNode}> = [
   {key: 'face', label: 'Лицо', description: 'Черты и мимика', icon: <UserOutlined />},
   {key: 'hair', label: 'Волосы', description: 'Прическа и борода', icon: <BgColorsOutlined />},
   {key: 'body', label: 'Тело', description: 'Телосложение', icon: <TeamOutlined />},
   {key: 'outfit', label: 'Одежда', description: 'Слои и силуэт', icon: <SkinOutlined />},
-  {key: 'style', label: 'Стиль', description: 'Стиль образа', icon: <ExperimentOutlined />},
+  {key: 'style', label: 'Настройки', description: 'Общие параметры', icon: <SettingOutlined />},
   {key: 'personality', label: 'Характер', description: 'Поведение и роль', icon: <EyeOutlined />},
-  {key: 'expressions', label: 'Выражения', description: 'Эмоции персонажа', icon: <SmileOutlined />},
-  {key: 'history', label: 'История', description: 'Версии и правки', icon: <ClockCircleOutlined />},
 ];
 
-export default function CharacterCategorySidebar({active, onSelect}: {active: string; onSelect: (key: string) => void}) {
+export default function CharacterCategorySidebar({active, onSelect}: {active: string; onSelect: (key: string) => void;}) {
   return (
     <nav className="character-category-menu" aria-label="Категории редактора">
       {tabs.map((tab) => (

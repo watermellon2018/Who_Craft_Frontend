@@ -1,4 +1,10 @@
 export type CharacterRegion = 'face' | 'hair' | 'body' | 'outfit' | 'style' | 'full_character';
+
+export interface ClothingReference {
+  asset_id: string;
+  image_url: string;
+  created_at?: string;
+}
 export type CharacterRevisionRegion = CharacterRegion | '';
 export type PreviewType = 'portrait' | 'full_body' | 'face_closeup' | 'character_sheet' | 'front_view' | 'side_view' | 'expression_sheet';
 export type CharacterViewMode = 'portrait' | 'fullBody' | 'scene' | 'sheet';
@@ -45,6 +51,8 @@ export interface CharacterOutfit {
   layers?: Record<string, unknown>;
   is_default?: boolean;
   reference_image?: string | null;
+  reference_image_url?: string | null;
+  reference_image_asset_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -161,6 +169,9 @@ export interface StudioCharacter {
   personality?: Record<string, unknown>;
   speech_style?: string;
   backstory?: string;
+  clothing_source?: 'reference' | 'text';
+  clothing_description?: string;
+  clothing_references?: ClothingReference[];
   created_at?: string;
   updated_at?: string;
 }

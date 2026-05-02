@@ -12,7 +12,7 @@ export default function CharacterGalleryPage() {
   const navigate = useNavigate();
   const projectId = useProjectIdFromRoute();
   const [search, setSearch] = useState('');
-  const {characters, loading, refresh} = useCharacters(projectId, {search});
+  const {characters, loading, refresh} = useCharacters(projectId, {search, status: 'all'});
 
   useEffect(() => {
     window.addEventListener(CHARACTER_LIST_UPDATED_EVENT, refresh);

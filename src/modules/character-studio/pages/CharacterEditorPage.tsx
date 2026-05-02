@@ -1,28 +1,15 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Collapse, Modal, message} from 'antd';
-import {
-  ArrowLeftOutlined,
-  BulbOutlined,
-  CameraOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  MoreOutlined,
-  ReloadOutlined,
-  SaveOutlined,
-  StarOutlined,
-  ThunderboltOutlined,
-  ToolOutlined,
-} from '@ant-design/icons';
+import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, MoreOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {characterApi} from '../api/characterApi';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
 import CharacterEditorLayout from '../components/CharacterEditorLayout';
 import CharacterPreview, {viewModeToImageType} from '../components/CharacterPreview';
 import CharacterSettingsPanel from '../components/CharacterSettingsPanel';
-import ExpressionList from '../components/ExpressionList';
 import IdentityLockButton from '../components/IdentityLockButton';
-import OutfitList from '../components/OutfitList';
-import RevisionHistory from '../components/RevisionHistory';
+import OutfitSettingsPanel from '../components/OutfitSettingsPanel';
+import PersonalityEditorPanel from '../components/PersonalityEditorPanel';
 import VariantGrid from '../components/VariantGrid';
 import {
   CHARACTER_DELETED_EVENT,
@@ -34,9 +21,8 @@ import {
 import {useCharacter} from '../hooks/useCharacter';
 import {useCharacterAssetJobs} from '../hooks/useCharacterAssetJobs';
 import {useCharacterEditor} from '../hooks/useCharacterEditor';
-import {useCharacterRevisions} from '../hooks/useCharacterRevisions';
 import {useGenerationJob} from '../hooks/useGenerationJob';
-import {CharacterImageType, CharacterRegion, CharacterVariant, CharacterViewMode, StudioCharacter} from '../types/character.types';
+import {CharacterImageType, CharacterRegion, CharacterVariant, CharacterViewMode, GenerationJob, StudioCharacter} from '../types/character.types';
 import './CharacterEditorPage.css';
 
 const APPEARANCE_CONTROL_FIELDS = [
@@ -51,6 +37,7 @@ const APPEARANCE_CONTROL_FIELDS = [
   'hair_length',
   'hair_style',
   'hair_color',
+  'hair_details',
   'height',
   'body_type',
   'body_structure',
@@ -77,6 +64,7 @@ function controlsFromCharacter(character: StudioCharacter) {
     hair_length: appearance.hair_length || undefined,
     hair_style: appearance.hair_style || undefined,
     hair_color: appearance.hair_color || undefined,
+    hair_details: Array.isArray(appearance.hair_details) ? appearance.hair_details : undefined,
     height: appearance.height || undefined,
     body_type: appearance.body_type || undefined,
     body_structure: appearance.body_structure || undefined,
@@ -158,12 +146,52 @@ function confirmDeleteCharacter(name: string) {
   });
 }
 
+const POLL_DELAY_MS = 3000;
+
+async function pollUntilDone(jobId: string): Promise<GenerationJob> {
+  for (;;) {
+    const response = await characterApi.getJob(jobId);
+    const job = response.data as GenerationJob;
+    if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+      return job;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, POLL_DELAY_MS));
+  }
+}
+
+const SCENE_LOCATION_LABELS: Record<string, string> = {
+  studio: 'studio environment',
+  city: 'urban city street',
+  room: 'indoor room',
+  street: 'outdoor street',
+};
+const SCENE_TIME_LABELS: Record<string, string> = {
+  day: 'daytime lighting',
+  night: 'night lighting',
+  sunset: 'sunset golden hour',
+  dawn: 'dawn soft light',
+};
+const SCENE_WEATHER_LABELS: Record<string, string> = {
+  clear: 'clear weather',
+  rain: 'rainy atmosphere',
+  snow: 'snowy environment',
+  fog: 'foggy atmosphere',
+};
+
+function buildSceneRefinement(settings: {location: string; time: string; weather: string}) {
+  const parts = [
+    SCENE_LOCATION_LABELS[settings.location],
+    SCENE_TIME_LABELS[settings.time],
+    SCENE_WEATHER_LABELS[settings.weather],
+  ].filter(Boolean);
+  return parts.length ? parts.join(', ') + '.' : '';
+}
+
 export default function CharacterEditorPage() {
   const {projectId = '', characterId = ''} = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const {character, refresh, setCharacter} = useCharacter(projectId, characterId);
-  const {revisions, refresh: refreshRevisions} = useCharacterRevisions(projectId, characterId);
   const [activeTab, setActiveTab] = useState<string>('face');
   const [activeViewMode, setActiveViewMode] = useState<CharacterViewMode>('portrait');
   const [jobId, setJobId] = useState<string>();
@@ -174,9 +202,14 @@ export default function CharacterEditorPage() {
   const [hydratedCharacterId, setHydratedCharacterId] = useState<string>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [personalityEdits, setPersonalityEdits] = useState<Partial<StudioCharacter>>({});
+  const [outfitDescription, setOutfitDescription] = useState('');
+  const [outfitSource, setOutfitSource] = useState<'reference' | 'text'>('text');
+  const [sceneSettings, setSceneSettings] = useState({location: 'studio', time: 'night', weather: 'clear'});
   const [generatingImageType, setGeneratingImageType] = useState<CharacterImageType | null>(null);
+  const [sequentialRunning, setSequentialRunning] = useState(false);
   const editor = useCharacterEditor(!!character?.identity_locked);
-  const {jobs: secondaryJobs, retry: retrySecondaryJob} = useCharacterAssetJobs(projectId, characterId, character, refresh);
+  const {jobs: secondaryJobs, retry: retrySecondaryJob} = useCharacterAssetJobs(projectId, characterId, character, refresh, sequentialRunning);
 
   useEffect(() => {
     const state = location.state as {jobId?: string} | null;
@@ -188,6 +221,13 @@ export default function CharacterEditorPage() {
   useEffect(() => {
     if (!character || hydratedCharacterId === character.character_id) return;
     editor.setControls(controlsFromCharacter(character));
+    setPersonalityEdits({
+      role: character.role,
+      personality: character.personality,
+      speech_style: character.speech_style,
+    });
+    setOutfitDescription(character.clothing_description || '');
+    setOutfitSource(character.clothing_source || 'text');
     setHydratedCharacterId(character.character_id);
     setHasUnsavedChanges(false);
   }, [character, editor, hydratedCharacterId]);
@@ -217,6 +257,8 @@ export default function CharacterEditorPage() {
     return () => window.removeEventListener(CHARACTER_RENAMED_EVENT, handleRenamed);
   }, [characterId, setCharacter]);
 
+  const persistControlsAndRefreshRef = React.useRef<() => Promise<void>>();
+
   useEffect(() => {
     if (!job) return;
     if (job.status === 'failed' && notifiedFailedJobId !== job.job_id) {
@@ -233,7 +275,7 @@ export default function CharacterEditorPage() {
       }
       setPreviewedJobId(job.job_id);
       setGeneratingImageType(null);
-      refresh();
+      persistControlsAndRefreshRef.current?.();
       if (process.env.NODE_ENV === 'development') {
         console.debug('[CharacterEditor] generation completed', {jobId: job.job_id, variants: job.variants?.length ?? 0});
       }
@@ -241,7 +283,7 @@ export default function CharacterEditorPage() {
     if (job.status === 'cancelled') {
       setGeneratingImageType(null);
     }
-  }, [job, notifiedFailedJobId, previewedJobId, refresh]);
+  }, [job, notifiedFailedJobId, previewedJobId]);
 
   const generate = async () => {
     if (!character || generatingImageType) return;
@@ -255,15 +297,36 @@ export default function CharacterEditorPage() {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[CharacterEditor] starting generation', {imageType, region});
     }
+
+    // Save current controls to DB before generation so the backend prompt compiler
+    // reads up-to-date appearance fields (skin_tone, eye_color, face_shape, etc.).
+    const savePayload = updatePayloadFromControls(editor.controls);
+    if (Object.keys(savePayload).length > 0) {
+      try {
+        const saved = await characterApi.update(projectId, character.character_id, savePayload);
+        if (saved?.data) {
+          setCharacter(saved.data);
+          editor.setControls(controlsFromCharacter(saved.data));
+          setHydratedCharacterId(saved.data.character_id);
+          setHasUnsavedChanges(false);
+        }
+      } catch {
+        // non-critical: proceed with generation using controls in payload
+      }
+    }
+
     const baseControls = controlsFromCharacter(character);
     const diff = diffControls(baseControls, editor.controls);
     const activeImage = character.images?.[imageType];
     editor.setRegion(region);
+    const sceneTextRefinement = imageType === 'scene' ? buildSceneRefinement(sceneSettings) : '';
+    const effectiveTextRefinement = [editor.textRefinement, sceneTextRefinement].filter(Boolean).join(' ');
     try {
       const response = await characterApi.generateEdit(projectId, character.character_id, {
         ...editor.request,
         region,
         image_type: imageType,
+        text_refinement: effectiveTextRefinement,
         controls: {
           ...editor.controls,
           changed_fields: diff.changedFields,
@@ -300,8 +363,7 @@ export default function CharacterEditorPage() {
     await characterApi.applyVariant(projectId, character.character_id, variant.variant_id, `Применен вариант ${variant.region}`, imageType);
     message.success('Вариант применен');
     setSelectedVariant(null);
-    await refresh();
-    await refreshRevisions();
+    await refreshAndResync();
   };
 
   const deleteCurrentCharacter = async () => {
@@ -326,7 +388,12 @@ export default function CharacterEditorPage() {
 
   const save = async () => {
     if (!character) return;
-    const payload = updatePayloadFromControls(editor.controls);
+    const payload = {
+      ...updatePayloadFromControls(editor.controls),
+      ...personalityEdits,
+      clothing_source: outfitSource,
+      clothing_description: outfitDescription,
+    };
 
     if (Object.keys(payload).length === 0) {
       message.info('Нет изменений, которые нужно отправить в карточку персонажа');
@@ -336,7 +403,17 @@ export default function CharacterEditorPage() {
     setSaving(true);
     try {
       const response = await characterApi.update(projectId, character.character_id, payload);
-      setCharacter(response?.data || character);
+      if (response?.data) {
+        setCharacter(response.data);
+        editor.setControls(controlsFromCharacter(response.data));
+        setPersonalityEdits({
+          role: response.data.role,
+          personality: response.data.personality,
+          speech_style: response.data.speech_style,
+        });
+        setHydratedCharacterId(response.data.character_id);
+      }
+
       setHasUnsavedChanges(false);
       notifyCharacterListUpdated();
       notifyCharacterTreeUpdated();
@@ -351,22 +428,136 @@ export default function CharacterEditorPage() {
     setHasUnsavedChanges(true);
   };
 
-  const handleQuickAction = (action: string) => {
-    if (action === 'generate') {
-      generate();
-      return;
+  const updatePersonality = (updates: Partial<StudioCharacter>) => {
+    setPersonalityEdits((prev) => ({...prev, ...updates}));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleOutfitDescriptionChange = (value: string) => {
+    setOutfitDescription(value);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleOutfitSourceChange = (value: 'reference' | 'text') => {
+    setOutfitSource(value);
+    setHasUnsavedChanges(true);
+  };
+
+  // Refresh character from backend and re-hydrate controls from the response.
+  const refreshAndResync = async () => {
+    if (!character?.character_id) return;
+    const response = await characterApi.get(projectId, character.character_id);
+    if (response?.data) {
+      setCharacter(response.data);
+      editor.setControls(controlsFromCharacter(response.data));
+      setHydratedCharacterId(response.data.character_id);
+    }
+  };
+  persistControlsAndRefreshRef.current = refreshAndResync;
+
+  const generateSequential = async () => {
+    if (!character || generatingImageType || sequentialRunning) return;
+    setSequentialRunning(true);
+
+    const STEPS: Array<{type: CharacterImageType; region: CharacterRegion; label: string}> = [
+      {type: 'portrait',  region: 'face',  label: 'Генерация портрета…'},
+      {type: 'full_body', region: 'body',  label: 'Генерация full body…'},
+      {type: 'scene',     region: 'style', label: 'Генерация сцены…'},
+    ];
+
+    const msgKey = 'seq-gen';
+
+    // Save controls to DB once before starting all steps so appearance is up-to-date.
+    const savePayload = updatePayloadFromControls(editor.controls);
+    if (Object.keys(savePayload).length > 0) {
+      try {
+        const saved = await characterApi.update(projectId, character.character_id, savePayload);
+        if (saved?.data) {
+          setCharacter(saved.data);
+          editor.setControls(controlsFromCharacter(saved.data));
+          setHydratedCharacterId(saved.data.character_id);
+          setHasUnsavedChanges(false);
+        }
+      } catch {
+        // non-critical: proceed anyway
+      }
     }
 
-    message.info('Действие добавлено как UI-заготовка и не меняет backend');
+    const baseControls = controlsFromCharacter(character);
+    const diff = diffControls(baseControls, editor.controls);
+    let currentCharacter = character;
+
+    for (const step of STEPS) {
+      message.loading({content: step.label, key: msgKey, duration: 0});
+      setGeneratingImageType(step.type);
+      try {
+        const activeImage = currentCharacter.images?.[step.type];
+        const response = await characterApi.generateEdit(projectId, currentCharacter.character_id, {
+          ...editor.request,
+          region: step.region,
+          image_type: step.type,
+          controls: {
+            ...editor.controls,
+            changed_fields: diff.changedFields,
+            previous_values: diff.previousValues,
+            new_values: diff.newValues,
+          },
+          changed_fields: diff.changedFields,
+          previous_values: diff.previousValues,
+          new_values: diff.newValues,
+          current_image_url: activeImage?.image_url || null,
+          current_asset_id: activeImage?.asset_id || null,
+        });
+
+        if (response.data?.status === 'failed') {
+          throw new Error(response.data?.error_message || 'Генерация не удалась');
+        }
+
+        let variants: GenerationJob['variants'] = response.data?.variants ?? [];
+
+        if (response.data?.status !== 'completed') {
+          const finalJob = await pollUntilDone(response.data.job_id);
+          if (finalJob.status !== 'completed') {
+            throw new Error(finalJob.error_message || 'Генерация не удалась');
+          }
+          variants = finalJob.variants ?? [];
+        }
+
+        if (variants.length) {
+          await characterApi.applyVariant(
+            projectId, characterId, variants[0].variant_id,
+            `Обновить: ${step.type}`, step.type,
+          );
+        }
+
+        const refreshed = await characterApi.get(projectId, characterId);
+        currentCharacter = refreshed.data;
+        setGeneratingImageType(null);
+      } catch (e) {
+        message.destroy(msgKey);
+        message.error(
+          `Ошибка "${step.label}": ${e instanceof Error ? e.message : 'Попробуйте ещё раз'}`,
+        );
+        setGeneratingImageType(null);
+        setSequentialRunning(false);
+        return;
+      }
+    }
+
+    message.destroy(msgKey);
+    message.success('Все изображения обновлены');
+    setSequentialRunning(false);
+    refresh();
   };
 
   const selectCategory = (key: string) => {
     setActiveTab(key);
-    if (key === 'face') {
+    if (key === 'face' || key === 'hair') {
       setActiveViewMode('portrait');
-    }
-    if (key === 'body') {
+    } else if (key === 'body' || key === 'outfit') {
       setActiveViewMode('fullBody');
+    } else {
+      setActiveViewMode('portrait');
     }
     if (['face', 'hair', 'body', 'outfit', 'style'].includes(key)) {
       editor.setRegion(key as CharacterRegion);
@@ -400,31 +591,43 @@ export default function CharacterEditorPage() {
   const jobImageType = job?.request_payload?.image_type as CharacterImageType | undefined;
   const previewVariant = !jobImageType || jobImageType === currentImageType ? selectedVariant : null;
 
-  const right = activeViewMode === 'fullBody'
+  const effectiveCharacter = character ? {...character, ...personalityEdits} : character;
+
+  const right = activeViewMode === 'fullBody' && activeTab === 'outfit'
+    ? <OutfitSettingsPanel
+        projectId={projectId}
+        characterId={characterId}
+        clothingReferences={character?.clothing_references || []}
+        onReferencesChange={(refs) => {
+          if (!character) return;
+          setCharacter({...character, clothing_references: refs});
+        }}
+        outfitDescription={outfitDescription}
+        onDescriptionChange={handleOutfitDescriptionChange}
+        outfitSource={outfitSource}
+        onSourceChange={handleOutfitSourceChange}
+      />
+    : activeViewMode === 'fullBody'
     ? <FullBodySettingsPanel />
     : activeViewMode === 'scene'
-      ? <SceneSettingsPanel />
+      ? <SceneSettingsPanel settings={sceneSettings} onChange={setSceneSettings} />
       : activeViewMode === 'sheet'
         ? <ReferenceSheetSettingsPanel />
-        : activeTab === 'history'
-    ? <div className="character-side-card"><RevisionHistory revisions={revisions} onRestore={async (revision) => { await characterApi.restoreRevision(projectId, characterId, revision.revision_id); await refresh(); await refreshRevisions(); }} /></div>
-    : activeTab === 'outfit'
-      ? <><CharacterSettingsPanel region="outfit" controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} preserve={editor.preserve} identityLocked={!!character?.identity_locked} onGenerate={generate} /><div className="character-side-card"><OutfitList outfits={character?.outfits || []} onSetDefault={async (outfit) => { await characterApi.setDefaultOutfit(projectId, characterId, outfit.outfit_id); await refresh(); }} /></div></>
-      : activeTab === 'expressions'
-        ? <div className="character-side-card"><ExpressionList /></div>
         : activeTab === 'personality'
-          ? <CharacterSettingsPanel region="full_character" controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} preserve={editor.preserve} identityLocked={!!character?.identity_locked} onGenerate={generate} />
-          : <CharacterSettingsPanel region="face" controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} preserve={editor.preserve} identityLocked={!!character?.identity_locked} onGenerate={generate} />;
+              ? effectiveCharacter
+                ? <PersonalityEditorPanel character={effectiveCharacter} onChange={updatePersonality} />
+                : null
+              : <CharacterSettingsPanel region={(['face', 'hair', 'body', 'style'].includes(activeTab) ? activeTab : 'face') as CharacterRegion} controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} />;
 
   return <CharacterEditorLayout
-    topBar={<EditorTopBar characterName={character?.name || 'Персонаж'} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info('Переименование доступно через дерево персонажей слева')} onRefresh={refresh} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} locked={!!character?.identity_locked} onLock={lock} />}
+    topBar={<EditorTopBar characterName={character?.name || 'Персонаж'} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info('Переименование доступно через дерево персонажей слева')} onRefresh={generateSequential} sequentialRunning={sequentialRunning} generatingImageType={generatingImageType} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} locked={!!character?.identity_locked} onLock={lock} />}
     sidebar={<CharacterCategorySidebar active={activeTab} onSelect={selectCategory} />}
-    center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} generatingImageType={generatingImageType} jobProgress={job?.progress} secondaryJobs={secondaryJobs} onRetrySecondary={retrySecondaryJob} /><EditorLowerDeck activeViewMode={activeViewMode} character={character} onAction={handleQuickAction} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
+    center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} generatingImageType={generatingImageType} jobProgress={job?.progress} secondaryJobs={secondaryJobs} onRetrySecondary={retrySecondaryJob} /><EditorLowerDeck activeViewMode={activeViewMode} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
     right={right}
   />;
 }
 
-function EditorTopBar({characterName, onBack, onRename, onRefresh, onSave, onDelete, saving, hasUnsavedChanges, locked, onLock}: {characterName: string; onBack: () => void; onRename: () => void; onRefresh: () => void; onSave: () => void; onDelete: () => void; saving: boolean; hasUnsavedChanges: boolean; locked: boolean; onLock: () => void}) {
+function EditorTopBar({characterName, onBack, onRename, onRefresh, sequentialRunning, generatingImageType, onSave, onDelete, saving, hasUnsavedChanges, locked, onLock}: {characterName: string; onBack: () => void; onRename: () => void; onRefresh: () => void; sequentialRunning: boolean; generatingImageType: CharacterImageType | null; onSave: () => void; onDelete: () => void; saving: boolean; hasUnsavedChanges: boolean; locked: boolean; onLock: () => void}) {
   const saveLabel = saving ? 'Сохраняем' : hasUnsavedChanges ? 'Есть изменения' : 'Сохранено';
 
   return (
@@ -447,7 +650,7 @@ function EditorTopBar({characterName, onBack, onRename, onRefresh, onSave, onDel
       </div>
       <div className="character-editor-actions">
         <IdentityLockButton locked={locked} onLock={onLock} />
-        <Button className="character-editor-button character-editor-button--outline" icon={<ReloadOutlined />} onClick={onRefresh}>Обновить</Button>
+        <Button className="character-editor-button character-editor-button--outline" icon={<ReloadOutlined />} loading={sequentialRunning} disabled={!!generatingImageType && !sequentialRunning} onClick={onRefresh}>Обновить</Button>
         <Button className="character-editor-button character-editor-button--danger" icon={<DeleteOutlined />} onClick={onDelete}>Удалить</Button>
         <Button className="character-editor-button character-editor-button--primary" icon={<SaveOutlined />} loading={saving} onClick={onSave}>Сохранить</Button>
         <Button className="character-editor-icon-button" icon={<MoreOutlined />} />
@@ -456,164 +659,16 @@ function EditorTopBar({characterName, onBack, onRename, onRefresh, onSave, onDel
   );
 }
 
-function EditorLowerDeck({activeViewMode, character, onAction}: {activeViewMode: CharacterViewMode; character: {references?: Array<{asset_id: string; image_url: string}>} | null | undefined; onAction: (action: string) => void}) {
-  if (activeViewMode === 'fullBody') {
-    return <FullBodyLowerDeck onAction={onAction} />;
-  }
-  if (activeViewMode === 'scene') {
-    return <SceneLowerDeck onAction={onAction} />;
-  }
-  if (activeViewMode === 'sheet') {
-    return <ReferenceSheetStatus />;
-  }
-
-  const references = character?.references || [];
-  const referenceCards = references.length > 0 ? references.slice(0, 3) : [null, null, null];
-  return (
-    <div className="character-editor-lower">
-      <section className="character-editor-panel">
-        <div className="character-editor-panel__header">
-          <h2>Выражения</h2>
-          <p>Быстрая проверка мимики портрета.</p>
-        </div>
-        <div className="expression-chip-grid">
-          {['Нейтральное', 'Улыбка', 'Серьезный', 'Удивление', 'Злость', 'Грусть'].map((expression, index) => (
-            <button key={expression} type="button" className={index === 0 ? 'is-active' : ''}>{expression}</button>
-          ))}
-        </div>
-      </section>
-      <section className="character-editor-panel">
-        <div className="character-editor-panel__header">
-          <h2>Быстрые действия</h2>
-          <p>Команды для быстрых визуальных итераций.</p>
-        </div>
-        <div className="quick-actions-grid">
-          {[
-            {key: 'generate', icon: <ThunderboltOutlined />, title: 'Сгенерировать вариант', text: 'Новая версия текущей зоны'},
-            {key: 'light', icon: <BulbOutlined />, title: 'Изменить освещение', text: 'Мягкий свет или контровой'},
-            {key: 'angle', icon: <CameraOutlined />, title: 'Сменить ракурс', text: 'Новый угол камеры'},
-            {key: 'quality', icon: <StarOutlined />, title: 'Улучшить качество', text: 'Чище детали и контуры'},
-          ].map((item) => (
-            <button key={item.key} type="button" className="quick-action-card" onClick={() => onAction(item.key)}>
-              <span>{item.icon}</span>
-              <strong>{item.title}</strong>
-              <small>{item.text}</small>
-            </button>
-          ))}
-        </div>
-      </section>
-      <section className="character-editor-panel character-editor-panel--wide">
-        <div className="character-editor-panel__header character-editor-panel__header--inline">
-          <div>
-            <h2>Референсы</h2>
-            <p>Выбранный референс влияет на визуальный фокус.</p>
-          </div>
-          <button type="button" className="reference-add-button">+ Добавить</button>
-        </div>
-        <div className="reference-card-grid">
-          {referenceCards.map((reference, index) => (
-            <div key={reference?.asset_id || index} className={`reference-card${index === 0 ? ' reference-card--selected' : ''}`}>
-              {reference ? <img src={reference.image_url} alt={`Референс ${index + 1}`} /> : <ToolOutlined />}
-            </div>
-          ))}
-        </div>
-        <div className="reference-tags">
-          <span>Молодой</span>
-          <span>Атлетичное телосложение</span>
-          <span>Серьезный</span>
-          <button type="button">+</button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function FullBodyLowerDeck({onAction}: {onAction: (action: string) => void}) {
-  return (
-    <div className="character-editor-lower">
-      <section className="character-editor-panel">
-        <div className="character-editor-panel__header">
-          <h2>Позы</h2>
-          <p>Миниатюры для проверки силуэта и осанки.</p>
-        </div>
-        <div className="pose-preset-grid">
-          {['Нейтральная', 'Уверенная', 'Расслабленная', 'Динамичная'].map((pose, index) => (
-            <button key={pose} type="button" className={index === 0 ? 'is-active' : ''}>
-              <span />
-              <strong>{pose}</strong>
-            </button>
-          ))}
-        </div>
-      </section>
-      <section className="character-editor-panel">
-        <div className="character-editor-panel__header">
-          <h2>Быстрые действия</h2>
-          <p>Итерации для полного роста.</p>
-        </div>
-        <div className="quick-actions-grid">
-          {[
-            {key: 'generate', icon: <ThunderboltOutlined />, title: 'Сгенерировать полный рост', text: 'Новый вариант полного роста'},
-            {key: 'pose', icon: <CameraOutlined />, title: 'Изменить позу', text: 'Перестроить осанку'},
-            {key: 'proportions', icon: <ToolOutlined />, title: 'Подогнать пропорции', text: 'Плечи, руки, ноги'},
-            {key: 'quality', icon: <StarOutlined />, title: 'Улучшить детализацию', text: 'Чище силуэт и одежда'},
-          ].map((item) => (
-            <button key={item.key} type="button" className="quick-action-card" onClick={() => onAction(item.key)}>
-              <span>{item.icon}</span>
-              <strong>{item.title}</strong>
-              <small>{item.text}</small>
-            </button>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function SceneLowerDeck({onAction}: {onAction: (action: string) => void}) {
-  return (
-    <div className="character-editor-lower">
-      <section className="character-editor-panel">
-        <div className="character-editor-panel__header">
-          <h2>Камеры</h2>
-          <p>Проверка персонажа в разных планах.</p>
-        </div>
-        <div className="camera-preset-grid">
-          {['Крупный план', 'Средний план', 'Общий план', 'Со спины', 'Сбоку'].map((camera, index) => (
-            <button key={camera} type="button" className={index === 1 ? 'is-active' : ''}>{camera}</button>
-          ))}
-        </div>
-      </section>
-      <section className="character-editor-panel">
-        <div className="character-editor-panel__header character-editor-panel__header--inline">
-          <div>
-            <h2>Быстрые действия</h2>
-            <p>Быстрые кинематографичные итерации.</p>
-          </div>
-        </div>
-        <div className="quick-actions-grid">
-          {[
-            {key: 'generate', icon: <ThunderboltOutlined />, title: 'Сгенерировать сцену', text: 'Новый кадр с окружением'},
-            {key: 'background', icon: <CameraOutlined />, title: 'Изменить фон', text: 'Студия, город, комната'},
-            {key: 'light', icon: <BulbOutlined />, title: 'Изменить свет', text: 'Интенсивность и мягкость'},
-            {key: 'quality', icon: <StarOutlined />, title: 'Улучшить кадр', text: 'Композиция и детали'},
-          ].map((item) => (
-            <button key={item.key} type="button" className="quick-action-card" onClick={() => onAction(item.key)}>
-              <span>{item.icon}</span>
-              <strong>{item.title}</strong>
-              <small>{item.text}</small>
-            </button>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
+function EditorLowerDeck({activeViewMode}: {activeViewMode: CharacterViewMode}) {
+  if (activeViewMode === 'sheet') return <ReferenceSheetStatus />;
+  return null;
 }
 
 function ReferenceSheetStatus() {
   return (
     <section className="character-editor-panel reference-status-panel">
       <div className="character-editor-panel__header">
-        <h2>Статус референсов</h2>
+        <h2>Статус ракурсов</h2>
         <p>Какие виды уже готовы, а какие требуют обновления.</p>
       </div>
       <div className="reference-status-grid">
@@ -665,51 +720,64 @@ function FullBodySettingsPanel() {
             label: 'Поза',
             children: <PresetGrid items={['Нейтральная', 'Уверенная', 'Расслабленная', 'Динамичная']} activeIndex={0} />,
           },
-          {
-            key: 'outfit',
-            label: 'Одежда',
-            children: <SegmentList items={['Верх', 'Низ', 'Обувь', 'Аксессуары']} />,
-          },
         ]}
       />
     </ModeSettingsPanel>
   );
 }
 
-function SceneSettingsPanel() {
+const SCENE_LOCATIONS = [
+  {value: 'studio', label: 'Студия'},
+  {value: 'city', label: 'Город'},
+  {value: 'room', label: 'Комната'},
+  {value: 'street', label: 'Улица'},
+];
+const SCENE_TIMES = [
+  {value: 'day', label: 'День'},
+  {value: 'night', label: 'Ночь'},
+  {value: 'sunset', label: 'Закат'},
+  {value: 'dawn', label: 'Рассвет'},
+];
+const SCENE_WEATHERS = [
+  {value: 'clear', label: 'Ясно'},
+  {value: 'rain', label: 'Дождь'},
+  {value: 'snow', label: 'Снег'},
+  {value: 'fog', label: 'Туман'},
+];
+
+function SceneSettingsPanel({settings, onChange}: {settings: {location: string; time: string; weather: string}; onChange: (s: {location: string; time: string; weather: string}) => void}) {
   return (
     <ModeSettingsPanel eyebrow="Контекстная панель" title="Настройки: Сцена">
-      <SettingsSection title="Основное" primary>
-        <PresetGrid items={['Студия', 'Город', 'Комната', 'Улица', 'Добавить свой']} activeIndex={0} />
+      <SettingsSection title="Окружение" primary>
+        <div className="mode-preset-grid">
+          {SCENE_LOCATIONS.map(({value, label}) => (
+            <button key={value} type="button" className={settings.location === value ? 'is-active' : ''} onClick={() => onChange({...settings, location: value})}>{label}</button>
+          ))}
+        </div>
       </SettingsSection>
       <Collapse
         className="character-settings-collapse"
         ghost
         items={[
           {
-            key: 'light',
-            label: 'Освещение',
+            key: 'time',
+            label: 'Время суток',
             children: (
-              <div className="character-collapse-content">
-                <div className="light-direction-control">
-                  <span />
-                  <strong>Направление света</strong>
-                </div>
-                <RangeControl label="Интенсивность света" value="68%" />
-                <RangeControl label="Мягкость света" value="47%" />
+              <div className="mode-preset-grid">
+                {SCENE_TIMES.map(({value, label}) => (
+                  <button key={value} type="button" className={settings.time === value ? 'is-active' : ''} onClick={() => onChange({...settings, time: value})}>{label}</button>
+                ))}
               </div>
             ),
           },
-          {key: 'time', label: 'Время суток', children: <PresetGrid items={['День', 'Закат', 'Ночь', 'Рассвет']} activeIndex={1} />},
-          {key: 'weather', label: 'Погода / атмосфера', children: <PresetGrid items={['Ясно', 'Облачно', 'Дождь', 'Снег', 'Туман']} activeIndex={0} />},
           {
-            key: 'camera',
-            label: 'Камера',
+            key: 'weather',
+            label: 'Погода / атмосфера',
             children: (
-              <div className="character-collapse-content">
-                <RangeControl label="Фокусное расстояние" value="50 мм" />
-                <RangeControl label="Угол" value="24°" />
-                <RangeControl label="Глубина резкости" value="38%" />
+              <div className="mode-preset-grid">
+                {SCENE_WEATHERS.map(({value, label}) => (
+                  <button key={value} type="button" className={settings.weather === value ? 'is-active' : ''} onClick={() => onChange({...settings, weather: value})}>{label}</button>
+                ))}
               </div>
             ),
           },
@@ -721,7 +789,7 @@ function SceneSettingsPanel() {
 
 function ReferenceSheetSettingsPanel() {
   return (
-    <ModeSettingsPanel eyebrow="Контекстная панель" title="Настройки: Референс-лист">
+    <ModeSettingsPanel eyebrow="Контекстная панель" title="Настройки: Ракурсы">
       <SettingsSection title="Основное" primary>
         <PresetGrid items={['1:1', '4:5', '16:9', 'A4']} activeIndex={3} />
       </SettingsSection>

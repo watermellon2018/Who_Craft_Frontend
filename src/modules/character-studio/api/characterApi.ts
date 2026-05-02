@@ -62,6 +62,38 @@ export const characterApi = {
   setDefaultOutfit(projectId: string | number, characterId: string, outfitId: string) {
     return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}/set-default`, tokenBody());
   },
+  uploadOutfitReference(projectId: string | number, characterId: string, outfitId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('token_user', localStorage.getItem('userId') || '');
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}/upload-reference`,
+      form,
+      {headers: {'Content-Type': 'multipart/form-data'}},
+    );
+  },
+  deleteOutfitReference(projectId: string | number, characterId: string, outfitId: string) {
+    return axios.delete(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}/delete-reference`,
+      {data: tokenBody()},
+    );
+  },
+  uploadClothingReference(projectId: string | number, characterId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('token_user', localStorage.getItem('userId') || '');
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/clothing-references`,
+      form,
+      {headers: {'Content-Type': 'multipart/form-data'}},
+    );
+  },
+  deleteClothingReference(projectId: string | number, characterId: string, assetId: string) {
+    return axios.delete(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/clothing-references/${assetId}`,
+      {data: tokenBody()},
+    );
+  },
   listRevisions(projectId: string | number, characterId: string) {
     return axios.get(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/revisions`, {params: tokenParams()});
   },

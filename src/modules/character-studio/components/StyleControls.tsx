@@ -1,26 +1,36 @@
 import React from 'react';
 import {Form, Select} from 'antd';
-const labels: Record<string, string> = {
-  cinematic_realism: 'Кинореализм',
-  anime: 'Аниме',
-  pixar_like: 'Pixar-подобный',
-  stylized_3d: 'Стилизованное 3D',
-  dark_fantasy: 'Темное фэнтези',
-  cyberpunk: 'Киберпанк',
-  noir: 'Нуар',
-  watercolor: 'Акварель',
-  comic_book: 'Комикс',
-  neutral: 'Нейтральное',
-  dramatic: 'Драматичное',
-  soft: 'Мягкое',
-  dark: 'Темное',
-  colorful: 'Цветное',
-  melancholic: 'Меланхоличное',
-};
-const options = (items: string[]) => items.map((value) => ({value, label: labels[value] || value.replaceAll('_', ' ')}));
+
+const VISUAL_STYLE_OPTIONS = [
+  {value: 'cinematic_realism', label: 'Кинематографичный реализм'},
+  {value: 'anime', label: 'Аниме'},
+  {value: 'pixar_like', label: 'В стиле Pixar'},
+  {value: 'stylized_3d', label: 'Стилизованное 3D'},
+  {value: 'dark_fantasy', label: 'Тёмное фэнтези'},
+  {value: 'cyberpunk', label: 'Киберпанк'},
+  {value: 'noir', label: 'Нуар'},
+  {value: 'watercolor', label: 'Акварель'},
+  {value: 'comic_book', label: 'Комикс'},
+];
+
 export default function StyleControls({value, onChange}: {value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void}) {
-  return <Form layout="vertical">
-    <Form.Item label="Визуальный стиль"><Select value={value.visual_style as string} options={options(['cinematic_realism', 'anime', 'pixar_like', 'stylized_3d', 'dark_fantasy', 'cyberpunk', 'noir', 'watercolor', 'comic_book'])} onChange={(v) => onChange({...value, visual_style: v})} /></Form.Item>
-    <Form.Item label="Настроение рендера"><Select value={value.render_mood as string} options={options(['neutral', 'dramatic', 'soft', 'dark', 'colorful', 'melancholic'])} onChange={(v) => onChange({...value, render_mood: v})} /></Form.Item>
-  </Form>;
+  return (
+    <section className="character-settings-section character-settings-section--primary">
+      <h3>Основное</h3>
+      <Form layout="vertical">
+        <Form.Item
+          label="Визуальный стиль"
+          extra="Стиль влияет на визуальный язык персонажа при генерации портрета, полного роста и ракурсов."
+        >
+          <Select
+            value={value.visual_style as string}
+            options={VISUAL_STYLE_OPTIONS}
+            onChange={(v) => onChange({...value, visual_style: v})}
+            placeholder="Выберите стиль"
+            popupClassName="character-editor-select-dropdown"
+          />
+        </Form.Item>
+      </Form>
+    </section>
+  );
 }

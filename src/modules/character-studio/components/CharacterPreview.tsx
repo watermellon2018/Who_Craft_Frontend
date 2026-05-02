@@ -1,19 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Image} from 'antd';
-import {
-  BgColorsOutlined,
-  CameraOutlined,
-  CloudOutlined,
-  CompressOutlined,
-  FullscreenOutlined,
-  MinusOutlined,
-  PlusOutlined,
-  RedoOutlined,
-  RotateRightOutlined,
-  SelectOutlined,
-  SkinOutlined,
-  ZoomInOutlined,
-} from '@ant-design/icons';
+
 import {CharacterImageType, CharacterVariant, CharacterViewMode, StudioCharacter} from '../types/character.types';
 import {AssetJobsMap, AssetJobStatus} from '../hooks/useCharacterAssetJobs';
 
@@ -33,47 +20,17 @@ const viewTabs: Array<{label: string; value: CharacterViewMode}> = [
   {label: 'Портрет', value: 'portrait'},
   {label: 'Полный рост', value: 'fullBody'},
   {label: 'Сцена', value: 'scene'},
-  {label: 'Референс-лист', value: 'sheet'},
+  {label: 'Ракурсы', value: 'sheet'},
 ];
 
-const toolsByMode: Record<CharacterViewMode, Array<{label: string; icon: React.ReactNode}>> = {
-  portrait: [
-    {label: 'Выбрать', icon: <SelectOutlined />},
-    {label: 'Переместить', icon: <CompressOutlined />},
-    {label: 'Повернуть', icon: <RotateRightOutlined />},
-    {label: 'Масштаб', icon: <ZoomInOutlined />},
-    {label: 'Сброс', icon: <RedoOutlined />},
-  ],
-  fullBody: [
-    {label: 'Выбрать', icon: <SelectOutlined />},
-    {label: 'Переместить', icon: <CompressOutlined />},
-    {label: 'Повернуть', icon: <RotateRightOutlined />},
-    {label: 'Масштаб', icon: <ZoomInOutlined />},
-    {label: 'Поза', icon: <SkinOutlined />},
-    {label: 'Сброс', icon: <RedoOutlined />},
-  ],
-  scene: [
-    {label: 'Камера', icon: <CameraOutlined />},
-    {label: 'Свет', icon: <BgColorsOutlined />},
-    {label: 'Фон', icon: <FullscreenOutlined />},
-    {label: 'Эффекты', icon: <ZoomInOutlined />},
-    {label: 'Погода', icon: <CloudOutlined />},
-    {label: 'Сброс', icon: <RedoOutlined />},
-  ],
-  sheet: [
-    {label: 'Сетка', icon: <FullscreenOutlined />},
-    {label: 'Подписи', icon: <SelectOutlined />},
-    {label: 'Экспорт', icon: <CompressOutlined />},
-    {label: 'Сброс', icon: <RedoOutlined />},
-  ],
-};
-
-const bodyViews = ['Фронт', 'Левый', 'Правый', 'Назад'];
-const sceneCameraViews = ['Крупный план', 'Средний план', 'Общий план', 'Со спины', 'Сбоку'];
 
 export default function CharacterPreview({character, selectedVariant, activeViewMode, onViewModeChange, onGenerateImage, generatingImageType, jobProgress, secondaryJobs, onRetrySecondary}: Props) {
   const imageType = viewModeToImageType(activeViewMode);
   const reference = getPreviewImage(character, selectedVariant, imageType);
+  const previewKey = (selectedVariant?.region === REGION_BY_IMAGE_TYPE[imageType] && selectedVariant?.variant_id)
+    || character?.images?.[imageType]?.asset_id
+    || reference
+    || 'empty';
   const [imageBroken, setImageBroken] = useState(false);
   const currentSecondaryJob = secondaryJobs?.[imageType];
   const secondaryStatus: AssetJobStatus | undefined = currentSecondaryJob?.status;
@@ -106,21 +63,15 @@ export default function CharacterPreview({character, selectedVariant, activeView
         })}
       </div>
       {activeViewMode === 'sheet' && reference && !imageBroken
-        ? <ReferenceSheetPreview imageUrl={reference} onImageError={() => setImageBroken(true)} />
+        ? <ReferenceSheetPreview imageUrl={reference} imageKey={previewKey} onImageError={() => setImageBroken(true)} />
         : (
           <div className={`character-preview-stage character-preview-stage--${activeViewMode}`}>
-            <PreviewToolbar tools={toolsByMode[activeViewMode]} />
-            <div className="character-preview-zoom" aria-label="Масштаб">
-              <button type="button" title="Увеличить"><PlusOutlined /></button>
-              <button type="button" title="Уменьшить"><MinusOutlined /></button>
-              <button type="button" title="На весь экран"><FullscreenOutlined /></button>
-            </div>
-            {activeViewMode === 'scene' ? <SceneCameraSwitch /> : <BodyViewSwitch />}
+
             {activeViewMode === 'fullBody' && <HeightScale />}
             {activeViewMode === 'scene' && <SceneBackdrop />}
             <div className={`character-preview-subject character-preview-subject--${activeViewMode}`}>
               {reference && !imageBroken ? (
-                <Image src={reference} alt="Предпросмотр персонажа" preview={false} onError={() => setImageBroken(true)} />
+                <Image key={previewKey} src={reference} alt="Предпросмотр персонажа" preview={false} onError={() => setImageBroken(true)} />
               ) : isGeneratingCurrent ? (
                 <GeneratingState viewMode={activeViewMode} progress={jobProgress ?? currentSecondaryJob?.progress} />
               ) : isSecondaryFailed ? (
@@ -163,14 +114,21 @@ const REGION_BY_IMAGE_TYPE: Record<CharacterImageType, string> = {
   reference_sheet: 'full_character',
 };
 
+function withCacheBust(url: string, key?: string | null) {
+  if (!key) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}_cb=${encodeURIComponent(key)}`;
+}
+
 function getPreviewImage(character?: StudioCharacter | null, selectedVariant?: CharacterVariant | null, imageType: CharacterImageType = 'portrait') {
   // Only honor selectedVariant when it actually belongs to the current view's image type;
   // otherwise a stale portrait variant would leak into full_body / scene / reference tabs.
   if (selectedVariant?.image_url && selectedVariant.region === REGION_BY_IMAGE_TYPE[imageType]) {
     return selectedVariant.image_url;
   }
-  const modeImage = character?.images?.[imageType]?.image_url;
-  if (modeImage) return modeImage;
+  const modeAsset = character?.images?.[imageType];
+  const modeImage = modeAsset?.image_url;
+  if (modeImage) return withCacheBust(modeImage, modeAsset?.asset_id ?? null);
   if (imageType !== 'portrait') return null;
   const references = character?.references || [];
   return references.find((reference) => reference.is_primary)?.image_url
@@ -195,8 +153,8 @@ const generatingCopyByMode: Record<CharacterViewMode, {title: string; text: stri
     text: 'Создаём персонажа в сцене с фоном и окружением.',
   },
   sheet: {
-    title: 'Генерируем референс-лист…',
-    text: 'Создаём фронтальный, боковой и задний вид. Это может занять немного больше времени.',
+    title: 'Генерируем ракурсы…',
+    text: 'Создаём виды спереди, сбоку и сзади.',
   },
 };
 
@@ -276,47 +234,10 @@ const emptyCopyByMode: Record<CharacterViewMode, {title: string; text: string}> 
     text: 'Выберите фон, свет и камеру для первого кадра',
   },
   sheet: {
-    title: 'Референс-лист пока не создан',
-    text: 'Сгенерируйте лист с фронтальным, боковым и задним видом',
+    title: 'Ракурсы пока не созданы',
+    text: 'Сгенерируйте виды персонажа спереди, сбоку и сзади',
   },
 };
-
-function PreviewToolbar({tools}: {tools: Array<{label: string; icon: React.ReactNode}>}) {
-  return (
-    <div className="character-preview-toolbar" aria-label="Инструменты">
-      {tools.map((tool) => (
-        <button key={tool.label} type="button" title={tool.label} className={tool === tools[0] ? 'is-active' : ''}>
-          {tool.icon}
-          <span>{tool.label}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function BodyViewSwitch() {
-  return (
-    <div className="character-preview-view-switch" aria-label="Вид персонажа">
-      {bodyViews.map((view, index) => (
-        <button key={view} type="button" className={index === 0 ? 'is-active' : ''}>
-          {view}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function SceneCameraSwitch() {
-  return (
-    <div className="scene-camera-switch" aria-label="Ракурс камеры">
-      {sceneCameraViews.map((view, index) => (
-        <button key={view} type="button" className={index === 1 ? 'is-active' : ''}>
-          {view}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function HeightScale() {
   return (
@@ -337,11 +258,11 @@ function SceneBackdrop() {
   );
 }
 
-function ReferenceSheetPreview({imageUrl, onImageError}: {imageUrl: string; onImageError: () => void}) {
+function ReferenceSheetPreview({imageUrl, imageKey, onImageError}: {imageUrl: string; imageKey?: string; onImageError: () => void}) {
   return (
     <div className="reference-sheet-preview">
       <div className="reference-sheet-preview__image">
-        <Image src={imageUrl} alt="Референс-лист персонажа" preview={false} onError={onImageError} />
+        <Image key={imageKey || imageUrl} src={imageUrl} alt="Ракурсы персонажа" preview={false} onError={onImageError} />
       </div>
       <ReferenceSheetSection title="Ортогональные виды" items={['Фронт', 'Профиль слева', 'Спина', 'Профиль справа']} />
       <ReferenceSheetSection title="Дополнительные ракурсы" items={['3/4 слева', '3/4 справа', 'Сверху', 'Снизу / низкий ракурс']} />

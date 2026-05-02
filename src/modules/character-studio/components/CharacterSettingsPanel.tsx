@@ -1,14 +1,32 @@
 import React from 'react';
-import {Button, Collapse, Select, Slider} from 'antd';
+import {Collapse, ColorPicker, Select, Slider} from 'antd';
 import {CharacterRegion} from '../types/character.types';
 import BodyControls from './BodyControls';
 import HairControls from './HairControls';
 import OutfitControls from './OutfitControls';
-import PreserveOptions from './PreserveOptions';
 import StyleControls from './StyleControls';
 import TextRefinementBox from './TextRefinementBox';
 
-export default function CharacterSettingsPanel({region, controls, onControlsChange, textRefinement, onTextRefinementChange, preserve, identityLocked, onGenerate}: {region: CharacterRegion; controls: Record<string, unknown>; onControlsChange: (value: Record<string, unknown>) => void; textRefinement: string; onTextRefinementChange: (value: string) => void; preserve: Record<string, boolean>; identityLocked: boolean; onGenerate: () => void}) {
+const SKIN_PRESETS = [
+  {key: 'fair',   color: '#f0c7a8'},
+  {key: 'light',  color: '#d9a77f'},
+  {key: 'medium', color: '#a86f45'},
+  {key: 'olive',  color: '#8f6c43'},
+  {key: 'tan',    color: '#74492e'},
+  {key: 'dark',   color: '#4a2d22'},
+];
+
+const EYE_PRESETS = [
+  {key: 'brown', color: '#6b3a2a'},
+  {key: 'blue',  color: '#4a90d9'},
+  {key: 'green', color: '#4a8c5c'},
+  {key: 'gray',  color: '#8c9198'},
+  {key: 'hazel', color: '#8b6914'},
+  {key: 'amber', color: '#c68b2a'},
+  {key: 'black', color: '#1a1a1a'},
+];
+
+export default function CharacterSettingsPanel({region, controls, onControlsChange, textRefinement, onTextRefinementChange}: {region: CharacterRegion; controls: Record<string, unknown>; onControlsChange: (value: Record<string, unknown>) => void; textRefinement: string; onTextRefinementChange: (value: string) => void}) {
   const control = region === 'face'
     ? <FaceEditorControls value={controls} onChange={onControlsChange} />
     : region === 'hair'
@@ -36,16 +54,8 @@ export default function CharacterSettingsPanel({region, controls, onControlsChan
               label: 'Текстовая доработка',
               children: <TextRefinementBox region={region} value={textRefinement} onChange={onTextRefinementChange} />,
             },
-            {
-              key: 'preserve',
-              label: 'Сохранить при генерации',
-              children: <PreserveOptions values={preserve} identityLocked={identityLocked} />,
-            },
           ]}
         />
-        <Button className="character-editor-button character-editor-button--primary" onClick={onGenerate}>
-          Применить к изображению
-        </Button>
       </div>
     </div>
   );
@@ -57,7 +67,7 @@ function regionLabel(region: CharacterRegion) {
     hair: 'Волосы',
     body: 'Тело',
     outfit: 'Одежда',
-    style: 'Стиль',
+    style: 'Общие параметры',
     full_character: 'Характер',
   };
   return labels[region];
@@ -70,7 +80,12 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
   const showGenderField = rawGender === 'male' || rawGender === 'female';
   const gender = rawGender || 'male';
   const faceShape = (value.face_shape as string) || 'oval';
-  const skinTone = (value.skin_tone as string) || 'medium';
+  const skinTone = (value.skin_tone as string) || '';
+  const skinToneIsPreset = SKIN_PRESETS.some((p) => p.key === skinTone);
+  const skinToneColor = SKIN_PRESETS.find((p) => p.key === skinTone)?.color ?? skinTone ?? '#a86f45';
+  const eyeColor = (value.eye_color as string) || '';
+  const eyeColorIsPreset = EYE_PRESETS.some((p) => p.key === eyeColor);
+  const eyeColorHex = EYE_PRESETS.find((p) => p.key === eyeColor)?.color ?? eyeColor;
 
   return (
     <div className="face-editor-controls">
@@ -131,14 +146,7 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
         <div className="character-control-block">
           <span className="character-control-label">Цвет кожи</span>
           <div className="skin-tone-palette">
-            {[
-              ['fair', '#f0c7a8'],
-              ['light', '#d9a77f'],
-              ['medium', '#a86f45'],
-              ['olive', '#8f6c43'],
-              ['tan', '#74492e'],
-              ['dark', '#4a2d22'],
-            ].map(([key, color]) => (
+            {SKIN_PRESETS.map(({key, color}) => (
               <button
                 key={key}
                 type="button"
@@ -148,6 +156,12 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
                 aria-label={`Цвет кожи ${translateOption(key)}`}
               />
             ))}
+            <ColorPicker
+              value={skinToneColor}
+              onChange={(_, hex) => update('skin_tone', hex)}
+              size="small"
+              className={skinTone && !skinToneIsPreset ? 'is-active' : ''}
+            />
           </div>
         </div>
       </section>
@@ -161,10 +175,28 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
             label: 'Глаза',
             children: (
               <div className="character-collapse-content">
-                <ControlSelect label="Цвет глаз" value={value.eye_color as string} options={['brown', 'blue', 'green', 'gray', 'hazel', 'amber', 'black']} onChange={(nextValue) => update('eye_color', nextValue)} />
+                <div className="character-control-block">
+                  <span className="character-control-label">Цвет глаз</span>
+                  <div className="skin-tone-palette">
+                    {EYE_PRESETS.map(({key, color}) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className={eyeColor === key ? 'is-active' : ''}
+                        style={{backgroundColor: color}}
+                        onClick={() => update('eye_color', key)}
+                        aria-label={key}
+                      />
+                    ))}
+                    <ColorPicker
+                      value={eyeColorHex || '#6b3a2a'}
+                      onChange={(_, hex) => update('eye_color', hex)}
+                      size="small"
+                      className={eyeColor && !eyeColorIsPreset ? 'is-active' : ''}
+                    />
+                  </div>
+                </div>
                 <ControlSelect label="Форма глаз" value={value.eye_shape as string} options={['almond', 'round', 'narrow', 'hooded', 'upturned', 'downturned']} onChange={(nextValue) => update('eye_shape', nextValue)} />
-                <SliderControl label="Размер глаз" value={typeof value.eye_size === 'number' ? value.eye_size : 52} onChange={(nextValue) => update('eye_size', nextValue)} />
-                <SliderControl label="Расстояние" value={typeof value.eye_spacing === 'number' ? value.eye_spacing : 46} onChange={(nextValue) => update('eye_spacing', nextValue)} />
               </div>
             ),
           },
@@ -190,18 +222,6 @@ function ControlSelect({label, value, options, onChange}: {label: string; value?
         onChange={onChange}
       />
     </label>
-  );
-}
-
-function SliderControl({label, value, onChange}: {label: string; value: number; onChange: (value: number) => void}) {
-  return (
-    <div className="character-control-block">
-      <div className="character-control-row">
-        <span className="character-control-label">{label}</span>
-        <strong>{value}%</strong>
-      </div>
-      <Slider value={value} onChange={onChange} />
-    </div>
   );
 }
 
