@@ -9,7 +9,7 @@ interface ProjectI {
     desc: string;
     annot: string;
     audience: string[];
-    image: any;
+    image: string;
 }
 
 async function create_new_project(data: ProjectI): Promise<any> {

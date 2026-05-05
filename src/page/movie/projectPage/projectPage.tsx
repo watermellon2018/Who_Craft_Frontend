@@ -21,6 +21,10 @@ const ProjectPage = () => {
         navigate(PathConstants.PROJECTS);
     }
 
+    const toScriptPage = () => {
+        navigate(PathConstants.SCRIPT_PAGE);
+    }
+
     useEffect(() => {
         if (!project_id) {
             throw new Error('Страница проекта! Нет информации о текущем проекте');
@@ -60,8 +64,11 @@ const ProjectPage = () => {
                     <h1 className="text-3xl font-bold mb-4">Проект {memoizedProject?.title || ''}</h1>
                     Добавьте персонажей, локации и музыку
                 </div>
+                    <div>
+                    <Button type='primary' style={{marginRight: '10px'}} onClick={toScriptPage}>К сценарию</Button>
                     <Button onClick={toLibraryClick}>В библиотеку</Button>
                 </div>
+            </div>
 
                 <CharactersCard />
                 <LocationsCard />

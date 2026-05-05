@@ -3,7 +3,7 @@ import axios from 'axios';
 const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
 
-async function get_all_character_for_project(project_id: number): Promise<any> {
+async function get_all_character_for_project(project_id: number | string): Promise<any> {
     try {
         return await axios.get(`${backendUrl}/api/character/select/`, {
             params: {
@@ -31,9 +31,10 @@ async function createCharacterFromTreeAPI(
     id: number | string,
     name: string,
     type: 'leaf' | 'node',
-    projectId: number,
+    projectId: number | string,
     parentId: string|null = null,
     heroID: string | null = null,
+    studioCharacterId: string | null = null,
 )
     : Promise<any> {
     try {
@@ -47,6 +48,7 @@ async function createCharacterFromTreeAPI(
             'parent': parentId,
             'token_user': token,
             'projectId': projectId,
+            'studioCharacterId': studioCharacterId,
         });
     } catch (error) {
         console.error('Error generating image to image:', error);
