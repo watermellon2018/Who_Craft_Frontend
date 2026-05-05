@@ -7,7 +7,7 @@ import MainPage from "./page/main";
 import LandingPage from "./page/logIn/start";
 import RegistrationPage from "./page/logIn/register";
 import LoginPage from "./page/logIn/login";
-import ProfilePage from "./page/profile/user";
+import ProfilePage from "./modules/profile/ProfileDashboardPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
@@ -23,6 +23,8 @@ import CharacterCreatePage from "./modules/character-studio/pages/CharacterCreat
 import CharacterEditorPage from "./modules/character-studio/pages/CharacterEditorPage";
 import CharacterDetailPage from "./modules/character-studio/pages/CharacterDetailPage";
 import CharacterVariantsPage from "./modules/character-studio/pages/CharacterVariantsPage";
+import CharacterReferencesPage from "./modules/character-studio/pages/CharacterReferencesPage";
+import Character3DPlaceholderPage from "./modules/character-studio/pages/Character3DPlaceholderPage";
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 
 // https://ant.design/theme-editor#component-color настройка цветов
@@ -137,6 +139,8 @@ function App() {
         { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <CharacterStudioShell><CharacterVariantsPage /></CharacterStudioShell> },
         { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <CharacterStudioShell><CharacterDetailPage /></CharacterStudioShell> },
         { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <CharacterStudioShell><CharacterEditorPage /></CharacterStudioShell> },
+        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <CharacterStudioShell><CharacterReferencesPage /></CharacterStudioShell> },
+        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <CharacterStudioShell><Character3DPlaceholderPage /></CharacterStudioShell> },
     ], []);
 
 

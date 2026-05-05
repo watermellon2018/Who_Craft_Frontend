@@ -1,44 +1,65 @@
 import React from 'react';
-import {Checkbox, Form, Select} from 'antd';
-const labels: Record<string, string> = {
-  bald: 'Лысый',
-  buzz: 'Ежик',
-  short: 'Короткие',
-  bob: 'Каре',
-  shoulder_length: 'До плеч',
-  long: 'Длинные',
-  very_long: 'Очень длинные',
-  straight: 'Прямые',
-  wavy: 'Волнистые',
-  curly: 'Кудрявые',
-  messy: 'Небрежные',
-  ponytail: 'Хвост',
-  braid: 'Коса',
-  bun: 'Пучок',
-  layered: 'Слоями',
-  bangs: 'Челка',
-  black: 'Черный',
-  brown: 'Коричневый',
-  blonde: 'Блонд',
-  red: 'Рыжий',
-  copper: 'Медный',
-  white: 'Белый',
-  gray: 'Серый',
-  blue: 'Синий',
-  pink: 'Розовый',
-  custom: 'Свой цвет',
-  highlights: 'Мелирование',
-  gradient: 'Градиент',
-  dyed_roots: 'Окрашенные корни',
-  wet_look: 'Мокрый эффект',
-  windblown: 'Ветер в волосах',
+import {Form, Select} from 'antd';
+
+const HAIR_LENGTH_OPTIONS = [
+  {value: 'bald',           label: 'Лысый'},
+  {value: 'short',          label: 'Короткие'},
+  {value: 'medium',         label: 'Средние'},
+  {value: 'long',           label: 'Длинные'},
+];
+
+// Map legacy hair_length values that no longer exist in the simplified list.
+const HAIR_LENGTH_LEGACY: Record<string, string> = {
+  buzz:            'short',
+  bob:             'short',
+  shoulder_length: 'medium',
+  very_long:       'long',
 };
-const options = (items: string[]) => items.map((value) => ({value, label: labels[value] || value.replaceAll('_', ' ')}));
+
+const HAIR_COLOR_OPTIONS = [
+  {value: 'black',   label: 'Черный'},
+  {value: 'brown',   label: 'Коричневый'},
+  {value: 'blonde',  label: 'Блонд'},
+  {value: 'red',     label: 'Рыжий'},
+  {value: 'copper',  label: 'Медный'},
+  {value: 'white',   label: 'Белый'},
+  {value: 'gray',    label: 'Серый'},
+  {value: 'blue',    label: 'Синий'},
+  {value: 'pink',    label: 'Розовый'},
+];
+
+const VALID_LENGTHS = new Set(HAIR_LENGTH_OPTIONS.map((o) => o.value));
+const VALID_COLORS = new Set(HAIR_COLOR_OPTIONS.map((o) => o.value));
+
 export default function HairControls({value, onChange}: {value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void}) {
-  return <Form layout="vertical">
-    <Form.Item label="Длина"><Select value={value.hair_length as string} options={options(['bald', 'buzz', 'short', 'bob', 'shoulder_length', 'long', 'very_long'])} onChange={(v) => onChange({...value, hair_length: v})} /></Form.Item>
-    <Form.Item label="Форма"><Select value={value.hair_style as string} options={options(['straight', 'wavy', 'curly', 'messy', 'ponytail', 'braid', 'bun', 'layered', 'bangs'])} onChange={(v) => onChange({...value, hair_style: v})} /></Form.Item>
-    <Form.Item label="Цвет"><Select value={value.hair_color as string} options={options(['black', 'brown', 'blonde', 'red', 'copper', 'white', 'gray', 'blue', 'pink', 'custom'])} onChange={(v) => onChange({...value, hair_color: v})} /></Form.Item>
-    <Form.Item label="Детали"><Checkbox.Group value={value.hair_details as string[]} options={options(['highlights', 'gradient', 'dyed_roots', 'wet_look', 'windblown'])} onChange={(v) => onChange({...value, hair_details: v})} /></Form.Item>
-  </Form>;
+  const rawLength = value.hair_length as string | undefined;
+  // Normalize legacy values on-the-fly; unknown values fall back to undefined so
+  // the placeholder shows and the user can pick a valid option.
+  const hairLength = rawLength
+    ? (HAIR_LENGTH_LEGACY[rawLength] ?? (VALID_LENGTHS.has(rawLength) ? rawLength : undefined))
+    : undefined;
+
+  const rawColor = value.hair_color as string | undefined;
+  const hairColor = rawColor && VALID_COLORS.has(rawColor) ? rawColor : undefined;
+
+  return (
+    <Form layout="vertical">
+      <Form.Item label="Длина">
+        <Select
+          value={hairLength}
+          options={HAIR_LENGTH_OPTIONS}
+          placeholder="Выберите длину"
+          onChange={(v) => onChange({...value, hair_length: v})}
+        />
+      </Form.Item>
+      <Form.Item label="Цвет">
+        <Select
+          value={hairColor}
+          options={HAIR_COLOR_OPTIONS}
+          placeholder="Выберите цвет"
+          onChange={(v) => onChange({...value, hair_color: v})}
+        />
+      </Form.Item>
+    </Form>
+  );
 }

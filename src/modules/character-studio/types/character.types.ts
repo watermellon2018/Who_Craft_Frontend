@@ -7,8 +7,8 @@ export interface ClothingReference {
 }
 export type CharacterRevisionRegion = CharacterRegion | '';
 export type PreviewType = 'portrait' | 'full_body' | 'face_closeup' | 'character_sheet' | 'front_view' | 'side_view' | 'expression_sheet';
-export type CharacterViewMode = 'portrait' | 'fullBody' | 'scene' | 'sheet';
-export type CharacterImageType = 'portrait' | 'full_body' | 'scene' | 'reference_sheet';
+export type CharacterViewMode = 'portrait' | 'fullBody' | 'scene';
+export type CharacterImageType = 'portrait' | 'full_body' | 'scene';
 export type CharacterType = 'human' | 'animal' | 'creature' | 'robot' | 'object' | 'other';
 
 export interface CharacterAppearance {
@@ -27,6 +27,7 @@ export interface CharacterAppearance {
   hair_color?: string;
   hair_details?: Record<string, unknown>;
   height?: string;
+  height_cm?: number | null;
   body_type?: string;
   body_structure?: string;
   surface_material?: string;
@@ -215,4 +216,114 @@ export interface EditRequest {
   text_refinement?: string;
   preserve: Record<string, boolean>;
   variant_count: number;
+}
+
+export interface ZoneSelection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ZoneEditRequest {
+  asset_type: CharacterImageType;
+  instruction: string;
+  selection: ZoneSelection;
+  variant_count?: number;
+}
+
+export interface ZoneEditResponse {
+  job_id: string;
+  status: GenerationJob['status'];
+  error_code?: string;
+  error_message?: string;
+  dependent_image_types?: CharacterImageType[];
+  secondary_job_ids?: Partial<Record<CharacterImageType, string>>;
+}
+
+// --- References stage --------------------------------------------------------
+// 9 types in stable display order. `character_sheet` is the UI alias for the
+// backend `reference_sheet` asset_type — kept as ASCII for tooling.
+export type ReferenceType =
+  | 'portrait'
+  | 'full_body'
+  | 'three_quarter'
+  | 'profile'
+  | 'back_view'
+  | 'emotions'
+  | 'poses'
+  | 'outfit_details'
+  | 'character_sheet';
+
+// Reference types shown as navigable cards in the left sidebar. The
+// `outfit_details` and `character_sheet` backend types still exist in
+// `ReferenceType` and on the API, but they're hidden from the UI list
+// (product decision — they were too niche for the references stage).
+export const REFERENCE_TYPE_ORDER: ReferenceType[] = [
+  'portrait',
+  'full_body',
+  'three_quarter',
+  'profile',
+  'back_view',
+  'emotions',
+  'poses',
+];
+
+export type ReferenceStatus = 'missing' | 'generating' | 'ready' | 'failed';
+
+export type ReferenceSource = 'generated' | 'uploaded' | 'derived' | 'imported' | 'mock' | string;
+
+export interface CharacterReference {
+  reference_type: ReferenceType;
+  status: ReferenceStatus;
+  asset_id: string | null;
+  image_url: string | null;
+  thumbnail_url?: string | null;
+  is_primary: boolean;
+  version: number;
+  source: ReferenceSource | null;
+  generation_job_id?: string | null;
+  correction_prompt?: string;
+  error_message?: string;
+  updated_at?: string | null;
+}
+
+export interface ReferencesChecklist {
+  appearance_stable: boolean;
+  face_matches_base: boolean;
+  outfit_readable: boolean;
+  full_body_ready: boolean;
+  front_side_back_ready: boolean;
+  suitable_for_3d: boolean;
+}
+
+export interface ReferencesState {
+  character: {
+    character_id: string;
+    name: string;
+    identity_locked: boolean;
+    status?: string;
+  };
+  references: CharacterReference[];
+  primary_reference_id: string | null;
+  checklist: ReferencesChecklist;
+  can_proceed_to_3d: boolean;
+  proceed_blockers: string[];
+}
+
+export interface ReferenceJobResponse {
+  job_id: string;
+  status: GenerationJob['status'];
+  error_code?: string;
+  error_message?: string;
+  references: ReferencesState;
+}
+
+export interface ProceedTo3DResponse {
+  can_proceed: boolean;
+  next_stage?: string;
+  next_url?: string;
+  locked_reference_ids?: string[];
+  blockers?: string[];
+  checklist?: ReferencesChecklist;
 }

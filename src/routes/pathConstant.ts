@@ -26,7 +26,9 @@ const PathConstants = {
     CHARACTER_STUDIO_CREATE_REFERENCE: '/project/:projectId/characters/create/reference',
     CHARACTER_STUDIO_VARIANTS: '/project/:projectId/characters/:characterId/variants',
     CHARACTER_STUDIO_DETAIL: '/project/:projectId/characters/:characterId',
-    CHARACTER_STUDIO_EDITOR: '/project/:projectId/characters/:characterId/edit'
+    CHARACTER_STUDIO_EDITOR: '/project/:projectId/characters/:characterId/edit',
+    CHARACTER_STUDIO_REFERENCES: '/project/:projectId/characters/:characterId/references',
+    CHARACTER_STUDIO_3D: '/project/:projectId/characters/:characterId/3d-model',
 
 }
 export default PathConstants

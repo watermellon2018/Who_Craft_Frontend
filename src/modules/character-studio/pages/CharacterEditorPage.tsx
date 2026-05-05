@@ -5,9 +5,8 @@ import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {characterApi} from '../api/characterApi';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
 import CharacterEditorLayout from '../components/CharacterEditorLayout';
-import CharacterPreview, {viewModeToImageType} from '../components/CharacterPreview';
+import CharacterPreview, {viewModeToImageType, ZoneEditState} from '../components/CharacterPreview';
 import CharacterSettingsPanel from '../components/CharacterSettingsPanel';
-import IdentityLockButton from '../components/IdentityLockButton';
 import OutfitSettingsPanel from '../components/OutfitSettingsPanel';
 import PersonalityEditorPanel from '../components/PersonalityEditorPanel';
 import VariantGrid from '../components/VariantGrid';
@@ -19,32 +18,19 @@ import {
   notifyCharacterTreeUpdated,
 } from '../events';
 import {useCharacter} from '../hooks/useCharacter';
-import {useCharacterAssetJobs} from '../hooks/useCharacterAssetJobs';
+import {dependentImageTypes, useCharacterAssetJobs} from '../hooks/useCharacterAssetJobs';
 import {useCharacterEditor} from '../hooks/useCharacterEditor';
 import {useGenerationJob} from '../hooks/useGenerationJob';
-import {CharacterImageType, CharacterRegion, CharacterVariant, CharacterViewMode, GenerationJob, StudioCharacter} from '../types/character.types';
+import {CharacterImageType, CharacterRegion, CharacterVariant, CharacterViewMode, GenerationJob, StudioCharacter, ZoneEditResponse} from '../types/character.types';
 import './CharacterEditorPage.css';
 
 const APPEARANCE_CONTROL_FIELDS = [
-  'face_shape',
   'skin_tone',
-  'eye_shape',
-  'eye_color',
-  'eyebrow_shape',
-  'nose_shape',
-  'lips_shape',
-  'jawline',
   'hair_length',
-  'hair_style',
   'hair_color',
-  'hair_details',
-  'height',
+  'height_cm',
   'body_type',
-  'body_structure',
-  'surface_material',
-  'special_features',
   'posture',
-  'distinctive_features',
   'appearance_description',
 ];
 
@@ -53,25 +39,12 @@ function controlsFromCharacter(character: StudioCharacter) {
   const controls: Record<string, unknown> = {
     gender: character.gender || undefined,
     visual_style: character.visual_style || undefined,
-    face_shape: appearance.face_shape || undefined,
     skin_tone: appearance.skin_tone || undefined,
-    eye_shape: appearance.eye_shape || undefined,
-    eye_color: appearance.eye_color || undefined,
-    eyebrow_shape: appearance.eyebrow_shape || undefined,
-    nose_shape: appearance.nose_shape || undefined,
-    lips_shape: appearance.lips_shape || undefined,
-    jawline: appearance.jawline || undefined,
     hair_length: appearance.hair_length || undefined,
-    hair_style: appearance.hair_style || undefined,
     hair_color: appearance.hair_color || undefined,
-    hair_details: Array.isArray(appearance.hair_details) ? appearance.hair_details : undefined,
-    height: appearance.height || undefined,
+    height_cm: typeof appearance.height_cm === 'number' ? appearance.height_cm : undefined,
     body_type: appearance.body_type || undefined,
-    body_structure: appearance.body_structure || undefined,
-    surface_material: appearance.surface_material || undefined,
-    special_features: appearance.special_features || undefined,
     posture: appearance.posture || undefined,
-    distinctive_features: appearance.distinctive_features || undefined,
     appearance_description: appearance.appearance_prompt || undefined,
   };
 
@@ -127,8 +100,7 @@ function regionForImageType(imageType: CharacterImageType, activeTab: string): C
   if (imageType === 'full_body') {
     return (['hair', 'body', 'outfit', 'style'].includes(activeTab) ? activeTab : 'body') as CharacterRegion;
   }
-  if (imageType === 'scene') return 'style';
-  return 'full_character';
+  return 'style';
 }
 
 function confirmDeleteCharacter(name: string) {
@@ -208,8 +180,14 @@ export default function CharacterEditorPage() {
   const [sceneSettings, setSceneSettings] = useState({location: 'studio', time: 'night', weather: 'clear'});
   const [generatingImageType, setGeneratingImageType] = useState<CharacterImageType | null>(null);
   const [sequentialRunning, setSequentialRunning] = useState(false);
-  const editor = useCharacterEditor(!!character?.identity_locked);
-  const {jobs: secondaryJobs, retry: retrySecondaryJob} = useCharacterAssetJobs(projectId, characterId, character, refresh, sequentialRunning);
+  const [zoneEditOpen, setZoneEditOpen] = useState(false);
+  const [zoneEditSubmitting, setZoneEditSubmitting] = useState(false);
+  // Saved zone per image-type: one zone per format, independent state.
+  const [savedZones, setSavedZones] = useState<Partial<Record<CharacterImageType, ZoneEditState>>>({});
+  // Tracks which job was started by zone-edit so we can clear the zone on completion.
+  const zoneEditJobRef = React.useRef<{jobId: string; imageType: CharacterImageType} | null>(null);
+  const editor = useCharacterEditor(false);
+  const {jobs: secondaryJobs, retry: retrySecondaryJob, launchJob: launchSecondaryJob} = useCharacterAssetJobs(projectId, characterId, character, refresh, sequentialRunning);
 
   useEffect(() => {
     const state = location.state as {jobId?: string} | null;
@@ -275,6 +253,17 @@ export default function CharacterEditorPage() {
       }
       setPreviewedJobId(job.job_id);
       setGeneratingImageType(null);
+      // Clear the zone that triggered this job so the selection doesn't linger,
+      // and close zone-edit mode so the UI returns to idle.
+      if (zoneEditJobRef.current?.jobId === job.job_id) {
+        setSavedZones((prev) => {
+          const next = {...prev};
+          delete next[zoneEditJobRef.current!.imageType];
+          return next;
+        });
+        zoneEditJobRef.current = null;
+        setZoneEditOpen(false);
+      }
       persistControlsAndRefreshRef.current?.();
       if (process.env.NODE_ENV === 'development') {
         console.debug('[CharacterEditor] generation completed', {jobId: job.job_id, variants: job.variants?.length ?? 0});
@@ -289,10 +278,6 @@ export default function CharacterEditorPage() {
     if (!character || generatingImageType) return;
     const imageType = viewModeToImageType(activeViewMode);
     const region = regionForImageType(imageType, activeTab);
-    if (character.identity_locked && region === 'full_character') {
-      message.warning('Это может изменить идентичность персонажа. Создайте новую версию перед генерацией.');
-      return;
-    }
     setGeneratingImageType(imageType);
     if (process.env.NODE_ENV === 'development') {
       console.debug('[CharacterEditor] starting generation', {imageType, region});
@@ -350,10 +335,71 @@ export default function CharacterEditorPage() {
         message.error(response.data?.error_message || 'Генерация не удалась');
         setNotifiedFailedJobId(response.data.job_id);
         setGeneratingImageType(null);
+      } else {
+        // Editing one mode forces regeneration of dependent modes (identity chain).
+        // Backend returns the dependency list under dependent_image_types; fall back
+        // to the local map if absent.
+        const backendDeps = (response.data as {dependent_image_types?: string[]} | undefined)?.dependent_image_types;
+        const deps = (backendDeps && backendDeps.length
+          ? (backendDeps as CharacterImageType[])
+          : dependentImageTypes(imageType)
+        ).filter((t) => t !== imageType);
+        deps.forEach((depType) => {
+          launchSecondaryJob(depType);
+        });
       }
     } catch {
       message.error('Ошибка при запуске генерации. Попробуйте ещё раз.');
       setGeneratingImageType(null);
+    }
+  };
+
+  const currentImageTypeForZone = viewModeToImageType(activeViewMode);
+
+  const handleZoneSave = (state: ZoneEditState) => {
+    setSavedZones((prev) => ({...prev, [currentImageTypeForZone]: state}));
+  };
+
+  const applyZoneEdit = async (zone: ZoneEditState) => {
+    if (!character || zoneEditSubmitting) return;
+    const imageType = currentImageTypeForZone;
+    setZoneEditSubmitting(true);
+    setGeneratingImageType(imageType);
+    try {
+      const response = await characterApi.zoneEdit(projectId, character.character_id, {
+        asset_type: imageType,
+        instruction: zone.instruction,
+        selection: zone.selection,
+        variant_count: 1,
+      });
+      const data = response.data as ZoneEditResponse;
+      setSelectedVariant(null);
+      setPreviewedJobId(undefined);
+      setNotifiedFailedJobId(undefined);
+      setJobId(data.job_id);
+      if (data.status === 'failed') {
+        message.error(data.error_message || 'Zone-edit не удался');
+        setNotifiedFailedJobId(data.job_id);
+        setGeneratingImageType(null);
+      } else {
+        // Track this job so the completion handler can clear the zone.
+        zoneEditJobRef.current = {jobId: data.job_id, imageType};
+        // If backend already completed synchronously, clear immediately.
+        if (data.status === 'completed') {
+          setSavedZones((prev) => {
+            const next = {...prev};
+            delete next[imageType];
+            return next;
+          });
+          zoneEditJobRef.current = null;
+          setZoneEditOpen(false);
+        }
+      }
+    } catch {
+      message.error('Ошибка при запуске zone-edit. Попробуйте ещё раз.');
+      setGeneratingImageType(null);
+    } finally {
+      setZoneEditSubmitting(false);
     }
   };
 
@@ -378,12 +424,6 @@ export default function CharacterEditorPage() {
     message.success('Персонаж удален');
     setCharacter(null);
     navigate(`/project/${projectId}/characters`, {replace: true});
-  };
-
-  const lock = async () => {
-    if (!character) return;
-    await characterApi.lockIdentity(projectId, character.character_id, {reference_image_id: character.canonical_reference_image_id, appearance_id: character.appearance?.appearance_id});
-    await refresh();
   };
 
   const save = async () => {
@@ -581,10 +621,14 @@ export default function CharacterEditorPage() {
       setActiveTab('style');
       editor.setRegion('style');
     }
-    if (mode === 'sheet') {
-      setActiveTab('style');
-      editor.setRegion('style');
+  };
+
+  const goToReferences = () => {
+    if (!character?.character_id) {
+      message.warning('Сначала сохраните персонажа.');
+      return;
     }
+    navigate(`/project/${projectId}/characters/${character.character_id}/references`);
   };
 
   const currentImageType = viewModeToImageType(activeViewMode);
@@ -611,23 +655,21 @@ export default function CharacterEditorPage() {
     ? <FullBodySettingsPanel />
     : activeViewMode === 'scene'
       ? <SceneSettingsPanel settings={sceneSettings} onChange={setSceneSettings} />
-      : activeViewMode === 'sheet'
-        ? <ReferenceSheetSettingsPanel />
-        : activeTab === 'personality'
-              ? effectiveCharacter
-                ? <PersonalityEditorPanel character={effectiveCharacter} onChange={updatePersonality} />
-                : null
-              : <CharacterSettingsPanel region={(['face', 'hair', 'body', 'style'].includes(activeTab) ? activeTab : 'face') as CharacterRegion} controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} />;
+      : activeTab === 'personality'
+            ? effectiveCharacter
+              ? <PersonalityEditorPanel character={effectiveCharacter} onChange={updatePersonality} />
+              : null
+            : <CharacterSettingsPanel region={(['face', 'hair', 'body', 'style'].includes(activeTab) ? activeTab : 'face') as CharacterRegion} controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} />;
 
   return <CharacterEditorLayout
-    topBar={<EditorTopBar characterName={character?.name || 'Персонаж'} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info('Переименование доступно через дерево персонажей слева')} onRefresh={generateSequential} sequentialRunning={sequentialRunning} generatingImageType={generatingImageType} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} locked={!!character?.identity_locked} onLock={lock} />}
+    topBar={<EditorTopBar characterName={character?.name || 'Персонаж'} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info('Переименование доступно через дерево персонажей слева')} onRefresh={generateSequential} sequentialRunning={sequentialRunning} generatingImageType={generatingImageType} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} onGoToReferences={goToReferences} />}
     sidebar={<CharacterCategorySidebar active={activeTab} onSelect={selectCategory} />}
-    center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} generatingImageType={generatingImageType} jobProgress={job?.progress} secondaryJobs={secondaryJobs} onRetrySecondary={retrySecondaryJob} /><EditorLowerDeck activeViewMode={activeViewMode} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
+    center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} generatingImageType={generatingImageType} jobProgress={job?.progress} secondaryJobs={secondaryJobs} onRetrySecondary={retrySecondaryJob} zoneEditOpen={zoneEditOpen} onZoneEditToggle={setZoneEditOpen} onZoneEditApply={applyZoneEdit} zoneEditSubmitting={zoneEditSubmitting} savedZone={savedZones[currentImageTypeForZone] ?? null} onZoneSave={handleZoneSave} pendingZoneCount={Object.keys(savedZones).length} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && !zoneEditOpen && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
     right={right}
   />;
 }
 
-function EditorTopBar({characterName, onBack, onRename, onRefresh, sequentialRunning, generatingImageType, onSave, onDelete, saving, hasUnsavedChanges, locked, onLock}: {characterName: string; onBack: () => void; onRename: () => void; onRefresh: () => void; sequentialRunning: boolean; generatingImageType: CharacterImageType | null; onSave: () => void; onDelete: () => void; saving: boolean; hasUnsavedChanges: boolean; locked: boolean; onLock: () => void}) {
+function EditorTopBar({characterName, onBack, onRename, onRefresh, sequentialRunning, generatingImageType, onSave, onDelete, saving, hasUnsavedChanges, onGoToReferences}: {characterName: string; onBack: () => void; onRename: () => void; onRefresh: () => void; sequentialRunning: boolean; generatingImageType: CharacterImageType | null; onSave: () => void; onDelete: () => void; saving: boolean; hasUnsavedChanges: boolean; onGoToReferences: () => void}) {
   const saveLabel = saving ? 'Сохраняем' : hasUnsavedChanges ? 'Есть изменения' : 'Сохранено';
 
   return (
@@ -649,44 +691,12 @@ function EditorTopBar({characterName, onBack, onRename, onRefresh, sequentialRun
         </button>
       </div>
       <div className="character-editor-actions">
-        <IdentityLockButton locked={locked} onLock={onLock} />
         <Button className="character-editor-button character-editor-button--outline" icon={<ReloadOutlined />} loading={sequentialRunning} disabled={!!generatingImageType && !sequentialRunning} onClick={onRefresh}>Обновить</Button>
         <Button className="character-editor-button character-editor-button--danger" icon={<DeleteOutlined />} onClick={onDelete}>Удалить</Button>
         <Button className="character-editor-button character-editor-button--primary" icon={<SaveOutlined />} loading={saving} onClick={onSave}>Сохранить</Button>
-        <Button className="character-editor-icon-button" icon={<MoreOutlined />} />
+        <Button className="character-editor-button character-editor-button--outline" onClick={onGoToReferences}>Перейти к референсам</Button>
       </div>
     </>
-  );
-}
-
-function EditorLowerDeck({activeViewMode}: {activeViewMode: CharacterViewMode}) {
-  if (activeViewMode === 'sheet') return <ReferenceSheetStatus />;
-  return null;
-}
-
-function ReferenceSheetStatus() {
-  return (
-    <section className="character-editor-panel reference-status-panel">
-      <div className="character-editor-panel__header">
-        <h2>Статус ракурсов</h2>
-        <p>Какие виды уже готовы, а какие требуют обновления.</p>
-      </div>
-      <div className="reference-status-grid">
-        {[
-          ['Фронт', 'Готово'],
-          ['Профиль слева', 'Готово'],
-          ['Спина', 'Нужно обновить'],
-          ['Профиль справа', 'Нужно обновить'],
-          ['Детали лица', 'Готово'],
-          ['Обувь', 'Не создано'],
-        ].map(([label, status]) => (
-          <div key={label} className={status === 'Готово' ? 'is-ready' : ''}>
-            <span>{label}</span>
-            <strong>{status}</strong>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -787,36 +797,6 @@ function SceneSettingsPanel({settings, onChange}: {settings: {location: string; 
   );
 }
 
-function ReferenceSheetSettingsPanel() {
-  return (
-    <ModeSettingsPanel eyebrow="Контекстная панель" title="Настройки: Ракурсы">
-      <SettingsSection title="Основное" primary>
-        <PresetGrid items={['1:1', '4:5', '16:9', 'A4']} activeIndex={3} />
-      </SettingsSection>
-      <Collapse
-        className="character-settings-collapse"
-        defaultActiveKey={['export']}
-        ghost
-        items={[
-          {key: 'display', label: 'Отображать', children: <ToggleList items={['Сетка', 'Подписи', 'Фон']} />},
-          {key: 'style', label: 'Стиль', children: <PresetGrid items={['Чистый лист', 'Студийный', 'Технический']} activeIndex={2} />},
-          {
-            key: 'export',
-            label: 'Экспорт',
-            children: (
-              <div className="export-action-grid">
-                {['Экспортировать', 'Скачать PNG', 'Скачать JPG', 'Скачать PDF'].map((item) => (
-                  <button key={item} type="button">{item}</button>
-                ))}
-              </div>
-            ),
-          },
-        ]}
-      />
-    </ModeSettingsPanel>
-  );
-}
-
 function ModeSettingsPanel({eyebrow, title, children}: {eyebrow: string; title: string; children: React.ReactNode}) {
   return (
     <div className="character-settings-panel mode-settings-panel">
@@ -877,14 +857,3 @@ function SegmentList({items}: {items: string[]}) {
   );
 }
 
-function ToggleList({items}: {items: string[]}) {
-  return (
-    <div className="toggle-list">
-      {items.map((item, index) => (
-        <button key={item} type="button" className={index < 2 ? 'is-active' : ''}>
-          {item}
-        </button>
-      ))}
-    </div>
-  );
-}

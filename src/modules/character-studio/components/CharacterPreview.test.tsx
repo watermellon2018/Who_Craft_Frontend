@@ -63,7 +63,6 @@ describe('viewModeToImageType', () => {
     ['portrait', 'portrait'],
     ['fullBody', 'full_body'],
     ['scene', 'scene'],
-    ['sheet', 'reference_sheet'],
   ])('maps %s → %s', (mode, expected) => {
     expect(viewModeToImageType(mode)).toBe(expected);
   });
@@ -172,26 +171,6 @@ describe('CharacterPreview – scene tab', () => {
   it('shows empty state when scene has no job', () => {
     renderPreview({activeViewMode: 'scene', character: makeCharacter()});
     expect(screen.getByText('Сцена пока не создана')).toBeInTheDocument();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Reference sheet tab
-// ---------------------------------------------------------------------------
-
-describe('CharacterPreview – sheet tab', () => {
-  it('shows GeneratingState when reference_sheet job is queued', () => {
-    const jobs = makeJobs({reference_sheet: {status: 'queued', jobId: 'j3'}});
-    renderPreview({activeViewMode: 'sheet', character: makeCharacter(), secondaryJobs: jobs});
-    expect(screen.getByText('Генерируем референс-лист…')).toBeInTheDocument();
-  });
-
-  it('shows FailedState and retry for reference_sheet', () => {
-    const onRetry = jest.fn();
-    const jobs = makeJobs({reference_sheet: {status: 'failed', jobId: 'j3'}});
-    renderPreview({activeViewMode: 'sheet', character: makeCharacter(), secondaryJobs: jobs, onRetrySecondary: onRetry});
-    fireEvent.click(screen.getByRole('button', {name: /повторить/i}));
-    expect(onRetry).toHaveBeenCalledWith('reference_sheet');
   });
 });
 

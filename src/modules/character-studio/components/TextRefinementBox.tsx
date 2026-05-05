@@ -11,7 +11,20 @@ const placeholders: Record<CharacterRegion, string> = {
   full_character: 'Опиши общий контекст изменения, не заменяя структурные настройки.',
 };
 
+const MAX_LENGTH = 500;
+
 export default function TextRefinementBox({region, value, onChange}: {region: CharacterRegion; value: string; onChange: (value: string) => void}) {
-  return <Input.TextArea maxLength={500} showCount rows={4} value={value} placeholder={placeholders[region]} onChange={(event) => onChange(event.target.value)} />;
+  return (
+    <div className="textareaField">
+      <Input.TextArea
+        maxLength={MAX_LENGTH}
+        rows={4}
+        value={value}
+        placeholder={placeholders[region]}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <div className="charCounter">{value.length} / {MAX_LENGTH}</div>
+    </div>
+  );
 }
 

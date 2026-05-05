@@ -1,5 +1,5 @@
 import axios from 'axios';
-import {EditRequest} from '../types/character.types';
+import {EditRequest, ReferenceType, ZoneEditRequest} from '../types/character.types';
 
 const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
@@ -31,6 +31,9 @@ export const characterApi = {
   },
   generateEdit(projectId: string | number, characterId: string, data: EditRequest) {
     return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/generate-edit-variants`, {...data, ...tokenBody()});
+  },
+  zoneEdit(projectId: string | number, characterId: string, data: ZoneEditRequest) {
+    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/zone-edit`, {...data, ...tokenBody()});
   },
   getJob(jobId: string) {
     return axios.get(`${backendUrl}/api/generation-jobs/${jobId}`, {params: tokenParams()});
@@ -99,5 +102,94 @@ export const characterApi = {
   },
   restoreRevision(projectId: string | number, characterId: string, revisionId: string) {
     return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/revisions/${revisionId}/restore`, tokenBody());
+  },
+  // --- References stage -----------------------------------------------------
+  getReferences(projectId: string | number, characterId: string) {
+    return axios.get(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references`,
+      {params: tokenParams()},
+    );
+  },
+  generateReference(
+    projectId: string | number,
+    characterId: string,
+    payload: {reference_type: ReferenceType; correction_prompt?: string; preserve_identity?: boolean},
+  ) {
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/generate`,
+      {...payload, ...tokenBody()},
+    );
+  },
+  generateMissingReferences(
+    projectId: string | number,
+    characterId: string,
+    payload: {reference_types: ReferenceType[]; only_missing?: boolean; preserve_identity?: boolean},
+  ) {
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/generate-missing`,
+      {...payload, ...tokenBody()},
+    );
+  },
+  correctReference(
+    projectId: string | number,
+    characterId: string,
+    referenceId: string,
+    payload: {correction_prompt: string; preserve_identity?: boolean},
+  ) {
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/${referenceId}/correct`,
+      {...payload, ...tokenBody()},
+    );
+  },
+  uploadReference(
+    projectId: string | number,
+    characterId: string,
+    referenceType: ReferenceType,
+    file: File,
+    replaceCurrent = true,
+  ) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('reference_type', referenceType);
+    form.append('replace_current', replaceCurrent ? 'true' : 'false');
+    form.append('token_user', localStorage.getItem('userId') || '');
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/upload`,
+      form,
+      {headers: {'Content-Type': 'multipart/form-data'}},
+    );
+  },
+  makePrimaryReference(projectId: string | number, characterId: string, referenceId: string) {
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/${referenceId}/make-primary`,
+      tokenBody(),
+    );
+  },
+  getReferencesReadiness(projectId: string | number, characterId: string) {
+    return axios.get(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/readiness`,
+      {params: tokenParams()},
+    );
+  },
+  updateReferencesChecklist(
+    projectId: string | number,
+    characterId: string,
+    payload: Partial<{
+      appearance_stable: boolean;
+      face_matches_base: boolean;
+      outfit_readable: boolean;
+      suitable_for_3d: boolean;
+    }>,
+  ) {
+    return axios.patch(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/checklist`,
+      {...payload, ...tokenBody()},
+    );
+  },
+  proceedReferencesTo3D(projectId: string | number, characterId: string) {
+    return axios.post(
+      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/proceed-to-3d`,
+      tokenBody(),
+    );
   },
 };

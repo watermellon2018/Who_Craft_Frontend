@@ -13,15 +13,31 @@ export interface AssetJobState {
 
 export type AssetJobsMap = Partial<Record<CharacterImageType, AssetJobState>>;
 
-const SECONDARY_TYPES: CharacterImageType[] = ['full_body', 'scene', 'reference_sheet'];
+const SECONDARY_TYPES: CharacterImageType[] = ['full_body', 'scene'];
 const POLL_INTERVAL_MS = 2500;
 
 const REGION_BY_TYPE: Record<CharacterImageType, string> = {
   portrait: 'face',
   full_body: 'body',
   scene: 'style',
-  reference_sheet: 'full_character',
 };
+
+/**
+ * Dependent regeneration map. Editing one mode forces regeneration of all
+ * downstream modes that derive identity/composition from it. Mirrors the
+ * backend EDIT_DEPENDENCIES on CharacterGenerationService — the backend also
+ * returns this list under `dependent_image_types` in the edit-variants
+ * response, which should be preferred when present.
+ */
+export const EDIT_DEPENDENCIES: Record<CharacterImageType, CharacterImageType[]> = {
+  portrait: ['portrait', 'full_body', 'scene'],
+  full_body: ['full_body', 'scene'],
+  scene: ['scene'],
+};
+
+export function dependentImageTypes(type: CharacterImageType): CharacterImageType[] {
+  return EDIT_DEPENDENCIES[type] || [type];
+}
 
 function mapBackendStatus(status: GenerationJob['status']): AssetJobStatus {
   if (status === 'queued') return 'queued';
@@ -38,7 +54,7 @@ function debug(...args: unknown[]) {
 }
 
 /**
- * Manages background generation of secondary assets (full_body, scene, reference_sheet)
+ * Manages background generation of secondary assets (full_body, scene)
  * for the character editor. Auto-launches missing jobs once and polls active ones.
  *
  * Note: the Django backend processes jobs synchronously — generateEdit often returns
@@ -210,5 +226,19 @@ export function useCharacterAssetJobs(
     [characterId, launchJob],
   );
 
-  return {jobs, retry, launchJob};
+  const markPending = useCallback(
+    (type: CharacterImageType) => {
+      updateJob(type, {status: 'queued', errorMessage: undefined});
+    },
+    [updateJob],
+  );
+
+  const attachJob = useCallback(
+    (type: CharacterImageType, jobId: string) => {
+      updateJob(type, {jobId, status: 'queued', errorMessage: undefined});
+    },
+    [updateJob],
+  );
+
+  return {jobs, retry, launchJob, markPending, attachJob};
 }

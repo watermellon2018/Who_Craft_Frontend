@@ -53,17 +53,16 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('useCharacterAssetJobs – auto-launch', () => {
-  it('launches jobs for all three secondary types when character has no images', async () => {
+  it('launches jobs for all secondary types when character has no images', async () => {
     const character = makeCharacter({images: {}});
     renderHook(() => useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, character));
     await act(async () => {
       await Promise.resolve();
     });
-    expect(mockedApi.generateEdit).toHaveBeenCalledTimes(3);
+    expect(mockedApi.generateEdit).toHaveBeenCalledTimes(2);
     const calledTypes = mockedApi.generateEdit.mock.calls.map((c) => (c[2] as {image_type: string}).image_type);
     expect(calledTypes).toContain('full_body');
     expect(calledTypes).toContain('scene');
-    expect(calledTypes).toContain('reference_sheet');
   });
 
   it('does NOT launch a job for a type that already has an image_url', async () => {
@@ -81,11 +80,10 @@ describe('useCharacterAssetJobs – auto-launch', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(mockedApi.generateEdit).toHaveBeenCalledTimes(2);
+    expect(mockedApi.generateEdit).toHaveBeenCalledTimes(1);
     const calledTypes = mockedApi.generateEdit.mock.calls.map((c) => (c[2] as {image_type: string}).image_type);
     expect(calledTypes).not.toContain('full_body');
     expect(calledTypes).toContain('scene');
-    expect(calledTypes).toContain('reference_sheet');
   });
 
   it('does not launch any jobs when character is null', async () => {
@@ -106,7 +104,7 @@ describe('useCharacterAssetJobs – auto-launch', () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(mockedApi.generateEdit).toHaveBeenCalledTimes(3); // 3 types, not 6
+    expect(mockedApi.generateEdit).toHaveBeenCalledTimes(2); // 2 secondary types, not 4
   });
 
   it('does not launch jobs when character has no character_id', async () => {
@@ -308,7 +306,6 @@ describe('useCharacterAssetJobs – polling', () => {
       images: {
         full_body: {image_id: 'i1', image_type: 'full_body', image_url: 'http://a.com/1.png', is_active: true},
         scene: {image_id: 'i2', image_type: 'scene', image_url: 'http://a.com/2.png', is_active: true},
-        reference_sheet: {image_id: 'i3', image_type: 'reference_sheet', image_url: 'http://a.com/3.png', is_active: true},
       },
     });
     renderHook(() => useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, character));
