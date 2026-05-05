@@ -74,6 +74,16 @@ const CharactersCard = React.memo(() => {
                 } })
     };
 
+    const clickHeroPage = (id_character: string, imgUrl: string) => {
+        navigate(pathConstant.HERO_PAGE,
+            { state: {
+                    is_edit: false ,
+                    project_id: project_id,
+                    character_id: id_character,
+                    imageUrl: imgUrl,
+                } })
+    }
+
     const showAllHeroesClick = () => {
         navigate(PathConstants.ALL_HEROES_PAGE, {state: {project_id: project_id}});
     }
@@ -98,7 +108,7 @@ const CharactersCard = React.memo(() => {
                                 <img
                                     className='fixed-size'
                                     src={character.src}
-                                    onClick={() => cardClickHandle(character.id, character.src)}
+                                    onClick={() => clickHeroPage(character.id, character.src)}
                                 />
                                 <div
                                     style={{backgroundColor: 'rgba(0, 0, 0, 0.3)'}}

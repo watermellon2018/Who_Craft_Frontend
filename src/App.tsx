@@ -1,14 +1,13 @@
 import React, {useMemo} from 'react';
 import './App.css';
 import {BrowserRouter, Route, Routes} from 'react-router-dom';
-import GenerationHeroPage from "./page/creation/hero/generation";
 
-import {ConfigProvider, Switch} from 'antd';
+import {ConfigProvider} from 'antd';
 import MainPage from "./page/main";
 import LandingPage from "./page/logIn/start";
 import RegistrationPage from "./page/logIn/register";
 import LoginPage from "./page/logIn/login";
-import ProfilePage from "./page/profile/user";
+import ProfilePage from "./modules/profile/ProfileDashboardPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
@@ -17,6 +16,16 @@ import PathConstants from "./routes/pathConstant";
 import GenPosterPage from "./page/creation/poster/GenPosterPage";
 import EditGenImgPage from "./page/creation/edit/editGenImgPage";
 import AllHeroesPage from "./page/movie/characters/info/allHeroes";
+import HeroPage from "./page/hero/main";
+import ScriptPage from "./page/script/editor";
+import CharacterGalleryPage from "./modules/character-studio/pages/CharacterGalleryPage";
+import CharacterCreatePage from "./modules/character-studio/pages/CharacterCreatePage";
+import CharacterEditorPage from "./modules/character-studio/pages/CharacterEditorPage";
+import CharacterDetailPage from "./modules/character-studio/pages/CharacterDetailPage";
+import CharacterVariantsPage from "./modules/character-studio/pages/CharacterVariantsPage";
+import CharacterReferencesPage from "./modules/character-studio/pages/CharacterReferencesPage";
+import Character3DPlaceholderPage from "./modules/character-studio/pages/Character3DPlaceholderPage";
+import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 
 // https://ant.design/theme-editor#component-color настройка цветов
 const theme = {
@@ -69,13 +78,15 @@ const theme = {
             "colorBorder": "rgb(250, 176, 5)",
         },
         "Select": {
-            "colorTextPlaceholder": "rgb(27, 29, 34)",
-            "colorText": "rgb(27, 29, 34)",
-            "optionSelectedBg": "rgb(27, 29, 34)",
-            "colorBorder": "rgb(27, 29, 34)",
-            "colorBgContainer": "rgb(250, 176, 5)",
+            "colorBgContainer": "#141820",
+            "colorBgElevated": "#1b2029",
+            "colorText": "rgba(255, 255, 255, 0.88)",
+            "colorTextPlaceholder": "#6f7784",
+            "colorBorder": "#3b414d",
+            "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
             "optionSelectedColor": "#fab005",
-            "colorBgElevated": "#fab005",
+            "optionActiveBg": "rgba(255, 255, 255, 0.05)",
+            "selectorBg": "#141820",
         },
         "Checkbox": {
             "colorText": "rgb(27, 29, 34)",
@@ -111,7 +122,7 @@ function App() {
         { key: 'register', path: PathConstants.REGISTER, component: <RegistrationPage /> },
         { key: 'login', path: PathConstants.LOGIN, component: <LoginPage /> },
         { key: 'home', path: PathConstants.HOME, component: <MainPage /> },
-        { key: 'generating', path: PathConstants.GENERATING, component: <GenerationHeroPage /> },
+        { key: 'generating', path: PathConstants.GENERATING, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
         { key: 'settingHero', path: PathConstants.SETTING_HERO, component: <CharacterData /> },
         { key: 'profile', path: PathConstants.PROFILE, component: <ProfilePage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProjectCreatePage /> },
@@ -120,6 +131,16 @@ function App() {
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <GenPosterPage /> },
         { key: 'editGenImg', path: PathConstants.EDIT_GEN_IMG, component: <EditGenImgPage /> },
         { key: 'allHeroesPage', path: PathConstants.ALL_HEROES_PAGE, component: <AllHeroesPage /> },
+        { key: 'heroPage', path: PathConstants.HERO_PAGE, component: <HeroPage /> },
+        { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ScriptPage /> },
+        { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
+        { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <CharacterStudioShell><CharacterCreatePage /></CharacterStudioShell> },
+        { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <CharacterStudioShell><CharacterCreatePage activeMode="reference" /></CharacterStudioShell> },
+        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <CharacterStudioShell><CharacterVariantsPage /></CharacterStudioShell> },
+        { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <CharacterStudioShell><CharacterDetailPage /></CharacterStudioShell> },
+        { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <CharacterStudioShell><CharacterEditorPage /></CharacterStudioShell> },
+        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <CharacterStudioShell><CharacterReferencesPage /></CharacterStudioShell> },
+        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <CharacterStudioShell><Character3DPlaceholderPage /></CharacterStudioShell> },
     ], []);
 
 

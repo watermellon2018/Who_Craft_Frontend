@@ -33,7 +33,6 @@ import {
 } from "../../../../api/characters/updateSettings";
 import {createCharacterFromTreeAPI} from "../../../../api/generation/characters/tree_structure";
 import PathConstants from "../../../../routes/pathConstant";
-import personalSettingForm from "../../../profile/personalSettingForm";
 
 
 const { Step } = Steps;
