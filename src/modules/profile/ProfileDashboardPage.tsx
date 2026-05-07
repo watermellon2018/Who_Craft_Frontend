@@ -15,6 +15,7 @@ import FavoriteAuthorsCard from './components/FavoriteAuthorsCard';
 import ContinueWatchingCard from './components/ContinueWatchingCard';
 import SettingsCard from './components/SettingsCard';
 import SkeletonDashboard from './components/SkeletonDashboard';
+import './profile.css';
 
 const ProfileDashboardPage: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -54,7 +55,7 @@ const ProfileDashboardPage: React.FC = () => {
           onMenuToggle={() => setSidebarOpen((o) => !o)}
         />
 
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto profile-scroll">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-4">
             {loading && <SkeletonDashboard />}
 

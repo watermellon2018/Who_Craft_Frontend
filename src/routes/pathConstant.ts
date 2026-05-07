@@ -8,6 +8,7 @@ const PathConstants = {
     SETTING_HERO: '/generating/setting-hero',
 
     PROFILE: '/profile',
+    PROFILE_EDIT: '/profile/edit',
 
     EDIT_GEN_IMG: '/generating/edit',
     CREATE_PROJECT: '/create-project',

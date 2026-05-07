@@ -1,4 +1,6 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import PathConstants from '../../../routes/pathConstant';
 import { ProfileUser } from '../types';
 
 interface Props {
@@ -6,6 +8,7 @@ interface Props {
 }
 
 const ProfileHero: React.FC<Props> = ({ user }) => {
+  const navigate = useNavigate();
   const initials = user.display_name
     ? user.display_name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
     : '?';
@@ -62,14 +65,11 @@ const ProfileHero: React.FC<Props> = ({ user }) => {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button className="bg-[#fab005] text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors">
+            <button
+              onClick={() => navigate(PathConstants.PROFILE_EDIT)}
+              className="bg-[#fab005] text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors"
+            >
               Редактировать профиль
-            </button>
-            <button className="bg-white/5 text-white/70 text-sm font-medium px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 hover:text-white transition-colors">
-              Поделиться
-            </button>
-            <button className="bg-white/5 text-white/70 text-sm p-2 rounded-xl border border-white/10 hover:bg-white/10 hover:text-white transition-colors">
-              ···
             </button>
           </div>
         </div>

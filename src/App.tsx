@@ -8,6 +8,7 @@ import LandingPage from "./page/logIn/start";
 import RegistrationPage from "./page/logIn/register";
 import LoginPage from "./page/logIn/login";
 import ProfilePage from "./modules/profile/ProfileDashboardPage";
+import ProfileEditPage from "./modules/profile/ProfileEditPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
@@ -125,6 +126,7 @@ function App() {
         { key: 'generating', path: PathConstants.GENERATING, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
         { key: 'settingHero', path: PathConstants.SETTING_HERO, component: <CharacterData /> },
         { key: 'profile', path: PathConstants.PROFILE, component: <ProfilePage /> },
+        { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProfileEditPage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProjectCreatePage /> },
         { key: 'projects', path: PathConstants.PROJECTS, component: <ProjectListPage /> },
         { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProjectPage /> },
