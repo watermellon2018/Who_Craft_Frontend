@@ -7,10 +7,11 @@ interface Props {
   title?: string;
 }
 
+const DEFAULT_DISPLAY_NAME = 'adMin';
+
 const DashboardHeader: React.FC<Props> = ({ user, onMenuToggle, title = 'Личный кабинет' }) => {
-  const initials = user?.display_name
-    ? user.display_name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?';
+  const displayName = user?.display_name || user?.username || DEFAULT_DISPLAY_NAME;
+  const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
 
   return (
     <header className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#13151a] sticky top-0 z-20">
@@ -25,16 +26,19 @@ const DashboardHeader: React.FC<Props> = ({ user, onMenuToggle, title = 'Лич�
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 cursor-pointer group">
-          <div className="w-9 h-9 rounded-xl bg-[#fab005]/20 border border-[#fab005]/30 flex items-center justify-center text-[#fab005] font-bold text-sm">
+        <div className="flex items-center gap-2 cursor-pointer group rounded-full px-1.5 py-1 hover:bg-white/5 transition-colors">
+          <div
+            className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-white font-semibold text-sm"
+            style={{ background: 'linear-gradient(135deg, #fab005, #d97706)' }}
+          >
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt="avatar" className="w-full h-full rounded-xl object-cover" />
+              <img src={user.avatar_url} alt={displayName} className="w-full h-full object-cover" />
             ) : (
-              initials
+              initial
             )}
           </div>
           <div className="hidden sm:block">
-            <p className="text-white text-sm font-medium leading-none">{user?.display_name || '...'}</p>
+            <p className="text-white text-sm font-medium leading-none">{displayName}</p>
           </div>
           <span className="text-white/40 text-xs">▾</span>
         </div>

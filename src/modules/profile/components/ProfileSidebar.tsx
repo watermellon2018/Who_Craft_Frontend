@@ -12,9 +12,9 @@ interface MenuItem {
 }
 
 const mainItems: MenuItem[] = [
-  { icon: '🏠', label: 'Главная', path: PathConstants.HOME },
+  { icon: '🏠', label: 'Мой кабинет', path: PathConstants.PROFILE },
   { icon: '💬', label: 'Сообщения', disabled: true },
-  { icon: '👥', label: 'Подписки', disabled: true },
+  { icon: '👥', label: 'Подписки', path: PathConstants.PROFILE_SUBSCRIPTIONS },
   { icon: '📺', label: 'История просмотров', disabled: true },
   { icon: '📊', label: 'Статистика', disabled: true },
   { icon: '✨', label: 'Рекомендации', disabled: true },
@@ -24,17 +24,17 @@ const mainItems: MenuItem[] = [
 
 const bottomItems: MenuItem[] = [
   { icon: '⚙️', label: 'Настройки', path: PathConstants.PROFILE },
-  { icon: '❓', label: 'Помощь и поддержка', disabled: true },
 ];
 
 interface Props {
   mobileOpen: boolean;
   onClose: () => void;
+  activeItem?: string;
 }
 
-const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose }) => {
+const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) => {
   const navigate = useNavigate();
-  const [active, setActive] = useState('Главная');
+  const [active, setActive] = useState(activeItem ?? 'Главная');
 
   const handleNav = (item: MenuItem) => {
     if (item.disabled) return;
