@@ -15,6 +15,10 @@ export const MainPage = () => {
         navigate(PathConstants.PROJECTS)
     }
 
+    const myCabinetHandle = () => {
+        navigate(PathConstants.PROFILE)
+    }
+
     return (
 
         <div className="bg-[#1B1D22] text-white flex flex-col justify-between h-screen">
@@ -35,7 +39,12 @@ export const MainPage = () => {
                 <div className="effect-button-div bg-[#FAB005] rounded-lg h-2/4 min-h-160 button-size" style={{height: "-webkit-fill-available"}}></div>
                 <div className="effect-button-div bg-[#FAB005] rounded-lg h-2/4 min-h-160 button-size" style={{height: "-webkit-fill-available"}}></div>
                 <div className="effect-button-div bg-[#FAB005] rounded-lg h-2/4 min-h-160 button-size" style={{height: "-webkit-fill-available"}}></div>
-                <div className="effect-button-div bg-[#FAB005] rounded-lg h-2/4 min-h-160 button-size flex items-center justify-center text-[#1B1D22] font-bold text-2xl" style={{height: "-webkit-fill-available"}}>КНОПКА</div>
+                <div 
+                    onClick={myCabinetHandle}
+                    className="effect-button-div bg-[#FAB005] rounded-lg h-2/4 min-h-160 button-size flex items-center justify-center text-[#1B1D22] font-bold text-2xl" 
+                    style={{height: "-webkit-fill-available"}}>
+                    МОЙ КАНАЛ
+                </div>
             </main>
             </div>
             <footer className="flex justify-between p-6 text-xs">

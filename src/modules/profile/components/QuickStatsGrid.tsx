@@ -24,11 +24,10 @@ const QuickStatsGrid: React.FC<Props> = ({ stats }) => {
     { label: 'История просмотров', value: stats.watch_history_count, icon: '📺' },
     { label: 'Просмотры', value: stats.total_views, icon: '👁️' },
     { label: 'Рекомендации', value: stats.recommendations_count, icon: '✨' },
-    { label: 'Уроков пройдено', value: stats.completed_lessons, icon: '🎓' },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
       {cards.map((card) => (
         <div
           key={card.label}
