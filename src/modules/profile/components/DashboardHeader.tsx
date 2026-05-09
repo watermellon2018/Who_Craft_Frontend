@@ -5,11 +5,12 @@ interface Props {
   user: ProfileUser | null;
   onMenuToggle: () => void;
   title?: string;
+  subtitle?: string;
 }
 
 const DEFAULT_DISPLAY_NAME = 'adMin';
 
-const DashboardHeader: React.FC<Props> = ({ user, onMenuToggle, title = 'Личный кабинет' }) => {
+const DashboardHeader: React.FC<Props> = ({ user, onMenuToggle, title = 'Личный кабинет', subtitle }) => {
   const displayName = user?.display_name || user?.username || DEFAULT_DISPLAY_NAME;
   const initial = displayName.trim().charAt(0).toUpperCase() || 'A';
 
@@ -22,7 +23,10 @@ const DashboardHeader: React.FC<Props> = ({ user, onMenuToggle, title = 'Лич�
         >
           ☰
         </button>
-        <h1 className="text-white font-bold text-xl">{title}</h1>
+        <div className="leading-tight">
+          <h1 className="text-white font-bold text-xl">{title}</h1>
+          {subtitle && <p className="text-white/50 text-xs mt-0.5">{subtitle}</p>}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
