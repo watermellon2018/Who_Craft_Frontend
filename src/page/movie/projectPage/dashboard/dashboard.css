@@ -1,0 +1,471 @@
+/* ============================================================
+   Project Dashboard Page — local styles
+   Tailwind handles most layout / typography. This file covers
+   the non-Tailwind bits: gradients, conic rings, dotted
+   connectors, and Ant Design overrides scoped to the page.
+   ============================================================ */
+
+.proj-dash {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.proj-dash * {
+  box-sizing: border-box;
+}
+
+/* --- Card defaults ------------------------------------------ */
+.proj-card {
+  background: #151922;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  transition: border-color 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.proj-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.proj-card-interactive {
+  cursor: pointer;
+}
+
+.proj-card-interactive:hover {
+  background: #1a1f2c;
+}
+
+/* --- Hero --------------------------------------------------- */
+.proj-hero {
+  background: linear-gradient(135deg, #161b27 0%, #131722 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  /* No overflow: hidden — dropdowns (status pill, "..." menu) must
+     escape the hero card. The cover image clips itself separately
+     via .proj-hero-cover. */
+  position: relative;
+  z-index: 5;
+}
+
+.proj-hero-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.proj-hero-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    radial-gradient(80% 60% at 50% 110%, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+}
+
+.proj-hero-cover-play {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 14, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.proj-hero-cover-play:hover {
+  background: rgba(250, 176, 5, 0.95);
+  color: #1b1d22;
+  transform: scale(1.04);
+}
+
+/* --- Status pill -------------------------------------------- */
+.proj-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(250, 176, 5, 0.12);
+  border: 1px solid rgba(250, 176, 5, 0.3);
+  color: #fab005;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.proj-status-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #fab005;
+  box-shadow: 0 0 8px rgba(250, 176, 5, 0.7);
+}
+
+/* --- Genre tag ---------------------------------------------- */
+.proj-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.proj-tag-add {
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.65);
+  background: transparent;
+  border-style: dashed;
+}
+
+.proj-tag-add:hover {
+  color: #fab005;
+  border-color: rgba(250, 176, 5, 0.5);
+}
+
+/* --- CTA buttons -------------------------------------------- */
+.proj-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;          /* lock height so icon-only and text buttons match */
+  padding: 0 18px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;        /* normalize against icon line-height */
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  white-space: nowrap;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.proj-btn-primary {
+  background: #fab005;
+  color: #111827;
+  border-color: #fab005;
+  font-weight: 700;
+  box-shadow: 0 8px 22px -10px rgba(250, 176, 5, 0.6);
+}
+
+.proj-btn-primary:hover {
+  background: #fcc419;
+  border-color: #fcc419;
+  color: #111827;
+}
+
+.proj-btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.proj-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.proj-btn-icon {
+  width: 40px;
+  padding: 0;
+}
+
+/* --- Avatar cluster ----------------------------------------- */
+.proj-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid #151922;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.proj-avatar-stack > * + * {
+  margin-left: -10px;
+}
+
+/* --- Pipeline ----------------------------------------------- */
+.proj-pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1024px) {
+  .proj-pipeline-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .proj-pipeline-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.proj-pipeline-step {
+  position: relative;
+  background: #151922;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+  transition: border-color 160ms ease, background 160ms ease;
+  cursor: pointer;
+}
+
+.proj-pipeline-step:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #1a1f2c;
+}
+
+.proj-pipeline-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 28px;
+  right: -10px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px dotted rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+}
+
+/* --- Progress bar ------------------------------------------- */
+.proj-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.proj-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 240ms ease;
+}
+
+/* --- Donut ring (conic-gradient) ---------------------------- */
+.proj-ring {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.proj-ring::before {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border-radius: 999px;
+  background: #151922;
+}
+
+.proj-ring-content {
+  position: relative;
+  text-align: center;
+}
+
+/* --- Music waveform ----------------------------------------- */
+.proj-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  flex: 1;
+  min-width: 0;
+}
+
+.proj-wave-bar {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 2px;
+  transition: background 160ms ease;
+}
+
+.proj-wave-bar.active {
+  background: rgba(250, 176, 5, 0.7);
+}
+
+/* --- Dashed "create" card ----------------------------------- */
+.proj-create-card {
+  border: 1.5px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+  min-height: 200px;
+  padding: 16px;
+  text-align: center;
+}
+
+.proj-create-card:hover {
+  border-color: rgba(250, 176, 5, 0.5);
+  color: #fab005;
+  background: rgba(250, 176, 5, 0.04);
+}
+
+/* --- Activity timeline -------------------------------------- */
+.proj-activity-item {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+}
+
+.proj-activity-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 38px;
+  bottom: -4px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.proj-activity-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+/* --- Quick action row --------------------------------------- */
+.proj-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.proj-action-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.proj-action-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* --- Track row ---------------------------------------------- */
+.proj-track-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.proj-track-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.proj-track-cover {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.proj-track-play {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.proj-track-play:hover {
+  background: #fab005;
+  color: #1b1d22;
+  border-color: #fab005;
+}
+
+/* --- Section header ----------------------------------------- */
+.proj-section-title {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* --- Stat card icon bg -------------------------------------- */
+.proj-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}

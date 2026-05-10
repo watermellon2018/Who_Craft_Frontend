@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import { Card } from 'antd';
 import withAuth from "../../../../utils/auth/check_auth";
-import HeaderComponent from "../../../main/header";
+import DashboardHeader from "../../../../modules/profile/components/DashboardHeader";
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import './style.css';
 import {delete_project_by_id, get_all_list_projects} from "../../../../api/projects/properties/project";
@@ -58,43 +58,39 @@ const ProjectListPage = () => {
 
     return (
         <>
-            <HeaderComponent />
-            <div className="library-projects-page p-4 bg-gray-800 min-h-screen text-white">
+            <DashboardHeader title="" />
+            <main className="app-main library-projects-page text-white">
+                <div className="grid grid-cols-4 gap-4 projects-div">
+                    {projectsList.map((project, index) => (
+                        <Card
+                            // onClick={() => {handleClickCard(project.id, project.title)}}
+                            hoverable
+                            className='bottom-card'
+                            key={'my-movie-'+index}
+                            cover={<>
+                                <img src={project.src}
+                                     onClick={() => {handleClickCard(project.id)}}
+                                      />
+                                <div className="text-right absolute top-1 right-0">
 
-                <div className="p-4">
-                    <h1 className="text-xl font-bold mb-4">Мои проекты</h1>
-                    <div className="grid grid-cols-4 gap-4 projects-div">
-                        {projectsList.map((project, index) => (
-                            <Card
-                                // onClick={() => {handleClickCard(project.id, project.title)}}
-                                hoverable
-                                className='bottom-card'
-                                key={'my-movie-'+index}
-                                cover={<>
-                                    <img src={project.src}
-                                         onClick={() => {handleClickCard(project.id)}}
-                                          />
-                                    <div className="text-right absolute top-1 right-0">
+                                    <EditOutlined
+                                        onClick={() => editProject(project.id)}
+                                        className="text-white text-xl p-2"
+                                    />
+                                    <DeleteOutlined
+                                        onClick={() => deleteProject(project.id)}
+                                        className="text-white text-xl p-2"
+                                    />
 
-                                        <EditOutlined
-                                            onClick={() => editProject(project.id)}
-                                            className="text-white text-xl p-2"
-                                        />
-                                        <DeleteOutlined
-                                            onClick={() => deleteProject(project.id)}
-                                            className="text-white text-xl p-2"
-                                        />
-
-                                    </div>
-                                </>
-                                }
-                            >
-                                <Card.Meta description={project.title} />
-                            </Card>
-                        ))}
-                    </div>
+                                </div>
+                            </>
+                            }
+                        >
+                            <Card.Meta description={project.title} />
+                        </Card>
+                    ))}
                 </div>
-            </div>
+            </main>
         </>
     );
 }

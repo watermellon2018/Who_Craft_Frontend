@@ -79,17 +79,41 @@ async function generateImage2ImgAPI(formData: FormImg2Img): Promise<any> {
 }
 
 
-async function generatePosterApi(description: string): Promise<any> {
+interface GeneratePosterOptions {
+    style?: string;
+    format?: string;
+    referenceFile?: File | null;
+}
+
+async function generatePosterApi(
+    description: string,
+    options: GeneratePosterOptions = {},
+): Promise<any> {
+    const { style, format, referenceFile } = options;
     try {
-        return await axios.get(`${backendUrl}/api/generate/poster/`, {
-            params: {
-                description: description,
-            }
+        if (referenceFile) {
+            const form = new FormData();
+            form.append('description', description);
+            form.append('prompt', description);
+            if (style) form.append('style', style);
+            if (format) form.append('format', format);
+            form.append('referenceImage', referenceFile);
+            return await axios.post(
+                `${backendUrl}/api/generate/poster/`,
+                form,
+                { headers: { 'Content-Type': 'multipart/form-data' } },
+            );
+        }
+        return await axios.post(`${backendUrl}/api/generate/poster/`, {
+            description,
+            prompt: description,
+            style,
+            format,
         });
     } catch (error) {
-        console.error('Error generating image to image:', error);
+        console.error('Error generating poster:', error);
+        throw error;
     }
-
 }
 
 interface EditGenerateI {

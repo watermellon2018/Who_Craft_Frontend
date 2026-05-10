@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Card, Col, Divider, Image, notification, Row, Spin, Steps} from 'antd';
-import HeaderComponent from "../../../main/header";
+import DashboardHeader from "../../../../modules/profile/components/DashboardHeader";
 import './style.css'
 import PersonalCharacterData from "./personalInfo";
 import {AndroidOutlined, LinkedinOutlined, TwitterOutlined} from "@ant-design/icons";
@@ -345,7 +345,7 @@ const CharacterData = () => {
 
     return (
         <>
-            <HeaderComponent />
+            <DashboardHeader title="" />
 
 
             <div className="min-w-full setting-hero-page p-4 bg-gray-800 min-h-screen text-white">

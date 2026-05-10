@@ -27,14 +27,16 @@ export const EditGenComponent: React.FC<EditGenComponentI> = ({editHandle}) => {
                 value={correction}
                 onChange={handleArea}
                 placeholder='Что хотите исправить в сгенерированном изображении?' />
+            <div className="mt-2 flex justify-end">
             <Button
                 onClick={() => editHandle(correction)}
-                style={{minWidth: '120px'}}
-                className='mt-2 border border-black'
+                style={{ minWidth: '120px' }}
+                className="border border-black"
                 type="primary"
                 htmlType="submit">
                 Править
             </Button>
+        </div>
         </>
     );
 }

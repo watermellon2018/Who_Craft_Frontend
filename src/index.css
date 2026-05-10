@@ -2,16 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+html,
+body,
+#root {
+  min-height: 100%;
   margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(214, 162, 97, 0.08), transparent 320px),
+    linear-gradient(180deg, #0b111c 0%, #111827 100%);
+  background-attachment: fixed;
+  color: #f8fafc;
+  box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+.app-main {
+  padding: 36px 28px 48px;
+  max-width: 1860px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .app-main {
+    padding: 24px 12px 32px;
+  }
 }

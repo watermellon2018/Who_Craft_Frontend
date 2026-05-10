@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import HeaderComponent from "../../main/header";
+import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
 import {Button, Empty, Layout, Spin} from "antd";
 import ImageCanvas from "../hero/canvas";
 import {Content} from "antd/es/layout/layout";
@@ -67,7 +67,7 @@ const EditGenImgPage = () => {
     return (
         <>
 
-            <HeaderComponent />
+            <DashboardHeader title="" />
 
             <Layout className="p-4 min-h-screen">
                 <div className="p-4">
