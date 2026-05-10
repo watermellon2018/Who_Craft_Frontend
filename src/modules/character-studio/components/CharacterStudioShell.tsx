@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {Empty} from 'antd';
 import {useNavigate, useParams} from 'react-router-dom';
-import HeaderComponent from '../../../page/main/header';
+import DashboardHeader from '../../profile/components/DashboardHeader';
 import CharacterTreeSidebar from './CharacterTreeSidebar';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 
@@ -15,7 +15,7 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
   if (!projectId) {
     return (
       <>
-        <HeaderComponent />
+        <DashboardHeader title="" />
         <div style={{minHeight: '100vh', background: '#1b1d22', padding: 24}}>
           <Empty description="Не выбран проект" />
         </div>
@@ -25,7 +25,7 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
 
   return (
     <>
-      <HeaderComponent />
+      <DashboardHeader title="" />
       <div
         style={{
           display: 'grid',

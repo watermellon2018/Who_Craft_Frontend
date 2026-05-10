@@ -1,5 +1,5 @@
 import React from 'react';
-import HeaderComponent from "./header";
+import DashboardHeader from "../../modules/profile/components/DashboardHeader";
 import withAuth from "../../utils/auth/check_auth";
 import {useNavigate} from "react-router-dom";
 import PathConstants from "../../routes/pathConstant";
@@ -21,9 +21,9 @@ export const MainPage = () => {
 
     return (
 
-        <div className="bg-[#1B1D22] text-white flex flex-col justify-between h-screen">
-        <div className="flex flex-col h-full justify-between">
-            <HeaderComponent />
+        <div className="text-white flex flex-col justify-between min-h-screen">
+        <div className="flex flex-col flex-1 justify-between">
+            <DashboardHeader title="" />
             <div className="flex flex-col items-center">
             <main className="grid grid-cols-3 gap-5 p-6 w-2/3 max-w-2xl flex justify-center items-center"
                   style={{minHeight: "300px"}}

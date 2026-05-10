@@ -5,7 +5,7 @@ import {useLocation, useNavigate} from "react-router-dom";
 import {delete_hero_by_id, get_all_heros_project} from "../../../../api/characters/basic";
 import withAuth from "../../../../utils/auth/check_auth";
 import pathConstant from "../../../../routes/pathConstant";
-import HeaderComponent from "../../../main/header";
+import DashboardHeader from "../../../../modules/profile/components/DashboardHeader";
 import '../../../global.css';
 import GraphEditor from "./graph";
 
@@ -111,7 +111,7 @@ const AllHeroesPage = () => {
 
     return (
         <>
-            <HeaderComponent />
+            <DashboardHeader title="" />
             <div className="project-page p-4 bg-gray-800 min-h-screen text-white">
                 <div className='flex justify-between'>
                     <h1 className="text-xl min-h-200 font-bold mb-4">Список персонажей</h1>

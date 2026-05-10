@@ -1,7 +1,7 @@
 import React, {FC, useEffect, useMemo, useRef, useState} from 'react';
 import {useLocation, useNavigate} from "react-router-dom";
 import {Button, Col, Row, Tooltip} from "antd";
-import HeaderComponent from "../main/header";
+import DashboardHeader from "../../modules/profile/components/DashboardHeader";
 import withAuth from "../../utils/auth/check_auth";
 import 'ckeditor5/ckeditor5.css';
 import { CKEditor, CKEditorContext } from '@ckeditor/ckeditor5-react';
@@ -115,7 +115,7 @@ const ScriptPage = () => {
     return (
 
         <>
-            <HeaderComponent />
+            <DashboardHeader title="" />
             <div className="project-page p-4 bg-gray-800 min-h-screen text-white">
                 <div className='flex justify-between'>
                     <div className="mb-4 ml-5">

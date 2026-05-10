@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import { fetchDashboard } from '../../../../modules/profile/api/profileApi';
@@ -450,30 +450,22 @@ const ProjectDashboardPage: React.FC = () => {
     navigate(PathConstants.PROJECTS);
   }, [navigate]);
 
-  const headerTitle = loading ? 'Загрузка…' : view.project.title;
-  const headerSubtitle = useMemo(() => {
-    if (loading) return '';
-    if (error) return error;
-    if (usingDemo) return 'Демо-данные';
-    return view.project.subtitle;
-  }, [loading, error, usingDemo, view.project.subtitle]);
+  const sectionTitle = loading ? 'Проект' : (view.project.title || 'Проект');
 
   return (
-    <div className="proj-dash flex h-screen overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <DashboardHeader
-          user={user}
-          onMenuToggle={() => setSidebarOpen((o) => !o)}
-          title={headerTitle}
-          subtitle={headerSubtitle}
-        />
+    <div className="proj-dash">
+      <DashboardHeader
+        user={user}
+        onMenuToggle={() => setSidebarOpen((o) => !o)}
+        sectionTitle={sectionTitle}
+      />
 
-        <main className="flex-1 overflow-y-auto profile-scroll">
-          <div
-            className="max-w-[1440px] mx-auto px-4 sm:px-6 py-6 transition-opacity duration-200"
-            style={{ opacity: loading ? 0.55 : 1 }}
-            aria-busy={loading}
-          >
+      <main className="app-main profile-scroll">
+        <div
+          className="transition-opacity duration-200"
+          style={{ opacity: loading ? 0.55 : 1 }}
+          aria-busy={loading}
+        >
             <button
               type="button"
               onClick={handleBackToList}
@@ -513,10 +505,9 @@ const ProjectDashboardPage: React.FC = () => {
                 onQuickAction={handleQuickAction}
                 loading={loading}
               />
-            </div>
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
 
       <EditProjectModal
         open={editOpen}

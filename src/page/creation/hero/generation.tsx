@@ -4,7 +4,7 @@ import NodeTree from './tree/node';
 import {get_all_character_for_project} from '../../../api/generation/characters/tree_structure';
 
 import ImageCanvas from "./canvas";
-import HeaderComponent from '../../main/header'
+import DashboardHeader from '../../../modules/profile/components/DashboardHeader'
 import MenuGeneration from "./generationMenu";
 import {Tree} from "react-arborist";
 import {generateImageAPI,
@@ -229,7 +229,7 @@ export const GenerationHeroPage = () => {
     return (
         <>
 
-            <HeaderComponent />
+            <DashboardHeader title="" />
             <Layout style={{height: '100%'}}>
 
                 <div>

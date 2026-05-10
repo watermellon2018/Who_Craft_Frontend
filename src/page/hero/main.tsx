@@ -3,7 +3,7 @@ import {Card, Col, Divider as DivLine, Image, Row, Spin} from 'antd';
 import {EditOutlined, DeleteOutlined, PlusOutlined} from '@ant-design/icons';
 import {useLocation, useNavigate} from "react-router-dom";
 import withAuth from "../../utils/auth/check_auth";
-import HeaderComponent from "../main/header";
+import DashboardHeader from "../../modules/profile/components/DashboardHeader";
 import {select_info_hero_by_id} from "../../api/characters/basic";
 import PathConstants from "../../routes/pathConstant";
 import {SettingHero} from "../../api/characters/interfaceHero";
@@ -66,7 +66,7 @@ const HeroPage = () => {
 
     return (
         <>
-            <HeaderComponent />
+            <DashboardHeader title="" />
 
             {isLoad ?
                 <div className="min-w-full setting-hero-page p-4 bg-gray-800 min-h-screen text-white">
