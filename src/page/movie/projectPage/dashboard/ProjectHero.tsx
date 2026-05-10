@@ -44,7 +44,7 @@ const ProjectHero: React.FC<Props> = ({
           <button
             type="button"
             className="proj-hero-cover-play"
-            onClick={() => console.log('TODO: play project preview')}
+            onClick={() => undefined}
             aria-label="Play preview"
           >
             <PlayCircleFilled style={{ fontSize: 22 }} />

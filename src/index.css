@@ -39,6 +39,8 @@ code {
   padding: 36px 28px 48px;
   max-width: 1860px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 768px) {

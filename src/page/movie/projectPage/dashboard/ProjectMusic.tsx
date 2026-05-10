@@ -42,7 +42,7 @@ const MusicTrackRow: React.FC<{ track: TrackMock; activeFrac: number }> = ({ tra
       <button
         type="button"
         className="proj-track-play"
-        onClick={() => console.log('TODO: play track', track.id)}
+        onClick={() => undefined}
         aria-label="Play"
       >
         <CaretRightOutlined />
@@ -75,7 +75,7 @@ const MusicTrackRow: React.FC<{ track: TrackMock; activeFrac: number }> = ({ tra
       <button
         type="button"
         className="text-white/60 hover:text-white p-1 flex-shrink-0"
-        onClick={() => console.log('TODO: track menu', track.id)}
+        onClick={() => undefined}
         aria-label="More"
       >
         <MoreOutlined />

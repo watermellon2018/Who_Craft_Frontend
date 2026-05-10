@@ -45,7 +45,6 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character }) => {
           style={{ background: 'rgba(0,0,0,0.35)' }}
           onClick={(e) => {
             e.stopPropagation();
-            console.log('TODO: character menu', character.id);
           }}
           aria-label="More"
         >

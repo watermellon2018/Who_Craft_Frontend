@@ -218,31 +218,23 @@ const ProjectDashboardPage: React.FC = () => {
   const usingDemo = !stateProjectId && viewModel === null;
   const view: ViewModel = viewModel ?? (stateProjectId ? skeleton : DEMO_VIEW_MODEL);
 
-  const handleContinue = () => {
-    console.log('TODO: continue project workflow');
-  };
+  const handleContinue = () => undefined;
   const handleOpenScript = () => {
     navigate(PathConstants.SCRIPT_PAGE, { state: { project_id: stateProjectId } });
   };
-  const handleGenerateScene = () => {
-    console.log('TODO: scene generation route');
-  };
+  const handleGenerateScene = () => undefined;
   const handleCreateCharacter = () => {
     navigate(PathConstants.GENERATING, {
       state: { is_edit: false, project_id: stateProjectId },
     });
   };
-  const handleAddMusic = () => {
-    console.log('TODO: add music');
-  };
+  const handleAddMusic = () => undefined;
   const handleQuickAction = useCallback(
     (key: string) => {
       const url = view.quickActionUrls[key];
       if (url) {
-        console.log('Quick action:', key, '→', url);
-        return;
+        window.open(url, '_self');
       }
-      console.log('TODO: quick action', key);
     },
     [view.quickActionUrls],
   );

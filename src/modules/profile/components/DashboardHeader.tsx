@@ -103,9 +103,9 @@ const DashboardHeader: React.FC<Props> = ({
             </button>
           )}
           <Link
-            to={PathConstants.PROJECTS}
+            to={PathConstants.HOME}
             className="app-header__brand"
-            aria-label="Перейти к моим проектам"
+            aria-label="Перейти на главную страницу"
           >
             <span className="app-header__logo-mark" aria-hidden="true">W</span>
             <span className="app-header__logo-text">WCraft</span>

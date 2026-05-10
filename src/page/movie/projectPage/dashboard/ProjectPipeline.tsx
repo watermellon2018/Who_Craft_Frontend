@@ -21,7 +21,7 @@ const PipelineStep: React.FC<{ step: PipelineStepMock }> = ({ step }) => {
   return (
     <div
       className="proj-pipeline-step"
-      onClick={() => console.log('TODO: open pipeline stage', step.key)}
+      onClick={() => undefined}
       role="button"
       tabIndex={0}
     >

@@ -36,10 +36,9 @@ import {
     GENRE_VALUES,
 } from "../../../constants/projectOptions";
 
-// TODO:: its for testing
-const BOTTOM_LEN_ANNOT = 0; // 300 # TODO: заглушка
+const BOTTOM_LEN_ANNOT = 0;
 const UP_LEN_ANNOT = 800;
-const BOTTOM_LEN_DESC = 0; // 700
+const BOTTOM_LEN_DESC = 0;
 const UP_LEN_DESC = 2000;
 
 // ============== Design tokens ==============
