@@ -433,6 +433,13 @@
   opacity: 0.5;
 }
 
+/* ───── Three.js canvas host ─────────────────────────────────────── */
+.c3d-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
 /* ───── Avatar wrapper ───────────────────────────────────────────── */
 .c3d-viewport__avatar {
   position: absolute;

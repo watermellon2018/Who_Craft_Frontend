@@ -8,6 +8,7 @@
     "@huggingface/inference": "^2.6.4",
     "@lexical/react": "^0.16.1",
     "@lexical/rich-text": "^0.16.1",
+    "@react-three/fiber": "^8.15.16",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -15,6 +16,7 @@
     "@types/node": "^16.18.66",
     "@types/react": "^18.2.41",
     "@types/react-dom": "^18.2.17",
+    "@types/three": "^0.160.0",
     "antd": "^5.12.1",
     "axios": "^1.6.2",
     "cors": "^2.8.5",
@@ -34,6 +36,7 @@
     "react-window": "^1.8.10",
     "recharts": "^3.8.1",
     "styled-components": "^6.1.11",
+    "three": "^0.160.1",
     "typescript": "^4.9.5",
     "uuid": "^9.0.1",
     "web-vitals": "^2.1.4"
@@ -45,6 +48,12 @@
     "eject": "react-scripts eject",
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
   },
+  "jest": {
+    "transformIgnorePatterns": [
+      "[/\\\\]node_modules[/\\\\](?!(three|@react-three)[/\\\\]).+\\.(js|mjs|cjs|jsx|ts|tsx)$",
+      "^.+\\.module\\.(css|sass|scss)$"
+    ]
+  },
   "eslintConfig": {
     "extends": [
       "react-app",
@@ -52,7 +61,17 @@
     ],
     "rules": {
       "no-console": "error"
-    }
+    },
+    "overrides": [
+      {
+        "files": [
+          "src/modules/character-studio/components/character3d/**/*.tsx"
+        ],
+        "rules": {
+          "react/no-unknown-property": "off"
+        }
+      }
+    ]
   },
   "browserslist": {
     "production": [

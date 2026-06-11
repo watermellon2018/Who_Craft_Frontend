@@ -16,6 +16,8 @@ import {
 } from '../components/character3d/zones';
 
 const MOCK_CHARACTER_NAME = 'Персонаж';
+import {characterApi} from '../api/characterApi';
+import {mergeSavedParams} from '../components/character3d/engine/paramMerge';
 import {useCharacter} from '../hooks/useCharacter';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './Character3DEditorPage.css';
@@ -29,12 +31,13 @@ import './Character3DEditorPage.css';
 //   • symmetryEnabled     — whether edits mirror onto the opposite side
 //   • zoneParams          — per-zone parameter values, keyed by paramId
 //   • selectedSide        — reserved for future left/right side selection
-//                          (kept here so future Three.js morph application
+//                          (kept here so side-aware parameter application
 //                          can read it without a state shape migration)
 //
-// TODO: replace the SVG silhouette with a React Three Fiber scene; once
-// the viewer raycasts onto the actual mesh, the EditableZone hierarchy
-// already exposed here is what we'll wire morph/bone parameters into.
+// The viewport renders a parametric Three.js rig (engine/rig.ts): zone
+// raycasting, drag-to-edit and camera focus are real; zoneParams is the
+// single source of truth shared with the panel and persisted via
+// characterApi.getModel3D / saveModel3D.
 const Character3DEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -54,6 +57,29 @@ const Character3DEditorPage: React.FC = () => {
   // Reserved for a future "edit left side only / right side only" toggle.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedSide, _setSelectedSide] = useState<'left' | 'right' | 'both'>('both');
+
+  // ─── Load saved 3D state ───
+  useEffect(() => {
+    if (!projectId || !characterId) return;
+    let alive = true;
+    characterApi
+      .getModel3D(projectId, characterId)
+      .then((res) => {
+        if (!alive) return;
+        const saved = res.data?.params;
+        if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
+          const merged = mergeSavedParams(saved);
+          setZoneParams(merged);
+          setParamsBaseline(merged);
+        }
+      })
+      .catch(() => {
+        // No saved state (or transient error) — the registry defaults stand.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId, characterId]);
 
   // ─── Derived state ───
   const selectedZone: EditableZone | null = useMemo(() => findZone(selectedZoneId), [selectedZoneId]);
@@ -93,9 +119,9 @@ const Character3DEditorPage: React.FC = () => {
 
   const handleParameterChange = useCallback(
     (zoneId: string, paramId: string, value: number | string | boolean) => {
-      // TODO: when symmetry is on, apply the value to both left/right
-      // morphs of the underlying rig. For now the mock just records the
-      // value once; the UI explains the symmetry contract via helper text.
+      // Parameters are stored once per zone and the rig applies them to both
+      // sides — symmetric by construction. Per-side values arrive together
+      // with the selectedSide state when asymmetric editing ships.
       setZoneParams((prev) => ({
         ...prev,
         [zoneId]: {...(prev[zoneId] ?? {}), [paramId]: value},
@@ -107,7 +133,6 @@ const Character3DEditorPage: React.FC = () => {
   const handleZoomToggle = useCallback(() => {
     if (!selectedZoneId) return;
     setZoomZoneId((prev) => (prev === selectedZoneId ? null : selectedZoneId));
-    // TODO: replace CSS mock zoom with real Three.js camera focus on selected zone.
   }, [selectedZoneId]);
 
   const handleSymmetryToggle = useCallback(() => {
@@ -136,10 +161,21 @@ const Character3DEditorPage: React.FC = () => {
   }, [zoneParams]);
 
   const handleSave = useCallback(() => {
-    // TODO: POST to backend save endpoint with the resolved zoneParams.
-    setParamsBaseline(zoneParams);
-    message.success('Модель сохранена');
-  }, [zoneParams]);
+    if (!projectId || !characterId) {
+      setParamsBaseline(zoneParams);
+      message.success('Изменения применены локально');
+      return;
+    }
+    characterApi
+      .saveModel3D(projectId, characterId, zoneParams)
+      .then(() => {
+        setParamsBaseline(zoneParams);
+        message.success('Модель сохранена');
+      })
+      .catch(() => {
+        message.error('Не удалось сохранить модель — попробуйте ещё раз');
+      });
+  }, [projectId, characterId, zoneParams]);
 
   // ─── Esc clears selection ───
   useEffect(() => {
@@ -195,6 +231,7 @@ const Character3DEditorPage: React.FC = () => {
             ancestorIds={ancestorIds}
             onHoverZone={handleHoverZone}
             onSelectZone={handleSelectZone}
+            onParameterChange={handleParameterChange}
             zoneParams={zoneParams}
           />
 

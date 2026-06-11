@@ -73,6 +73,12 @@ export const characterApi = {
   getJob(jobId: string) {
     return api.get(`api/generation-jobs/${jobId}`);
   },
+  getModel3D(projectId: string | number, characterId: string) {
+    return api.get(`${base(projectId, characterId)}/model3d`);
+  },
+  saveModel3D(projectId: string | number, characterId: string, params: Record<string, unknown>) {
+    return api.put(`${base(projectId, characterId)}/model3d`, { params });
+  },
   applyVariant(
     projectId: string | number,
     characterId: string,
