@@ -62,7 +62,7 @@ const SocialLinksCard: React.FC<Props> = ({ socials, error, onChange }) => {
               value={socials[row.key]}
               onChange={(e) => update(row.key, e.target.value)}
               placeholder={row.placeholder}
-              className="flex-1 min-w-0 bg-[#1b1f27] border border-white/10 rounded-xl px-3.5 py-2 text-sm placeholder-white/30 focus:outline-none focus:border-[#fab005]/60 focus:ring-2 focus:ring-[#fab005]/15 transition-colors"
+              className="flex-1 min-w-0 bg-[#1b1f27] border border-white/10 rounded-xl px-3.5 py-2 text-sm placeholder-white/30 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/15 transition-colors"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             />
           </div>

@@ -1,100 +1,197 @@
-import React from 'react';
-import {Form, Input, Button, message, Layout, Col, Row} from 'antd';
+import React, { useState } from 'react';
+import { Form, Input, Button, Checkbox } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
+import { setStoredUserToken } from '../../api/http';
+import {
+    CaretRightOutlined,
+    UserOutlined,
+    LockOutlined,
+    EyeOutlined,
+    EyeInvisibleOutlined,
+    ThunderboltOutlined,
+    VideoCameraOutlined,
+} from '@ant-design/icons';
 
 import './login.css';
 import { login } from '../../api/auth/login';
-import PathConstants from "../../routes/pathConstant";
+import PathConstants from '../../routes/pathConstant';
 
 interface LoginFormValues {
     username: string;
     password: string;
+    remember?: boolean;
 }
+
+interface FeatureItemProps {
+    icon: React.ReactNode;
+    title: string;
+}
+
+const FeatureItem: React.FC<FeatureItemProps> = ({ icon, title }) => (
+    <li className="wc-login__feature">
+        <span className="wc-login__feature-icon">{icon}</span>
+        <span>{title}</span>
+    </li>
+);
+
+const PromoPanel: React.FC = () => (
+    <aside className="wc-login__promo">
+        <div className="wc-login__promo-glow" aria-hidden />
+        <div className="wc-login__promo-content">
+            <span className="wc-login__promo-tag">AI Studio</span>
+            <h2 className="wc-login__promo-title">
+                Создавайте фильмы
+                <br />
+                <span className="wc-login__promo-accent">нового поколения</span>
+            </h2>
+            <p className="wc-login__promo-desc">
+                Генерируйте сцены, персонажей и истории с помощью искусственного интеллекта.
+            </p>
+            <ul className="wc-login__features">
+                <FeatureItem icon={<ThunderboltOutlined />} title="AI-генерация сцен" />
+                <FeatureItem icon={<UserOutlined />} title="Уникальные персонажи" />
+                <FeatureItem icon={<VideoCameraOutlined />} title="Кинематографичное качество" />
+            </ul>
+        </div>
+    </aside>
+);
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
+    const { t } = useTranslation();
+    const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const onFinish = (values: LoginFormValues) => {
-        login(values)
-            .then((data: any) => {
-                console.log(data);
-                if (data.status === 200) {
-                    // TODO:: зачем кукисы, если мы используем локальное хранилище. Подумать
-                    Cookies.set('id', data.refresh, { expires: 7 });
-                    localStorage.setItem('userId', data.refresh);
-                    navigate(PathConstants.HOME);
-                } else {
-                    message.error('Пользователь не найден в базе');
-                }
-            })
-            .catch((error: any) => {
-                console.error(error);
-                // Consider updating your error handling here
+    const onFinish = async (values: LoginFormValues) => {
+        setErrorMessage(null);
+        setLoading(true);
+        try {
+            const data = await login({
+                username: values.username,
+                password: values.password,
             });
-    };
-
-    const onFinishFailed = (errorInfo: any) => {
-        console.log('Failed:', errorInfo);
+            if (data && (data.status === 200 || String(data.status) === '200') && data.refresh) {
+                setStoredUserToken(data.refresh);
+                navigate(PathConstants.HOME);
+            } else {
+                setErrorMessage(t('auth.login.invalidCredentials'));
+            }
+        } catch {
+            // NEVER log the raw error: axios errors embed the request body,
+            // which means the password we just submitted.
+            setErrorMessage(t('auth.login.networkError'));
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <Layout className='login-page'>
-            <Form
-                name="login-form "
-                initialValues={{ remember: true }}
-                onFinish={onFinish}
-                onFinishFailed={onFinishFailed}
-                className='flex flex-col w-full'
-                autoComplete="off"
-                style={{maxWidth: '600px'}}
-            >
-                <Row className="justify-center items-start row-field-login">
-                    <Row>
-                        <Col className="col text-right pr-4" style={{width: '100px'}}>
-                            <p>Username:</p>
-                        </Col>
+        <div className="wc-login">
+            <div className="wc-login__bg" aria-hidden />
 
-                        <Col>
+            <div className="wc-login__shell">
+                <div className="wc-login__logo">
+                    <span className="wc-login__logo-icon" aria-hidden>
+                        <CaretRightOutlined />
+                    </span>
+                    <span className="wc-login__logo-text">
+                        <span className="wc-login__logo-w">W</span>Craft
+                    </span>
+                </div>
 
-                            <Form.Item
-                                name="username"
-                                rules={[{ required: true, message: 'Please input your username!' }]}
-                                className='mb-4'
+                <div className="wc-login__card">
+                    <section className="wc-login__form-pane">
+                        <div className="wc-login__form-inner">
+                            <h1 className="wc-login__title">{t('auth.login.title')}</h1>
+                            <p className="wc-login__subtitle">
+                                {t('auth.login.subtitle')}
+                            </p>
+
+                            <Form
+                                name="wc-login"
+                                layout="vertical"
+                                requiredMark={false}
+                                initialValues={{ remember: true }}
+                                onFinish={onFinish}
+                                autoComplete="off"
                             >
-                                <Input style={{width: '200px'}} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                                <Form.Item
+                                    name="username"
+                                    label={t('auth.login.username')}
+                                    rules={[{ required: true, message: t('auth.login.usernameRequired') }]}
+                                >
+                                    <Input
+                                        prefix={<UserOutlined />}
+                                        placeholder="username"
+                                        size="large"
+                                        autoFocus
+                                        autoComplete="username"
+                                    />
+                                </Form.Item>
 
-                    <Row>
-                        <Col className="col text-right pr-4" style={{width: '100px'}}>
-                            <p>Пароль:</p>
-                        </Col>
-                        <Col>
-                            <Form.Item
-                                name="password"
-                                rules={[{ required: true, message: 'Please input your password!' }]}
-                                className='mb-4'
-                            >
-                                <Input.Password style={{width: '200px'}} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row>
-                        <Col style={{width: '100px'}}></Col>
-                        <Col>
+                                <Form.Item
+                                    name="password"
+                                    label={t('auth.login.password')}
+                                    rules={[{ required: true, message: t('auth.login.passwordRequired') }]}
+                                >
+                                    <Input.Password
+                                        prefix={<LockOutlined />}
+                                        placeholder="••••••••"
+                                        size="large"
+                                        autoComplete="current-password"
+                                        iconRender={(visible) =>
+                                            visible ? <EyeOutlined /> : <EyeInvisibleOutlined />
+                                        }
+                                    />
+                                </Form.Item>
 
-                <Form.Item className='flex' style={{justifyContent: 'end', width: '200px'}}>
-                    <Button style={{width: '100px'}} type="primary" htmlType="submit">
-                        Войти
-                    </Button>
-                </Form.Item>
-                        </Col>
-                    </Row>
-                </Row>
-            </Form>
-        </Layout>
+                                <div className="wc-login__row">
+                                    <Form.Item name="remember" valuePropName="checked" noStyle>
+                                        <Checkbox>{t('auth.login.remember')}</Checkbox>
+                                    </Form.Item>
+                                    <a
+                                        href="#"
+                                        className="wc-login__forgot"
+                                        onClick={(e) => e.preventDefault()}
+                                        // TODO: hook up to /forgot-password when route is added
+                                    >
+                                        {t('auth.login.forgot')}
+                                    </a>
+                                </div>
+
+                                {errorMessage && (
+                                    <div role="alert" className="wc-login__error">
+                                        {errorMessage}
+                                    </div>
+                                )}
+
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    block
+                                    size="large"
+                                    loading={loading}
+                                    className="wc-login__primary"
+                                >
+                                    {loading ? t('auth.login.submitting') : t('auth.login.submit')}
+                                </Button>
+                                <Button
+                                    block
+                                    size="large"
+                                    onClick={() => navigate(PathConstants.REGISTER)}
+                                    className="wc-login__secondary"
+                                >
+                                    {t('auth.login.register')}
+                                </Button>
+                            </Form>
+                        </div>
+                    </section>
+
+                    <PromoPanel />
+                </div>
+            </div>
+        </div>
     );
 };
 

@@ -28,8 +28,7 @@ const ProjectListPage = () => {
                     title: proj.title,
                 }));
                 setProjectList(ar);
-        } catch (error) {
-                console.error('Ошибка при получении списка проектов:', error);
+        } catch (_) {
                 setProjectList([]);
             }
         };
@@ -43,8 +42,7 @@ const ProjectListPage = () => {
             await delete_project_by_id(id);
             const updatedList = projectsList.filter(project => project.id !== id);
             setProjectList(updatedList);
-        } catch (error) {
-            console.error('Ошибка при получении списка проектов:', error);
+        } catch (_) {
             setProjectList([]);
         }
     }

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from '../../../../api/http';
 
 import {
   AccentColor,
@@ -11,8 +11,7 @@ import {
   TrackMock,
 } from './mocks';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
-const tokenParams = () => ({ token_user: localStorage.getItem('userId') });
+// Token is attached as X-User-Token by api/http.ts.
 
 export type ProjectStatusValue = 'draft' | 'in_progress' | 'completed' | 'archived';
 export type ProjectMemberRole = 'owner' | 'editor' | 'viewer';
@@ -126,9 +125,8 @@ export interface DashboardPayload {
 export async function fetchProjectDashboard(
   projectId: number | string,
 ): Promise<DashboardPayload> {
-  const res = await axios.get<DashboardPayload>(
-    `${backendUrl}/api/projects/${projectId}/dashboard/`,
-    { params: tokenParams() },
+  const res = await api.get<DashboardPayload>(
+    `api/projects/${projectId}/dashboard/`,
   );
   return res.data;
 }
@@ -137,9 +135,7 @@ export async function createCharacter(
   projectId: number | string,
   data: { name: string; short_description?: string; role?: string },
 ) {
-  return axios.post(`${backendUrl}/api/projects/${projectId}/characters/`, data, {
-    params: tokenParams(),
-  });
+  return api.post(`api/projects/${projectId}/characters/`, data);
 }
 
 // ----------------------------------------------------------------------------
@@ -172,10 +168,9 @@ export async function updateProject(
   projectId: number | string,
   payload: ProjectUpdatePayload,
 ): Promise<ProjectSummaryPayload> {
-  const res = await axios.patch<ProjectSummaryPayload>(
-    `${backendUrl}/api/projects/${projectId}/`,
+  const res = await api.patch<ProjectSummaryPayload>(
+    `api/projects/${projectId}/`,
     payload,
-    { params: tokenParams() },
   );
   return res.data;
 }
@@ -194,9 +189,7 @@ export async function archiveProject(
 }
 
 export async function deleteProject(projectId: number | string): Promise<void> {
-  await axios.delete(`${backendUrl}/api/projects/${projectId}/`, {
-    params: tokenParams(),
-  });
+  await api.delete(`api/projects/${projectId}/`);
 }
 
 // ----------------------------------------------------------------------------

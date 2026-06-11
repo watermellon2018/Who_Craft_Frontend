@@ -112,7 +112,9 @@ describe('CharacterPreview – fullBody tab', () => {
     });
     const jobs = makeJobs({full_body: {status: 'completed', jobId: 'j1'}});
     renderPreview({activeViewMode: 'fullBody', character, secondaryJobs: jobs});
-    const img = screen.getByAltText('Предпросмотр персонажа') as HTMLImageElement;
+    // Full-body view uses the dedicated `FullBodyCanvas` whose <img> carries
+    // its own alt text ("Полный рост персонажа"), not the generic preview one.
+    const img = screen.getByAltText('Полный рост персонажа') as HTMLImageElement;
     expect(img.src).toBe('http://example.com/fb.png');
   });
 

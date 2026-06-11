@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CaretDownOutlined, CheckOutlined, LoadingOutlined } from '@ant-design/icons';
 import { ProjectStatusKey } from './mocks';
+import {CRAFT_ACCENT} from '../../../../constants/theme';
 
 const STATUS_OPTIONS: Array<{ key: ProjectStatusKey; label: string }> = [
   { key: 'draft', label: 'Черновик' },
@@ -19,8 +20,8 @@ const STATUS_ACCENT: Record<ProjectStatusKey, { bg: string; border: string; colo
   in_progress: {
     bg: 'rgba(250, 176, 5, 0.12)',
     border: 'rgba(250, 176, 5, 0.30)',
-    color: '#fab005',
-    dot: '#fab005',
+    color: 'var(--craft-accent)',
+    dot: CRAFT_ACCENT,
   },
   completed: {
     bg: 'rgba(34, 197, 94, 0.14)',
@@ -138,7 +139,7 @@ const StatusDropdown: React.FC<Props> = ({ status, statusLabel, disabled, loadin
                   padding: '8px 10px',
                   borderRadius: 8,
                   background: isActive ? 'rgba(250,176,5,0.10)' : 'transparent',
-                  color: isActive ? '#fab005' : 'rgba(255,255,255,0.85)',
+                  color: isActive ? 'var(--craft-accent)' : 'rgba(255,255,255,0.85)',
                   border: 'none',
                   cursor: 'pointer',
                   fontSize: 13,
@@ -165,7 +166,7 @@ const StatusDropdown: React.FC<Props> = ({ status, statusLabel, disabled, loadin
                   }}
                 />
                 <span style={{ flex: 1 }}>{opt.label}</span>
-                {isActive && <CheckOutlined style={{ fontSize: 11, color: '#fab005' }} />}
+                {isActive && <CheckOutlined style={{ fontSize: 11, color: 'var(--craft-accent)' }} />}
               </button>
             );
           })}

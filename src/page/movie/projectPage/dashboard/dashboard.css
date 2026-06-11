@@ -33,6 +33,20 @@
   background: #1a1f2c;
 }
 
+.character-card--interactive {
+  cursor: pointer;
+}
+
+.character-card--interactive:hover {
+  border-color: rgba(250, 176, 5, 0.35);
+  transform: translateY(-2px);
+}
+
+.character-card--interactive:focus-visible {
+  outline: 2px solid rgba(250, 176, 5, 0.6);
+  outline-offset: 2px;
+}
+
 /* --- Hero --------------------------------------------------- */
 .proj-hero {
   background: linear-gradient(135deg, #161b27 0%, #131722 100%);
@@ -110,7 +124,7 @@
   border-radius: 999px;
   background: rgba(250, 176, 5, 0.12);
   border: 1px solid rgba(250, 176, 5, 0.3);
-  color: #fab005;
+  color: var(--craft-accent);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -120,7 +134,7 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #fab005;
+  background: var(--craft-accent);
   box-shadow: 0 0 8px rgba(250, 176, 5, 0.7);
 }
 
@@ -145,7 +159,7 @@
 }
 
 .proj-tag-add:hover {
-  color: #fab005;
+  color: var(--craft-accent);
   border-color: rgba(250, 176, 5, 0.5);
 }
 
@@ -170,9 +184,9 @@
 }
 
 .proj-btn-primary {
-  background: #fab005;
+  background: var(--craft-accent);
   color: #111827;
-  border-color: #fab005;
+  border-color: var(--craft-accent);
   font-weight: 700;
   box-shadow: 0 8px 22px -10px rgba(250, 176, 5, 0.6);
 }
@@ -343,7 +357,7 @@
 
 .proj-create-card:hover {
   border-color: rgba(250, 176, 5, 0.5);
-  color: #fab005;
+  color: var(--craft-accent);
   background: rgba(250, 176, 5, 0.04);
 }
 
@@ -446,9 +460,9 @@
 }
 
 .proj-track-play:hover {
-  background: #fab005;
+  background: var(--craft-accent);
   color: #1b1d22;
-  border-color: #fab005;
+  border-color: var(--craft-accent);
 }
 
 /* --- Section header ----------------------------------------- */

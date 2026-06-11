@@ -256,7 +256,6 @@ export const ProjectCreatePage = () => {
                 setLoadError('Не удалось загрузить проект.');
             }
         } catch (error: any) {
-            console.error('Ошибка при получении проекта:', error);
             const message =
                 error?.response?.data?.detail ||
                 error?.message ||
@@ -391,7 +390,6 @@ export const ProjectCreatePage = () => {
                 setPosterDataUrl('');
             }
         } catch (error: any) {
-            console.error('Ошибка при обновлении проекта:', error);
             openNotificationWithIcon(formatBackendError(error), 'Ошибка', 'error');
         } finally {
             setSaving(false);
@@ -410,15 +408,10 @@ export const ProjectCreatePage = () => {
                 navigate(PathConstants.PROJECTS);
             }
         } catch (error: any) {
-            console.error('Ошибка при создании проекта:', error);
             openNotificationWithIcon(formatBackendError(error), 'Ошибка', 'error');
         } finally {
             setSaving(false);
         }
-    };
-
-    const cancelHandle = () => {
-        navigate(PathConstants.PROJECTS);
     };
 
     const handleBack = () => {
@@ -544,11 +537,17 @@ export const ProjectCreatePage = () => {
                     right: 14px !important;
                     height: 14px !important;
                     width: 14px !important;
-                    line-height: 1 !important;
+                    line-height: 0 !important;
                     display: inline-flex !important;
                     align-items: center !important;
                     justify-content: center !important;
                     pointer-events: none;
+                }
+                .craft-field .ant-select-arrow .anticon,
+                .craft-field .ant-select-arrow .anticon svg {
+                    display: block !important;
+                    vertical-align: middle !important;
+                    line-height: 0 !important;
                 }
                 .craft-field .ant-select-clear {
                     top: 50% !important;
@@ -631,7 +630,7 @@ export const ProjectCreatePage = () => {
                 }
             `}</style>
 
-            <DashboardHeader title="" />
+            <DashboardHeader title="" hideSubnav />
 
             <div style={{ background: COLORS.pageBg, minHeight: '100vh', color: COLORS.textPrimary }}>
                 <div
@@ -677,11 +676,6 @@ export const ProjectCreatePage = () => {
                         }}
                     >
                         <div style={{ minWidth: 0, flex: '1 1 320px' }}>
-                            <div style={{ marginBottom: 16 }}>
-                                <SecondaryButton onClick={handleBack} icon={<ArrowLeftOutlined />}>
-                                    Назад
-                                </SecondaryButton>
-                            </div>
                             <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, marginBottom: 8, color: COLORS.textPrimary }}>
                                 Настройки проекта
                             </h1>
@@ -690,8 +684,12 @@ export const ProjectCreatePage = () => {
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <SecondaryButton onClick={cancelHandle} disabled={saving}>
-                                Отмена
+                            <SecondaryButton
+                                onClick={handleBack}
+                                disabled={saving}
+                                icon={<ArrowLeftOutlined />}
+                            >
+                                Назад
                             </SecondaryButton>
                             <PrimaryButton
                                 onClick={is_edit ? updateHandle : createHandle}
@@ -916,10 +914,8 @@ export const ProjectCreatePage = () => {
                                                     <Select
                                                         placeholder="Выберите жанр"
                                                         value={genre || undefined}
-                                                        onChange={(value) => setGenre(value || '')}
+                                                        onChange={(value) => setGenre((value || '').trim())}
                                                         allowClear
-                                                        showSearch
-                                                        optionFilterProp="children"
                                                         style={{ width: '100%' }}
                                                     >
                                                         {PROJECT_GENRE_OPTIONS.map((opt) => (

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Channel } from '../types';
 import ChannelRow from './ChannelRow';
 import EmptyState from './EmptyState';
+import {CRAFT_ACCENT} from '../../../constants/theme';
 
 interface Props {
   channels: Channel[];
@@ -44,6 +46,7 @@ const ChannelList: React.FC<Props> = ({
   onUnsubscribe,
   onShowMore,
 }) => {
+  const { t } = useTranslation();
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
 
   const handleToggleDropdown = useCallback((channelId: number) => {
@@ -101,7 +104,7 @@ const ChannelList: React.FC<Props> = ({
       {badge !== undefined && (
         <span
           className="text-xs font-medium px-2 py-0.5 rounded-full"
-          style={{ background: 'rgba(250,176,5,0.12)', color: '#fab005' }}
+          style={{ background: 'rgba(250,176,5,0.12)', color: 'var(--craft-accent)' }}
         >
           {badge}
         </span>
@@ -110,7 +113,7 @@ const ChannelList: React.FC<Props> = ({
 
     {isLoading && channels.length === 0 ? (
       <div className="px-6 py-12 text-center text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
-        Загрузка...
+        {t('subscriptions.list.loading')}
       </div>
     ) : channels.length === 0 ? (
       <EmptyState query={searchQuery} />
@@ -135,17 +138,17 @@ const ChannelList: React.FC<Props> = ({
           style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
         >
           <span className="text-xs" style={{ color: 'rgba(255,255,255,0.32)' }}>
-            Показано 1–{Math.min(shown, total)} из {total}
+            {t('subscriptions.list.shownCount', { shown: Math.min(shown, total), total })}
           </span>
           {shown < total && (
             <button
               onClick={onShowMore}
               className="text-xs font-medium transition-colors duration-150"
               style={{ color: 'rgba(255,255,255,0.45)' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#fab005'; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = CRAFT_ACCENT; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)'; }}
             >
-              Показать ещё
+              {t('subscriptions.list.showMore')}
             </button>
           )}
         </div>

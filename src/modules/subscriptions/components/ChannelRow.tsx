@@ -1,5 +1,6 @@
 import React from 'react';
 import { Channel } from '../types';
+import { CRAFT_ACCENT, CRAFT_ACCENT_SECONDARY } from '../../../constants/theme';
 
 interface Props {
   channel: Channel;
@@ -21,11 +22,11 @@ const AVATAR_GRADIENTS: Record<string, string> = {
   FL: 'linear-gradient(135deg, #14B8A6, #0D9488)',
   FP: 'linear-gradient(135deg, #6366F1, #4F46E5)',
   EF: 'linear-gradient(135deg, #0EA5E9, #0284C7)',
-  FC: 'linear-gradient(135deg, #fab005, #d97706)',
+  FC: `linear-gradient(135deg, ${CRAFT_ACCENT}, ${CRAFT_ACCENT_SECONDARY})`,
 };
 
 const StarIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="#fab005" stroke="#fab005" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill={CRAFT_ACCENT} stroke={CRAFT_ACCENT} strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
   </svg>
 );
@@ -148,12 +149,12 @@ const ChannelRow: React.FC<Props> = ({ channel, isDropdownOpen, onToggleDropdown
               height: '38px',
               padding: '0 20px',
               borderRadius: '12px',
-              background: '#fab005',
+              background: 'var(--craft-accent)',
               color: '#13151a',
               border: 'none',
             }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#fcc419'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#fab005'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = CRAFT_ACCENT; }}
           >
             Подписаться
           </button>

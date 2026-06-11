@@ -48,8 +48,8 @@ import {
   deleteProject as apiDeleteProject,
 } from './api';
 import EditProjectModal from './EditProjectModal';
-import { ArrowLeftOutlined } from '@ant-design/icons';
 import { Modal, message } from 'antd';
+import { safeHttpUrl } from '../../../../utils/safeUrl';
 
 import '../../../../modules/profile/profile.css';
 import './dashboard.css';
@@ -224,17 +224,33 @@ const ProjectDashboardPage: React.FC = () => {
   };
   const handleGenerateScene = () => undefined;
   const handleCreateCharacter = () => {
-    navigate(PathConstants.GENERATING, {
-      state: { is_edit: false, project_id: stateProjectId },
-    });
+    if (!stateProjectId) return;
+    // Route the "create character" CTA to the modern character studio gallery
+    // (the legacy ``/generating`` route was removed along with the legacy
+    // hero editor).
+    const url = PathConstants.CHARACTER_STUDIO.replace(':projectId', String(stateProjectId));
+    navigate(url);
   };
+  const handleCharacterClick = useCallback(
+    (characterId: string) => {
+      if (!stateProjectId) return;
+      const url = PathConstants.CHARACTER_STUDIO_EDITOR
+        .replace(':projectId', String(stateProjectId))
+        .replace(':characterId', String(characterId));
+      navigate(url);
+    },
+    [navigate, stateProjectId],
+  );
   const handleAddMusic = () => undefined;
   const handleQuickAction = useCallback(
     (key: string) => {
-      const url = view.quickActionUrls[key];
-      if (url) {
-        window.open(url, '_self');
-      }
+      const raw = view.quickActionUrls[key];
+      // Quick-action URLs come from the API. Reject anything that isn't a
+      // safe http(s) target or a same-origin relative path — otherwise an
+      // attacker-controlled value could redirect the user to phishing.
+      const safe = safeHttpUrl(raw);
+      if (!safe) return;
+      window.open(safe, '_self');
     },
     [view.quickActionUrls],
   );
@@ -365,7 +381,7 @@ const ProjectDashboardPage: React.FC = () => {
       okText: 'Архивировать',
       cancelText: 'Отмена',
       okButtonProps: {
-        style: { background: '#fab005', borderColor: '#fab005', color: '#111827', fontWeight: 700 },
+        style: { background: 'var(--craft-accent)', borderColor: 'var(--craft-accent)', color: '#111827', fontWeight: 700 },
       },
       onOk: async () => {
         try {
@@ -438,10 +454,6 @@ const ProjectDashboardPage: React.FC = () => {
     });
   }, [stateProjectId, navigate]);
 
-  const handleBackToList = useCallback(() => {
-    navigate(PathConstants.PROJECTS);
-  }, [navigate]);
-
   const sectionTitle = loading ? 'Проект' : (view.project.title || 'Проект');
 
   return (
@@ -458,16 +470,6 @@ const ProjectDashboardPage: React.FC = () => {
           style={{ opacity: loading ? 0.55 : 1 }}
           aria-busy={loading}
         >
-            <button
-              type="button"
-              onClick={handleBackToList}
-              className="inline-flex items-center gap-2 text-white/60 hover:text-white/90 text-sm mb-4 transition-colors"
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
-            >
-              <ArrowLeftOutlined />
-              Все проекты
-            </button>
-
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 sm:gap-6">
               <div className="flex flex-col gap-4 sm:gap-6 min-w-0">
                 <ProjectHero
@@ -485,6 +487,7 @@ const ProjectDashboardPage: React.FC = () => {
                 <CharactersSection
                   characters={view.characters}
                   onCreate={handleCreateCharacter}
+                  onCharacterClick={stateProjectId ? handleCharacterClick : undefined}
                 />
                 <ProjectPipeline pipeline={view.pipeline} />
                 <ProjectMusic tracks={view.music} onAdd={handleAddMusic} />

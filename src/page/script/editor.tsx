@@ -3,6 +3,7 @@ import {useLocation, useNavigate} from "react-router-dom";
 import {Button, Col, Row, Tooltip} from "antd";
 import DashboardHeader from "../../modules/profile/components/DashboardHeader";
 import withAuth from "../../utils/auth/check_auth";
+import {CRAFT_ACCENT} from "../../constants/theme";
 import 'ckeditor5/ckeditor5.css';
 import { CKEditor, CKEditorContext } from '@ckeditor/ckeditor5-react';
 import { BalloonEditor, DecoupledEditor, ClassicEditor, Bold, Essentials, Italic, Mention, Paragraph, Undo } from 'ckeditor5';
@@ -57,10 +58,8 @@ const theme = {
 const MyOnChangePlugin: FC = () => {
     function onChange(editorState: EditorState) {
         editorState.read(() => {
-            const root = $getRoot();
-            const selection = $getSelection();
-
-            console.log(root, selection);
+            $getRoot();
+            $getSelection();
         });
     }
 
@@ -85,9 +84,7 @@ function MyAutoFocusPlugin() {
 // Catch any errors that occur during Lexical updates and log them
 // or throw them as needed. If you don't throw them, Lexical will
 // try to recover gracefully without losing user data.
-function onError(error: any) {
-    console.error(error);
-}
+function onError(_error: any) {}
 
 /**
  * https://ckeditor.com/docs/ckeditor5/latest/getting-started/installation/react/react.html
@@ -97,9 +94,7 @@ const ScriptPage = () => {
     const initialConfig = {
         namespace: "MyEditor",
         theme,
-        onError(error: Error) {
-            console.error(error);
-        },
+        onError(_error: Error) {},
         nodes: [CodeNode, CodeHighlightNode, AutoLinkNode, LinkNode],
     };
 
@@ -148,25 +143,25 @@ const ScriptPage = () => {
                     </Col>
                     <Col style={{display: 'flex', flexDirection: 'column', gap: '10px', }}>
 
-                            <Tooltip color='#fab005' title='Описание действий, происходящих на сцене.'>
+                            <Tooltip color={CRAFT_ACCENT} title='Описание действий, происходящих на сцене.'>
                                 <Button>Действие</Button>
                             </Tooltip>
-                            <Tooltip color='#fab005' title='Текст, произносимый персонажем.'>
+                            <Tooltip color={CRAFT_ACCENT} title='Текст, произносимый персонажем.'>
                                 <Button>Диалог</Button>
                             </Tooltip>
-                            <Tooltip color='#fab005' title='Заголовок сцены, место и время действия.'>
+                            <Tooltip color={CRAFT_ACCENT} title='Заголовок сцены, место и время действия.'>
                                 <Button>Сцена</Button>
                             </Tooltip>
-                            <Tooltip color='#fab005' title='Инструкции для оператора по съёмке.'>
+                            <Tooltip color={CRAFT_ACCENT} title='Инструкции для оператора по съёмке.'>
                                 <Button>Камера</Button>
                             </Tooltip>
-                            <Tooltip color='#fab005' title='Переходы между сценами (например, "CUT TO:").'>
+                            <Tooltip color={CRAFT_ACCENT} title='Переходы между сценами (например, "CUT TO:").'>
                                 <Button>Переход</Button>
                             </Tooltip>
-                            <Tooltip color='#fab005' title='Описание звуковых эффектов.'>
+                            <Tooltip color={CRAFT_ACCENT} title='Описание звуковых эффектов.'>
                                 <Button>Звук</Button>
                             </Tooltip>
-                            <Tooltip color='#fab005' title='Дополнительные примечания или комментарии.'>
+                            <Tooltip color={CRAFT_ACCENT} title='Дополнительные примечания или комментарии.'>
                                 <Button>Замечание</Button>
                             </Tooltip>
 

@@ -14,7 +14,7 @@ const tabs: Array<{key: CharacterRegion | 'personality'; label: string; descript
   {key: 'hair', label: 'Волосы', description: 'Прическа и борода', icon: <BgColorsOutlined />},
   {key: 'body', label: 'Тело', description: 'Телосложение', icon: <TeamOutlined />},
   {key: 'outfit', label: 'Одежда', description: 'Слои и силуэт', icon: <SkinOutlined />},
-  {key: 'style', label: 'Настройки', description: 'Общие параметры', icon: <SettingOutlined />},
+  {key: 'style', label: 'Настройки', description: 'Стиль и сцена', icon: <SettingOutlined />},
   {key: 'personality', label: 'Характер', description: 'Поведение и роль', icon: <EyeOutlined />},
 ];
 

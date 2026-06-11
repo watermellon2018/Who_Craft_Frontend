@@ -4,6 +4,19 @@ import { MemoryRouter } from 'react-router-dom';
 import ProfileDashboardPage from './ProfileDashboardPage';
 import { DashboardData } from './types';
 
+// `ProfileSidebar` transitively imports `api/http`, which imports the
+// ESM-only `axios` package. Jest's default transformer skips node_modules
+// and barfs on the bare `import` statement. Stub the http module here so
+// the test never touches axios at all.
+jest.mock('../../api/http', () => ({
+  __esModule: true,
+  default: {get: jest.fn(), post: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn()},
+  getStoredUserToken: jest.fn(() => null),
+  setStoredUserToken: jest.fn(),
+  clearStoredUserToken: jest.fn(),
+  backendAssetUrl: (p: string) => p,
+}));
+
 const mockFetchDashboard = jest.fn();
 jest.mock('./api/profileApi', () => ({
   fetchDashboard: (...args: any[]) => mockFetchDashboard(...args),

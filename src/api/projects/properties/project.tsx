@@ -1,8 +1,9 @@
-import axios, { AxiosResponse } from 'axios';
+import { AxiosResponse } from 'axios';
 
-// Strip a trailing slash so we can safely concatenate with paths that start
-// with '/' — REACT_APP_BACKEND_URL in some envs ends with '/', producing '//'.
-const backendUrl = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/+$/, '');
+import api from '../../http';
+
+// Token is attached as X-User-Token by api/http.ts. Do not pass token_user
+// in query params or body — query strings leak to logs/Referer.
 
 // Legacy payload shape used by the old endpoints (kept for back-compat with
 // callers that still rely on it). The new editor uses ProjectEditPayload below.
@@ -30,110 +31,80 @@ interface ProjectEditPayload {
     poster_url?: string | null; // pass "" to clear
 }
 
-function authHeaders() {
-    const token = localStorage.getItem('userId') || '';
-    return { 'X-User-Token': token };
-}
-
 // ---- New API (preferred) ----
 
 async function fetch_project(projectId: string | number): Promise<AxiosResponse<any>> {
-    return axios.get(`${backendUrl}/api/projects/${projectId}/`, {
-        headers: authHeaders(),
-    });
+    return api.get(`api/projects/${projectId}/`);
 }
 
 async function patch_project(
     projectId: string | number,
     payload: ProjectEditPayload,
 ): Promise<AxiosResponse<any>> {
-    return axios.patch(`${backendUrl}/api/projects/${projectId}/`, payload, {
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    return api.patch(`api/projects/${projectId}/`, payload, {
+        headers: { 'Content-Type': 'application/json' },
     });
 }
 
 async function create_project(payload: ProjectEditPayload): Promise<AxiosResponse<any>> {
-    return axios.post(`${backendUrl}/api/projects/`, payload, {
-        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    return api.post('api/projects/', payload, {
+        headers: { 'Content-Type': 'application/json' },
     });
 }
 
 async function fetch_projects_list(): Promise<AxiosResponse<any>> {
-    return axios.get(`${backendUrl}/api/projects/`, {
-        headers: authHeaders(),
-    });
+    return api.get('api/projects/');
 }
 
 async function delete_project(projectId: string | number): Promise<AxiosResponse<any>> {
     localStorage.removeItem('treeLeaf_' + projectId);
-    return axios.delete(`${backendUrl}/api/projects/${projectId}/`, {
-        headers: authHeaders(),
-    });
+    return api.delete(`api/projects/${projectId}/`);
 }
 
 // ---- Legacy wrappers (kept so existing pages don't break) ----
 
 async function create_new_project(data: ProjectI): Promise<any> {
     try {
-        const token = localStorage.getItem('userId');
-        return await axios.post(`${backendUrl}/api/projects/create/`, {
-            data: { ...data, token_user: token },
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                Accept: 'application/json',
-            },
-        });
+        return await api.post('api/projects/create/', { data });
     } catch (error) {
-        console.error('Error creating project (legacy):', error);
+        // Don't log the raw error — axios errors embed request bodies.
+        return undefined;
     }
 }
 
 async function get_all_list_projects(): Promise<any> {
     try {
-        const token = localStorage.getItem('userId');
-        return await axios.get(`${backendUrl}/api/projects/get-list-projects/`, {
-            params: { token_user: token },
-        });
+        return await api.get('api/projects/get-list-projects/');
     } catch (error) {
-        console.error('Error listing projects (legacy):', error);
+        return undefined;
     }
 }
 
 async function delete_project_by_id(id: string): Promise<any> {
     try {
         localStorage.removeItem('treeLeaf_' + id);
-        const token = localStorage.getItem('userId');
-        return await axios.get(`${backendUrl}/api/projects/delete-project-by-id/`, {
-            params: { id, token_user: token },
-        });
+        // Backend's legacy endpoint now requires DELETE/POST (GET was CSRF-vulnerable).
+        return await api.delete('api/projects/delete-project-by-id/', { params: { id } });
     } catch (error) {
-        console.error('Error deleting project (legacy):', error);
+        return undefined;
     }
 }
 
 async function get_info_project(id: string): Promise<any> {
     try {
-        const token = localStorage.getItem('userId');
-        return await axios.get(`${backendUrl}/api/projects/select-project-by-id/`, {
-            params: { id, token_user: token },
-        });
+        return await api.get('api/projects/select-project-by-id/', { params: { id } });
     } catch (error) {
-        console.error('Error fetching project (legacy):', error);
+        return undefined;
     }
 }
 
 async function update_info_project(data: ProjectI, id: string): Promise<any> {
     try {
-        const token = localStorage.getItem('userId');
-        return await axios.post(`${backendUrl}/api/projects/update-project-by-id/`, {
-            data: { ...data, token_user: token, id },
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                Accept: 'application/json',
-            },
+        return await api.post('api/projects/update-project-by-id/', {
+            data: { ...data, id },
         });
     } catch (error) {
-        console.error('Error updating project (legacy):', error);
+        return undefined;
     }
 }
 

@@ -1,10 +1,9 @@
 import React, {useMemo} from 'react';
 import './App.css';
-import {BrowserRouter, Route, Routes} from 'react-router-dom';
+import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
 
 import {ConfigProvider} from 'antd';
 import MainPage from "./page/main";
-import LandingPage from "./page/logIn/start";
 import RegistrationPage from "./page/logIn/register";
 import LoginPage from "./page/logIn/login";
 import ProfilePage from "./modules/profile/ProfileDashboardPage";
@@ -13,12 +12,8 @@ import SubscriptionsPage from "./modules/subscriptions/SubscriptionsPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
-import CharacterData from "./page/movie/characters/setting/CharacterData";
 import PathConstants from "./routes/pathConstant";
 import GenPosterPage from "./page/creation/poster/GenPosterPage";
-import EditGenImgPage from "./page/creation/edit/editGenImgPage";
-import AllHeroesPage from "./page/movie/characters/info/allHeroes";
-import HeroPage from "./page/hero/main";
 import ScriptPage from "./page/script/editor";
 import CharacterGalleryPage from "./modules/character-studio/pages/CharacterGalleryPage";
 import CharacterCreatePage from "./modules/character-studio/pages/CharacterCreatePage";
@@ -26,14 +21,42 @@ import CharacterEditorPage from "./modules/character-studio/pages/CharacterEdito
 import CharacterDetailPage from "./modules/character-studio/pages/CharacterDetailPage";
 import CharacterVariantsPage from "./modules/character-studio/pages/CharacterVariantsPage";
 import CharacterReferencesPage from "./modules/character-studio/pages/CharacterReferencesPage";
-import Character3DPlaceholderPage from "./modules/character-studio/pages/Character3DPlaceholderPage";
+import Character3DEditorPage from "./modules/character-studio/pages/Character3DEditorPage";
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
+import withAuth from "./utils/auth/check_auth";
+import {CRAFT_ACCENT} from './constants/theme';
+
+// All private pages are wrapped once here so adding a new private route is a
+// one-line change and we can't forget the auth gate on any single page.
+const ProtectedMainPage = withAuth(MainPage);
+const ProtectedProfilePage = withAuth(ProfilePage);
+const ProtectedProfileEditPage = withAuth(ProfileEditPage);
+const ProtectedSubscriptionsPage = withAuth(SubscriptionsPage);
+const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
+const ProtectedProjectListPage = withAuth(ProjectListPage);
+const ProtectedProjectPage = withAuth(ProjectPage);
+const ProtectedGenPosterPage = withAuth(GenPosterPage);
+const ProtectedScriptPage = withAuth(ScriptPage);
+const ProtectedCharacterGalleryPage = withAuth(CharacterGalleryPage);
+const ProtectedCharacterCreatePage = withAuth(CharacterCreatePage);
+const ProtectedCharacterEditorPage = withAuth(CharacterEditorPage);
+const ProtectedCharacterDetailPage = withAuth(CharacterDetailPage);
+const ProtectedCharacterVariantsPage = withAuth(CharacterVariantsPage);
+const ProtectedCharacterReferencesPage = withAuth(CharacterReferencesPage);
+const ProtectedCharacter3DEditorPage = withAuth(Character3DEditorPage);
+
+const ProtectedCharacterCreateReferenceRoute: React.FC = () => (
+    <CharacterStudioShell>
+        <CharacterCreatePage activeMode="reference" />
+    </CharacterStudioShell>
+);
+const GatedCharacterCreateReferenceRoute = withAuth(ProtectedCharacterCreateReferenceRoute);
 
 // https://ant.design/theme-editor#component-color настройка цветов
 const theme = {
     "token": {
-        "colorPrimary": "#fab005",
-        "colorInfo": "#fab005",
+        "colorPrimary": CRAFT_ACCENT,
+        "colorInfo": CRAFT_ACCENT,
         "colorBgBase": "#1b1d22",
         "colorTextBase": "#ffffff",
         "fontSize": 16,
@@ -86,7 +109,7 @@ const theme = {
             "colorTextPlaceholder": "#6f7784",
             "colorBorder": "#3b414d",
             "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
-            "optionSelectedColor": "#fab005",
+            "optionSelectedColor": CRAFT_ACCENT,
             "optionActiveBg": "rgba(255, 255, 255, 0.05)",
             "selectorBg": "#141820",
         },
@@ -95,11 +118,6 @@ const theme = {
         },
         "Radio": {
             "colorText": "rgb(27, 29, 34)",
-        },
-        "Card": {
-            "colorBgContainer": "#fab005",
-            "colorText": "rgb(27, 29, 34)",
-            "colorTextHeading":  "rgb(27, 29, 34)",
         },
         "Tabs": {
             "itemSelectedColor":  "rgb(27, 29, 34)",
@@ -111,8 +129,8 @@ const theme = {
             "labelColor": "rgb(27, 29, 34)",
         },
         "Empty": {
-            "colorText": "#fab005",
-            "colorTextDisabled": "#fab005",
+            "colorText": CRAFT_ACCENT,
+            "colorTextDisabled": CRAFT_ACCENT,
         }
     }
 }
@@ -120,31 +138,29 @@ const theme = {
 function App() {
 
     const routes = useMemo(() => [
-        { key: 'auth', path: PathConstants.AUTH, component: <LandingPage /> },
+        // Public.
+        { key: 'startRedirect', path: '/start', component: <Navigate to={PathConstants.LOGIN} replace /> },
         { key: 'register', path: PathConstants.REGISTER, component: <RegistrationPage /> },
         { key: 'login', path: PathConstants.LOGIN, component: <LoginPage /> },
-        { key: 'home', path: PathConstants.HOME, component: <MainPage /> },
-        { key: 'generating', path: PathConstants.GENERATING, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
-        { key: 'settingHero', path: PathConstants.SETTING_HERO, component: <CharacterData /> },
-        { key: 'profile', path: PathConstants.PROFILE, component: <ProfilePage /> },
-        { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProfileEditPage /> },
-        { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <SubscriptionsPage /> },
-        { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProjectCreatePage /> },
-        { key: 'projects', path: PathConstants.PROJECTS, component: <ProjectListPage /> },
-        { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProjectPage /> },
-        { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <GenPosterPage /> },
-        { key: 'editGenImg', path: PathConstants.EDIT_GEN_IMG, component: <EditGenImgPage /> },
-        { key: 'allHeroesPage', path: PathConstants.ALL_HEROES_PAGE, component: <AllHeroesPage /> },
-        { key: 'heroPage', path: PathConstants.HERO_PAGE, component: <HeroPage /> },
-        { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ScriptPage /> },
-        { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
-        { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <CharacterStudioShell><CharacterCreatePage /></CharacterStudioShell> },
-        { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <CharacterStudioShell><CharacterCreatePage activeMode="reference" /></CharacterStudioShell> },
-        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <CharacterStudioShell><CharacterVariantsPage /></CharacterStudioShell> },
-        { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <CharacterStudioShell><CharacterDetailPage /></CharacterStudioShell> },
-        { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <CharacterStudioShell><CharacterEditorPage /></CharacterStudioShell> },
-        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <CharacterStudioShell><CharacterReferencesPage /></CharacterStudioShell> },
-        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <CharacterStudioShell><Character3DPlaceholderPage /></CharacterStudioShell> },
+
+        // Private — every entry below MUST be wrapped via withAuth.
+        { key: 'home', path: PathConstants.HOME, component: <ProtectedMainPage /> },
+        { key: 'profile', path: PathConstants.PROFILE, component: <ProtectedProfilePage /> },
+        { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProtectedProfileEditPage /> },
+        { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
+        { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
+        { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },
+        { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProtectedProjectPage /> },
+        { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
+        { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
+        { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><ProtectedCharacterGalleryPage /></CharacterStudioShell> },
+        { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <CharacterStudioShell><ProtectedCharacterCreatePage /></CharacterStudioShell> },
+        { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <GatedCharacterCreateReferenceRoute /> },
+        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <CharacterStudioShell><ProtectedCharacterVariantsPage /></CharacterStudioShell> },
+        { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <CharacterStudioShell><ProtectedCharacterDetailPage /></CharacterStudioShell> },
+        { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <CharacterStudioShell><ProtectedCharacterEditorPage /></CharacterStudioShell> },
+        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <CharacterStudioShell><ProtectedCharacterReferencesPage /></CharacterStudioShell> },
+        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <CharacterStudioShell><ProtectedCharacter3DEditorPage /></CharacterStudioShell> },
     ], []);
 
 

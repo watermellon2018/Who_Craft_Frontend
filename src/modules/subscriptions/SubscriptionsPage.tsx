@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { message } from 'antd';
+import { useTranslation } from 'react-i18next';
 import ProfileSidebar from '../profile/components/ProfileSidebar';
-import DashboardHeader from '../profile/components/DashboardHeader';
 import { fetchDashboard } from '../profile/api/profileApi';
 import { ProfileUser } from '../profile/types';
 import SubscriptionStats from './components/SubscriptionStats';
@@ -49,6 +50,7 @@ function toChannel(api: ApiChannel): Channel {
 }
 
 const SubscriptionsPage: React.FC = () => {
+  const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [user, setUser] = useState<ProfileUser | null>(null);
@@ -75,17 +77,21 @@ const SubscriptionsPage: React.FC = () => {
   }, []);
 
   // -- load my subscriptions --
-  const loadMySubs = useCallback(async () => {
+  const loadMySubs = useCallback(async (options?: {silent?: boolean}) => {
     setLoadingSubs(true);
     try {
       const res = await fetchMySubscriptions(PAGE_SIZE, 0);
       setMySubs(res.items.map(toChannel));
       setTotalSubs(res.total);
       setFavoriteCount(res.favoriteCount);
+    } catch {
+      if (!options?.silent) {
+        message.error(t('subscriptions.errors.loadFailed'));
+      }
     } finally {
       setLoadingSubs(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadMySubs(); }, [loadMySubs]);
 
@@ -103,6 +109,10 @@ const SubscriptionsPage: React.FC = () => {
         const res = await searchChannels(normalizedQuery, PAGE_SIZE, 0);
         if (seq !== searchSeqRef.current) return;
         setSearchResults(res.items.map(toChannel));
+      } catch {
+        if (seq !== searchSeqRef.current) return;
+        setSearchResults([]);
+        message.error(t('subscriptions.errors.searchFailed'));
       } finally {
         if (seq === searchSeqRef.current) setSearchLoading(false);
       }
@@ -129,12 +139,11 @@ const SubscriptionsPage: React.FC = () => {
         notificationsEnabled: res.subscription.notificationsEnabled,
       });
       // Refresh subscriptions list + counters so the new subscription appears in "Мои подписки".
-      loadMySubs();
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('subscribe failed', err);
+      loadMySubs({silent: true});
+    } catch {
+      message.error(t('subscriptions.errors.subscribeFailed'));
     }
-  }, [loadMySubs, updateChannelInLists]);
+  }, [loadMySubs, updateChannelInLists, t]);
 
   const handleUnsubscribe = useCallback(async (id: number) => {
     try {
@@ -154,14 +163,13 @@ const SubscriptionsPage: React.FC = () => {
       setTotalSubs((n) => Math.max(0, n - 1));
       setFavoriteCount((n) => Math.max(0, n));
       // Refetch authoritative counts (favorites may have decreased too).
-      loadMySubs();
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('unsubscribe failed', err);
+      loadMySubs({silent: true});
+    } catch {
+      message.error(t('subscriptions.errors.unsubscribeFailed'));
     }
-  }, [loadMySubs]);
+  }, [loadMySubs, t]);
 
-  const listTitle = isSearchMode ? 'Результаты поиска' : 'Мои подписки';
+  const listTitle = isSearchMode ? t('subscriptions.list.searchResults') : t('subscriptions.list.mySubscriptions');
   const listBadge = isSearchMode ? displayedChannels.length : undefined;
   const listTotal = isSearchMode ? displayedChannels.length : totalSubs;
   const listShown = displayedChannels.length;
@@ -182,19 +190,25 @@ const SubscriptionsPage: React.FC = () => {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <DashboardHeader
-          user={user}
-          onMenuToggle={() => setSidebarOpen((o) => !o)}
-        />
-
         <main className="flex-1 overflow-y-auto profile-scroll">
           <div
             className="w-full mx-auto"
             style={{ maxWidth: '1240px', padding: '32px 40px 56px' }}
           >
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((o) => !o)}
+              className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors mb-2"
+              style={{ background: 'transparent', border: 'none' }}
+              aria-label={t('subscriptions.menuAria')}
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
+                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
             <div className="mb-7">
               <h1 className="text-2xl font-bold mb-2" style={{ color: 'rgba(255,255,255,0.92)' }}>
-                Подписки
+                {t('subscriptions.pageTitle')}
               </h1>
             </div>
 

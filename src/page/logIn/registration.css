@@ -1,33 +1,65 @@
-.registration-page {
-    /*display: flex;*/
-    /*justify-content: center;*/
-    /*height: 100vh;*/
+/* ============================================================
+   WCraft Registration Page
+   Reuses .wc-login styles (login.css must be imported first).
+   This file only adds register-specific tweaks.
+   ============================================================ */
 
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+.wc-register .wc-login__form-pane {
+    /* Form is taller — give the inner more breathing room and let it scroll if very small */
+    align-items: flex-start;
+    padding-top: clamp(28px, 4vh, 44px);
+    padding-bottom: clamp(28px, 4vh, 44px);
 }
 
-.registration-page form {
-    /*display: flex !important;*/
-    /*flex-direction: column !important;*/
-    /*align-items: center !important;*/
-    /*position: relative !important;*/
-    /*margin-bottom: 20px !important;*/
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    position: relative !important;
-    margin-bottom: 20px !important;
+.wc-register .wc-login__form-inner {
+    max-width: 420px;
 }
 
-.registration-page .ant-input {
-    min-width: 50px;
-    max-width: 250px;
+/* Tighter spacing between many form items so the card stays on one screen */
+.wc-register .ant-form-item {
+    margin-bottom: 12px;
 }
 
-.registration-page .ant-input-password {
-    min-width: 50px;
-    max-width: 250px;
+.wc-register .wc-login__title {
+    margin-bottom: 6px;
+}
+.wc-register .wc-login__subtitle {
+    margin-bottom: 18px;
+}
+
+/* "— необязательно" hint next to Email label */
+.wc-register__optional {
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 400;
+    font-size: 12px;
+    margin-left: 2px;
+}
+
+/* Terms checkbox row — make sure the inline link sits nicely */
+.wc-register .ant-checkbox-wrapper {
+    align-items: flex-start;
+    line-height: 1.4;
+}
+.wc-register__terms-link {
+    margin-left: 2px;
+}
+
+/* Sign-in link below the submit button */
+.wc-register__signin {
+    margin-top: 14px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 13px;
+}
+.wc-register__signin a {
+    margin-left: 4px;
+}
+
+/* On laptops with short height, allow the card to scroll internally rather
+   than push the page taller. */
+@media (max-height: 820px) {
+    .wc-register {
+        align-items: flex-start;
+        padding-top: 32px;
+    }
 }

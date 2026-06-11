@@ -327,3 +327,22 @@ export interface ProceedTo3DResponse {
   blockers?: string[];
   checklist?: ReferencesChecklist;
 }
+
+export interface CreateCharacterFromReferencePayload {
+  name: string;
+  entityType: string;
+  role?: string;
+  lifecycleStage?: string;
+  gender?: string;
+  visualStyle?: string;
+  refinement?: string;
+  variantsCount?: number;
+  preserveIdentity?: boolean;
+  referenceImage: File;
+}
+
+export interface CreateCharacterFromReferenceResponse {
+  character: StudioCharacter;
+  reference: CharacterAsset;
+  generation_job: GenerationJob;
+}

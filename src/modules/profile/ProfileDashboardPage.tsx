@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { DashboardData, ProfileSettings } from './types';
 import { fetchDashboard } from './api/profileApi';
 import ProfileSidebar from './components/ProfileSidebar';
-import DashboardHeader from './components/DashboardHeader';
 import ProfileHero from './components/ProfileHero';
 import ProfileCompletion from './components/ProfileCompletion';
 import QuickStatsGrid from './components/QuickStatsGrid';
@@ -50,13 +49,19 @@ const ProfileDashboardPage: React.FC = () => {
       <ProfileSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <DashboardHeader
-          user={data?.user ?? null}
-          onMenuToggle={() => setSidebarOpen((o) => !o)}
-        />
-
         <main className="flex-1 overflow-y-auto profile-scroll">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-4">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((o) => !o)}
+              className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+              style={{ background: 'transparent', border: 'none' }}
+              aria-label="Открыть меню"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
+                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
             {loading && <SkeletonDashboard />}
 
             {error && !loading && (
@@ -65,7 +70,7 @@ const ProfileDashboardPage: React.FC = () => {
                 <p className="text-white/60 text-lg font-medium">Не удалось загрузить личный кабинет</p>
                 <button
                   onClick={load}
-                  className="bg-[#fab005] text-[#13151a] font-semibold px-6 py-2.5 rounded-xl hover:bg-[#fcc419] transition-colors"
+                  className="bg-accent text-[#13151a] font-semibold px-6 py-2.5 rounded-xl hover:bg-[#fcc419] transition-colors"
                 >
                   Повторить
                 </button>

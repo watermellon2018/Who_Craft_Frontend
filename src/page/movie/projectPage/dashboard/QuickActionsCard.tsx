@@ -31,7 +31,7 @@ const QuickActionsCard: React.FC<Props> = ({ actions, onAction }) => {
             <div
               key={a.key}
               className="proj-action-row"
-              onClick={() => (onAction ? onAction(a.key) : console.log('TODO: quick action', a.key))}
+              onClick={() => onAction?.(a.key)}
               role="button"
               tabIndex={0}
             >

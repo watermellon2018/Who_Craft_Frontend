@@ -1,6 +1,7 @@
 import React, {useRef, useState} from 'react';
 import {Input, message} from 'antd';
 import {CloseOutlined, PlusOutlined, WarningOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {characterApi} from '../api/characterApi';
 import {ClothingReference} from '../types/character.types';
 
@@ -28,17 +29,18 @@ export default function OutfitSettingsPanel({
   outfitSource,
   onSourceChange,
 }: OutfitSettingsPanelProps) {
+  const {t} = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
 
   const handleFile = async (file: File) => {
     if (!ACCEPTED_MIME.includes(file.type)) {
-      message.error('Поддерживаются только JPG, PNG и WebP.');
+      message.error(t('characterStudio.outfit.fileFormatError'));
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      message.error('Файл не должен превышать 10 МБ.');
+      message.error(t('characterStudio.outfit.fileSizeError'));
       return;
     }
     setUploading(true);
@@ -46,9 +48,9 @@ export default function OutfitSettingsPanel({
       const response = await characterApi.uploadClothingReference(projectId, characterId, file);
       const asset = response.data as ClothingReference;
       onReferencesChange([...clothingReferences, asset]);
-      message.success('Референс загружен');
+      message.success(t('characterStudio.outfit.uploadSuccess'));
     } catch {
-      message.error('Ошибка загрузки. Попробуйте ещё раз.');
+      message.error(t('characterStudio.outfit.uploadError'));
     } finally {
       setUploading(false);
     }
@@ -71,9 +73,9 @@ export default function OutfitSettingsPanel({
     try {
       await characterApi.deleteClothingReference(projectId, characterId, assetId);
       onReferencesChange(clothingReferences.filter((r) => r.asset_id !== assetId));
-      message.success('Референс удалён');
+      message.success(t('characterStudio.outfit.deleteSuccess'));
     } catch {
-      message.error('Ошибка при удалении.');
+      message.error(t('characterStudio.outfit.deleteError'));
     }
   };
 

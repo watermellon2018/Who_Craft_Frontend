@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import PathConstants from '../../../routes/pathConstant';
 import { ProfileUser } from '../types';
+import { cssUrl, safeImageUrl } from '../../../utils/safeUrl';
 
 interface Props {
   user: ProfileUser;
@@ -17,27 +18,32 @@ const ProfileHero: React.FC<Props> = ({ user }) => {
     ? new Date(user.joined_at).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long' })
     : null;
 
+  // Validate server-supplied URLs before interpolating into CSS / img src —
+  // raw values could be `javascript:...` and bypass our framework escaping.
+  const safeCover = cssUrl(user.cover_url);
+  const safeAvatar = safeImageUrl(user.avatar_url);
+
   return (
     <div className="relative rounded-2xl overflow-hidden border border-white/5 shadow-xl">
       <div
         className="h-40 md:h-52 w-full"
         style={{
-          background: user.cover_url
-            ? `url(${user.cover_url}) center/cover no-repeat`
+          background: safeCover
+            ? `${safeCover} center/cover no-repeat`
             : 'linear-gradient(135deg, #1a1f2e 0%, #0d1117 40%, #1a1408 70%, #2d1f00 100%)',
         }}
       >
-        {!user.cover_url && (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#fab005]/10 via-transparent to-[#fab005]/5" />
+        {!safeCover && (
+          <div className="absolute inset-0 bg-gradient-to-br from-accent/10 via-transparent to-accent/5" />
         )}
       </div>
 
       <div className="bg-[#16191f] px-6 pb-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-12 sm:-mt-10">
           <div className="flex items-end gap-4">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] flex items-center justify-center text-[#fab005] font-bold text-2xl flex-shrink-0 shadow-lg">
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt="avatar" className="w-full h-full rounded-xl object-cover" />
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] flex items-center justify-center text-accent font-bold text-2xl flex-shrink-0 shadow-lg">
+              {safeAvatar ? (
+                <img src={safeAvatar} alt="avatar" className="w-full h-full rounded-xl object-cover" />
               ) : (
                 initials
               )}
@@ -67,7 +73,7 @@ const ProfileHero: React.FC<Props> = ({ user }) => {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => navigate(PathConstants.PROFILE_EDIT)}
-              className="bg-[#fab005] text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors"
+              className="bg-accent text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors"
             >
               Редактировать профиль
             </button>

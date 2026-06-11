@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityItem } from '../types';
 
 interface Props {
@@ -13,22 +14,27 @@ const TYPE_ICONS: Record<string, string> = {
   comment_like: '❤️',
 };
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins} мин назад`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} ч назад`;
-  return `${Math.floor(hours / 24)} дн назад`;
+function useTimeAgo() {
+  const { t } = useTranslation();
+  return (dateStr: string): string => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return t('profile.recentActivity.timeAgoMin', { count: mins });
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return t('profile.recentActivity.timeAgoHour', { count: hours });
+    return t('profile.recentActivity.timeAgoDay', { count: Math.floor(hours / 24) });
+  };
 }
 
 const RecentActivityCard: React.FC<Props> = ({ activities }) => {
+  const { t } = useTranslation();
+  const timeAgo = useTimeAgo();
   return (
     <div className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
-      <h3 className="text-white font-semibold text-base mb-4">⚡ Недавняя активность</h3>
+      <h3 className="text-white font-semibold text-base mb-4">{t('profile.recentActivity.title')}</h3>
 
       {activities.length === 0 ? (
-        <p className="text-white/30 text-sm text-center py-4">Здесь появится ваша активность на Craft</p>
+        <p className="text-white/30 text-sm text-center py-4">{t('profile.recentActivity.empty')}</p>
       ) : (
         <div className="space-y-3">
           {activities.map((item, i) => (

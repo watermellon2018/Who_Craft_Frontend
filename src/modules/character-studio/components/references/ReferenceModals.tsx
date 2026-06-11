@@ -1,5 +1,6 @@
 import React, {useRef, useState} from 'react';
 import {Button, Input, Modal, message} from 'antd';
+import {useTranslation} from 'react-i18next';
 import {CharacterReference, ReferenceType} from '../../types/character.types';
 import {REFERENCE_LABELS} from './referenceLabels';
 
@@ -13,6 +14,7 @@ export const ReferenceCorrectionModal: React.FC<{
   onCancel: () => void;
   onSubmit: (prompt: string) => Promise<void>;
 }> = ({open, reference, onCancel, onSubmit}) => {
+  const {t} = useTranslation();
   const [value, setValue] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -23,7 +25,7 @@ export const ReferenceCorrectionModal: React.FC<{
   const handleSubmit = async () => {
     const prompt = value.trim();
     if (!prompt) {
-      message.warning('Опишите, что нужно исправить.');
+      message.warning(t('characterStudio.references.correctionWarning'));
       return;
     }
     setSubmitting(true);
@@ -91,6 +93,7 @@ export const ReferenceUploadModal: React.FC<{
   onCancel: () => void;
   onUpload: (file: File) => Promise<unknown>;
 }> = ({open, referenceType, onCancel, onUpload}) => {
+  const {t} = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -109,11 +112,11 @@ export const ReferenceUploadModal: React.FC<{
   const acceptFile = (candidate: File | undefined | null) => {
     if (!candidate) return;
     if (!ACCEPTED_MIME.includes(candidate.type)) {
-      message.error('Поддерживаются только PNG, JPG и WebP.');
+      message.error(t('characterStudio.references.uploadFormatError'));
       return;
     }
     if (candidate.size > 10 * 1024 * 1024) {
-      message.error('Максимальный размер файла — 10 МБ.');
+      message.error(t('characterStudio.references.uploadSizeError'));
       return;
     }
     setFile(candidate);
@@ -125,7 +128,7 @@ export const ReferenceUploadModal: React.FC<{
 
   const handleSubmit = async () => {
     if (!file) {
-      message.warning('Выберите изображение.');
+      message.warning(t('characterStudio.references.uploadEmpty'));
       return;
     }
     setSubmitting(true);

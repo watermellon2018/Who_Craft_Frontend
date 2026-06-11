@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Button, Form, message} from 'antd';
+import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {v4 as uuidv4} from 'uuid';
 import {createCharacterFromTreeAPI} from '../../../api/generation/characters/tree_structure';
@@ -45,16 +46,15 @@ interface CharacterCreateReturnState {
   generationOptions?: GenerationOptions;
 }
 
-const createModeSubtitles: Record<CharacterCreateMode, string> = {
-  description: 'Опишите персонажа и сгенерируйте уникальные визуальные варианты.',
-  reference: 'Создайте персонажа на основе референс-изображения. Мы извлечём ключевые черты и сохраним идентичность.',
-};
-
 export default function CharacterCreatePage({activeMode = 'description'}: CharacterCreatePageProps) {
+  const {t} = useTranslation();
+  const subtitle = activeMode === 'description'
+    ? t('characterStudio.create.descriptionMode')
+    : t('characterStudio.create.referenceMode');
   return (
     <div className="character-create-page">
       <div className="character-create-page__inner">
-        <CharacterCreateHeader activeMode={activeMode} subtitle={createModeSubtitles[activeMode]} />
+        <CharacterCreateHeader activeMode={activeMode} subtitle={subtitle} />
         <div className="character-create-content">
           {activeMode === 'description' ? <CreateCharacterFromDescriptionContent /> : <CreateCharacterFromReferenceContent />}
         </div>
@@ -67,6 +67,7 @@ function CreateCharacterFromDescriptionContent() {
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
   const location = useLocation();
+  const {t} = useTranslation();
 
   const routeState = location.state as (CharacterCreateReturnState & {initialCharacterName?: string; sourceTreeNodeId?: string}) | null;
 
@@ -160,10 +161,10 @@ function CreateCharacterFromDescriptionContent() {
       });
       const jobId = jobResponse.data?.job_id;
       if (jobResponse.data?.status === 'failed') {
-        message.error(jobResponse.data?.error_message || 'Персонаж создан, но генерация портретных вариантов не удалась');
+        message.error(jobResponse.data?.error_message || t('characterStudio.create.generationError'));
         return;
       }
-      message.success('Генерируем портретные варианты…');
+      message.success(t('characterStudio.create.generatingPortraits'));
       navigate(`/project/${projectId}/characters/${characterId}/variants`, {
         state: {
           jobId,
@@ -210,12 +211,12 @@ function CreateCharacterFromDescriptionContent() {
                 className="character-create-button character-create-button--primary"
                 onClick={save}
                 loading={saving}
-                disabled={!canGenerate}
+                disabled={!canGenerate || saving}
               >
-                Сгенерировать
+                {t('characterStudio.create.generateButton')}
               </Button>
             </div>
-            <p>После генерации вы сможете доработать персонажа в редакторе.</p>
+            <p>{t('characterStudio.create.afterGenerationHint')}</p>
           </div>
         </div>
 

@@ -1,10 +1,13 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   query: string;
 }
 
-const EmptyState: React.FC<Props> = ({ query }) => (
+const EmptyState: React.FC<Props> = ({ query }) => {
+  const { t } = useTranslation();
+  return (
   <div className="flex flex-col items-center justify-center py-14 px-6 gap-3">
     <div
       className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1"
@@ -15,13 +18,12 @@ const EmptyState: React.FC<Props> = ({ query }) => (
         <path d="m21 21-4.35-4.35" />
       </svg>
     </div>
-    <p className="font-semibold text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>Каналы не найдены</p>
+    <p className="font-semibold text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>{t('subscriptions.empty.channelsNotFound')}</p>
     <p className="text-xs text-center max-w-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.35)' }}>
-      По запросу{' '}
-      <span style={{ color: 'rgba(255,255,255,0.55)' }}>«{query}»</span>{' '}
-      ничего не найдено. Проверьте имя пользователя или попробуйте другой запрос.
+      {t('subscriptions.empty.channelsNotFoundDetail', { query })}
     </p>
   </div>
-);
+  );
+};
 
 export default EmptyState;

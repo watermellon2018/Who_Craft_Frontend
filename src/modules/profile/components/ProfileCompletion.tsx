@@ -1,5 +1,6 @@
 import React from 'react';
 import { ProfileCompletion as ProfileCompletionType } from '../types';
+import { CRAFT_ACCENT } from '../../../constants/theme';
 
 interface Props {
   completion: ProfileCompletionType;
@@ -24,13 +25,13 @@ const ProfileCompletion: React.FC<Props> = ({ completion }) => {
             <circle
               cx="18" cy="18" r="15.9"
               fill="none"
-              stroke="#fab005"
+              stroke={CRAFT_ACCENT}
               strokeWidth="3"
               strokeDasharray={`${percent} ${100 - percent}`}
               strokeLinecap="round"
             />
           </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[#fab005] text-xs font-bold">
+          <span className="absolute inset-0 flex items-center justify-center text-accent text-xs font-bold">
             {percent}%
           </span>
         </div>
@@ -46,7 +47,7 @@ const ProfileCompletion: React.FC<Props> = ({ completion }) => {
             key={key}
             className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium ${
               done
-                ? 'bg-[#fab005]/10 border-[#fab005]/30 text-[#fab005]'
+                ? 'bg-accent/10 border-accent/30 text-accent'
                 : 'bg-white/3 border-white/10 text-white/30'
             }`}
           >

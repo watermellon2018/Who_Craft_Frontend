@@ -1,7 +1,8 @@
 export type AccentColor = 'yellow' | 'purple' | 'blue' | 'green' | 'red' | 'pink';
+import {CRAFT_ACCENT} from '../../../../constants/theme';
 
 export const ACCENT_HEX: Record<AccentColor, string> = {
-  yellow: '#fab005',
+  yellow: CRAFT_ACCENT,
   purple: '#8B5CF6',
   blue: '#3B82F6',
   green: '#22C55E',

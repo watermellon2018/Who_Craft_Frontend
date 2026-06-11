@@ -1,11 +1,11 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Image} from 'antd';
+import {useTranslation} from 'react-i18next';
 
 import {CharacterImageType, CharacterVariant, CharacterViewMode, StudioCharacter, ZoneSelection} from '../types/character.types';
 import {AssetJobsMap, AssetJobStatus} from '../hooks/useCharacterAssetJobs';
 import FullBodyCanvas from './FullBodyCanvas';
 
-const DEFAULT_HEIGHT_CM = 170;
 
 export interface ZoneEditState {
   selection: ZoneSelection;
@@ -35,11 +35,13 @@ interface Props {
   pendingZoneCount?: number;
 }
 
-const viewTabs: Array<{label: string; value: CharacterViewMode}> = [
-  {label: 'Портрет', value: 'portrait'},
-  {label: 'Полный рост', value: 'fullBody'},
-  {label: 'Сцена', value: 'scene'},
-];
+function buildViewTabs(t: (key: string) => string): Array<{label: string; value: CharacterViewMode}> {
+  return [
+    {label: t('characterStudio.preview.tabPortrait'), value: 'portrait'},
+    {label: t('characterStudio.preview.tabFullBody'), value: 'fullBody'},
+    {label: t('characterStudio.preview.tabScene'), value: 'scene'},
+  ];
+}
 
 export default function CharacterPreview({
   character,
@@ -59,6 +61,8 @@ export default function CharacterPreview({
   onZoneSave,
   pendingZoneCount = 0,
 }: Props) {
+  const {t} = useTranslation();
+  const viewTabs = useMemo(() => buildViewTabs(t), [t]);
   const imageType = viewModeToImageType(activeViewMode);
   const reference = getPreviewImage(character, selectedVariant, imageType);
   const previewKey =
@@ -259,7 +263,7 @@ export default function CharacterPreview({
                   height: 18,
                   padding: '0 5px',
                   borderRadius: 9,
-                  background: '#fab005',
+                  background: 'var(--craft-accent)',
                   color: '#000',
                   fontSize: 11,
                   fontWeight: 700,
@@ -293,18 +297,13 @@ export default function CharacterPreview({
           {reference && !imageBroken && activeViewMode === 'fullBody' ? (
             <FullBodyCanvas
               imageUrl={reference}
-              heightCm={
-                typeof character?.appearance?.height_cm === 'number'
-                  ? character.appearance.height_cm
-                  : DEFAULT_HEIGHT_CM
-              }
               onImageError={() => setImageBroken(true)}
             />
           ) : reference && !imageBroken ? (
             <Image
               key={previewKey}
               src={reference}
-              alt="Предпросмотр персонажа"
+              alt={t('characterStudio.preview.altCharacterPreview')}
               preview={false}
               onError={() => setImageBroken(true)}
             />
@@ -344,7 +343,7 @@ export default function CharacterPreview({
                 top: `${visibleSelection.y * 100}%`,
                 width: `${visibleSelection.width * 100}%`,
                 height: `${visibleSelection.height * 100}%`,
-                border: '2px dashed #fab005',
+                border: '2px dashed var(--craft-accent)',
                 background: 'rgba(250,176,5,0.12)',
                 pointerEvents: 'none',
                 boxSizing: 'border-box',
@@ -430,7 +429,7 @@ export default function CharacterPreview({
               borderRadius: 6,
               border: 'none',
               cursor: canApply ? 'pointer' : 'not-allowed',
-              background: canApply ? '#fab005' : '#555',
+              background: canApply ? 'var(--craft-accent)' : '#555',
               color: canApply ? '#000' : '#999',
               display: 'flex',
               alignItems: 'center',
@@ -503,12 +502,12 @@ function ZoneEditLoadingOverlay() {
           width: 40,
           height: 40,
           border: '3px solid rgba(250,176,5,0.3)',
-          borderTopColor: '#fab005',
+          borderTopColor: 'var(--craft-accent)',
           borderRadius: '50%',
           animation: 'zone-edit-spin 0.7s linear infinite',
         }}
       />
-      <span style={{color: '#fab005', fontSize: 14, fontWeight: 600, letterSpacing: 0.3}}>
+      <span style={{color: 'var(--craft-accent)', fontSize: 14, fontWeight: 600, letterSpacing: 0.3}}>
         Применяем изменения…
       </span>
       <div
@@ -523,7 +522,7 @@ function ZoneEditLoadingOverlay() {
         <div
           style={{
             height: '100%',
-            background: '#fab005',
+            background: 'var(--craft-accent)',
             borderRadius: 2,
             animation: 'zone-edit-progress 1.4s ease-in-out infinite',
           }}
@@ -553,7 +552,7 @@ function ZoneMarker({zone, onClick}: {zone: ZoneEditState; onClick: (e: React.Mo
         width: 28,
         height: 28,
         borderRadius: '50%',
-        background: '#fab005',
+        background: 'var(--craft-accent)',
         border: 'none',
         cursor: 'pointer',
         display: 'flex',
@@ -595,6 +594,7 @@ function ZonePopover({
   onCancel,
   containerRef,
 }: ZonePopoverProps) {
+  const {t} = useTranslation();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -638,6 +638,8 @@ function ZonePopover({
   return (
     <div
       className="zone-edit-popover"
+      role="dialog"
+      aria-label={t('characterStudio.zoneEdit.dialogLabel')}
       style={{
         position: 'absolute',
         left,
@@ -658,14 +660,14 @@ function ZonePopover({
         htmlFor="zone-popover-instruction"
         style={{display: 'block', marginBottom: 6, fontSize: 12, color: '#ccc', fontWeight: 600}}
       >
-        Что изменить?
+        {t('characterStudio.zoneEdit.question')}
       </label>
       <textarea
         id="zone-popover-instruction"
         ref={inputRef}
         value={instruction}
         onChange={(e) => onInstructionChange(e.target.value)}
-        placeholder="Например: сделай глаза шире, добавь шрам"
+        placeholder={t('characterStudio.zoneEdit.placeholder')}
         maxLength={500}
         rows={3}
         style={{
@@ -699,7 +701,7 @@ function ZonePopover({
           type="button"
           onClick={onOk}
           disabled={!instruction.trim()}
-          style={{padding: '4px 10px', fontSize: 12, background: '#fab005', border: 'none', borderRadius: 4, cursor: 'pointer', color: '#000', fontWeight: 600}}
+          style={{padding: '4px 10px', fontSize: 12, background: 'var(--craft-accent)', border: 'none', borderRadius: 4, cursor: 'pointer', color: '#000', fontWeight: 600}}
         >
           ОК
         </button>
@@ -730,6 +732,14 @@ function withCacheBust(url: string, key?: string | null) {
   return `${url}${separator}_cb=${encodeURIComponent(key)}`;
 }
 
+// Asset types that legitimately represent the portrait view of a character.
+// We only fall back to character.references[] when the canonical
+// `images.portrait` slot is empty AND the asset is actually a portrait-class
+// reference of THIS character — never an unrelated uploaded photo or outfit
+// reference, which previously produced "another character's face" in the
+// editor when `images.portrait` was briefly missing.
+const PORTRAIT_REFERENCE_ASSET_TYPES = new Set(['portrait', 'uploaded_reference']);
+
 function getPreviewImage(
   character?: StudioCharacter | null,
   selectedVariant?: CharacterVariant | null,
@@ -742,13 +752,13 @@ function getPreviewImage(
   const modeImage = modeAsset?.image_url;
   if (modeImage) return withCacheBust(modeImage, modeAsset?.asset_id ?? null);
   if (imageType !== 'portrait') return null;
-  const references = character?.references || [];
+  const references = (character?.references || []).filter(
+    (reference) => PORTRAIT_REFERENCE_ASSET_TYPES.has(reference.asset_type),
+  );
   return (
     references.find((reference) => reference.is_primary)?.image_url ||
     references.find((reference) => reference.is_canonical)?.image_url ||
     references[0]?.image_url ||
-    character?.outfits?.find((outfit) => outfit.is_default && outfit.reference_image)?.reference_image ||
-    character?.outfits?.find((outfit) => outfit.reference_image)?.reference_image ||
     null
   );
 }

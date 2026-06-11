@@ -15,7 +15,7 @@ const AboutCard: React.FC<Props> = ({ bio, interests }) => {
       ) : (
         <div className="mb-4 p-3 rounded-xl bg-white/3 border border-white/5 text-center">
           <p className="text-white/30 text-sm mb-2">Расскажите о себе, своих проектах и творческих интересах.</p>
-          <button className="text-[#fab005] text-xs hover:underline">Заполнить профиль</button>
+          <button className="text-accent text-xs hover:underline">Заполнить профиль</button>
         </div>
       )}
 
@@ -26,7 +26,7 @@ const AboutCard: React.FC<Props> = ({ bio, interests }) => {
             {interests.map((tag) => (
               <span
                 key={tag}
-                className="bg-[#fab005]/10 text-[#fab005] text-xs font-medium px-3 py-1 rounded-full border border-[#fab005]/20"
+                className="bg-accent/10 text-accent text-xs font-medium px-3 py-1 rounded-full border border-accent/20"
               >
                 {tag}
               </span>

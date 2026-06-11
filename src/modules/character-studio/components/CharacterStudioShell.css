@@ -1,0 +1,44 @@
+.character-studio-shell {
+  display: grid;
+  background: #1b1d22;
+  transition: grid-template-columns 180ms ease;
+}
+
+.character-studio-shell--expanded {
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.character-studio-shell--collapsed {
+  grid-template-columns: 58px minmax(0, 1fr);
+}
+
+.character-studio-shell--editor {
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
+.character-studio-shell--page {
+  min-height: calc(100vh - 64px);
+}
+
+@media (max-width: 768px) {
+  /* On phones the sidebar collapses to icons-only regardless of the
+     user's preference so the editor canvas gets enough width. */
+  .character-studio-shell--expanded,
+  .character-studio-shell--collapsed {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  /* On very small screens stack the sidebar above the canvas — the editor
+     gets full width and the sidebar becomes a horizontal strip. */
+  .character-studio-shell--expanded,
+  .character-studio-shell--collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .character-studio-shell--editor {
+    height: auto;
+    overflow: visible;
+  }
+}

@@ -68,7 +68,7 @@ const ProjectHero: React.FC<Props> = ({
               {project.title}
             </h2>
             {project.isFavorite && (
-              <StarFilled style={{ color: '#fab005', fontSize: 20, marginTop: 8 }} />
+              <StarFilled style={{ color: 'var(--craft-accent)', fontSize: 20, marginTop: 8 }} />
             )}
           </div>
 

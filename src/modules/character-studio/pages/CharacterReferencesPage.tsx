@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {message} from 'antd';
+import {useTranslation} from 'react-i18next';
 import {useNavigate, useParams} from 'react-router-dom';
 import ReferencesTopBar from '../components/references/ReferencesTopBar';
 import ReferencePreviewPanel from '../components/references/ReferencePreviewPanel';
@@ -46,6 +47,7 @@ const EMPTY_CHECKLIST: ReferencesChecklist = {
 
 const CharacterReferencesPage: React.FC = () => {
   const navigate = useNavigate();
+  const {t} = useTranslation();
   const params = useParams();
   const projectId = useProjectIdFromRoute();
   const characterId = String(params.characterId || '');
@@ -123,10 +125,8 @@ const CharacterReferencesPage: React.FC = () => {
       document.body.removeChild(link);
       // Defer revoke so Chrome/Firefox finish kicking off the download.
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-    } catch (err) {
-      message.error('Не удалось скачать изображение.');
-      // eslint-disable-next-line no-console
-      console.error('[references] download failed', err);
+    } catch (_) {
+      message.error(t('characterStudio.references.downloadError'));
     }
   };
 
@@ -136,7 +136,7 @@ const CharacterReferencesPage: React.FC = () => {
 
   const handleCorrectSubmit = async (prompt: string) => {
     if (!selected.asset_id) {
-      message.error('Этот ракурс ещё не сгенерирован.');
+      message.error(t('characterStudio.references.angleNotReady'));
       return;
     }
     await refs.correct(selected.asset_id, prompt, selectedType);
@@ -144,16 +144,16 @@ const CharacterReferencesPage: React.FC = () => {
 
   const handleUpload = async (file: File) => {
     const result = await refs.upload(selectedType, file);
-    if (result) message.success('Изображение загружено.');
+    if (result) message.success(t('characterStudio.references.uploadSuccess'));
   };
 
   const handleMakePrimary = async () => {
     if (!selected.asset_id) {
-      message.error('Сначала сгенерируйте или загрузите изображение.');
+      message.error(t('characterStudio.references.needToGenerate'));
       return;
     }
     await refs.makePrimary(selected.asset_id);
-    message.success('Основной референс обновлён.');
+    message.success(t('characterStudio.references.primaryUpdated'));
   };
 
   const handleChecklistChange = (patch: Partial<ReferencesChecklist>) => {
@@ -166,12 +166,12 @@ const CharacterReferencesPage: React.FC = () => {
       const result = await refs.proceedTo3D();
       if (!result) return;
       if (!result.can_proceed) {
-        message.error('Не все обязательные референсы готовы.');
+        message.error(t('characterStudio.references.proceedBlocked'));
         await refs.refresh();
         return;
       }
       const target = result.next_url || `/project/${projectId}/characters/${characterId}/3d-model`;
-      message.success('Референсы зафиксированы.');
+      message.success(t('characterStudio.references.locked'));
       navigate(target);
     } finally {
       setProceedLoading(false);
@@ -196,7 +196,7 @@ const CharacterReferencesPage: React.FC = () => {
   }, [referencesList]);
 
   if (!characterId) {
-    return <div className="references-empty">Не удалось определить персонажа.</div>;
+    return <div className="references-empty">{t('characterStudio.references.cannotDetermine')}</div>;
   }
 
   const characterName = refs.state?.character.name || 'Персонаж';
@@ -210,7 +210,7 @@ const CharacterReferencesPage: React.FC = () => {
         <ReferencesTopBar
           characterName={characterName}
           onBack={() => navigate(`/project/${projectId}/characters/${characterId}/edit`)}
-          onSave={() => message.info('Изменения сохраняются автоматически.')}
+          onSave={() => message.info(t('characterStudio.references.autoSave'))}
           saving={false}
           onProceed={handleProceed}
           proceedDisabled={!canProceed || isSelectedGenerating}
