@@ -20,5 +20,13 @@
     "react": {
       "version": "detect"
     }
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/modules/character-studio/components/character3d/**/*.tsx"],
+      "rules": {
+        "react/no-unknown-property": "off"
+      }
+    }
+  ]
 }

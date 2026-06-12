@@ -61,17 +61,7 @@
     ],
     "rules": {
       "no-console": "error"
-    },
-    "overrides": [
-      {
-        "files": [
-          "src/modules/character-studio/components/character3d/**/*.tsx"
-        ],
-        "rules": {
-          "react/no-unknown-property": "off"
-        }
-      }
-    ]
+    }
   },
   "browserslist": {
     "production": [

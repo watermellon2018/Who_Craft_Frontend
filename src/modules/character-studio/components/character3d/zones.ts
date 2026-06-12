@@ -71,11 +71,12 @@ const SKIN_TONES = [
   {value: '#5a3a2a', label: 'Тёмная'},
 ];
 
+// «Короткие» (buzz) was removed on purpose: it ignored hairLength and made
+// the length slider look broken — short hair is just a low hairLength value.
 const HAIR_PRESETS = [
   {value: 'straight', label: 'Прямые'},
   {value: 'wavy', label: 'Волнистые'},
   {value: 'curly', label: 'Кудрявые'},
-  {value: 'buzz', label: 'Короткие'},
 ];
 
 const POSTURE_PRESETS = [

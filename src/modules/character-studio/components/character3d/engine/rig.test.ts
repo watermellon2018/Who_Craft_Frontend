@@ -157,7 +157,7 @@ describe('CharacterRig', () => {
   });
 
   it('rebuilds hair for each shape preset without leaking NaN geometry', () => {
-    for (const shapePreset of ['straight', 'wavy', 'curly', 'buzz']) {
+    for (const shapePreset of ['straight', 'wavy', 'curly']) {
       rig.applyParams(withParams({hair: {hairShape: shapePreset, hairLength: 0.9, hairVolume: 0.5}}));
       const hair = rig.nodeByName('hairGroup') as THREE.Group;
       expect(hair.children.length).toBeGreaterThan(0);

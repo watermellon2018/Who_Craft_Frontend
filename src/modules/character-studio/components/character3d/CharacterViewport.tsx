@@ -45,7 +45,6 @@ const CharacterViewport: React.FC<Props> = ({
   const controlsRef = useRef<OrbitControls | null>(null);
   const draggingRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [labelPos, setLabelPos] = useState<{left: number; top: number} | null>(null);
 
   // Parameters → math. The rig mutates its own scene graph; no React re-render.
   useEffect(() => {
@@ -203,14 +202,11 @@ const CharacterViewport: React.FC<Props> = ({
 
         <Controls controlsRef={controlsRef} />
         <CameraFocus rig={rig} zoomZoneId={zoomZoneId} controlsRef={controlsRef} />
-        <LabelTracker rig={rig} zoneId={selectedZoneId} onPosition={setLabelPos} />
       </Canvas>
       </div>
 
-      {/* Selection label pinned to the projected top of the selected zone. */}
-      {selectedZone && labelPos ? (
-        <SelectionLabel label={selectedZone.label} pos={labelPos} onClose={() => onSelectZone(null)} />
-      ) : null}
+      {/* No floating label on the model — the contextual panel already names
+          the selection; an overlay here only covers the part being edited. */}
 
       {/* Zoom mode badge — pinned at top center of the stage. */}
       {isZoomed && selectedZone ? (
@@ -339,62 +335,6 @@ const CameraFocus: React.FC<{
     }
   });
   return null;
-};
-
-// ─────────── Projects the selected zone's top into screen % ───────────
-const LabelTracker: React.FC<{
-  rig: CharacterRig;
-  zoneId: string | null;
-  onPosition: (pos: {left: number; top: number} | null) => void;
-}> = ({rig, zoneId, onPosition}) => {
-  const {camera} = useThree();
-  const last = useRef<{left: number; top: number} | null>(null);
-  useFrame(() => {
-    if (!zoneId) {
-      if (last.current) {
-        last.current = null;
-        onPosition(null);
-      }
-      return;
-    }
-    const bounds = rig.zoneBounds(zoneId);
-    if (!bounds) return;
-    const anchor = bounds.getCenter(new THREE.Vector3());
-    anchor.y = bounds.max.y;
-    const projected = anchor.project(camera);
-    const left = (projected.x * 0.5 + 0.5) * 100;
-    const top = (-projected.y * 0.5 + 0.5) * 100;
-    // Re-render the overlay only on visible movement, not every frame.
-    if (
-      !last.current ||
-      Math.abs(last.current.left - left) > 0.25 ||
-      Math.abs(last.current.top - top) > 0.25
-    ) {
-      last.current = {left, top};
-      onPosition(last.current);
-    }
-  });
-  return null;
-};
-
-const SelectionLabel: React.FC<{
-  label: string;
-  pos: {left: number; top: number};
-  onClose: () => void;
-}> = ({label, pos, onClose}) => {
-  return (
-    <div
-      className="c3d-selection-label"
-      style={{left: `${pos.left}%`, top: `${pos.top}%`}}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <span className="c3d-selection-label__pulse" />
-      <span className="c3d-selection-label__text">{label}</span>
-      <button type="button" className="c3d-selection-label__close" onClick={onClose} aria-label="Снять выделение">
-        ×
-      </button>
-    </div>
-  );
 };
 
 export default CharacterViewport;

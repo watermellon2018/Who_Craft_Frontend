@@ -739,9 +739,8 @@ export class CharacterRig {
       this.geometries = this.geometries.filter((g) => g !== mesh.geometry);
     });
 
-    const buzz = shapePreset === 'buzz';
     const v = 1 + 0.18 * volume;
-    const capR = M.headR * (buzz ? 1.035 : 1.07);
+    const capR = M.headR * 1.07;
     const capGeo = new THREE.SphereGeometry(capR, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.49);
     this.perturbHair(capGeo, shapePreset, 0.004);
     const cap = this.mesh(capGeo, 'hair', 'hair');
@@ -752,7 +751,8 @@ export class CharacterRig {
     cap.position.set(0, 0.01, -0.004);
     hairGroup.add(cap);
 
-    if (!buzz && length > 0.18) {
+    // Short hair is simply a hidden curtain — the cap alone reads as a crop.
+    if (length > 0.18) {
       const h = 0.1 + 0.55 * length;
       // Back half only, with the side edges pulled behind the ears so the
       // curtain never flanks the face from a front view.
