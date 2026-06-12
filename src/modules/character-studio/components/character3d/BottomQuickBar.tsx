@@ -1,11 +1,24 @@
 import React from 'react';
-import {ReloadOutlined} from '@ant-design/icons';
+import {
+  CameraOutlined,
+  DownloadOutlined,
+  RedoOutlined,
+  ReloadOutlined,
+  UndoOutlined,
+} from '@ant-design/icons';
 import {EditableZone} from './zones';
 
 interface Props {
   selectedZone: EditableZone | null;
   zoneParams: Record<string, number | string | boolean>;
   hasChanges: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
+  // Undefined until the GL context is ready.
+  onSnapshot?: () => void;
+  onExportGlb?: () => void;
   onReset: () => void;
   onParameterChange: (zoneId: string, paramId: string, value: number | string | boolean) => void;
   onCancel: () => void;
@@ -26,6 +39,12 @@ const BottomQuickBar: React.FC<Props> = ({
   selectedZone,
   zoneParams,
   hasChanges,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  onSnapshot,
+  onExportGlb,
   onReset,
   onParameterChange,
   onCancel,
@@ -43,6 +62,46 @@ const BottomQuickBar: React.FC<Props> = ({
         <button type="button" className="c3d-bottom__chip" onClick={onReset} disabled={!hasChanges}>
           <ReloadOutlined />
           <span>Сбросить</span>
+        </button>
+        <button
+          type="button"
+          className="c3d-bottom__chip c3d-bottom__chip--icon"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Отменить (Ctrl+Z)"
+          aria-label="Отменить"
+        >
+          <UndoOutlined />
+        </button>
+        <button
+          type="button"
+          className="c3d-bottom__chip c3d-bottom__chip--icon"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Повторить (Ctrl+Shift+Z)"
+          aria-label="Повторить"
+        >
+          <RedoOutlined />
+        </button>
+        <button
+          type="button"
+          className="c3d-bottom__chip c3d-bottom__chip--icon"
+          onClick={onSnapshot}
+          disabled={!onSnapshot}
+          title="Снимок PNG"
+          aria-label="Снимок PNG"
+        >
+          <CameraOutlined />
+        </button>
+        <button
+          type="button"
+          className="c3d-bottom__chip c3d-bottom__chip--icon"
+          onClick={onExportGlb}
+          disabled={!onExportGlb}
+          title="Экспорт GLB"
+          aria-label="Экспорт GLB"
+        >
+          <DownloadOutlined />
         </button>
       </div>
 

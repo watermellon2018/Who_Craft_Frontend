@@ -2,9 +2,18 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {Canvas, ThreeEvent, useFrame, useThree} from '@react-three/fiber';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
+import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment';
+import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter';
 import {CharacterRig, ZoneParams} from './engine/rig';
 import {dragBindingFor} from './engine/dragBindings';
 import {resolveSelectableZone} from './engine/zoneSelection';
+
+// Imperative escape hatch for actions that need the live GL context:
+// PNG snapshots and GLB export. The page receives it via onApiReady.
+export interface ViewportApi {
+  snapshotPng: () => string;
+  exportGlb: () => Promise<Blob>;
+}
 
 interface Props {
   hoveredZoneId: string | null;
@@ -18,6 +27,7 @@ interface Props {
   // overrides for the half that was actually grabbed.
   editSide?: 'L' | 'R' | null;
   onSideChange?: (side: 'L' | 'R') => void;
+  onApiReady?: (api: ViewportApi | null) => void;
   zoneParams: ZoneParams;
 }
 
@@ -36,6 +46,7 @@ const CharacterViewport: React.FC<Props> = ({
   onParameterChange,
   editSide = null,
   onSideChange,
+  onApiReady,
   zoneParams,
 }) => {
   const rig = useMemo(() => new CharacterRig(), []);
@@ -161,23 +172,32 @@ const CharacterViewport: React.FC<Props> = ({
       <div className="c3d-canvas">
       <Canvas
         shadows
-        gl={{alpha: true, antialias: true}}
+        // preserveDrawingBuffer keeps the last frame readable for snapshots.
+        gl={{alpha: true, antialias: true, preserveDrawingBuffer: true}}
         camera={{position: [0, 1.45, 3.05], fov: 35}}
+        onCreated={({gl}) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 1.05;
+          gl.shadowMap.type = THREE.PCFSoftShadowMap;
+        }}
         onPointerMissed={() => onSelectZone(null)}
       >
-        <hemisphereLight args={['#cfd8e8', '#1a1410', 0.85]} />
+        {/* IBL carries the fill light; direct lights only shape and rim. */}
+        <SceneEnvironment />
+        <hemisphereLight args={['#cfd8e8', '#1a1410', 0.45]} />
         <directionalLight
           position={[2.4, 3.8, 2.8]}
-          intensity={1.7}
+          intensity={1.15}
           castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
           shadow-camera-left={-1.6}
           shadow-camera-right={1.6}
           shadow-camera-top={2.4}
           shadow-camera-bottom={-0.4}
+          shadow-bias={-0.0002}
         />
-        <directionalLight position={[-3, 2.4, -2.6]} intensity={0.55} color="#f5b400" />
+        <directionalLight position={[-3, 2.4, -2.6]} intensity={0.4} color="#f5b400" />
 
         {/* Floor: platform disc + shadow catcher + grid. */}
         <mesh rotation-x={-Math.PI / 2} position-y={-0.002} receiveShadow>
@@ -200,6 +220,8 @@ const CharacterViewport: React.FC<Props> = ({
 
         <Controls controlsRef={controlsRef} />
         <CameraFocus rig={rig} zoomZoneId={zoomZoneId} controlsRef={controlsRef} />
+        <IdleMotion rig={rig} />
+        <ApiBridge rig={rig} onApiReady={onApiReady} />
       </Canvas>
       </div>
 
@@ -325,6 +347,58 @@ const CameraFocus: React.FC<{
       animating.current = false;
     }
   });
+  return null;
+};
+
+// ─────────── Image-based lighting (no extra deps) ───────────
+const SceneEnvironment: React.FC = () => {
+  const {gl, scene} = useThree();
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const env = pmrem.fromScene(new RoomEnvironment(), 0.04);
+    scene.environment = env.texture;
+    return () => {
+      scene.environment = null;
+      env.texture.dispose();
+      pmrem.dispose();
+    };
+  }, [gl, scene]);
+  return null;
+};
+
+// ─────────── Idle motion (breathing) ───────────
+const IdleMotion: React.FC<{rig: CharacterRig}> = ({rig}) => {
+  useFrame((state) => rig.tick(state.clock.elapsedTime));
+  return null;
+};
+
+// ─────────── Snapshot / export bridge ───────────
+const ApiBridge: React.FC<{
+  rig: CharacterRig;
+  onApiReady?: (api: ViewportApi | null) => void;
+}> = ({rig, onApiReady}) => {
+  const {gl, scene, camera} = useThree();
+  useEffect(() => {
+    if (!onApiReady) return undefined;
+    onApiReady({
+      snapshotPng: () => {
+        // Render explicitly so the snapshot never catches a stale buffer.
+        gl.render(scene, camera);
+        return gl.domElement.toDataURL('image/png');
+      },
+      exportGlb: () =>
+        new Promise<Blob>((resolve, reject) => {
+          const exporter = new GLTFExporter();
+          exporter.parse(
+            rig.root,
+            (result) => resolve(new Blob([result as ArrayBuffer], {type: 'model/gltf-binary'})),
+            (error) => reject(error),
+            {binary: true},
+          );
+        }),
+    });
+    return () => onApiReady(null);
+  }, [gl, scene, camera, rig, onApiReady]);
   return null;
 };
 

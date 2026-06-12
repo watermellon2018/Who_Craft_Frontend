@@ -1,11 +1,13 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {message} from 'antd';
 import {useNavigate, useParams} from 'react-router-dom';
 import BottomQuickBar from '../components/character3d/BottomQuickBar';
 import CharacterCategoryRail from '../components/character3d/CharacterCategoryRail';
-import CharacterViewport from '../components/character3d/CharacterViewport';
+import CharacterViewport, {ViewportApi} from '../components/character3d/CharacterViewport';
 import ContextualZonePanel from '../components/character3d/ContextualZonePanel';
+import ReferenceDock from '../components/character3d/ReferenceDock';
 import StepperHeader from '../components/character3d/StepperHeader';
+import {ParamHistory} from '../components/character3d/engine/history';
 import {
   buildInitialZoneParams,
   EditableZone,
@@ -57,6 +59,36 @@ const Character3DEditorPage: React.FC = () => {
   // Which mirrored half the user edits while «Применять симметрично» is off.
   const [selectedSide, setSelectedSide] = useState<'L' | 'R'>('L');
 
+  // Undo/redo. The class owns the stacks; historyVersion only forces the
+  // toolbar buttons to re-render after a mutation.
+  const historyRef = useRef(new ParamHistory());
+  const [, setHistoryVersion] = useState(0);
+  const [viewportApi, setViewportApi] = useState<ViewportApi | null>(null);
+  const [autofitBusy, setAutofitBusy] = useState(false);
+
+  // Single entry point for parameter mutations — records undo history.
+  const mutateParams = useCallback(
+    (producer: (prev: Record<string, Record<string, number | string | boolean>>) => Record<string, Record<string, number | string | boolean>>) => {
+      setZoneParams((prev) => {
+        const next = producer(prev);
+        if (next !== prev) historyRef.current.record(prev, Date.now());
+        return next;
+      });
+      setHistoryVersion((v) => v + 1);
+    },
+    [],
+  );
+
+  const handleUndo = useCallback(() => {
+    setZoneParams((current) => historyRef.current.undo(current) ?? current);
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    setZoneParams((current) => historyRef.current.redo(current) ?? current);
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
   // ─── Load saved 3D state ───
   useEffect(() => {
     if (!projectId || !characterId) return;
@@ -70,6 +102,8 @@ const Character3DEditorPage: React.FC = () => {
           const merged = mergeSavedParams(saved);
           setZoneParams(merged);
           setParamsBaseline(merged);
+          // The loaded state is the new ground zero — nothing to undo into.
+          historyRef.current.reset();
         }
       })
       .catch(() => {
@@ -122,7 +156,7 @@ const Character3DEditorPage: React.FC = () => {
 
   const handleParameterChange = useCallback(
     (zoneId: string, paramId: string, value: number | string | boolean, side?: 'L' | 'R' | null) => {
-      setZoneParams((prev) => {
+      mutateParams((prev) => {
         const zone = {...(prev[zoneId] ?? {})};
         if (side) {
           // Asymmetric edit: write the per-side override, the shared value
@@ -138,7 +172,7 @@ const Character3DEditorPage: React.FC = () => {
         return {...prev, [zoneId]: zone};
       });
     },
-    [],
+    [mutateParams],
   );
 
   const handleZoomToggle = useCallback(() => {
@@ -152,32 +186,113 @@ const Character3DEditorPage: React.FC = () => {
       if (next && selectedZoneId) {
         // Re-enabling symmetry folds the per-side values back into one:
         // both sides adopt the side the user was just editing.
-        setZoneParams((p) => collapseSideOverrides(p, selectedZoneId, selectedSide));
+        mutateParams((p) => collapseSideOverrides(p, selectedZoneId, selectedSide));
       }
       return next;
     });
-  }, [selectedZoneId, selectedSide]);
+  }, [selectedZoneId, selectedSide, mutateParams]);
 
   const handleReset = useCallback(() => {
     // Reset only the currently-selected zone's params to defaults — the
     // global reset is the bottom bar; this is panel-scoped.
     if (!selectedZoneId) return;
     const initial = buildInitialZoneParams();
-    setZoneParams((prev) => ({...prev, [selectedZoneId]: initial[selectedZoneId] ?? {}}));
-  }, [selectedZoneId]);
+    mutateParams((prev) => ({...prev, [selectedZoneId]: initial[selectedZoneId] ?? {}}));
+  }, [selectedZoneId, mutateParams]);
 
   const handleGlobalReset = useCallback(() => {
-    setZoneParams(buildInitialZoneParams());
-  }, []);
+    mutateParams(() => buildInitialZoneParams());
+  }, [mutateParams]);
 
   const handleCancel = useCallback(() => {
-    setZoneParams(paramsBaseline);
-  }, [paramsBaseline]);
+    mutateParams(() => paramsBaseline);
+  }, [paramsBaseline, mutateParams]);
 
   const handleApply = useCallback(() => {
     setParamsBaseline(zoneParams);
     message.success('Изменения применены');
   }, [zoneParams]);
+
+  // ─── Snapshot / export ───
+  const exportName = useCallback(
+    (ext: string) => `${(character?.name || 'character').replace(/[^\wа-яА-ЯёЁ-]+/gu, '_')}_3d.${ext}`,
+    [character?.name],
+  );
+
+  const handleSnapshot = useCallback(() => {
+    if (!viewportApi) return;
+    downloadUrl(viewportApi.snapshotPng(), exportName('png'));
+    message.success('Снимок сохранён');
+  }, [viewportApi, exportName]);
+
+  const handleExportGlb = useCallback(() => {
+    if (!viewportApi) return;
+    viewportApi
+      .exportGlb()
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        downloadUrl(url, exportName('glb'));
+        URL.revokeObjectURL(url);
+        message.success('Модель экспортирована в GLB');
+      })
+      .catch(() => message.error('Не удалось экспортировать модель'));
+  }, [viewportApi, exportName]);
+
+  // ─── Autofit from references ───
+  const handleAutofit = useCallback(() => {
+    if (!projectId || !characterId) {
+      message.info('Автоподгонка доступна, когда персонаж привязан к проекту');
+      return;
+    }
+    setAutofitBusy(true);
+    characterApi
+      .autofitModel3D(projectId, characterId)
+      .then((res) => {
+        const suggested = res.data?.params as
+          | Record<string, Record<string, number | string | boolean>>
+          | undefined;
+        const warnings: string[] = Array.isArray(res.data?.warnings) ? res.data.warnings : [];
+        if (!suggested || Object.keys(suggested).length === 0) {
+          message.warning('Не удалось извлечь параметры из референсов');
+          return;
+        }
+        mutateParams((prev) => {
+          const next = {...prev};
+          for (const [zoneId, values] of Object.entries(suggested)) {
+            next[zoneId] = {...(next[zoneId] ?? {}), ...values};
+          }
+          return next;
+        });
+        if (warnings.includes('landmarks_unavailable')) {
+          message.info('Лэндмарки лица недоступны на сервере — применены только цвета');
+        } else {
+          message.success('Параметры подогнаны по референсам — доработайте слайдерами');
+        }
+      })
+      .catch(() => message.error('Автоподгонка не удалась — попробуйте позже'))
+      .finally(() => setAutofitBusy(false));
+  }, [projectId, characterId, mutateParams]);
+
+  // ─── Undo/redo hotkeys ───
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+      if (key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if (key === 'y') {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleUndo, handleRedo]);
 
   const handleSave = useCallback(() => {
     if (!projectId || !characterId) {
@@ -253,7 +368,15 @@ const Character3DEditorPage: React.FC = () => {
             onParameterChange={handleParameterChange}
             editSide={editSide}
             onSideChange={setSelectedSide}
+            onApiReady={setViewportApi}
             zoneParams={zoneParams}
+          />
+
+          <ReferenceDock
+            projectId={projectId}
+            characterId={characterId}
+            busy={autofitBusy}
+            onAutofit={handleAutofit}
           />
 
           <div
@@ -287,6 +410,12 @@ const Character3DEditorPage: React.FC = () => {
         selectedZone={selectedZone}
         zoneParams={zoneParams[selectedZoneId ?? ''] ?? {}}
         hasChanges={hasUnappliedChanges}
+        canUndo={historyRef.current.canUndo}
+        canRedo={historyRef.current.canRedo}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onSnapshot={viewportApi ? handleSnapshot : undefined}
+        onExportGlb={viewportApi ? handleExportGlb : undefined}
         onReset={handleGlobalReset}
         onParameterChange={handleParameterChange}
         onCancel={handleCancel}
@@ -296,5 +425,13 @@ const Character3DEditorPage: React.FC = () => {
     </div>
   );
 };
+
+// Trigger a browser download for a data/object URL.
+function downloadUrl(url: string, filename: string): void {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+}
 
 export default Character3DEditorPage;

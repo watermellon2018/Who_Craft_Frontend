@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {getAncestors} from '../zones';
+import {buildLoft, LoftRing, taperedLimbGeometry} from './geometry';
 
 // Parametric humanoid rig for the 3D character editor.
 //
@@ -36,9 +37,24 @@ const M = {
   shoulderX: 0.205,
   shoulderY: 0.165,
   upperArmLen: 0.27,
-  upperArmR: 0.052,
   forearmLen: 0.25,
-  forearmR: 0.042,
+};
+
+// Torso loft ring stack in PELVIS space, bottom → top. Parameters scale
+// these base radii at rebuild time; boundary rings (hipTop, underChest) are
+// computed once and shared by the adjacent parts, so the silhouette is
+// continuous across the hips/waist/chest split.
+const TORSO_RINGS = {
+  crotch: {y: -0.1, rx: 0.108, rzFront: 0.092, rzBack: 0.1},
+  hipsMax: {y: -0.015, rx: 0.17, rzFront: 0.122, rzBack: 0.134},
+  hipTop: {y: 0.055, rx: 0.152, rzFront: 0.112, rzBack: 0.124},
+  waistMid: {y: 0.135, rx: 0.138, rzFront: 0.104, rzBack: 0.114},
+  underChest: {y: 0.215, rx: 0.156, rzFront: 0.116, rzBack: 0.128},
+  chestMax: {y: 0.3, rx: 0.18, rzFront: 0.132, rzBack: 0.142},
+  shoulderTop: {y: 0.42, rx: 0.15, rzFront: 0.1, rzBack: 0.112},
+  // Tight against the neck cylinder (r ≈ 0.053 at its base) so the loft's
+  // top cap doesn't leave a shadowed ledge around the neck.
+  neckBase: {y: 0.52, rx: 0.062, rzFront: 0.055, rzBack: 0.058},
 };
 
 // Skull-center–relative anchors for facial features. Z values must clear
@@ -102,6 +118,7 @@ export class CharacterRig {
   private geometries: THREE.BufferGeometry[] = [];
   private hairKey = '';
   private mouthKey = '';
+  private torsoKey = '';
   private lastHighlight: [string | null, string | null] = [null, null];
 
   constructor() {
@@ -172,10 +189,10 @@ export class CharacterRig {
       const hovered = !!hoveredZoneId && !!zones?.has(hoveredZoneId);
       if (selected) {
         material.emissive.setHex(accent);
-        material.emissiveIntensity = 0.26;
+        material.emissiveIntensity = 0.16;
       } else if (hovered) {
         material.emissive.setHex(accent);
-        material.emissiveIntensity = 0.14;
+        material.emissiveIntensity = 0.09;
       } else {
         material.emissiveIntensity = 0;
         material.emissive.setHex(0x000000);
@@ -212,24 +229,22 @@ export class CharacterRig {
     };
     const node = (name: string) => this.nodes[name];
 
-    // ── Torso block ──
-    const curve = n('waist', 'torsoCurve');
-    node('chestMesh').scale.set(
-      1 + 0.3 * n('torso', 'chestWidth') + 0.08 * curve + 0.1 * n('torso', 'backWidth'),
-      1,
-      1 + 0.3 * n('torso', 'chestDepth') + 0.12 * Math.max(0, n('torso', 'backWidth')),
-    );
-    node('chestMesh').position.z = -0.012 * Math.max(0, n('torso', 'backWidth'));
-    node('waistMesh').scale.set(
-      (1 + 0.3 * n('waist', 'waistWidth')) * (1 - 0.22 * curve),
-      1,
-      (1 + 0.25 * n('waist', 'waistWidth')) * (1 - 0.15 * curve),
-    );
-    node('hipsMesh').scale.set(
-      1 + 0.3 * n('hips', 'hipsWidth') + 0.06 * curve,
-      1 + 0.1 * n('hips', 'hipsShape'),
-      1 + 0.2 * n('hips', 'hipsShape'),
-    );
+    // ── Torso block: one continuous loft, rebuilt when its inputs change ──
+    this.rebuildTorsoIfNeeded({
+      chestWidth: n('torso', 'chestWidth'),
+      chestDepth: n('torso', 'chestDepth'),
+      backWidth: n('torso', 'backWidth'),
+      waistWidth: n('waist', 'waistWidth'),
+      torsoCurve: n('waist', 'torsoCurve'),
+      hipsWidth: n('hips', 'hipsWidth'),
+      hipsShape: n('hips', 'hipsShape'),
+      // The loft itself is symmetric; per-side shoulder width still moves
+      // the arm roots, so use the wider side for the torso silhouette.
+      shouldersWidth: Math.max(
+        nS('shoulders', 'shouldersWidth', 'L'),
+        nS('shoulders', 'shouldersWidth', 'R'),
+      ),
+    });
 
     // ── Neck / head size ──
     const neckLen = 1 + 0.4 * n('head_neck', 'neckLength');
@@ -416,9 +431,18 @@ export class CharacterRig {
     const mesh = this.nodes[`${name}Mesh`];
     const joint = this.nodes[`${name}End`];
     const baseLen = mesh.userData.baseLength as number;
+    // Limb geometry is baked in joint space (origin = upper joint), so
+    // scaling stretches it downward and the mesh itself never moves.
     mesh.scale.set(thicknessFactor, lengthFactor, thicknessFactor);
-    mesh.position.y = (-baseLen * lengthFactor) / 2;
     if (joint) joint.position.y = -baseLen * lengthFactor;
+  }
+
+  /** Subtle idle motion so the figure doesn't read as a statue. */
+  tick(timeSeconds: number): void {
+    const chest = this.nodes.chestMesh;
+    if (!chest) return;
+    const breath = 0.006 * (0.5 + 0.5 * Math.sin(timeSeconds * 1.4));
+    chest.scale.set(1 + breath * 0.6, 1 + breath, 1 + breath);
   }
 
   private applyColors(skinHex: string, saturation: number, hairHex: string, eyeHex: string): void {
@@ -449,6 +473,9 @@ export class CharacterRig {
 
   private material(kind: MatKind): THREE.MeshStandardMaterial {
     const material = new THREE.MeshStandardMaterial({roughness: 0.62, metalness: 0.04});
+    // Image-based lighting (scene.environment) carries most of the fill;
+    // keep its contribution moderate so the skin doesn't look plastic.
+    material.envMapIntensity = 0.55;
     switch (kind) {
       case 'eyeWhite': material.color.set('#f4f1ec'); material.roughness = 0.25; break;
       case 'iris': material.roughness = 0.2; break;
@@ -500,17 +527,21 @@ export class CharacterRig {
     return geo;
   }
 
-  /** Capsule limb segment: joint at the top, `${name}End` joint at the bottom. */
+  /**
+   * Tapered limb segment: joint at the top, `${name}End` joint at the
+   * bottom. Adjacent segments use matching radii at the shared joint so
+   * elbows/knees read as one continuous limb instead of stacked capsules.
+   */
   private segment(
     parent: THREE.Object3D,
     name: string,
     zoneId: string,
-    radius: number,
+    rTop: number,
+    rBottom: number,
     length: number,
   ): THREE.Group {
-    const geo = new THREE.CapsuleGeometry(radius, length, 6, 14);
+    const geo = taperedLimbGeometry(rTop, rBottom, length);
     const mesh = this.mesh(geo, 'skin', zoneId);
-    mesh.position.y = -length / 2;
     mesh.userData.baseLength = length;
     parent.add(mesh);
     this.nodes[`${name}Mesh`] = mesh;
@@ -518,22 +549,77 @@ export class CharacterRig {
     return end;
   }
 
+  /** Rebuild the three torso lofts when any silhouette parameter changes. */
+  private rebuildTorsoIfNeeded(q: {
+    chestWidth: number; chestDepth: number; backWidth: number;
+    waistWidth: number; torsoCurve: number;
+    hipsWidth: number; hipsShape: number; shouldersWidth: number;
+  }): void {
+    const key = [
+      q.chestWidth, q.chestDepth, q.backWidth, q.waistWidth,
+      q.torsoCurve, q.hipsWidth, q.hipsShape, q.shouldersWidth,
+    ].map((v) => v.toFixed(3)).join('|');
+    if (key === this.torsoKey) return;
+    this.torsoKey = key;
+
+    const T = TORSO_RINGS;
+    const c = q.torsoCurve;
+    const backBulge = 1 + 0.22 * Math.max(0, q.backWidth);
+    // The full effective ring stack is computed once; boundary rings are
+    // shared by the adjacent lofts, which guarantees a seamless silhouette.
+    const rings: LoftRing[] = [
+      {y: T.crotch.y, rx: T.crotch.rx * (1 + 0.1 * q.hipsWidth),
+        rzFront: T.crotch.rzFront, rzBack: T.crotch.rzBack},
+      {y: T.hipsMax.y,
+        rx: T.hipsMax.rx * (1 + 0.3 * q.hipsWidth + 0.07 * c + 0.05 * q.hipsShape),
+        rzFront: T.hipsMax.rzFront * (1 + 0.2 * q.hipsShape),
+        rzBack: T.hipsMax.rzBack * (1 + 0.25 * q.hipsShape)},
+      {y: T.hipTop.y,
+        rx: T.hipTop.rx * (1 + 0.18 * q.hipsWidth + 0.07 * c) * (1 + 0.1 * q.waistWidth),
+        rzFront: T.hipTop.rzFront, rzBack: T.hipTop.rzBack * (1 + 0.1 * q.hipsShape)},
+      {y: T.waistMid.y,
+        rx: T.waistMid.rx * (1 + 0.3 * q.waistWidth) * (1 - 0.22 * c),
+        rzFront: T.waistMid.rzFront * (1 + 0.22 * q.waistWidth) * (1 - 0.12 * c),
+        rzBack: T.waistMid.rzBack * (1 + 0.22 * q.waistWidth) * (1 - 0.12 * c)},
+      {y: T.underChest.y,
+        rx: T.underChest.rx * (1 + 0.15 * q.chestWidth + 0.1 * q.waistWidth) * (1 - 0.08 * c),
+        rzFront: T.underChest.rzFront, rzBack: T.underChest.rzBack},
+      {y: T.chestMax.y,
+        rx: T.chestMax.rx * (1 + 0.28 * q.chestWidth + 0.05 * c + 0.06 * q.backWidth),
+        rzFront: T.chestMax.rzFront * (1 + 0.3 * q.chestDepth),
+        rzBack: T.chestMax.rzBack * backBulge},
+      {y: T.shoulderTop.y,
+        rx: T.shoulderTop.rx * (1 + 0.18 * q.chestWidth + 0.2 * q.shouldersWidth),
+        rzFront: T.shoulderTop.rzFront * (1 + 0.2 * q.chestDepth),
+        rzBack: T.shoulderTop.rzBack * backBulge},
+      {y: T.neckBase.y, rx: T.neckBase.rx, rzFront: T.neckBase.rzFront, rzBack: T.neckBase.rzBack},
+    ];
+    const local = (ring: LoftRing, dy: number): LoftRing => ({...ring, y: ring.y - dy});
+    // hipsMesh lives under pelvis (dy 0), waistMesh under spine (+0.13),
+    // chestMesh under chest (+0.35) — slice with one shared ring of overlap.
+    this.swapGeometry(this.nodes.hipsMesh as THREE.Mesh,
+      buildLoft(rings.slice(0, 3).map((r) => local(r, 0)), 32, {bottom: true}));
+    this.swapGeometry(this.nodes.waistMesh as THREE.Mesh,
+      buildLoft(rings.slice(2, 5).map((r) => local(r, M.spineY)), 32, {}));
+    this.swapGeometry(this.nodes.chestMesh as THREE.Mesh,
+      buildLoft(rings.slice(4, 9).map((r) => local(r, M.spineY + M.chestY)), 32, {top: true}));
+  }
+
   private build(): void {
     const pelvis = this.group('pelvis', this.root, 0, M.pelvisY, 0);
-    const hipsMesh = this.mesh(this.ellipsoid(0.168, 0.14, 0.14), 'skin', 'hips');
-    hipsMesh.position.y = 0.01;
+    // Torso lofts start empty — the first applyParams() builds them from
+    // the shared ring stack (rebuildTorsoIfNeeded).
+    const hipsMesh = this.mesh(new THREE.BufferGeometry(), 'skin', 'hips');
     pelvis.add(hipsMesh);
     this.nodes.hipsMesh = hipsMesh;
 
     const spine = this.group('spine', pelvis, 0, M.spineY, 0);
-    const waistMesh = this.mesh(this.ellipsoid(0.15, 0.13, 0.124), 'skin', 'waist');
-    waistMesh.position.y = 0.02;
+    const waistMesh = this.mesh(new THREE.BufferGeometry(), 'skin', 'waist');
     spine.add(waistMesh);
     this.nodes.waistMesh = waistMesh;
 
     const chest = this.group('chest', spine, 0, M.chestY, 0);
-    const chestMesh = this.mesh(this.ellipsoid(0.195, 0.185, 0.148), 'skin', 'torso');
-    chestMesh.position.y = 0.05;
+    const chestMesh = this.mesh(new THREE.BufferGeometry(), 'skin', 'torso');
     chest.add(chestMesh);
     this.nodes.chestMesh = chestMesh;
 
@@ -542,12 +628,12 @@ export class CharacterRig {
       const m = side === 'L' ? -1 : 1;
       const armRoot = this.group(`armRoot${side}`, chest, m * M.shoulderX, M.shoulderY, 0);
       armRoot.userData.side = side;
-      const shoulderMesh = this.mesh(new THREE.SphereGeometry(0.07, 20, 14), 'skin', 'shoulders');
+      const shoulderMesh = this.mesh(new THREE.SphereGeometry(0.062, 20, 14), 'skin', 'shoulders');
       armRoot.add(shoulderMesh);
       this.nodes[`shoulderMesh${side}`] = shoulderMesh;
 
-      const elbow = this.segment(armRoot, `upperArm${side}`, 'upper_arm', M.upperArmR, M.upperArmLen);
-      const wrist = this.segment(elbow, `forearm${side}`, 'forearm', M.forearmR, M.forearmLen);
+      const elbow = this.segment(armRoot, `upperArm${side}`, 'upper_arm', 0.058, 0.047, M.upperArmLen);
+      const wrist = this.segment(elbow, `forearm${side}`, 'forearm', 0.047, 0.035, M.forearmLen);
       const handGeo = new THREE.CapsuleGeometry(0.034, 0.062, 5, 10);
       handGeo.scale(1, 1, 0.55);
       const handMesh = this.mesh(handGeo, 'skin', 'hand');
@@ -561,8 +647,8 @@ export class CharacterRig {
       const m = side === 'L' ? -1 : 1;
       const legRoot = this.group(`legRoot${side}`, pelvis, m * M.hipHalfX, -0.02, 0);
       legRoot.userData.side = side;
-      const knee = this.segment(legRoot, `thigh${side}`, 'thigh', M.thighR, M.thighLen);
-      const ankle = this.segment(knee, `calf${side}`, 'calf', M.calfR, M.calfLen);
+      const knee = this.segment(legRoot, `thigh${side}`, 'thigh', 0.088, 0.064, M.thighLen);
+      const ankle = this.segment(knee, `calf${side}`, 'calf', 0.064, 0.044, M.calfLen);
       const footGeo = new THREE.BoxGeometry(0.075, 0.052, 0.21);
       const footMesh = this.mesh(footGeo, 'skin', 'foot');
       footMesh.position.set(0, -0.085, 0.05);

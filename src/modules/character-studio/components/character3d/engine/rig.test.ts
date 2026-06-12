@@ -46,14 +46,52 @@ describe('CharacterRig', () => {
   });
 
   it('chestWidth widens the chest and clamps outside [-1, 1]', () => {
-    const chest = rig.nodeByName('chestMesh') as THREE.Mesh;
+    // Torso params rebuild the loft geometry, so measure real bounds.
+    const width = () => {
+      const box = bounds(rig, 'torso');
+      return box.max.x - box.min.x;
+    };
     rig.applyParams(withParams({torso: {chestWidth: 0}}));
-    const base = chest.scale.x;
+    const base = width();
     rig.applyParams(withParams({torso: {chestWidth: 1}}));
-    const widened = chest.scale.x;
-    expect(widened).toBeGreaterThan(base);
+    const widened = width();
+    expect(widened).toBeGreaterThan(base + 0.02);
     rig.applyParams(withParams({torso: {chestWidth: 5}}));
-    expect(chest.scale.x).toBeCloseTo(widened, 6);
+    expect(width()).toBeCloseTo(widened, 4);
+  });
+
+  it('keeps torso lofts continuous at part boundaries', () => {
+    rig.applyParams(withParams({waist: {waistWidth: 0.6, torsoCurve: 0.5}, hips: {hipsWidth: 0.4}}));
+    rig.root.updateMatrixWorld(true);
+    // Bottom ring of the waist loft must match the top ring of the hips
+    // loft (shared boundary ring) — compare world-space extents at the seam.
+    const waistBox = bounds(rig, 'waist');
+    const hipsBox = bounds(rig, 'hips');
+    expect(Math.abs(waistBox.min.y - hipsBox.max.y)).toBeLessThan(1e-3);
+
+    const chestBox = bounds(rig, 'torso');
+    expect(Math.abs(chestBox.min.y - waistBox.max.y)).toBeLessThan(1e-3);
+  });
+
+  it('rebuilds torso geometry only when its parameters change', () => {
+    const chest = rig.nodeByName('chestMesh') as THREE.Mesh;
+    rig.applyParams(withParams({torso: {chestWidth: 0.5}}));
+    const geo = chest.geometry;
+    rig.applyParams(withParams({torso: {chestWidth: 0.5}, eyes: {eyeSize: 0.7}}));
+    expect(chest.geometry).toBe(geo);
+    rig.applyParams(withParams({torso: {chestWidth: 0.8}}));
+    expect(chest.geometry).not.toBe(geo);
+  });
+
+  it('idle tick breathes without breaking parameter scales', () => {
+    const chest = rig.nodeByName('chestMesh') as THREE.Mesh;
+    rig.tick(0.5);
+    expect(chest.scale.y).toBeGreaterThan(0.99);
+    expect(chest.scale.y).toBeLessThan(1.02);
+    rig.root.updateMatrixWorld(true);
+    rig.root.traverse((obj) => {
+      obj.matrixWorld.elements.forEach((el) => expect(Number.isFinite(el)).toBe(true));
+    });
   });
 
   it('keeps feet on the floor when legs are stretched', () => {

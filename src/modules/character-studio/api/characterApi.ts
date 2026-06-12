@@ -79,6 +79,9 @@ export const characterApi = {
   saveModel3D(projectId: string | number, characterId: string, params: Record<string, unknown>) {
     return api.put(`${base(projectId, characterId)}/model3d`, { params });
   },
+  autofitModel3D(projectId: string | number, characterId: string) {
+    return api.post(`${base(projectId, characterId)}/model3d/autofit`);
+  },
   applyVariant(
     projectId: string | number,
     characterId: string,
