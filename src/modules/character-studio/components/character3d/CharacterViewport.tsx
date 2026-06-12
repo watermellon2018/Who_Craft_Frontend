@@ -2,7 +2,6 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {Canvas, ThreeEvent, useFrame, useThree} from '@react-three/fiber';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
-import {findZone} from './zones';
 import {CharacterRig, ZoneParams} from './engine/rig';
 import {dragBindingFor} from './engine/dragBindings';
 import {resolveSelectableZone} from './engine/zoneSelection';
@@ -55,7 +54,6 @@ const CharacterViewport: React.FC<Props> = ({
     rig.setHighlight(hoveredZoneId, selectedZoneId);
   }, [rig, hoveredZoneId, selectedZoneId]);
 
-  const selectedZone = useMemo(() => findZone(selectedZoneId), [selectedZoneId]);
   const selectedBinding = useMemo(() => dragBindingFor(selectedZoneId), [selectedZoneId]);
   const isZoomed = !!zoomZoneId;
 
@@ -205,16 +203,9 @@ const CharacterViewport: React.FC<Props> = ({
       </Canvas>
       </div>
 
-      {/* No floating label on the model — the contextual panel already names
-          the selection; an overlay here only covers the part being edited. */}
-
-      {/* Zoom mode badge — pinned at top center of the stage. */}
-      {isZoomed && selectedZone ? (
-        <div className="c3d-zoom-badge" role="status">
-          <span className="c3d-zoom-badge__dot" />
-          <span>Режим детализации: {selectedZone.label}</span>
-        </div>
-      ) : null}
+      {/* No overlays on the model itself — the floating zone label and the
+          zoom badge both covered the part being edited; the contextual
+          panel already communicates selection and zoom state. */}
 
       {/* Hints. */}
       {!selectedZoneId ? (

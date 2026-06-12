@@ -518,44 +518,9 @@
   box-shadow: 0 0 30px rgba(245, 180, 0, 0.4);
 }
 
-/* ───── Zoom-mode badge ──────────────────────────────────────────── */
-.c3d-zoom-badge {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 6;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border: 1px solid var(--c3d-accent-border);
-  border-radius: 999px;
-  background: rgba(13, 15, 19, 0.86);
-  color: var(--c3d-accent);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 18px var(--c3d-accent-glow);
-}
-
-.c3d-zoom-badge__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--c3d-accent);
-  box-shadow: 0 0 0 4px rgba(245, 180, 0, 0.18);
-  animation: c3d-pulse 1.6s ease-in-out infinite;
-}
-
-/* The floating selection label was removed — the contextual panel names the
-   selection; an overlay on the model only covered the part being edited.
-   c3d-pulse stays: the zoom badge dot uses it. */
-@keyframes c3d-pulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(245, 180, 0, 0.22); }
-  50% { box-shadow: 0 0 0 8px rgba(245, 180, 0, 0.05); }
-}
+/* The floating selection label and the zoom-mode badge were removed — both
+   covered the part being edited; the contextual panel communicates the
+   selection and zoom state. */
 
 @keyframes c3d-hint-in {
   from { opacity: 0; transform: translateY(6px); }
