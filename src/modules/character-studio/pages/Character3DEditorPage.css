@@ -1165,6 +1165,34 @@
   line-height: 1.4;
 }
 
+/* Side selector shown when symmetry is off. */
+.c3d-symmetry__sides {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.c3d-symmetry__hint {
+  font-size: 11px;
+  color: var(--c3d-muted);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Small "editing side" badge next to the parameters section title. */
+.c3d-panel-section__badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--c3d-accent-border);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
 /* ───── Zoom toggle button ───────────────────────────────────────── */
 .c3d-zoom-button {
   display: inline-flex;

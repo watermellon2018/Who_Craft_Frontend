@@ -17,13 +17,22 @@ export function mergeSavedParams(saved: unknown): ZoneParams {
     }
     for (const param of zone.parameters) {
       const value = (zoneValues as Record<string, unknown>)[param.id];
-      if (value === undefined) continue;
       if (typeof param.defaultValue === 'number') {
+        const min = param.min ?? -1;
+        const max = param.max ?? 1;
         if (typeof value === 'number' && Number.isFinite(value)) {
-          const min = param.min ?? -1;
-          const max = param.max ?? 1;
           out[zoneId][param.id] = Math.max(min, Math.min(max, value));
         }
+        // Per-side overrides (`id__L` / `id__R`) written by asymmetric
+        // editing survive the roundtrip alongside the shared value.
+        for (const side of ['L', 'R'] as const) {
+          const sideValue = (zoneValues as Record<string, unknown>)[`${param.id}__${side}`];
+          if (typeof sideValue === 'number' && Number.isFinite(sideValue)) {
+            out[zoneId][`${param.id}__${side}`] = Math.max(min, Math.min(max, sideValue));
+          }
+        }
+      } else if (value === undefined) {
+        continue;
       } else if (typeof param.defaultValue === 'boolean') {
         if (typeof value === 'boolean') out[zoneId][param.id] = value;
       } else if (typeof value === 'string') {
@@ -35,4 +44,29 @@ export function mergeSavedParams(saved: unknown): ZoneParams {
     }
   }
   return out;
+}
+
+// Fold `id__L` / `id__R` overrides of a zone back into the shared value when
+// the user re-enables «Применять симметрично»: both sides adopt the side the
+// user was just editing, and the overrides are removed.
+export function collapseSideOverrides(
+  params: ZoneParams,
+  zoneId: string,
+  keepSide: 'L' | 'R',
+): ZoneParams {
+  const zone = params[zoneId];
+  if (!zone) return params;
+  const out = {...zone};
+  let touched = false;
+  for (const key of Object.keys(zone)) {
+    const match = /^(.+)__([LR])$/.exec(key);
+    if (!match) continue;
+    touched = true;
+    const baseId = match[1];
+    const keep = zone[`${baseId}__${keepSide}`];
+    if (typeof keep === 'number') out[baseId] = keep;
+    delete out[`${baseId}__L`];
+    delete out[`${baseId}__R`];
+  }
+  return touched ? {...params, [zoneId]: out} : params;
 }

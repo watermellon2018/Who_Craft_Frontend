@@ -3,7 +3,7 @@ import {buildInitialZoneParams, ZONE_INDEX} from '../zones';
 import {CharacterRig, ZoneParams} from './rig';
 import {DRAG_BINDINGS} from './dragBindings';
 import {resolveSelectableZone} from './zoneSelection';
-import {mergeSavedParams} from './paramMerge';
+import {collapseSideOverrides, mergeSavedParams} from './paramMerge';
 
 // Engine math tests: the rig is plain three.js (no WebGL needed), so the
 // geometry/transform contract is verifiable in jsdom.
@@ -71,6 +71,50 @@ describe('CharacterRig', () => {
     const right = rig.nodeByName('eyeR') as THREE.Object3D;
     expect(left.rotation.z).not.toBeCloseTo(0, 5);
     expect(left.rotation.z).toBeCloseTo(-right.rotation.z, 6);
+  });
+
+  it('applies per-side overrides (`id__L` / `id__R`) to one half only', () => {
+    rig.applyParams(withParams({upper_arm: {length: 0, length__L: 1}}));
+    const leftEnd = rig.nodeByName('upperArmLEnd') as THREE.Object3D;
+    const rightEnd = rig.nodeByName('upperArmREnd') as THREE.Object3D;
+    expect(leftEnd.position.y).toBeLessThan(rightEnd.position.y - 0.02);
+
+    rig.applyParams(withParams({eyes: {eyeTilt: 0, eyeTilt__R: 0.9}}));
+    const leftEye = rig.nodeByName('eyeL') as THREE.Object3D;
+    const rightEye = rig.nodeByName('eyeR') as THREE.Object3D;
+    expect(leftEye.rotation.z).toBeCloseTo(0, 6);
+    expect(Math.abs(rightEye.rotation.z)).toBeGreaterThan(0.1);
+  });
+
+  it('keeps the figure standing on the longer leg with asymmetric lengths', () => {
+    rig.applyParams(withParams({thigh: {thighLength: 0, thighLength__L: 1}}));
+    rig.root.updateMatrixWorld(true);
+    const total = new THREE.Box3().setFromObject(rig.root);
+    expect(total.min.y).toBeGreaterThan(-0.05);
+  });
+
+  it('resolves the grabbed side from intersected objects', () => {
+    const leftArmMesh = rig.nodeByName('upperArmLMesh') as THREE.Object3D;
+    const rightEye = rig.nodeByName('eyeR') as THREE.Object3D;
+    expect(rig.resolveSideFromObject(leftArmMesh)).toBe('L');
+    expect(rig.resolveSideFromObject(rightEye)).toBe('R');
+    expect(rig.resolveSideFromObject(rig.nodeByName('chestMesh') as THREE.Object3D)).toBeNull();
+  });
+
+  it('never tints the iris/pupil with the selection glow', () => {
+    rig.setHighlight(null, 'eyes');
+    let glowing = 0;
+    let dark = 0;
+    rig.root.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!mesh.isMesh || mesh.userData.zoneId !== 'eyes') return;
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      if (mat.emissiveIntensity > 0) glowing++;
+      else dark++;
+    });
+    expect(glowing).toBeGreaterThan(0);
+    // Iris + pupil on both sides stay glow-free so the picked color reads true.
+    expect(dark).toBeGreaterThanOrEqual(4);
   });
 
   it('produces no NaN transforms with every numeric parameter maxed', () => {
@@ -184,5 +228,32 @@ describe('mergeSavedParams', () => {
   it('ignores non-object payloads', () => {
     expect(mergeSavedParams(null)).toEqual(buildInitialZoneParams());
     expect(mergeSavedParams([1, 2])).toEqual(buildInitialZoneParams());
+  });
+
+  it('keeps per-side overrides for numeric params, clamped', () => {
+    const merged = mergeSavedParams({
+      upper_arm: {length: 0.2, length__L: 7, volume__R: -0.4},
+      eyes: {eyeColor__L: '#fff'},
+    });
+    expect(merged.upper_arm.length__L).toBe(1);
+    expect(merged.upper_arm.volume__R).toBe(-0.4);
+    // Side overrides exist only for numeric params — not for swatches.
+    expect((merged.eyes as Record<string, unknown>).eyeColor__L).toBeUndefined();
+  });
+});
+
+describe('collapseSideOverrides', () => {
+  it('folds the kept side into the shared value and drops overrides', () => {
+    const params = buildInitialZoneParams();
+    params.upper_arm = {...params.upper_arm, length: 0.1, length__L: 0.8, length__R: -0.5};
+    const collapsed = collapseSideOverrides(params, 'upper_arm', 'L');
+    expect(collapsed.upper_arm.length).toBe(0.8);
+    expect(collapsed.upper_arm.length__L).toBeUndefined();
+    expect(collapsed.upper_arm.length__R).toBeUndefined();
+  });
+
+  it('returns the params untouched when the zone has no overrides', () => {
+    const params = buildInitialZoneParams();
+    expect(collapseSideOverrides(params, 'upper_arm', 'L')).toBe(params);
   });
 });

@@ -17,7 +17,7 @@ import {
 
 const MOCK_CHARACTER_NAME = 'Персонаж';
 import {characterApi} from '../api/characterApi';
-import {mergeSavedParams} from '../components/character3d/engine/paramMerge';
+import {collapseSideOverrides, mergeSavedParams} from '../components/character3d/engine/paramMerge';
 import {useCharacter} from '../hooks/useCharacter';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './Character3DEditorPage.css';
@@ -54,9 +54,8 @@ const Character3DEditorPage: React.FC = () => {
   );
   // Baseline snapshot for the Cancel button; reset on Apply/Save.
   const [paramsBaseline, setParamsBaseline] = useState(zoneParams);
-  // Reserved for a future "edit left side only / right side only" toggle.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedSide, _setSelectedSide] = useState<'left' | 'right' | 'both'>('both');
+  // Which mirrored half the user edits while «Применять симметрично» is off.
+  const [selectedSide, setSelectedSide] = useState<'L' | 'R'>('L');
 
   // ─── Load saved 3D state ───
   useEffect(() => {
@@ -89,6 +88,9 @@ const Character3DEditorPage: React.FC = () => {
     () => (selectedZoneId ? getTopLevelGroup(selectedZoneId) : null),
     [selectedZoneId],
   );
+  // Side-scoped editing is active only for symmetric zones with symmetry off.
+  const editSide: 'L' | 'R' | null =
+    selectedZone?.isSymmetric && !symmetryEnabled ? selectedSide : null;
   const hasUnappliedChanges = useMemo(
     () => JSON.stringify(zoneParams) !== JSON.stringify(paramsBaseline),
     [zoneParams, paramsBaseline],
@@ -98,14 +100,15 @@ const Character3DEditorPage: React.FC = () => {
   const handleSelectZone = useCallback((zoneId: string | null) => {
     setSelectedZoneId(zoneId);
     setHoveredZoneId(null);
-    // Leaving zoom mode when you select a different zone keeps the
-    // mental model simple: zoom is an opt-in modifier on the current
-    // focus, never a sticky state.
+    // Camera follows the selection: face/hair zones are small, so the
+    // camera zooms onto them automatically; body/pose/skin work at figure
+    // scale, so selecting them returns the camera to the full view.
     if (zoneId === null) {
       setZoomZoneId(null);
-    } else {
-      setZoomZoneId((prev) => (prev && prev !== zoneId ? null : prev));
+      return;
     }
+    const group = getTopLevelGroup(zoneId);
+    setZoomZoneId(group === 'face' || group === 'hair' ? zoneId : null);
   }, []);
 
   const handleHoverZone = useCallback((zoneId: string | null) => {
@@ -118,14 +121,22 @@ const Character3DEditorPage: React.FC = () => {
   }, [handleSelectZone]);
 
   const handleParameterChange = useCallback(
-    (zoneId: string, paramId: string, value: number | string | boolean) => {
-      // Parameters are stored once per zone and the rig applies them to both
-      // sides — symmetric by construction. Per-side values arrive together
-      // with the selectedSide state when asymmetric editing ships.
-      setZoneParams((prev) => ({
-        ...prev,
-        [zoneId]: {...(prev[zoneId] ?? {}), [paramId]: value},
-      }));
+    (zoneId: string, paramId: string, value: number | string | boolean, side?: 'L' | 'R' | null) => {
+      setZoneParams((prev) => {
+        const zone = {...(prev[zoneId] ?? {})};
+        if (side) {
+          // Asymmetric edit: write the per-side override, the shared value
+          // keeps serving the other side.
+          zone[`${paramId}__${side}`] = value;
+        } else {
+          // Symmetric edit: set the shared value and drop stale overrides so
+          // both sides actually follow the slider.
+          zone[paramId] = value;
+          delete zone[`${paramId}__L`];
+          delete zone[`${paramId}__R`];
+        }
+        return {...prev, [zoneId]: zone};
+      });
     },
     [],
   );
@@ -136,8 +147,16 @@ const Character3DEditorPage: React.FC = () => {
   }, [selectedZoneId]);
 
   const handleSymmetryToggle = useCallback(() => {
-    setSymmetryEnabled((prev) => !prev);
-  }, []);
+    setSymmetryEnabled((prev) => {
+      const next = !prev;
+      if (next && selectedZoneId) {
+        // Re-enabling symmetry folds the per-side values back into one:
+        // both sides adopt the side the user was just editing.
+        setZoneParams((p) => collapseSideOverrides(p, selectedZoneId, selectedSide));
+      }
+      return next;
+    });
+  }, [selectedZoneId, selectedSide]);
 
   const handleReset = useCallback(() => {
     // Reset only the currently-selected zone's params to defaults — the
@@ -232,6 +251,8 @@ const Character3DEditorPage: React.FC = () => {
             onHoverZone={handleHoverZone}
             onSelectZone={handleSelectZone}
             onParameterChange={handleParameterChange}
+            editSide={editSide}
+            onSideChange={setSelectedSide}
             zoneParams={zoneParams}
           />
 
@@ -244,6 +265,8 @@ const Character3DEditorPage: React.FC = () => {
               ancestors={ancestors}
               zoneParams={zoneParams[selectedZoneId ?? ''] ?? {}}
               symmetryEnabled={symmetryEnabled}
+              editSide={editSide}
+              onSideChange={setSelectedSide}
               isZoomed={!!zoomZoneId && zoomZoneId === selectedZoneId}
               hasChanges={hasUnappliedChanges}
               onSelectZone={handleSelectZone}

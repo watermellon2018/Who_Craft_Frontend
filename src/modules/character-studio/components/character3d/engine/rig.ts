@@ -124,6 +124,17 @@ export class CharacterRig {
     return null;
   }
 
+  /** Which mirrored half (left/right) an intersected object belongs to. */
+  resolveSideFromObject(obj: THREE.Object3D | null): 'L' | 'R' | null {
+    let cursor: THREE.Object3D | null = obj;
+    while (cursor) {
+      const side = cursor.userData?.side;
+      if (side === 'L' || side === 'R') return side;
+      cursor = cursor.parent;
+    }
+    return null;
+  }
+
   /** World-space bounds of a zone (its meshes + all descendants' meshes). */
   zoneBounds(zoneId: string): THREE.Box3 | null {
     const box = new THREE.Box3();
@@ -148,7 +159,14 @@ export class CharacterRig {
   setHighlight(hoveredZoneId: string | null, selectedZoneId: string | null): void {
     this.lastHighlight = [hoveredZoneId, selectedZoneId];
     const accent = 0xf5b400;
-    this.mats.forEach(({mesh, material}) => {
+    // Color-bearing details never glow — an emissive tint on the iris or
+    // inside the mouth falsifies exactly the color the user is picking.
+    const noGlow = new Set<MatKind>(['iris', 'pupil', 'mouthInner', 'blush']);
+    this.mats.forEach(({mesh, material, kind}) => {
+      if (noGlow.has(kind)) {
+        material.emissiveIntensity = 0;
+        return;
+      }
       const zones = this.meshZones.get(mesh);
       const selected = !!selectedZoneId && !!zones?.has(selectedZoneId);
       const hovered = !!hoveredZoneId && !!zones?.has(hoveredZoneId);
@@ -185,6 +203,13 @@ export class CharacterRig {
       return typeof v === 'string' ? v : fallback;
     };
     const b = (zone: string, id: string): boolean => params[zone]?.[id] === true;
+    // Per-side resolution: `${id}__L` / `${id}__R` overrides win over the
+    // shared value. The editor writes overrides when «Применять симметрично»
+    // is off; the shared value remains the fallback for both sides.
+    const nS = (zone: string, id: string, side: 'L' | 'R', fallback = 0): number => {
+      const v = params[zone]?.[`${id}__${side}`];
+      return typeof v === 'number' && Number.isFinite(v) ? clamp(v) : n(zone, id, fallback);
+    };
     const node = (name: string) => this.nodes[name];
 
     // ── Torso block ──
@@ -219,9 +244,6 @@ export class CharacterRig {
     node('head').scale.setScalar(headScale);
 
     // ── Shoulders + arms attach ──
-    const shWidth = n('shoulders', 'shouldersWidth');
-    const shSlope = n('shoulders', 'shouldersSlope');
-    const shHeight = n('shoulders', 'shouldersHeight');
     const posture = POSTURES[s('posture', 'posturePreset', 'neutral')] ?? POSTURES.neutral;
     const straight = clamp(posture.straight + n('posture', 'postureStraightness'));
     const slouch = Math.max(0, -straight);
@@ -229,13 +251,18 @@ export class CharacterRig {
     const torsoTilt = clamp(posture.tilt + n('posture', 'torsoTilt'));
 
     // Longer/shorter legs move the whole figure so the feet stay on the
-    // floor: pelvis height = leg-root offset + stretched segments + ankle.
-    const thighF = 1 + 0.2 * n('thigh', 'thighLength');
-    const calfF = 1 + 0.2 * n('calf', 'calfLength');
-    this.nodes.pelvis.position.y = 0.02 + M.thighLen * thighF + M.calfLen * calfF + 0.12;
+    // floor. With asymmetric legs the figure stands on the longer one —
+    // the pelvis follows it so no foot ever sinks below the floor.
+    const legLen = (side: 'L' | 'R') =>
+      M.thighLen * (1 + 0.2 * nS('thigh', 'thighLength', side)) +
+      M.calfLen * (1 + 0.2 * nS('calf', 'calfLength', side));
+    this.nodes.pelvis.position.y = 0.02 + Math.max(legLen('L'), legLen('R')) + 0.12;
 
     (['L', 'R'] as const).forEach((side) => {
       const m = side === 'L' ? -1 : 1;
+      const shWidth = nS('shoulders', 'shouldersWidth', side);
+      const shSlope = nS('shoulders', 'shouldersSlope', side);
+      const shHeight = nS('shoulders', 'shouldersHeight', side);
       const armRoot = node(`armRoot${side}`);
       armRoot.position.set(
         m * M.shoulderX * (1 + 0.3 * shWidth),
@@ -243,22 +270,31 @@ export class CharacterRig {
         0.035 * shouldersFwd,
       );
       // Slope tips the whole arm slightly outward/downward.
-      const raise = Math.max(0.03, 0.16 + 0.55 * n('arms_pose', 'armsRaise') - 0.06 * shSlope);
-      armRoot.rotation.set(-0.6 * n('arms_pose', 'armsForward'), -m * 0.22 * shouldersFwd, m * raise);
+      const raise = Math.max(
+        0.03,
+        0.16 + 0.55 * nS('arms_pose', 'armsRaise', side) - 0.06 * shSlope,
+      );
+      armRoot.rotation.set(
+        -0.6 * nS('arms_pose', 'armsForward', side),
+        -m * 0.22 * shouldersFwd,
+        m * raise,
+      );
       node(`shoulderMesh${side}`).scale.setScalar(1 + 0.18 * shWidth);
 
       // Limb segments: mesh stretches, child joint follows the new length.
-      this.applySegment(`upperArm${side}`, 1 + 0.22 * n('upper_arm', 'length'),
-        1 + 0.3 * n('upper_arm', 'volume') + 0.12 * n('upper_arm', 'definition'));
-      this.applySegment(`forearm${side}`, 1 + 0.22 * n('forearm', 'length'),
-        1 + 0.3 * n('forearm', 'thickness'));
+      this.applySegment(`upperArm${side}`, 1 + 0.22 * nS('upper_arm', 'length', side),
+        1 + 0.3 * nS('upper_arm', 'volume', side) + 0.12 * nS('upper_arm', 'definition', side));
+      this.applySegment(`forearm${side}`, 1 + 0.22 * nS('forearm', 'length', side),
+        1 + 0.3 * nS('forearm', 'thickness', side));
       const hand = node(`handMesh${side}`);
-      const handSize = 1 + 0.25 * n('hand', 'size');
-      hand.scale.set(handSize, handSize * (1 + 0.3 * n('hand', 'fingerLength')), handSize);
+      const handSize = 1 + 0.25 * nS('hand', 'size', side);
+      hand.scale.set(handSize, handSize * (1 + 0.3 * nS('hand', 'fingerLength', side)), handSize);
 
-      this.applySegment(`thigh${side}`, thighF, 1 + 0.32 * n('thigh', 'thighVolume'));
-      this.applySegment(`calf${side}`, calfF, 1 + 0.32 * n('calf', 'calfVolume'));
-      node(`footMesh${side}`).scale.setScalar(1 + 0.25 * n('foot', 'footSize'));
+      this.applySegment(`thigh${side}`, 1 + 0.2 * nS('thigh', 'thighLength', side),
+        1 + 0.32 * nS('thigh', 'thighVolume', side));
+      this.applySegment(`calf${side}`, 1 + 0.2 * nS('calf', 'calfLength', side),
+        1 + 0.32 * nS('calf', 'calfVolume', side));
+      node(`footMesh${side}`).scale.setScalar(1 + 0.25 * nS('foot', 'footSize', side));
     });
 
     // ── Posture / head pose ──
@@ -304,24 +340,25 @@ export class CharacterRig {
     (['L', 'R'] as const).forEach((side) => {
       const m = side === 'L' ? -1 : 1;
       const eye = node(`eye${side}`);
-      eye.position.x = m * (FACE.eyeX + 0.012 * n('eyes', 'eyeDistance'));
-      eye.rotation.z = -m * 0.28 * n('eyes', 'eyeTilt');
-      eye.scale.setScalar(1 + 0.3 * n('eyes', 'eyeSize'));
+      eye.position.x = m * (FACE.eyeX + 0.012 * nS('eyes', 'eyeDistance', side));
+      eye.rotation.z = -m * 0.28 * nS('eyes', 'eyeTilt', side);
+      eye.scale.setScalar(1 + 0.3 * nS('eyes', 'eyeSize', side));
       const lid = node(`eyelid${side}`);
       const lidCover = 0.18 + 0.62 * squint;
       lid.scale.set(1.06, lidCover, 1.04);
       lid.position.y = FACE.eyeR * (1 - lidCover * 0.55);
 
       const brow = node(`brow${side}`);
-      brow.position.x = m * (FACE.eyeX + 0.012 * n('eyes', 'eyeDistance'));
+      brow.position.x = m * (FACE.eyeX + 0.012 * nS('eyes', 'eyeDistance', side));
       brow.position.y =
-        FACE.browY + 0.014 * (n('brows', 'browHeight') + clamp(n('expression', 'browRaise'), 0, 1));
-      brow.rotation.z = m * 0.45 * n('brows', 'browAngle');
-      brow.scale.y = 1 + 0.6 * n('brows', 'browThickness');
+        FACE.browY +
+        0.014 * (nS('brows', 'browHeight', side) + clamp(n('expression', 'browRaise'), 0, 1));
+      brow.rotation.z = m * 0.45 * nS('brows', 'browAngle', side);
+      brow.scale.y = 1 + 0.6 * nS('brows', 'browThickness', side);
 
       const ear = node(`ear${side}`);
-      ear.scale.setScalar(1 + 0.35 * n('ears', 'earSize'));
-      ear.rotation.y = m * (0.12 + 0.5 * n('ears', 'earAngle'));
+      ear.scale.setScalar(1 + 0.35 * nS('ears', 'earSize', side));
+      ear.rotation.y = m * (0.12 + 0.5 * nS('ears', 'earAngle', side));
     });
 
     // ── Nose ──
@@ -504,6 +541,7 @@ export class CharacterRig {
     (['L', 'R'] as const).forEach((side) => {
       const m = side === 'L' ? -1 : 1;
       const armRoot = this.group(`armRoot${side}`, chest, m * M.shoulderX, M.shoulderY, 0);
+      armRoot.userData.side = side;
       const shoulderMesh = this.mesh(new THREE.SphereGeometry(0.07, 20, 14), 'skin', 'shoulders');
       armRoot.add(shoulderMesh);
       this.nodes[`shoulderMesh${side}`] = shoulderMesh;
@@ -522,6 +560,7 @@ export class CharacterRig {
     (['L', 'R'] as const).forEach((side) => {
       const m = side === 'L' ? -1 : 1;
       const legRoot = this.group(`legRoot${side}`, pelvis, m * M.hipHalfX, -0.02, 0);
+      legRoot.userData.side = side;
       const knee = this.segment(legRoot, `thigh${side}`, 'thigh', M.thighR, M.thighLen);
       const ankle = this.segment(knee, `calf${side}`, 'calf', M.calfR, M.calfLen);
       const footGeo = new THREE.BoxGeometry(0.075, 0.052, 0.21);
@@ -558,6 +597,7 @@ export class CharacterRig {
     (['L', 'R'] as const).forEach((side) => {
       const m = side === 'L' ? -1 : 1;
       const eye = this.group(`eye${side}`, face, m * FACE.eyeX, FACE.eyeY, FACE.eyeZ);
+      eye.userData.side = side;
       const white = this.mesh(new THREE.SphereGeometry(FACE.eyeR, 20, 14), 'eyeWhite', 'eyes');
       white.scale.z = 0.85;
       eye.add(white);
@@ -575,12 +615,14 @@ export class CharacterRig {
 
       const brow = this.mesh(new THREE.BoxGeometry(0.04, 0.0068, 0.01), 'brow', 'brows');
       brow.position.set(m * FACE.eyeX, FACE.browY, FACE.browZ);
+      brow.userData.side = side;
       face.add(brow);
       this.nodes[`brow${side}`] = brow;
 
       const earGeo = this.ellipsoid(0.011, 0.024, 0.016);
       const ear = this.mesh(earGeo, 'skin', 'ears');
       ear.position.set(m * FACE.earX, 0.005, 0.012);
+      ear.userData.side = side;
       face.add(ear);
       this.nodes[`ear${side}`] = ear;
 

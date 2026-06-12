@@ -7,11 +7,20 @@ interface Props {
   ancestors: EditableZone[];
   zoneParams: Record<string, number | string | boolean>;
   symmetryEnabled: boolean;
+  // 'L' | 'R' when a symmetric zone is edited with symmetry off; sliders
+  // then read/write per-side overrides (`paramId__L` / `paramId__R`).
+  editSide: 'L' | 'R' | null;
+  onSideChange: (side: 'L' | 'R') => void;
   isZoomed: boolean;
   hasChanges: boolean;
   onSelectZone: (zoneId: string | null) => void;
   onClose: () => void;
-  onParameterChange: (zoneId: string, paramId: string, value: number | string | boolean) => void;
+  onParameterChange: (
+    zoneId: string,
+    paramId: string,
+    value: number | string | boolean,
+    side?: 'L' | 'R' | null,
+  ) => void;
   onZoomToggle: () => void;
   onSymmetryToggle: () => void;
   onReset: () => void;
@@ -28,6 +37,8 @@ const ContextualZonePanel: React.FC<Props> = ({
   ancestors,
   zoneParams,
   symmetryEnabled,
+  editSide,
+  onSideChange,
   isZoomed,
   hasChanges,
   onSelectZone,
@@ -86,13 +97,19 @@ const ContextualZonePanel: React.FC<Props> = ({
           <ZoneParameters
             zone={zone}
             zoneParams={zoneParams}
-            onChange={(paramId, value) => onParameterChange(zone.id, paramId, value)}
+            editSide={editSide}
+            onChange={(paramId, value, side) => onParameterChange(zone.id, paramId, value, side)}
             onReset={onReset}
           />
         ) : null}
 
         {zone.isSymmetric ? (
-          <SymmetryToggle enabled={symmetryEnabled} onToggle={onSymmetryToggle} />
+          <SymmetryToggle
+            enabled={symmetryEnabled}
+            onToggle={onSymmetryToggle}
+            editSide={editSide}
+            onSideChange={onSideChange}
+          />
         ) : null}
 
         <ZoomControl isZoomed={isZoomed} zoneLabel={zone.label} onToggle={onZoomToggle} />
@@ -183,26 +200,42 @@ const ZoneChildrenList: React.FC<{zone: EditableZone; onSelectZone: (id: string)
 const ZoneParameters: React.FC<{
   zone: EditableZone;
   zoneParams: Record<string, number | string | boolean>;
-  onChange: (paramId: string, value: number | string | boolean) => void;
+  editSide: 'L' | 'R' | null;
+  onChange: (paramId: string, value: number | string | boolean, side?: 'L' | 'R' | null) => void;
   onReset: () => void;
-}> = ({zone, zoneParams, onChange, onReset}) => {
+}> = ({zone, zoneParams, editSide, onChange, onReset}) => {
   return (
     <section className="c3d-panel-section">
       <div className="c3d-panel-section__head">
-        <h3 className="c3d-panel-section__title">Параметры</h3>
+        <h3 className="c3d-panel-section__title">
+          Параметры
+          {editSide ? (
+            <span className="c3d-panel-section__badge">
+              {editSide === 'L' ? 'левая сторона' : 'правая сторона'}
+            </span>
+          ) : null}
+        </h3>
         <button type="button" className="c3d-section-link" onClick={onReset}>
           Сбросить
         </button>
       </div>
       <div className="c3d-param-list">
-        {zone.parameters!.map((param) => (
-          <ParameterControl
-            key={param.id}
-            param={param}
-            value={zoneParams[param.id] ?? param.defaultValue}
-            onChange={(v) => onChange(param.id, v)}
-          />
-        ))}
+        {zone.parameters!.map((param) => {
+          // Only numeric shape controls are side-aware; colors, presets and
+          // toggles always apply to both halves.
+          const sided = !!editSide && (param.ui === 'slider' || param.ui === 'drag');
+          const value = sided
+            ? zoneParams[`${param.id}__${editSide}`] ?? zoneParams[param.id] ?? param.defaultValue
+            : zoneParams[param.id] ?? param.defaultValue;
+          return (
+            <ParameterControl
+              key={sided ? `${param.id}__${editSide}` : param.id}
+              param={param}
+              value={value}
+              onChange={(v) => onChange(param.id, v, sided ? editSide : null)}
+            />
+          );
+        })}
       </div>
     </section>
   );
@@ -344,7 +377,12 @@ const ToggleControl: React.FC<{
 };
 
 // ─────────── Symmetry toggle ───────────
-const SymmetryToggle: React.FC<{enabled: boolean; onToggle: () => void}> = ({enabled, onToggle}) => {
+const SymmetryToggle: React.FC<{
+  enabled: boolean;
+  onToggle: () => void;
+  editSide: 'L' | 'R' | null;
+  onSideChange: (side: 'L' | 'R') => void;
+}> = ({enabled, onToggle, editSide, onSideChange}) => {
   return (
     <section className="c3d-panel-section c3d-symmetry">
       <div className="c3d-symmetry__row">
@@ -353,7 +391,7 @@ const SymmetryToggle: React.FC<{enabled: boolean; onToggle: () => void}> = ({ena
           <small>
             {enabled
               ? 'Изменения применяются к обеим сторонам'
-              : 'Редактируется только выбранная сторона'}
+              : 'Слайдеры формы меняют только выбранную сторону'}
           </small>
         </div>
         <button
@@ -366,6 +404,27 @@ const SymmetryToggle: React.FC<{enabled: boolean; onToggle: () => void}> = ({ena
           <span className="c3d-toggle__knob" />
         </button>
       </div>
+      {!enabled ? (
+        <div className="c3d-symmetry__sides">
+          <div className="c3d-segment" role="radiogroup" aria-label="Редактируемая сторона">
+            {([['L', 'Левая'], ['R', 'Правая']] as const).map(([side, label]) => (
+              <button
+                key={side}
+                type="button"
+                className={`c3d-segment__item ${editSide === side ? 'c3d-segment__item--active' : ''}`}
+                onClick={() => onSideChange(side)}
+                role="radio"
+                aria-checked={editSide === side}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <small className="c3d-symmetry__hint">
+            Сторону можно выбрать и на модели — просто потяните нужную часть
+          </small>
+        </div>
+      ) : null}
     </section>
   );
 };

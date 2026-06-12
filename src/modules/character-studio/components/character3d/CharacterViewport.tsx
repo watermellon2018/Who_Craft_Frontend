@@ -14,7 +14,11 @@ interface Props {
   ancestorIds: string[];
   onHoverZone: (zoneId: string | null) => void;
   onSelectZone: (zoneId: string | null) => void;
-  onParameterChange?: (zoneId: string, paramId: string, value: number) => void;
+  onParameterChange?: (zoneId: string, paramId: string, value: number, side?: 'L' | 'R' | null) => void;
+  // Non-null while asymmetric editing is active; drags then write per-side
+  // overrides for the half that was actually grabbed.
+  editSide?: 'L' | 'R' | null;
+  onSideChange?: (side: 'L' | 'R') => void;
   zoneParams: ZoneParams;
 }
 
@@ -31,6 +35,8 @@ const CharacterViewport: React.FC<Props> = ({
   onHoverZone,
   onSelectZone,
   onParameterChange,
+  editSide = null,
+  onSideChange,
   zoneParams,
 }) => {
   const rig = useMemo(() => new CharacterRig(), []);
@@ -94,6 +100,10 @@ const CharacterViewport: React.FC<Props> = ({
       if (zone !== selectedZoneId) return;
 
       event.stopPropagation();
+      // With symmetry off, the drag edits the half that was grabbed — pulling
+      // the left arm changes the left arm. The side selector follows along.
+      const grabbedSide = editSide ? rig.resolveSideFromObject(event.object) ?? editSide : null;
+      if (grabbedSide && onSideChange && grabbedSide !== editSide) onSideChange(grabbedSide);
       const native = event.nativeEvent;
       const canvas = native.target as HTMLElement;
       const viewportHeight = Math.max(1, canvas.clientHeight || 600);
@@ -101,8 +111,8 @@ const CharacterViewport: React.FC<Props> = ({
       const startX = native.clientX;
       const startY = native.clientY;
       const startValues = {
-        x: numberParam(zoneParams, selectedZoneId, selectedBinding.x),
-        y: numberParam(zoneParams, selectedZoneId, selectedBinding.y),
+        x: numberParam(zoneParams, selectedZoneId, selectedBinding.x, grabbedSide),
+        y: numberParam(zoneParams, selectedZoneId, selectedBinding.y, grabbedSide),
       };
 
       draggingRef.current = true;
@@ -113,10 +123,10 @@ const CharacterViewport: React.FC<Props> = ({
         const dx = ((move.clientX - startX) / viewportHeight) * sensitivity;
         const dy = ((startY - move.clientY) / viewportHeight) * sensitivity; // up = +
         if (selectedBinding.x && startValues.x !== null) {
-          onParameterChange(selectedZoneId, selectedBinding.x, clamp01(startValues.x + dx));
+          onParameterChange(selectedZoneId, selectedBinding.x, clamp01(startValues.x + dx), grabbedSide);
         }
         if (selectedBinding.y && startValues.y !== null) {
-          onParameterChange(selectedZoneId, selectedBinding.y, clamp01(startValues.y + dy));
+          onParameterChange(selectedZoneId, selectedBinding.y, clamp01(startValues.y + dy), grabbedSide);
         }
       };
       const onUp = () => {
@@ -129,7 +139,7 @@ const CharacterViewport: React.FC<Props> = ({
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
     },
-    [onParameterChange, selectedZoneId, selectedBinding, resolveHit, zoneParams],
+    [onParameterChange, selectedZoneId, selectedBinding, resolveHit, zoneParams, editSide, onSideChange, rig],
   );
 
   const hoverIsDraggable =
@@ -228,8 +238,17 @@ function clamp01(v: number): number {
   return Math.max(-1, Math.min(1, v));
 }
 
-function numberParam(params: ZoneParams, zoneId: string, paramId?: string): number | null {
+function numberParam(
+  params: ZoneParams,
+  zoneId: string,
+  paramId?: string,
+  side?: 'L' | 'R' | null,
+): number | null {
   if (!paramId) return null;
+  if (side) {
+    const override = params[zoneId]?.[`${paramId}__${side}`];
+    if (typeof override === 'number' && Number.isFinite(override)) return override;
+  }
   const v = params[zoneId]?.[paramId];
   return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 }
@@ -241,7 +260,12 @@ const Controls: React.FC<{controlsRef: React.MutableRefObject<OrbitControls | nu
     const controls = new OrbitControls(camera, gl.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.09;
-    controls.enablePan = false;
+    // Right mouse button pans (OrbitControls default mapping) — lets the
+    // user slide the view up/down the figure. Screen-space panning moves
+    // along the view plane, which is what "вверх-вниз" means here.
+    controls.enablePan = true;
+    controls.screenSpacePanning = true;
+    controls.panSpeed = 0.9;
     controls.minDistance = 0.4;
     controls.maxDistance = 7;
     controls.maxPolarAngle = Math.PI * 0.58;
