@@ -14,7 +14,20 @@ import {
 // Token is attached as X-User-Token by api/http.ts.
 
 export type ProjectStatusValue = 'draft' | 'in_progress' | 'completed' | 'archived';
-export type ProjectMemberRole = 'owner' | 'editor' | 'viewer';
+export type ProjectMemberRole = 'owner' | 'admin' | 'editor' | 'viewer';
+
+export interface DashboardPermissions {
+  currentUserRole: ProjectMemberRole | null;
+  canView: boolean;
+  canEdit: boolean;
+  canRunGeneration: boolean;
+  canEditSettings: boolean;
+  canPublish: boolean;
+  canManageTeam: boolean;
+  canTransferOwnership: boolean;
+  canDeleteProject: boolean;
+  canLeaveProject: boolean;
+}
 
 export interface DashboardProject {
   id: number;
@@ -34,8 +47,17 @@ export interface DashboardProject {
     avatarUrl: string | null;
     initials: string;
     role: ProjectMemberRole | string;
+    roleLabel?: string;
+    teamRole?: string;
+    teamRoleLabel?: string;
+    isOwner?: boolean;
   }>;
+  memberCount?: number;
+  ownerName?: string | null;
+  isTeamProject?: boolean;
   currentUserRole: ProjectMemberRole | string;
+  currentUserRoleLabel?: string;
+  permissions?: DashboardPermissions;
 }
 
 export interface DashboardStats {
@@ -245,8 +267,10 @@ export function adaptProject(api: DashboardProject): ProjectMock {
     name: m.displayName || m.initials || `User ${m.id}`,
     gradient: TEAM_GRADIENTS[i % TEAM_GRADIENTS.length],
   }));
-  const teamExtra = Math.max(0, (api.teamMembers?.length || 0) - team.length);
-  const role = (api.currentUserRole as 'owner' | 'editor' | 'viewer') || 'viewer';
+  const memberCount = api.memberCount ?? api.teamMembers?.length ?? 1;
+  const teamExtra = Math.max(0, memberCount - team.length);
+  const role = (api.currentUserRole as 'owner' | 'admin' | 'editor' | 'viewer') || 'viewer';
+  const p = api.permissions;
   return {
     id: String(api.id),
     title: api.title,
@@ -255,6 +279,7 @@ export function adaptProject(api: DashboardProject): ProjectMock {
     statusKey: api.status,
     statusLabel: api.statusLabel,
     currentUserRole: role,
+    roleLabel: api.currentUserRoleLabel,
     isFavorite: !!api.isFavorite,
     coverGradient: PROJECT_COVER_GRADIENT,
     genres: api.tags || [],
@@ -262,6 +287,27 @@ export function adaptProject(api: DashboardProject): ProjectMock {
     updatedAtLabel: api.updatedAtLabel || '',
     team,
     teamExtraCount: teamExtra,
+    memberCount,
+    ownerName: api.ownerName ?? null,
+    isTeamProject: !!api.isTeamProject,
+    teamMembers: (api.teamMembers || []).map((m) => ({
+      userId: m.id,
+      displayName: m.displayName,
+      initials: m.initials,
+      avatarUrl: m.avatarUrl,
+      role: typeof m.role === 'string' ? m.role : undefined,
+    })),
+    permissions: p
+      ? {
+          canEdit: p.canEdit,
+          canEditSettings: p.canEditSettings,
+          canPublish: p.canPublish,
+          canManageTeam: p.canManageTeam,
+          canTransferOwnership: p.canTransferOwnership,
+          canDeleteProject: p.canDeleteProject,
+          canLeaveProject: p.canLeaveProject,
+        }
+      : undefined,
   };
 }
 

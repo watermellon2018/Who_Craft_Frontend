@@ -12,6 +12,8 @@ import SubscriptionsPage from "./modules/subscriptions/SubscriptionsPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
+import ProjectTeamPage from "./page/movie/projectPage/team/ProjectTeamPage";
+import InviteAcceptPage from "./page/movie/projectPage/team/InviteAcceptPage";
 import PathConstants from "./routes/pathConstant";
 import GenPosterPage from "./page/creation/poster/GenPosterPage";
 import ScriptPage from "./page/script/editor";
@@ -151,6 +153,8 @@ function App() {
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },
         { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProtectedProjectPage /> },
+        { key: 'projectTeam', path: PathConstants.PROJECT_TEAM, component: <ProjectTeamPage /> },
+        { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
         { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><ProtectedCharacterGalleryPage /></CharacterStudioShell> },

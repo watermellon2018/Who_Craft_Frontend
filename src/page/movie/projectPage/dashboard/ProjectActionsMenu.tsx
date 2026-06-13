@@ -5,25 +5,28 @@ import {
   DeleteOutlined,
   MoreOutlined,
   UndoOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
-import { ProjectRole, ProjectStatusKey } from './mocks';
+import { ProjectPermissionFlags, ProjectStatusKey } from './mocks';
 
 interface Props {
   status: ProjectStatusKey;
-  role: ProjectRole;
+  permissions?: ProjectPermissionFlags;
   onEdit: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
   onDelete: () => void;
+  onLeave?: () => void;
 }
 
 const ProjectActionsMenu: React.FC<Props> = ({
   status,
-  role,
+  permissions,
   onEdit,
   onArchive,
   onUnarchive,
   onDelete,
+  onLeave,
 }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -46,13 +49,16 @@ const ProjectActionsMenu: React.FC<Props> = ({
     };
   }, [open]);
 
-  const canEdit = role === 'owner' || role === 'editor';
-  const canArchive = role === 'owner' || role === 'editor';
-  const canDelete = role === 'owner';
+  // Permissions come from the backend (single source of truth). Fall back to
+  // a read-only assumption when they aren't loaded yet.
+  const canEditSettings = !!permissions?.canEditSettings;
+  const canArchive = canEditSettings;
+  const canDelete = !!permissions?.canDeleteProject;
+  const canLeave = !!permissions?.canLeaveProject && !!onLeave;
   const isArchived = status === 'archived';
 
   // Hide menu entirely if there is nothing the user can do.
-  if (!canEdit && !canArchive && !canDelete) return null;
+  if (!canEditSettings && !canArchive && !canDelete && !canLeave) return null;
 
   const handle = (fn: () => void) => () => {
     setOpen(false);
@@ -89,7 +95,7 @@ const ProjectActionsMenu: React.FC<Props> = ({
             overflow: 'hidden',
           }}
         >
-          {canEdit && (
+          {canEditSettings && (
             <MenuItem icon={<EditOutlined />} label="Редактировать проект" onClick={handle(onEdit)} />
           )}
           {canArchive && !isArchived && (
@@ -104,6 +110,13 @@ const ProjectActionsMenu: React.FC<Props> = ({
               icon={<UndoOutlined />}
               label="Восстановить проект"
               onClick={handle(onUnarchive)}
+            />
+          )}
+          {canLeave && (
+            <MenuItem
+              icon={<LogoutOutlined />}
+              label="Покинуть проект"
+              onClick={handle(onLeave!)}
             />
           )}
           {canDelete && (

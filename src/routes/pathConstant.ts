@@ -13,6 +13,8 @@ const PathConstants = {
     GEN_POSTER: '/create-project/gen-poster',
     PROJECTS: '/project-list',
     PROJECT_PAGE: '/project-list/project',
+    PROJECT_TEAM: '/project-list/project/:projectId/team',
+    INVITE_ACCEPT: '/invite/:token',
 
     SCRIPT_PAGE: '/project/script',
 

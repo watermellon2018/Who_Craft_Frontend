@@ -11,7 +11,25 @@ export const ACCENT_HEX: Record<AccentColor, string> = {
 };
 
 export type ProjectStatusKey = 'draft' | 'in_progress' | 'completed' | 'archived';
-export type ProjectRole = 'owner' | 'editor' | 'viewer';
+export type ProjectRole = 'owner' | 'admin' | 'editor' | 'viewer';
+
+export interface ProjectPermissionFlags {
+  canEdit: boolean;
+  canEditSettings: boolean;
+  canPublish: boolean;
+  canManageTeam: boolean;
+  canTransferOwnership: boolean;
+  canDeleteProject: boolean;
+  canLeaveProject: boolean;
+}
+
+export interface ProjectTeamMemberMini {
+  userId: number;
+  displayName: string;
+  initials: string;
+  avatarUrl?: string | null;
+  role?: string;
+}
 
 export interface ProjectMock {
   id: string;
@@ -28,6 +46,13 @@ export interface ProjectMock {
   team: { id: string; name: string; gradient: string }[];
   teamExtraCount: number;
   currentUserRole?: ProjectRole;
+  // Team-collaboration extras (populated from the API; optional for mocks).
+  roleLabel?: string;
+  memberCount?: number;
+  ownerName?: string | null;
+  isTeamProject?: boolean;
+  teamMembers?: ProjectTeamMemberMini[];
+  permissions?: ProjectPermissionFlags;
 }
 
 export const projectMock: ProjectMock = {

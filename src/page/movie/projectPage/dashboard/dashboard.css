@@ -151,6 +151,45 @@
   white-space: nowrap;
 }
 
+/* Role + team pills on the project hero */
+.proj-role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+.proj-role-owner {
+  background: rgba(250, 176, 5, 0.16);
+  color: #fab005;
+}
+.proj-role-admin {
+  background: rgba(139, 92, 246, 0.18);
+  color: #a78bfa;
+}
+.proj-role-editor {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+.proj-role-viewer {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.78);
+}
+.proj-team-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .proj-tag-add {
   cursor: pointer;
   color: rgba(255, 255, 255, 0.65);
