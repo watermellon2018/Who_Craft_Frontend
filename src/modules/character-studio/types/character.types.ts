@@ -153,9 +153,11 @@ export interface StudioCharacter {
   gender?: string;
   species?: string;
   visual_style?: string;
+  status?: 'draft' | 'active' | 'references_locked';
   identity_locked: boolean;
   locked_at?: string | null;
   locked_by_id?: number | null;
+  model3d_params?: Record<string, Record<string, number | string | boolean>>;
   active_appearance_id?: string | null;
   active_outfit_id?: string | null;
   active_version_id?: string | null;

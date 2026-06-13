@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {AimOutlined, LeftOutlined, LoadingOutlined, RightOutlined} from '@ant-design/icons';
+import {LeftOutlined, LoadingOutlined, RightOutlined} from '@ant-design/icons';
 import {backendAssetUrl} from '../../../../api/http';
 import {characterApi} from '../../api/characterApi';
 import type {CharacterReference} from '../../types/character.types';
@@ -7,8 +7,8 @@ import type {CharacterReference} from '../../types/character.types';
 interface Props {
   projectId?: string | number | null;
   characterId?: string;
-  busy: boolean;
-  onAutofit: () => void;
+  // True while the first-open autofit is running, for an inline status note.
+  fitting: boolean;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -20,13 +20,13 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 // Read-only strip of the character's locked references, docked to the
-// viewport. Level 1 of photo-fitting: the user keeps the source image in
-// view while dragging sliders; the «Подогнать» button asks the backend for
-// measured parameter suggestions (level 2).
+// viewport, so the user keeps the source images in view while editing.
+// Autofit from these references now runs automatically on the first open
+// (no button) — the dock only shows a status note while it's working.
 //
 // Deliberately NOT useCharacterReferences — that hook auto-generates
 // missing references on mount, which a viewer must never trigger.
-const ReferenceDock: React.FC<Props> = ({projectId, characterId, busy, onAutofit}) => {
+const ReferenceDock: React.FC<Props> = ({projectId, characterId, fitting}) => {
   const [references, setReferences] = useState<CharacterReference[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
@@ -96,10 +96,12 @@ const ReferenceDock: React.FC<Props> = ({projectId, characterId, busy, onAutofit
             ))}
           </div>
 
-          <button type="button" className="c3d-refdock__fit" onClick={onAutofit} disabled={busy}>
-            {busy ? <LoadingOutlined /> : <AimOutlined />}
-            <span>{busy ? 'Подгоняем…' : 'Подогнать по референсам'}</span>
-          </button>
+          {fitting ? (
+            <div className="c3d-refdock__status" role="status">
+              <LoadingOutlined />
+              <span>Подгоняем по фото…</span>
+            </div>
+          ) : null}
         </>
       ) : null}
     </aside>

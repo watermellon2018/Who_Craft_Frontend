@@ -1,23 +1,20 @@
-import React from 'react';
-import {ArrowLeftOutlined, QuestionCircleOutlined, UserOutlined} from '@ant-design/icons';
+import React, {useMemo} from 'react';
+import {ArrowLeftOutlined} from '@ant-design/icons';
+import type {StudioCharacter} from '../../types/character.types';
+import {computeStepStates, StepKey} from './stepProgress';
 
 interface Props {
   characterName: string;
+  character: StudioCharacter | null;
   onBack: () => void;
   onStepClick: (key: StepKey) => void;
 }
 
-type StepKey = 'parameters' | 'variants' | 'editor' | 'references' | 'model3d';
+const StepperHeader: React.FC<Props> = ({characterName, character, onBack, onStepClick}) => {
+  // Only stages the character has actually reached are clickable; the rest
+  // are locked, so the user can't jump into an empty future stage.
+  const steps = useMemo(() => computeStepStates(character, 'model3d'), [character]);
 
-const STEPS: Array<{key: StepKey; label: string; state: 'done' | 'active' | 'pending'}> = [
-  {key: 'parameters', label: 'Параметры', state: 'done'},
-  {key: 'variants', label: 'Варианты', state: 'done'},
-  {key: 'editor', label: 'Редактор', state: 'done'},
-  {key: 'references', label: 'Референсы', state: 'done'},
-  {key: 'model3d', label: '3D модель', state: 'active'},
-];
-
-const StepperHeader: React.FC<Props> = ({characterName, onBack, onStepClick}) => {
   return (
     <header className="c3d-header">
       <div className="c3d-header__left">
@@ -45,20 +42,27 @@ const StepperHeader: React.FC<Props> = ({characterName, onBack, onStepClick}) =>
       </div>
 
       <ol className="c3d-stepper" aria-label="Шаги создания персонажа">
-        {STEPS.map((step, index) => (
-          <li key={step.key} className={`c3d-stepper__item c3d-stepper__item--${step.state}`}>
-            <button
-              type="button"
-              className="c3d-stepper__button"
-              onClick={() => onStepClick(step.key)}
-              disabled={step.state === 'active'}
-            >
-              <span className="c3d-stepper__index">{index + 1}</span>
-              <span className="c3d-stepper__label">{step.label}</span>
-            </button>
-            {index < STEPS.length - 1 ? <span className="c3d-stepper__line" /> : null}
-          </li>
-        ))}
+        {steps.map((step, index) => {
+          // 'active' is the current stage; 'locked' stages aren't reachable
+          // yet — only 'done' stages navigate.
+          const clickable = step.state === 'done';
+          return (
+            <li key={step.key} className={`c3d-stepper__item c3d-stepper__item--${step.state}`}>
+              <button
+                type="button"
+                className="c3d-stepper__button"
+                onClick={() => clickable && onStepClick(step.key)}
+                disabled={!clickable}
+                aria-current={step.state === 'active' ? 'step' : undefined}
+                title={step.state === 'locked' ? 'Этап ещё не пройден' : undefined}
+              >
+                <span className="c3d-stepper__index">{index + 1}</span>
+                <span className="c3d-stepper__label">{step.label}</span>
+              </button>
+              {index < steps.length - 1 ? <span className="c3d-stepper__line" /> : null}
+            </li>
+          );
+        })}
       </ol>
 
     </header>

@@ -19,11 +19,7 @@ import {
 
 const MOCK_CHARACTER_NAME = 'Персонаж';
 import {characterApi} from '../api/characterApi';
-import {
-  applyAutofitSuggestions,
-  collapseSideOverrides,
-  mergeSavedParams,
-} from '../components/character3d/engine/paramMerge';
+import {collapseSideOverrides, mergeSavedParams} from '../components/character3d/engine/paramMerge';
 import {useCharacter} from '../hooks/useCharacter';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './Character3DEditorPage.css';
@@ -106,23 +102,63 @@ const Character3DEditorPage: React.FC = () => {
     if (restored) commitParams(restored);
   }, [commitParams]);
 
-  // ─── Load saved 3D state ───
+  // ─── Open the 3D stage: load saved state, or auto-fit on the first open ───
+  //
+  // The "fit to references" button is gone: the editor seeds itself from the
+  // portrait the very first time it opens (autofit_done=false on the server),
+  // then loads the saved parameters on every open after. A manual reset never
+  // re-triggers autofit, because the server flag stays set.
   useEffect(() => {
     if (!projectId || !characterId) return;
     let alive = true;
+
+    const adopt = (saved: unknown) => {
+      if (!saved || typeof saved !== 'object' || Object.keys(saved).length === 0) return;
+      const merged = mergeSavedParams(saved);
+      zoneParamsRef.current = merged;
+      setZoneParams(merged);
+      setParamsBaseline(merged);
+      // The loaded state is the new ground zero — nothing to undo into.
+      historyRef.current.reset();
+    };
+
     characterApi
       .getModel3D(projectId, characterId)
       .then((res) => {
         if (!alive) return;
         const saved = res.data?.params;
-        if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
-          const merged = mergeSavedParams(saved);
-          zoneParamsRef.current = merged;
-          setZoneParams(merged);
-          setParamsBaseline(merged);
-          // The loaded state is the new ground zero — nothing to undo into.
-          historyRef.current.reset();
+        const hasSaved = saved && typeof saved === 'object' && Object.keys(saved).length > 0;
+        if (hasSaved) {
+          adopt(saved);
+          return;
         }
+        if (res.data?.autofit_done) {
+          // Already fitted (and the user may have cleared everything) — the
+          // empty/registry defaults are intentional, don't refit.
+          return;
+        }
+        // First open: seed from references. The server persists the result
+        // and sets autofit_done, so this happens exactly once.
+        setAutofitBusy(true);
+        characterApi
+          .autofitModel3D(projectId, characterId)
+          .then((fit) => {
+            if (!alive) return;
+            adopt(fit.data?.params);
+            const warnings: string[] = Array.isArray(fit.data?.warnings) ? fit.data.warnings : [];
+            if (warnings.includes('no_portrait')) return; // nothing to fit from
+            if (warnings.includes('landmarks_unavailable')) {
+              message.info('Цвета подобраны по фото — пропорции лица настройте слайдерами');
+            } else {
+              message.success('Модель подогнана по референсам — доработайте слайдерами');
+            }
+          })
+          .catch(() => {
+            // Autofit is best-effort; defaults stand if it fails.
+          })
+          .finally(() => {
+            if (alive) setAutofitBusy(false);
+          });
       })
       .catch(() => {
         // No saved state (or transient error) — the registry defaults stand.
@@ -256,38 +292,6 @@ const Character3DEditorPage: React.FC = () => {
       .catch(() => message.error('Не удалось экспортировать модель'));
   }, [viewportApi, exportName]);
 
-  // ─── Autofit from references ───
-  const handleAutofit = useCallback(() => {
-    if (!projectId || !characterId) {
-      message.info('Автоподгонка доступна, когда персонаж привязан к проекту');
-      return;
-    }
-    setAutofitBusy(true);
-    characterApi
-      .autofitModel3D(projectId, characterId)
-      .then((res) => {
-        const suggested = res.data?.params as
-          | Record<string, Record<string, number | string | boolean>>
-          | undefined;
-        const warnings: string[] = Array.isArray(res.data?.warnings) ? res.data.warnings : [];
-        if (!suggested || Object.keys(suggested).length === 0) {
-          message.warning('Не удалось извлечь параметры из референсов');
-          return;
-        }
-        mutateParams((prev) => applyAutofitSuggestions(prev, suggested));
-        if (warnings.includes('landmarks_unavailable')) {
-          // Either no face was found on the portrait, or the host lacks the
-          // landmark model. Either way it's not an error — colors still
-          // applied and the face sliders are there to finish by hand.
-          message.success('Цвета подобраны по фото — пропорции лица настройте слайдерами');
-        } else {
-          message.success('Параметры подогнаны по референсам — доработайте слайдерами');
-        }
-      })
-      .catch(() => message.error('Автоподгонка не удалась — попробуйте позже'))
-      .finally(() => setAutofitBusy(false));
-  }, [projectId, characterId, mutateParams]);
-
   // ─── Undo/redo hotkeys ───
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -365,6 +369,7 @@ const Character3DEditorPage: React.FC = () => {
     <div className="c3d-page">
       <StepperHeader
         characterName={characterName}
+        character={character}
         onBack={handleBack}
         onStepClick={handleStepClick}
       />
@@ -390,8 +395,7 @@ const Character3DEditorPage: React.FC = () => {
           <ReferenceDock
             projectId={projectId}
             characterId={characterId}
-            busy={autofitBusy}
-            onAutofit={handleAutofit}
+            fitting={autofitBusy}
           />
 
           <div

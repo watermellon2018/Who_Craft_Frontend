@@ -219,6 +219,26 @@
   color: #171a20;
 }
 
+/* Done stages are navigable — show it. */
+.c3d-stepper__item--done .c3d-stepper__button {
+  cursor: pointer;
+}
+
+.c3d-stepper__item--done .c3d-stepper__button:hover {
+  color: #f7d77a;
+}
+
+/* Locked stages aren't reachable yet — dim and inert. */
+.c3d-stepper__item--locked .c3d-stepper__button {
+  color: var(--c3d-line);
+  cursor: not-allowed;
+}
+
+.c3d-stepper__item--locked .c3d-stepper__index {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--c3d-line);
+}
+
 .c3d-stepper__line {
   width: 14px;
   height: 1.5px;
@@ -533,7 +553,7 @@
   border-color: var(--c3d-accent);
 }
 
-.c3d-refdock__fit {
+.c3d-refdock__status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -545,17 +565,6 @@
   color: var(--c3d-accent);
   font-size: 11.5px;
   font-weight: 800;
-  cursor: pointer;
-  transition: all 140ms ease;
-}
-
-.c3d-refdock__fit:hover:not(:disabled) {
-  box-shadow: 0 0 14px var(--c3d-accent-glow);
-}
-
-.c3d-refdock__fit:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 /* Icon-only chips in the bottom bar (undo/redo/snapshot/export). */
