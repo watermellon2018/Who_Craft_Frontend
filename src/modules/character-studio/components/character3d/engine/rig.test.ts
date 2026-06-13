@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {buildInitialZoneParams, ZONE_INDEX} from '../zones';
 import {CharacterRig, ZoneParams} from './rig';
 import {DRAG_BINDINGS} from './dragBindings';
-import {resolveSelectableZone} from './zoneSelection';
+import {resolveDirectPart, resolveSelectableZone} from './zoneSelection';
 import {applyAutofitSuggestions, collapseSideOverrides, mergeSavedParams} from './paramMerge';
 
 // Engine math tests: the rig is plain three.js (no WebGL needed), so the
@@ -221,15 +221,41 @@ describe('DRAG_BINDINGS', () => {
   });
 });
 
-describe('resolveSelectableZone', () => {
-  it('resolves a torso/face hit to its top-level silhouette when nothing is selected', () => {
-    expect(resolveSelectableZone('torso', null, [])).toBe('body');
-    expect(resolveSelectableZone('eyes', null, [])).toBe('face');
+describe('resolveDirectPart', () => {
+  it('maps each body sub-mesh hit to its concrete level-2 part', () => {
+    expect(resolveDirectPart('torso')).toBe('torso');
+    expect(resolveDirectPart('shoulders')).toBe('shoulders');
+    expect(resolveDirectPart('hips')).toBe('hips');
+    expect(resolveDirectPart('waist')).toBe('waist');
+    expect(resolveDirectPart('head_neck')).toBe('head_neck');
+    // Limbs collapse to their group; their sub-parts share one highlight.
+    expect(resolveDirectPart('upper_arm')).toBe('arms');
+    expect(resolveDirectPart('forearm')).toBe('arms');
+    expect(resolveDirectPart('hand')).toBe('arms');
+    expect(resolveDirectPart('thigh')).toBe('legs');
+    expect(resolveDirectPart('calf')).toBe('legs');
+    expect(resolveDirectPart('foot')).toBe('legs');
   });
 
-  it('selects a limb group directly on the first click (no whole-body step)', () => {
-    // Clicking an arm/leg must visibly highlight that limb, not the whole
-    // figure — otherwise the click reads as "nothing happened".
+  it('maps any facial hit to the whole face zone, and hair to hair', () => {
+    expect(resolveDirectPart('eyes')).toBe('face');
+    expect(resolveDirectPart('nose')).toBe('face');
+    expect(resolveDirectPart('face_shape')).toBe('face');
+    expect(resolveDirectPart('hair')).toBe('hair');
+  });
+
+  it('returns null for non-hoverable decorations and unknown hits', () => {
+    expect(resolveDirectPart('skin_details')).toBeNull();
+    expect(resolveDirectPart(null)).toBeNull();
+  });
+});
+
+describe('resolveSelectableZone', () => {
+  it('selects the concrete part under the cursor when nothing is selected', () => {
+    // Hover and first click agree on the exact part — never the whole body.
+    expect(resolveSelectableZone('torso', null, [])).toBe('torso');
+    expect(resolveSelectableZone('shoulders', null, [])).toBe('shoulders');
+    expect(resolveSelectableZone('eyes', null, [])).toBe('face');
     expect(resolveSelectableZone('upper_arm', null, [])).toBe('arms');
     expect(resolveSelectableZone('calf', null, [])).toBe('legs');
     expect(resolveSelectableZone('hand', null, [])).toBe('arms');

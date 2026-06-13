@@ -54,6 +54,9 @@ const CharacterViewport: React.FC<Props> = ({
 
   const controlsRef = useRef<OrbitControls | null>(null);
   const draggingRef = useRef(false);
+  // True while the camera is being orbited/panned, so hover doesn't update
+  // (and stick) mid-gesture. Cleared on the OrbitControls 'end' event.
+  const orbitingRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
 
   // Parameters → math. The rig mutates its own scene graph; no React re-render.
@@ -77,7 +80,9 @@ const CharacterViewport: React.FC<Props> = ({
   // ─── Hover ───
   const handlePointerMove = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
-      if (draggingRef.current) return;
+      // Don't re-resolve hover while dragging a zone or orbiting the camera —
+      // the latter would leave a stale highlight stuck under a moving figure.
+      if (draggingRef.current || orbitingRef.current) return;
       const zone = resolveHit(event.object);
       if (zone !== hoveredZoneId) onHoverZone(zone);
     },
@@ -87,6 +92,18 @@ const CharacterViewport: React.FC<Props> = ({
   const handlePointerOut = useCallback(() => {
     if (!draggingRef.current) onHoverZone(null);
   }, [onHoverZone]);
+
+  // Pressing on the canvas starts a camera gesture (orbit/pan) by default;
+  // suspend hover and clear the current highlight so it doesn't stick to a
+  // moving figure. A zone-drag (handlePointerDown below) opts back out.
+  const handleHostPointerDown = useCallback(() => {
+    orbitingRef.current = true;
+    if (hoveredZoneId) onHoverZone(null);
+  }, [hoveredZoneId, onHoverZone]);
+
+  const handleHostPointerUp = useCallback(() => {
+    orbitingRef.current = false;
+  }, []);
 
   // ─── Click to select (R3F's e.delta filters out drags) ───
   const handleClick = useCallback(
@@ -123,6 +140,9 @@ const CharacterViewport: React.FC<Props> = ({
         y: numberParam(zoneParams, selectedZoneId, selectedBinding.y, grabbedSide),
       };
 
+      // This press is a zone edit, not a camera gesture — undo the orbit
+      // flag the host pointerdown set so hover resumes correctly afterwards.
+      orbitingRef.current = false;
       draggingRef.current = true;
       setIsDragging(true);
       if (controlsRef.current) controlsRef.current.enabled = false;
@@ -164,7 +184,12 @@ const CharacterViewport: React.FC<Props> = ({
     <div
       className={`c3d-viewport ${isZoomed ? 'c3d-viewport--zoomed' : ''}`}
       style={{cursor}}
-      onPointerLeave={handlePointerOut}
+      onPointerDown={handleHostPointerDown}
+      onPointerUp={handleHostPointerUp}
+      onPointerLeave={() => {
+        handleHostPointerUp();
+        handlePointerOut();
+      }}
     >
       <div className="c3d-viewport__bg" />
       <div className="c3d-viewport__atmos" />
