@@ -4,6 +4,10 @@ import {Canvas, ThreeEvent, useFrame, useThree} from '@react-three/fiber';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment';
 import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter';
+import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
+import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
+import {OutlinePass} from 'three/examples/jsm/postprocessing/OutlinePass';
+import {OutputPass} from 'three/examples/jsm/postprocessing/OutputPass';
 import {CharacterRig, ZoneParams} from './engine/rig';
 import {dragBindingFor} from './engine/dragBindings';
 import {resolveSelectableZone} from './engine/zoneSelection';
@@ -57,6 +61,9 @@ const CharacterViewport: React.FC<Props> = ({
   // True while the camera is being orbited/panned, so hover doesn't update
   // (and stick) mid-gesture. Cleared on the OrbitControls 'end' event.
   const orbitingRef = useRef(false);
+  // The post-processing composer drives every frame (so the outline pass
+  // runs); snapshots and the focus animation read it from here.
+  const composerRef = useRef<EffectComposer | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Parameters → math. The rig mutates its own scene graph; no React re-render.
@@ -201,6 +208,8 @@ const CharacterViewport: React.FC<Props> = ({
         gl={{alpha: true, antialias: true, preserveDrawingBuffer: true}}
         camera={{position: [0, 1.45, 3.05], fov: 35}}
         onCreated={({gl}) => {
+          // OutputPass at the end of the composer reads tone mapping settings
+          // off the renderer and applies them once, so we keep ACES here.
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.05;
           gl.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -246,7 +255,13 @@ const CharacterViewport: React.FC<Props> = ({
         <Controls controlsRef={controlsRef} />
         <CameraFocus rig={rig} zoomZoneId={zoomZoneId} controlsRef={controlsRef} />
         <IdleMotion rig={rig} />
-        <ApiBridge rig={rig} onApiReady={onApiReady} />
+        <HighlightOutline
+          rig={rig}
+          composerRef={composerRef}
+          hoveredZoneId={hoveredZoneId}
+          selectedZoneId={selectedZoneId}
+        />
+        <ApiBridge rig={rig} composerRef={composerRef} onApiReady={onApiReady} />
       </Canvas>
       </div>
 
@@ -403,18 +418,109 @@ const IdleMotion: React.FC<{rig: CharacterRig}> = ({rig}) => {
   return null;
 };
 
+const OUTLINE_ACCENT = new THREE.Color('#f5b400');
+
+// ─────────── Selection / hover outline (post-processing) ───────────
+//
+// Replaces the old emissive glow with a contour drawn around the
+// hovered/selected zone's meshes. Two OutlinePass layers: the selection is
+// thicker and stronger, the hover thinner and softer. A RenderPass feeds
+// them and an OutputPass applies the renderer's ACES tone mapping once at
+// the very end. Taking a positive-priority useFrame here makes R3F hand
+// frame rendering to us, so the composer — not the default renderer —
+// produces every frame.
+const HighlightOutline: React.FC<{
+  rig: CharacterRig;
+  composerRef: React.MutableRefObject<EffectComposer | null>;
+  hoveredZoneId: string | null;
+  selectedZoneId: string | null;
+}> = ({rig, composerRef, hoveredZoneId, selectedZoneId}) => {
+  const {gl, scene, camera, size} = useThree();
+  const selectPass = useRef<OutlinePass | null>(null);
+  const hoverPass = useRef<OutlinePass | null>(null);
+
+  useEffect(() => {
+    const composer = new EffectComposer(gl);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const resolution = new THREE.Vector2(size.width, size.height);
+    const sel = new OutlinePass(resolution, scene, camera);
+    sel.edgeStrength = 6;
+    sel.edgeGlow = 0;
+    sel.edgeThickness = 1.6;
+    sel.pulsePeriod = 0;
+    sel.visibleEdgeColor.copy(OUTLINE_ACCENT);
+    sel.hiddenEdgeColor.copy(OUTLINE_ACCENT).multiplyScalar(0.4);
+    composer.addPass(sel);
+    selectPass.current = sel;
+
+    const hov = new OutlinePass(resolution, scene, camera);
+    hov.edgeStrength = 3;
+    hov.edgeGlow = 0;
+    hov.edgeThickness = 1;
+    hov.pulsePeriod = 0;
+    hov.visibleEdgeColor.copy(OUTLINE_ACCENT);
+    hov.hiddenEdgeColor.copy(OUTLINE_ACCENT).multiplyScalar(0.25);
+    composer.addPass(hov);
+    hoverPass.current = hov;
+
+    // OutputPass applies the renderer's tone mapping + color space once at
+    // the end of the chain (RenderPass renders linear into the HDR buffer).
+    composer.addPass(new OutputPass());
+
+    composerRef.current = composer;
+    return () => {
+      composerRef.current = null;
+      selectPass.current = null;
+      hoverPass.current = null;
+      sel.dispose();
+      hov.dispose();
+      composer.dispose();
+    };
+  }, [gl, scene, camera, size.width, size.height, composerRef]);
+
+  // Keep the composer sized to the canvas.
+  useEffect(() => {
+    composerRef.current?.setSize(size.width, size.height);
+  }, [size.width, size.height, composerRef]);
+
+  // Feed the current hover/selection meshes into the two passes.
+  useEffect(() => {
+    rig.setHighlight(hoveredZoneId, selectedZoneId);
+    const {selected, hovered} = rig.highlightedMeshes();
+    if (selectPass.current) selectPass.current.selectedObjects = selected;
+    if (hoverPass.current) hoverPass.current.selectedObjects = hovered;
+  }, [rig, hoveredZoneId, selectedZoneId]);
+
+  // Priority > 0 takes over rendering; the composer draws every frame. The
+  // selection set is refreshed here too, because geometry rebuilds (hair,
+  // torso, mouth) replace mesh instances and stale references must drop out.
+  useFrame(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+    if (selectPass.current) selectPass.current.selectedObjects = rig.highlightedMeshes().selected;
+    if (hoverPass.current) hoverPass.current.selectedObjects = rig.highlightedMeshes().hovered;
+    composer.render();
+  }, 1);
+
+  return null;
+};
+
 // ─────────── Snapshot / export bridge ───────────
 const ApiBridge: React.FC<{
   rig: CharacterRig;
+  composerRef: React.MutableRefObject<EffectComposer | null>;
   onApiReady?: (api: ViewportApi | null) => void;
-}> = ({rig, onApiReady}) => {
+}> = ({rig, composerRef, onApiReady}) => {
   const {gl, scene, camera} = useThree();
   useEffect(() => {
     if (!onApiReady) return undefined;
     onApiReady({
       snapshotPng: () => {
-        // Render explicitly so the snapshot never catches a stale buffer.
-        gl.render(scene, camera);
+        // Render through the composer so the snapshot includes the outline
+        // and the same tone mapping as the live view.
+        if (composerRef.current) composerRef.current.render();
+        else gl.render(scene, camera);
         return gl.domElement.toDataURL('image/png');
       },
       exportGlb: () =>
@@ -429,7 +535,7 @@ const ApiBridge: React.FC<{
         }),
     });
     return () => onApiReady(null);
-  }, [gl, scene, camera, rig, onApiReady]);
+  }, [gl, scene, camera, rig, composerRef, onApiReady]);
   return null;
 };
 

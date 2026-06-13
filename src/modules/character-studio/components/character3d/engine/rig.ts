@@ -169,38 +169,42 @@ export class CharacterRig {
   }
 
   /**
-   * Emissive highlight. A mesh lights up when the hovered/selected zone is
-   * the mesh's own zone or any of its ancestors (selecting "Тело" glows the
-   * whole body; selecting "Глаза" only the eyes).
+   * Record the hovered/selected zones. The actual highlight is an OUTLINE
+   * drawn by the viewport's post-processing pass (see highlightedMeshes) —
+   * not an emissive material tint, which washed out on light skin and
+   * falsified the very colors the user picks. A mesh belongs to a zone's
+   * outline when the zone is the mesh's own zone or any of its ancestors
+   * (selecting "Тело" outlines the whole body; "Глаза" only the eyes).
    */
   setHighlight(hoveredZoneId: string | null, selectedZoneId: string | null): void {
     this.lastHighlight = [hoveredZoneId, selectedZoneId];
-    const accent = 0xf5b400;
-    // Color-bearing details never glow — an emissive tint on the iris or
-    // inside the mouth falsifies exactly the color the user is picking.
-    const noGlow = new Set<MatKind>(['iris', 'pupil', 'mouthInner', 'blush']);
-    this.mats.forEach(({mesh, material, kind}) => {
-      if (noGlow.has(kind)) {
-        material.emissiveIntensity = 0;
-        return;
-      }
+  }
+
+  /**
+   * Visible meshes to outline for the current hover/selection, split so the
+   * viewport can style them differently. A mesh appears in `selected` OR
+   * `hovered` (never both — selection wins), so the two outline passes never
+   * fight over the same silhouette.
+   *
+   * Color-bearing details (iris, pupil, mouth interior, blush) are excluded:
+   * a contour around the iris would obscure the eye-color the user is
+   * choosing, and they sit inside a larger zone that already gets outlined.
+   */
+  highlightedMeshes(): {selected: THREE.Mesh[]; hovered: THREE.Mesh[]} {
+    const [hoveredZoneId, selectedZoneId] = this.lastHighlight;
+    const noOutline = new Set<MatKind>(['iris', 'pupil', 'mouthInner', 'blush']);
+    const selected: THREE.Mesh[] = [];
+    const hovered: THREE.Mesh[] = [];
+    this.mats.forEach(({mesh, kind}) => {
+      if (!mesh.visible || noOutline.has(kind)) return;
       const zones = this.meshZones.get(mesh);
-      const selected = !!selectedZoneId && !!zones?.has(selectedZoneId);
-      const hovered = !!hoveredZoneId && !!zones?.has(hoveredZoneId);
-      // Strong enough to read on light skin under IBL, and on limbs that
-      // face away from the key light — the previous 0.16/0.09 were nearly
-      // invisible there, so a hover/selection felt like "nothing happened".
-      if (selected) {
-        material.emissive.setHex(accent);
-        material.emissiveIntensity = 0.45;
-      } else if (hovered) {
-        material.emissive.setHex(accent);
-        material.emissiveIntensity = 0.24;
-      } else {
-        material.emissiveIntensity = 0;
-        material.emissive.setHex(0x000000);
+      if (selectedZoneId && zones?.has(selectedZoneId)) {
+        selected.push(mesh);
+      } else if (hoveredZoneId && zones?.has(hoveredZoneId)) {
+        hovered.push(mesh);
       }
     });
+    return {selected, hovered};
   }
 
   dispose(): void {
@@ -505,6 +509,7 @@ export class CharacterRig {
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
     mesh.userData.zoneId = zoneId;
+    mesh.userData.matKind = kind;
     if (opts.raycastable === false) {
       // Decorations (freckles, blush…) must not steal clicks from the face.
       mesh.raycast = () => undefined;

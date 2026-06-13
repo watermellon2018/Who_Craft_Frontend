@@ -139,20 +139,17 @@ describe('CharacterRig', () => {
     expect(rig.resolveSideFromObject(rig.nodeByName('chestMesh') as THREE.Object3D)).toBeNull();
   });
 
-  it('never tints the iris/pupil with the selection glow', () => {
+  it('excludes the iris/pupil from the selection outline', () => {
     rig.setHighlight(null, 'eyes');
-    let glowing = 0;
-    let dark = 0;
-    rig.root.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      if (!mesh.isMesh || mesh.userData.zoneId !== 'eyes') return;
-      const mat = mesh.material as THREE.MeshStandardMaterial;
-      if (mat.emissiveIntensity > 0) glowing++;
-      else dark++;
+    const {selected} = rig.highlightedMeshes();
+    // The eye whites/lids are outlined, but the color-bearing iris and pupil
+    // are not — a contour around them would obscure the picked eye color.
+    expect(selected.length).toBeGreaterThan(0);
+    const irisOrPupil = selected.filter((m) => {
+      const kind = (m.userData as {matKind?: string}).matKind;
+      return kind === 'iris' || kind === 'pupil';
     });
-    expect(glowing).toBeGreaterThan(0);
-    // Iris + pupil on both sides stay glow-free so the picked color reads true.
-    expect(dark).toBeGreaterThanOrEqual(4);
+    expect(irisOrPupil).toHaveLength(0);
   });
 
   it('produces no NaN transforms with every numeric parameter maxed', () => {
@@ -179,19 +176,38 @@ describe('CharacterRig', () => {
     expect(rig.resolveZoneFromObject(torsoMesh)).toBe('torso');
   });
 
-  it('highlights the selected zone subtree and nothing else', () => {
+  it('outlines the selected zone subtree and nothing else', () => {
     rig.setHighlight(null, 'eyes');
-    let eyeGlow = 0;
-    let torsoGlow = 0;
-    rig.root.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const mat = mesh.material as THREE.MeshStandardMaterial;
-      if (mesh.userData.zoneId === 'eyes') eyeGlow = Math.max(eyeGlow, mat.emissiveIntensity);
-      if (mesh.userData.zoneId === 'torso') torsoGlow = Math.max(torsoGlow, mat.emissiveIntensity);
-    });
-    expect(eyeGlow).toBeGreaterThan(0);
-    expect(torsoGlow).toBe(0);
+    const {selected, hovered} = rig.highlightedMeshes();
+    const zonesOf = (meshes: THREE.Mesh[]) =>
+      new Set(meshes.map((m) => (m.userData as {zoneId?: string}).zoneId));
+    const selectedZones = zonesOf(selected);
+    expect(selectedZones.has('eyes')).toBe(true);
+    expect(selectedZones.has('torso')).toBe(false);
+    // Nothing hovered → hover set empty.
+    expect(hovered).toHaveLength(0);
+  });
+
+  it('puts a mesh in selected OR hovered, never both (selection wins)', () => {
+    // Hover and select the same zone.
+    rig.setHighlight('eyes', 'eyes');
+    const {selected, hovered} = rig.highlightedMeshes();
+    expect(selected.length).toBeGreaterThan(0);
+    expect(hovered).toHaveLength(0);
+    // A different hovered zone gets its own outline alongside the selection.
+    rig.setHighlight('torso', 'eyes');
+    const both = rig.highlightedMeshes();
+    expect(both.selected.length).toBeGreaterThan(0);
+    expect(both.hovered.length).toBeGreaterThan(0);
+    const overlap = both.selected.filter((m) => both.hovered.includes(m));
+    expect(overlap).toHaveLength(0);
+  });
+
+  it('drops invisible meshes from the outline sets', () => {
+    rig.setHighlight(null, 'skin_details');
+    // skin_details decorations default to hidden — none should be outlined.
+    const {selected} = rig.highlightedMeshes();
+    selected.forEach((m) => expect(m.visible).toBe(true));
   });
 
   it('rebuilds hair for each shape preset without leaking NaN geometry', () => {
