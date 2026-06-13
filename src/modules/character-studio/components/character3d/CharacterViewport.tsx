@@ -299,6 +299,9 @@ const CameraFocus: React.FC<{
   const {camera} = useThree();
   const desired = useRef<{target: THREE.Vector3; pos: THREE.Vector3} | null>(null);
   const animating = useRef(false);
+  // True while WE are driving the camera, so the 'start' event our own
+  // controls.update() emits doesn't cancel the animation on its first frame.
+  const selfDriving = useRef(false);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -322,12 +325,13 @@ const CameraFocus: React.FC<{
     animating.current = true;
   }, [zoomZoneId, rig, camera, controlsRef]);
 
-  // The user grabbing the controls cancels any in-flight focus animation.
+  // The user grabbing the controls cancels any in-flight focus animation —
+  // but only a real user gesture, not the 'start' our own update() fires.
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
     const onStart = () => {
-      animating.current = false;
+      if (!selfDriving.current) animating.current = false;
     };
     controls.addEventListener('start', onStart);
     return () => controls.removeEventListener('start', onStart);
@@ -339,7 +343,9 @@ const CameraFocus: React.FC<{
     const a = Math.min(1, 9 * delta);
     controls.target.lerp(desired.current.target, a);
     camera.position.lerp(desired.current.pos, a);
+    selfDriving.current = true;
     controls.update();
+    selfDriving.current = false;
     if (
       controls.target.distanceTo(desired.current.target) < 0.005 &&
       camera.position.distanceTo(desired.current.pos) < 0.005

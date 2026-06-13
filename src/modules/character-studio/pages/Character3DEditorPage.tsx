@@ -276,7 +276,10 @@ const Character3DEditorPage: React.FC = () => {
         }
         mutateParams((prev) => applyAutofitSuggestions(prev, suggested));
         if (warnings.includes('landmarks_unavailable')) {
-          message.info('Лэндмарки лица недоступны на сервере — применены только цвета');
+          // Either no face was found on the portrait, or the host lacks the
+          // landmark model. Either way it's not an error — colors still
+          // applied and the face sliders are there to finish by hand.
+          message.success('Цвета подобраны по фото — пропорции лица настройте слайдерами');
         } else {
           message.success('Параметры подогнаны по референсам — доработайте слайдерами');
         }

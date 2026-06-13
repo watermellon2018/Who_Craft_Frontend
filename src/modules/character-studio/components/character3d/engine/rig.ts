@@ -187,12 +187,15 @@ export class CharacterRig {
       const zones = this.meshZones.get(mesh);
       const selected = !!selectedZoneId && !!zones?.has(selectedZoneId);
       const hovered = !!hoveredZoneId && !!zones?.has(hoveredZoneId);
+      // Strong enough to read on light skin under IBL, and on limbs that
+      // face away from the key light — the previous 0.16/0.09 were nearly
+      // invisible there, so a hover/selection felt like "nothing happened".
       if (selected) {
         material.emissive.setHex(accent);
-        material.emissiveIntensity = 0.16;
+        material.emissiveIntensity = 0.45;
       } else if (hovered) {
         material.emissive.setHex(accent);
-        material.emissiveIntensity = 0.09;
+        material.emissiveIntensity = 0.24;
       } else {
         material.emissiveIntensity = 0;
         material.emissive.setHex(0x000000);

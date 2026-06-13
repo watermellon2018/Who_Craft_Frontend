@@ -222,9 +222,17 @@ describe('DRAG_BINDINGS', () => {
 });
 
 describe('resolveSelectableZone', () => {
-  it('resolves to top-level silhouettes when nothing is selected', () => {
-    expect(resolveSelectableZone('calf', null, [])).toBe('body');
+  it('resolves a torso/face hit to its top-level silhouette when nothing is selected', () => {
+    expect(resolveSelectableZone('torso', null, [])).toBe('body');
     expect(resolveSelectableZone('eyes', null, [])).toBe('face');
+  });
+
+  it('selects a limb group directly on the first click (no whole-body step)', () => {
+    // Clicking an arm/leg must visibly highlight that limb, not the whole
+    // figure — otherwise the click reads as "nothing happened".
+    expect(resolveSelectableZone('upper_arm', null, [])).toBe('arms');
+    expect(resolveSelectableZone('calf', null, [])).toBe('legs');
+    expect(resolveSelectableZone('hand', null, [])).toBe('arms');
   });
 
   it('drills into level-2 siblings once inside a group', () => {
