@@ -367,8 +367,10 @@ export class CharacterRig {
       eye.scale.setScalar(1 + 0.3 * nS('eyes', 'eyeSize', side));
       const lid = node(`eyelid${side}`);
       const lidCover = 0.18 + 0.62 * squint;
-      lid.scale.set(1.06, lidCover, 1.04);
-      lid.position.y = FACE.eyeR * (1 - lidCover * 0.55);
+      // Record the squint baseline so the idle blink (see tick) can layer a
+      // momentary full closure ON TOP of it without clobbering the param.
+      lid.userData.lidCover = lidCover;
+      this.applyLidCover(lid, lidCover);
 
       const brow = node(`brow${side}`);
       brow.position.x = m * (FACE.eyeX + 0.012 * nS('eyes', 'eyeDistance', side));
@@ -450,6 +452,39 @@ export class CharacterRig {
     if (!chest) return;
     const breath = 0.006 * (0.5 + 0.5 * Math.sin(timeSeconds * 1.4));
     chest.scale.set(1 + breath * 0.6, 1 + breath, 1 + breath);
+
+    // Idle blink: a quick, occasional full lid closure layered on top of the
+    // squint baseline. Deterministic (no Math.random — same figure blinks the
+    // same way), but the period is sine-jittered so it never feels metronomic.
+    const blink = this.blinkAmount(timeSeconds);
+    (['L', 'R'] as const).forEach((side) => {
+      const lid = this.nodes[`eyelid${side}`];
+      if (!lid) return;
+      const base = (lid.userData.lidCover as number) ?? 0.18;
+      // Blend from the resting cover toward a full closure (≈1) by `blink`.
+      this.applyLidCover(lid, base + (1.0 - base) * blink);
+    });
+  }
+
+  /**
+   * Blink envelope in [0, 1] for a given time: 0 = eyes at their resting
+   * cover, 1 = fully shut. Most of the cycle sits at 0; a blink is a short
+   * (~140 ms) close-and-open pulse. The base period is ~4 s, nudged by a slow
+   * sine so successive blinks aren't evenly spaced.
+   */
+  private blinkAmount(timeSeconds: number): number {
+    const period = 4.0 + 1.2 * Math.sin(timeSeconds * 0.37);
+    const phase = timeSeconds % period;
+    const blinkDur = 0.14; // seconds the lids are in motion
+    if (phase > blinkDur) return 0;
+    // 0 → 1 → 0 over the pulse: closes in the first half, opens in the second.
+    return Math.sin((phase / blinkDur) * Math.PI);
+  }
+
+  /** Set an eyelid's vertical cover (0.18 ≈ open, ~1 ≈ shut) + matching drop. */
+  private applyLidCover(lid: THREE.Object3D, cover: number): void {
+    lid.scale.set(1.06, cover, 1.04);
+    lid.position.y = FACE.eyeR * (1 - cover * 0.55);
   }
 
   private applyColors(skinHex: string, saturation: number, hairHex: string, eyeHex: string): void {
