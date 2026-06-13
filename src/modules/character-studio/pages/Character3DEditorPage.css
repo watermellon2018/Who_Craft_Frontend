@@ -477,8 +477,25 @@
   backdrop-filter: blur(10px);
 }
 
+/* Collapsed: a compact pill button, not the full panel. */
 .c3d-refdock--collapsed {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
   width: auto;
+  padding: 8px 12px;
+  color: var(--c3d-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.c3d-refdock--collapsed:hover {
+  color: var(--c3d-accent);
+  border-color: var(--c3d-accent-border);
 }
 
 .c3d-refdock__head {
@@ -511,9 +528,21 @@
   margin: 0;
 }
 
+/* Fixed-size frame so the dock never resizes when switching between a
+   square portrait and a tall full-body shot. The image fits inside via
+   object-fit: contain (whole image visible, no distortion or crop). */
+.c3d-refdock__preview-frame {
+  width: 100%;
+  height: 180px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+}
+
 .c3d-refdock__preview img {
   width: 100%;
-  border-radius: 10px;
+  height: 100%;
+  object-fit: contain;
   display: block;
 }
 
