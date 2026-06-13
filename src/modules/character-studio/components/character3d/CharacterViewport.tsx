@@ -6,17 +6,29 @@ import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment';
 import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter';
 import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
+import {GTAOPass} from 'three/examples/jsm/postprocessing/GTAOPass';
 import {OutlinePass} from 'three/examples/jsm/postprocessing/OutlinePass';
 import {OutputPass} from 'three/examples/jsm/postprocessing/OutputPass';
 import {CharacterRig, ZoneParams} from './engine/rig';
 import {dragBindingFor} from './engine/dragBindings';
 import {resolveSelectableZone} from './engine/zoneSelection';
 
+// Canonical camera angles for reference-frame capture. The video pipeline
+// needs the figure shot head-on / in profile / three-quarter so the same
+// character stays consistent across generated frames.
+export type ViewAngle = 'front' | 'threeQuarter' | 'side' | 'sideLeft' | 'back';
+
 // Imperative escape hatch for actions that need the live GL context:
-// PNG snapshots and GLB export. The page receives it via onApiReady.
+// PNG snapshots, GLB export, and canonical camera moves. The page receives
+// it via onApiReady.
 export interface ViewportApi {
   snapshotPng: () => string;
   exportGlb: () => Promise<Blob>;
+  // Glide the camera onto a canonical reference angle (reuses the same lerp
+  // as the zoom focus). Turning to a preset stops the turntable.
+  setView: (angle: ViewAngle) => void;
+  // Start/stop a slow continuous orbit around the figure (azimuth only).
+  toggleTurntable: (on: boolean) => void;
 }
 
 interface Props {
@@ -64,6 +76,10 @@ const CharacterViewport: React.FC<Props> = ({
   // The post-processing composer drives every frame (so the outline pass
   // runs); snapshots and the focus animation read it from here.
   const composerRef = useRef<EffectComposer | null>(null);
+  // Imperative camera commands (preset views + turntable). CameraDirector
+  // installs the handle; ApiBridge calls it from the page's buttons. A ref
+  // (not state) so the buttons don't re-render the viewport.
+  const cameraControlRef = useRef<CameraControl | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Parameters → math. The rig mutates its own scene graph; no React re-render.
@@ -253,7 +269,12 @@ const CharacterViewport: React.FC<Props> = ({
         />
 
         <Controls controlsRef={controlsRef} />
-        <CameraFocus rig={rig} zoomZoneId={zoomZoneId} controlsRef={controlsRef} />
+        <CameraDirector
+          rig={rig}
+          zoomZoneId={zoomZoneId}
+          controlsRef={controlsRef}
+          controlRef={cameraControlRef}
+        />
         <IdleMotion rig={rig} />
         <HighlightOutline
           rig={rig}
@@ -261,7 +282,12 @@ const CharacterViewport: React.FC<Props> = ({
           hoveredZoneId={hoveredZoneId}
           selectedZoneId={selectedZoneId}
         />
-        <ApiBridge rig={rig} composerRef={composerRef} onApiReady={onApiReady} />
+        <ApiBridge
+          rig={rig}
+          composerRef={composerRef}
+          cameraControlRef={cameraControlRef}
+          onApiReady={onApiReady}
+        />
       </Canvas>
       </div>
 
@@ -330,15 +356,50 @@ const Controls: React.FC<{controlsRef: React.MutableRefObject<OrbitControls | nu
   return null;
 };
 
-// ─────────── Camera focus animation for "Приблизить" ───────────
-const CameraFocus: React.FC<{
+// Imperative camera handle installed by CameraDirector and called from the
+// page (via ApiBridge). Same shape the page sees through ViewportApi.
+interface CameraControl {
+  setView: (angle: ViewAngle) => void;
+  setTurntable: (on: boolean) => void;
+}
+
+// Azimuth (radians, around +Y) for each canonical reference angle. Front is
+// the camera on +Z looking at the figure's face; positive azimuth swings
+// toward +X. ¾ is the classic 45° hero angle.
+const VIEW_AZIMUTH: Record<ViewAngle, number> = {
+  front: 0,
+  threeQuarter: Math.PI / 4,
+  side: Math.PI / 2, // right profile (+X)
+  sideLeft: -Math.PI / 2, // left profile (−X)
+  back: Math.PI,
+};
+
+// Canonical framing: aim at the chest / centre of mass and stand back far
+// enough to hold the whole figure, slightly above eye line (a touch of
+// downward tilt reads better than dead-level).
+const VIEW_TARGET = new THREE.Vector3(0, 1.0, 0);
+const VIEW_DISTANCE = 3.05;
+const VIEW_ELEVATION = 0.42; // camera y above the target
+// Slow, calm orbit. ~12°/s reads as a turntable, not a spin.
+const TURNTABLE_SPEED = (12 * Math.PI) / 180; // rad/s
+
+// ─────────── Camera director: zoom focus + view presets + turntable ───────────
+//
+// One lerp loop drives every programmatic camera move (the old "Приблизить"
+// focus, the new fas/profile/¾ presets, and the turntable), so there is a
+// single animation mechanism — never two fighting over the camera. Manual
+// OrbitControls gestures always win: a real user grab cancels any in-flight
+// glide and stops the turntable.
+const CameraDirector: React.FC<{
   rig: CharacterRig;
   zoomZoneId: string | null;
   controlsRef: React.MutableRefObject<OrbitControls | null>;
-}> = ({rig, zoomZoneId, controlsRef}) => {
+  controlRef: React.MutableRefObject<CameraControl | null>;
+}> = ({rig, zoomZoneId, controlsRef, controlRef}) => {
   const {camera} = useThree();
   const desired = useRef<{target: THREE.Vector3; pos: THREE.Vector3} | null>(null);
   const animating = useRef(false);
+  const turntable = useRef(false);
   // True while WE are driving the camera, so the 'start' event our own
   // controls.update() emits doesn't cancel the animation on its first frame.
   const selfDriving = useRef(false);
@@ -365,32 +426,86 @@ const CameraFocus: React.FC<{
     animating.current = true;
   }, [zoomZoneId, rig, camera, controlsRef]);
 
-  // The user grabbing the controls cancels any in-flight focus animation —
-  // but only a real user gesture, not the 'start' our own update() fires.
+  // The user grabbing the controls cancels any in-flight glide AND the
+  // turntable — manual control always wins. Only a real user gesture counts,
+  // not the 'start' our own update() fires.
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
     const onStart = () => {
-      if (!selfDriving.current) animating.current = false;
+      if (!selfDriving.current) {
+        animating.current = false;
+        turntable.current = false;
+      }
     };
     controls.addEventListener('start', onStart);
     return () => controls.removeEventListener('start', onStart);
   }, [controlsRef]);
 
+  // Install the imperative handle the page drives through ViewportApi.
+  useEffect(() => {
+    controlRef.current = {
+      setView: (angle) => {
+        // A preset is an explicit re-frame: stop the turntable so the two
+        // don't both push the camera at once, then glide to the canonical pose.
+        turntable.current = false;
+        const az = VIEW_AZIMUTH[angle];
+        const target = VIEW_TARGET.clone();
+        const pos = target
+          .clone()
+          .add(new THREE.Vector3(Math.sin(az) * VIEW_DISTANCE, VIEW_ELEVATION, Math.cos(az) * VIEW_DISTANCE));
+        desired.current = {target, pos};
+        animating.current = true;
+      },
+      setTurntable: (on) => {
+        turntable.current = on;
+        // Starting the turntable cancels any in-flight preset glide so it
+        // begins orbiting from wherever the camera actually is.
+        if (on) animating.current = false;
+      },
+    };
+    return () => {
+      controlRef.current = null;
+    };
+  }, [controlRef]);
+
   useFrame((_, delta) => {
     const controls = controlsRef.current;
-    if (!animating.current || !desired.current || !controls) return;
-    const a = Math.min(1, 9 * delta);
-    controls.target.lerp(desired.current.target, a);
-    camera.position.lerp(desired.current.pos, a);
-    selfDriving.current = true;
-    controls.update();
-    selfDriving.current = false;
-    if (
-      controls.target.distanceTo(desired.current.target) < 0.005 &&
-      camera.position.distanceTo(desired.current.pos) < 0.005
-    ) {
-      animating.current = false;
+    if (!controls) return;
+
+    // Preset / zoom glide takes priority while it's running.
+    if (animating.current && desired.current) {
+      const a = Math.min(1, 9 * delta);
+      controls.target.lerp(desired.current.target, a);
+      camera.position.lerp(desired.current.pos, a);
+      selfDriving.current = true;
+      controls.update();
+      selfDriving.current = false;
+      if (
+        controls.target.distanceTo(desired.current.target) < 0.005 &&
+        camera.position.distanceTo(desired.current.pos) < 0.005
+      ) {
+        animating.current = false;
+      }
+      return;
+    }
+
+    // Turntable: orbit the camera around the (fixed) target by azimuth only.
+    // Rotate the target→camera offset in the XZ plane; elevation/distance
+    // stay whatever the user last set, so it composes with manual orbiting.
+    if (turntable.current) {
+      const angle = TURNTABLE_SPEED * Math.min(delta, 0.05); // clamp huge tab-restore steps
+      const offset = camera.position.clone().sub(controls.target);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const x = offset.x * cos + offset.z * sin;
+      const z = -offset.x * sin + offset.z * cos;
+      offset.x = x;
+      offset.z = z;
+      camera.position.copy(controls.target).add(offset);
+      selfDriving.current = true;
+      controls.update();
+      selfDriving.current = false;
     }
   });
   return null;
@@ -436,12 +551,38 @@ const HighlightOutline: React.FC<{
   selectedZoneId: string | null;
 }> = ({rig, composerRef, hoveredZoneId, selectedZoneId}) => {
   const {gl, scene, camera, size} = useThree();
+  const aoPass = useRef<GTAOPass | null>(null);
   const selectPass = useRef<OutlinePass | null>(null);
   const hoverPass = useRef<OutlinePass | null>(null);
 
   useEffect(() => {
     const composer = new EffectComposer(gl);
     composer.addPass(new RenderPass(scene, camera));
+
+    // Ambient occlusion — contact shadows in the crevices (neck/chin,
+    // armpits, groin, under hair) to add volume. Inserted right after the
+    // RenderPass so AO lands on the lit color before the outlines, and the
+    // OutputPass at the end still applies ACES once. GTAOPass builds its own
+    // depth/normal G-buffer from the scene and blends the AO over the colour.
+    //
+    // The mesh is smooth and stylised, so AO is intentionally subtle: a small
+    // world-space radius reads in the joints without dirtying flat cheeks/
+    // forehead, and blendIntensity is held well below 1 to avoid a heavy look
+    // or a halo around the silhouette.
+    const ao = new GTAOPass(scene, camera, size.width, size.height);
+    ao.output = GTAOPass.OUTPUT.Default; // blend AO over colour (not debug views)
+    ao.blendIntensity = 0.55;
+    ao.updateGtaoMaterial({
+      radius: 0.12, // world units — the figure is ~2u tall, so this is crevice-scale
+      distanceExponent: 1.0,
+      thickness: 1.0,
+      scale: 1.0,
+      samples: 16,
+    });
+    // Gentle denoise so the low sample count doesn't leave noise on smooth skin.
+    ao.updatePdMaterial({lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16});
+    composer.addPass(ao);
+    aoPass.current = ao;
 
     const resolution = new THREE.Vector2(size.width, size.height);
     const sel = new OutlinePass(resolution, scene, camera);
@@ -471,15 +612,18 @@ const HighlightOutline: React.FC<{
     composerRef.current = composer;
     return () => {
       composerRef.current = null;
+      aoPass.current = null;
       selectPass.current = null;
       hoverPass.current = null;
+      ao.dispose();
       sel.dispose();
       hov.dispose();
       composer.dispose();
     };
   }, [gl, scene, camera, size.width, size.height, composerRef]);
 
-  // Keep the composer sized to the canvas.
+  // Keep the composer sized to the canvas. EffectComposer.setSize fans out to
+  // every pass's setSize, so the GTAOPass G-buffer targets resize with it.
   useEffect(() => {
     composerRef.current?.setSize(size.width, size.height);
   }, [size.width, size.height, composerRef]);
@@ -506,19 +650,22 @@ const HighlightOutline: React.FC<{
   return null;
 };
 
-// ─────────── Snapshot / export bridge ───────────
+// ─────────── Snapshot / export / camera bridge ───────────
 const ApiBridge: React.FC<{
   rig: CharacterRig;
   composerRef: React.MutableRefObject<EffectComposer | null>;
+  cameraControlRef: React.MutableRefObject<CameraControl | null>;
   onApiReady?: (api: ViewportApi | null) => void;
-}> = ({rig, composerRef, onApiReady}) => {
+}> = ({rig, composerRef, cameraControlRef, onApiReady}) => {
   const {gl, scene, camera} = useThree();
   useEffect(() => {
     if (!onApiReady) return undefined;
     onApiReady({
       snapshotPng: () => {
         // Render through the composer so the snapshot includes the outline
-        // and the same tone mapping as the live view.
+        // and the same tone mapping as the live view. The camera is wherever
+        // the user (or a view preset) left it, so the snapshot captures that
+        // reference angle — which is the whole point of the presets.
         if (composerRef.current) composerRef.current.render();
         else gl.render(scene, camera);
         return gl.domElement.toDataURL('image/png');
@@ -533,9 +680,11 @@ const ApiBridge: React.FC<{
             {binary: true},
           );
         }),
+      setView: (angle) => cameraControlRef.current?.setView(angle),
+      toggleTurntable: (on) => cameraControlRef.current?.setTurntable(on),
     });
     return () => onApiReady(null);
-  }, [gl, scene, camera, rig, composerRef, onApiReady]);
+  }, [gl, scene, camera, rig, composerRef, cameraControlRef, onApiReady]);
   return null;
 };
 

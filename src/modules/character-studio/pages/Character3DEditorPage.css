@@ -1676,6 +1676,14 @@
   cursor: not-allowed;
 }
 
+/* Active toggle (e.g. turntable running). */
+.c3d-bottom__chip--active,
+.c3d-bottom__chip--active:hover:not(:disabled) {
+  color: var(--c3d-text);
+  border-color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+}
+
 .c3d-preset-row {
   display: inline-flex;
   gap: 8px;

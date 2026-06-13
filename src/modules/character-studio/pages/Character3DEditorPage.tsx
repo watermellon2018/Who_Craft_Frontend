@@ -3,7 +3,7 @@ import {message} from 'antd';
 import {useNavigate, useParams} from 'react-router-dom';
 import BottomQuickBar from '../components/character3d/BottomQuickBar';
 import CharacterCategoryRail from '../components/character3d/CharacterCategoryRail';
-import CharacterViewport, {ViewportApi} from '../components/character3d/CharacterViewport';
+import CharacterViewport, {ViewAngle, ViewportApi} from '../components/character3d/CharacterViewport';
 import ContextualZonePanel from '../components/character3d/ContextualZonePanel';
 import ReferenceDock from '../components/character3d/ReferenceDock';
 import StepperHeader from '../components/character3d/StepperHeader';
@@ -71,6 +71,8 @@ const Character3DEditorPage: React.FC = () => {
   const [, setHistoryVersion] = useState(0);
   const [viewportApi, setViewportApi] = useState<ViewportApi | null>(null);
   const [autofitBusy, setAutofitBusy] = useState(false);
+  // Turntable on/off — owned here so the toggle button reflects the state.
+  const [turntableOn, setTurntableOn] = useState(false);
 
   // Commit a new params object: keep the ref mirror in sync and trigger a
   // toolbar re-render. Pure with respect to React state updaters.
@@ -303,6 +305,33 @@ const Character3DEditorPage: React.FC = () => {
       .catch(() => message.error('Не удалось экспортировать модель'));
   }, [viewportApi, exportName]);
 
+  // ─── Camera presets / turntable ───
+  // Snapping to a reference angle stops the turntable, mirroring the viewport:
+  // a preset and the orbit must not push the camera at the same time.
+  const handleSetView = useCallback(
+    (angle: ViewAngle) => {
+      if (!viewportApi) return;
+      viewportApi.setView(angle);
+      setTurntableOn(false);
+    },
+    [viewportApi],
+  );
+
+  const handleToggleTurntable = useCallback(() => {
+    if (!viewportApi) return;
+    setTurntableOn((prev) => {
+      const next = !prev;
+      viewportApi.toggleTurntable(next);
+      return next;
+    });
+  }, [viewportApi]);
+
+  // If the GL context drops (e.g. unmount/remount), reflect the turntable as
+  // off so the button doesn't lie about a stopped orbit.
+  useEffect(() => {
+    if (!viewportApi) setTurntableOn(false);
+  }, [viewportApi]);
+
   // ─── Undo/redo hotkeys ───
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -446,6 +475,9 @@ const Character3DEditorPage: React.FC = () => {
         onRedo={handleRedo}
         onSnapshot={viewportApi ? handleSnapshot : undefined}
         onExportGlb={viewportApi ? handleExportGlb : undefined}
+        onSetView={viewportApi ? handleSetView : undefined}
+        onToggleTurntable={viewportApi ? handleToggleTurntable : undefined}
+        turntableOn={turntableOn}
         onReset={handleGlobalReset}
         onParameterChange={handleParameterChange}
         onCancel={handleCancel}
