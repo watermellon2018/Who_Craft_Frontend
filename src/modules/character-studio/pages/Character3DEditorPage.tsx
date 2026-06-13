@@ -147,10 +147,21 @@ const Character3DEditorPage: React.FC = () => {
             adopt(fit.data?.params);
             const warnings: string[] = Array.isArray(fit.data?.warnings) ? fit.data.warnings : [];
             if (warnings.includes('no_portrait')) return; // nothing to fit from
+            // Body proportions come from the full-body reference; the face
+            // (and colors) from the portrait. Each can be skipped on its own.
+            const bodyFitted = !!fit.data?.params?.shoulders || !!fit.data?.params?.hips;
             if (warnings.includes('landmarks_unavailable')) {
-              message.info('Цвета подобраны по фото — пропорции лица настройте слайдерами');
+              message.info(
+                bodyFitted
+                  ? 'Фигура и цвета подобраны по фото — черты лица настройте слайдерами'
+                  : 'Цвета подобраны по фото — пропорции лица настройте слайдерами',
+              );
             } else {
-              message.success('Модель подогнана по референсам — доработайте слайдерами');
+              message.success(
+                bodyFitted
+                  ? 'Лицо и фигура подогнаны по референсам — доработайте слайдерами'
+                  : 'Лицо подогнано по референсам — фигуру настройте слайдерами',
+              );
             }
           })
           .catch(() => {
