@@ -19,7 +19,11 @@ import {
 
 const MOCK_CHARACTER_NAME = 'Персонаж';
 import {characterApi} from '../api/characterApi';
-import {collapseSideOverrides, mergeSavedParams} from '../components/character3d/engine/paramMerge';
+import {
+  applyAutofitSuggestions,
+  collapseSideOverrides,
+  mergeSavedParams,
+} from '../components/character3d/engine/paramMerge';
 import {useCharacter} from '../hooks/useCharacter';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './Character3DEditorPage.css';
@@ -51,9 +55,8 @@ const Character3DEditorPage: React.FC = () => {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [zoomZoneId, setZoomZoneId] = useState<string | null>(null);
   const [symmetryEnabled, setSymmetryEnabled] = useState<boolean>(true);
-  const [zoneParams, setZoneParams] = useState<Record<string, Record<string, number | string | boolean>>>(() =>
-    buildInitialZoneParams(),
-  );
+  type ZoneParamsState = Record<string, Record<string, number | string | boolean>>;
+  const [zoneParams, setZoneParams] = useState<ZoneParamsState>(() => buildInitialZoneParams());
   // Baseline snapshot for the Cancel button; reset on Apply/Save.
   const [paramsBaseline, setParamsBaseline] = useState(zoneParams);
   // Which mirrored half the user edits while «Применять симметрично» is off.
@@ -61,33 +64,47 @@ const Character3DEditorPage: React.FC = () => {
 
   // Undo/redo. The class owns the stacks; historyVersion only forces the
   // toolbar buttons to re-render after a mutation.
+  //
+  // The history stack and the params ref are mutated ONLY from event
+  // handlers, never inside a setState updater: React invokes updaters twice
+  // under StrictMode (and may discard renders in concurrent mode), which
+  // would push duplicate history entries and desync the stacks. We mirror
+  // the committed params in a ref and derive the next state explicitly.
   const historyRef = useRef(new ParamHistory());
+  const zoneParamsRef = useRef(zoneParams);
   const [, setHistoryVersion] = useState(0);
   const [viewportApi, setViewportApi] = useState<ViewportApi | null>(null);
   const [autofitBusy, setAutofitBusy] = useState(false);
 
+  // Commit a new params object: keep the ref mirror in sync and trigger a
+  // toolbar re-render. Pure with respect to React state updaters.
+  const commitParams = useCallback((next: ZoneParamsState) => {
+    zoneParamsRef.current = next;
+    setZoneParams(next);
+    setHistoryVersion((v) => v + 1);
+  }, []);
+
   // Single entry point for parameter mutations — records undo history.
   const mutateParams = useCallback(
-    (producer: (prev: Record<string, Record<string, number | string | boolean>>) => Record<string, Record<string, number | string | boolean>>) => {
-      setZoneParams((prev) => {
-        const next = producer(prev);
-        if (next !== prev) historyRef.current.record(prev, Date.now());
-        return next;
-      });
-      setHistoryVersion((v) => v + 1);
+    (producer: (prev: ZoneParamsState) => ZoneParamsState) => {
+      const prev = zoneParamsRef.current;
+      const next = producer(prev);
+      if (next === prev) return;
+      historyRef.current.record(prev, Date.now());
+      commitParams(next);
     },
-    [],
+    [commitParams],
   );
 
   const handleUndo = useCallback(() => {
-    setZoneParams((current) => historyRef.current.undo(current) ?? current);
-    setHistoryVersion((v) => v + 1);
-  }, []);
+    const restored = historyRef.current.undo(zoneParamsRef.current);
+    if (restored) commitParams(restored);
+  }, [commitParams]);
 
   const handleRedo = useCallback(() => {
-    setZoneParams((current) => historyRef.current.redo(current) ?? current);
-    setHistoryVersion((v) => v + 1);
-  }, []);
+    const restored = historyRef.current.redo(zoneParamsRef.current);
+    if (restored) commitParams(restored);
+  }, [commitParams]);
 
   // ─── Load saved 3D state ───
   useEffect(() => {
@@ -100,6 +117,7 @@ const Character3DEditorPage: React.FC = () => {
         const saved = res.data?.params;
         if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
           const merged = mergeSavedParams(saved);
+          zoneParamsRef.current = merged;
           setZoneParams(merged);
           setParamsBaseline(merged);
           // The loaded state is the new ground zero — nothing to undo into.
@@ -256,13 +274,7 @@ const Character3DEditorPage: React.FC = () => {
           message.warning('Не удалось извлечь параметры из референсов');
           return;
         }
-        mutateParams((prev) => {
-          const next = {...prev};
-          for (const [zoneId, values] of Object.entries(suggested)) {
-            next[zoneId] = {...(next[zoneId] ?? {}), ...values};
-          }
-          return next;
-        });
+        mutateParams((prev) => applyAutofitSuggestions(prev, suggested));
         if (warnings.includes('landmarks_unavailable')) {
           message.info('Лэндмарки лица недоступны на сервере — применены только цвета');
         } else {

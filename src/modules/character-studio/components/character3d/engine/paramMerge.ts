@@ -46,6 +46,26 @@ export function mergeSavedParams(saved: unknown): ZoneParams {
   return out;
 }
 
+// Merge backend autofit suggestions over the current params. Suggestions are
+// shared (both-sides) values, so any stale per-side override (`id__L`/`id__R`)
+// for a suggested param is dropped — otherwise the rig's per-side resolver
+// keeps preferring the override and the suggestion renders on neither side.
+export function applyAutofitSuggestions(
+  params: ZoneParams,
+  suggested: Record<string, Record<string, number | string | boolean>>,
+): ZoneParams {
+  const next = {...params};
+  for (const [zoneId, values] of Object.entries(suggested)) {
+    const zone = {...(next[zoneId] ?? {}), ...values};
+    for (const paramId of Object.keys(values)) {
+      delete zone[`${paramId}__L`];
+      delete zone[`${paramId}__R`];
+    }
+    next[zoneId] = zone;
+  }
+  return next;
+}
+
 // Fold `id__L` / `id__R` overrides of a zone back into the shared value when
 // the user re-enables «Применять симметрично»: both sides adopt the side the
 // user was just editing, and the overrides are removed.

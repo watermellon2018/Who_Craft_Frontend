@@ -3,7 +3,7 @@ import {buildInitialZoneParams, ZONE_INDEX} from '../zones';
 import {CharacterRig, ZoneParams} from './rig';
 import {DRAG_BINDINGS} from './dragBindings';
 import {resolveSelectableZone} from './zoneSelection';
-import {collapseSideOverrides, mergeSavedParams} from './paramMerge';
+import {applyAutofitSuggestions, collapseSideOverrides, mergeSavedParams} from './paramMerge';
 
 // Engine math tests: the rig is plain three.js (no WebGL needed), so the
 // geometry/transform contract is verifiable in jsdom.
@@ -293,5 +293,40 @@ describe('collapseSideOverrides', () => {
   it('returns the params untouched when the zone has no overrides', () => {
     const params = buildInitialZoneParams();
     expect(collapseSideOverrides(params, 'upper_arm', 'L')).toBe(params);
+  });
+});
+
+describe('applyAutofitSuggestions', () => {
+  it('merges suggested values per zone over existing params', () => {
+    const params = buildInitialZoneParams();
+    const next = applyAutofitSuggestions(params, {
+      skin_color: {skinTone: '#caa98a'},
+      eyes: {eyeColor: '#5a4632', eyeDistance: 0.3},
+    });
+    expect(next.skin_color.skinTone).toBe('#caa98a');
+    expect(next.eyes.eyeColor).toBe('#5a4632');
+    expect(next.eyes.eyeDistance).toBe(0.3);
+    // Untouched zones keep their existing values.
+    expect(next.nose.noseWidth).toBe(params.nose.noseWidth);
+  });
+
+  it('clears stale per-side overrides for suggested params so they take effect', () => {
+    const params = buildInitialZoneParams();
+    // User edited the left eye asymmetrically before running autofit.
+    params.eyes = {...params.eyes, eyeDistance: 0, eyeDistance__L: 0.9, eyeSize__R: -0.4};
+    const next = applyAutofitSuggestions(params, {eyes: {eyeDistance: 0.5}});
+    // The suggested shared value wins and the override on the same param is gone.
+    expect(next.eyes.eyeDistance).toBe(0.5);
+    expect(next.eyes.eyeDistance__L).toBeUndefined();
+    expect(next.eyes.eyeDistance__R).toBeUndefined();
+    // Overrides for params NOT in the suggestion are left alone.
+    expect(next.eyes.eyeSize__R).toBe(-0.4);
+  });
+
+  it('does not mutate the input object', () => {
+    const params = buildInitialZoneParams();
+    const snapshot = JSON.stringify(params);
+    applyAutofitSuggestions(params, {skin_color: {skinTone: '#fff'}});
+    expect(JSON.stringify(params)).toBe(snapshot);
   });
 });
