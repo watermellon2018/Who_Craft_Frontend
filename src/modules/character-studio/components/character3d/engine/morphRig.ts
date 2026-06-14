@@ -34,21 +34,22 @@ const BETA_SCALE = 3.0;
 
 // ─────────── β mapping table (the intellectual core of A1) ───────────
 //
-// SMPL βs are abstract PCA components, NOT "shoulder width" knobs — and they are
-// coupled (β0 both heightens AND broadens the figure). So this is an honest,
-// best-effort mapping of the body-shape sliders our zones expose onto β
-// combinations, calibrated from the measured semantics of the neutral model:
-//   β0 — overall build / size (small↔large, the dominant axis)
-//   β1 — body depth / weight  (POSITIVE β = slimmer; we invert for "heavier")
-//   β2 — upper↔lower proportion (shoulders vs hips, pear/V shift)
-//   β3 — finer torso proportion
-// Each entry contributes additively to a β; several sliders can push the same β.
-// The result is summed per β and clamped, then divided by BETA_SCALE into a
-// morph influence. `value` is the slider in [-1, 1].
-//
-// This is the documented A1 limitation: not 1:1 with the procedural sliders.
-// Sliders with no honest β analogue (face, hands, fingers, single-limb volume)
-// are simply absent here and stay at the neutral base.
+// SMPL-X βs are abstract PCA components, not "shoulder width" knobs. This table
+// maps the body-shape sliders our zones expose onto β combinations, CALIBRATED
+// from the measured geometric effect of each β on the neutral SMPL-X mesh
+// (tools-side measurement, ±3 each):
+//   β0 — STATURE: height 1.72→2.01 (+3) / →1.43 (−3); widths scale with it. The
+//        dominant axis is height, so don't pump β0 for "broader" — it makes the
+//        figure TALLER. We leave β0 free of width sliders (no height slider yet).
+//   β1 — WEIGHT/bulk: POSITIVE β1 = HEAVIER (chest depth 0.264→0.336, wider
+//        waist/hips); negative = slimmer. (The earlier table had this inverted.)
+//   β2 — PROPORTION: POSITIVE = wider hips / narrower shoulders (pear); negative
+//        = wider shoulders / narrower hips (V / inverted triangle).
+//   β3 — HIP WIDTH (finer): positive widens the hips/pelvis, negative narrows.
+// Each entry adds to a β; several sliders can push the same β. Sums are clamped
+// then divided by BETA_SCALE into a morph influence. `value` is the slider
+// in [-1, 1]. Sliders with no honest β analogue (limb length, single-limb
+// volume, face) are absent and stay at the neutral base — the documented limit.
 interface BetaTerm {
   beta: number;
   // β contribution at slider = +1 (scaled by the live slider value).
@@ -57,25 +58,29 @@ interface BetaTerm {
 
 const BETA_MAPPING: Record<string, Record<string, BetaTerm[]>> = {
   shoulders: {
-    // Broad shoulders read as a larger/V-taper build → β0 up, β2 toward upper.
-    shouldersWidth: [{beta: 0, scale: 1.4}, {beta: 2, scale: -0.6}],
+    // Broader shoulders = V-taper → β2 toward shoulders (negative). A touch of
+    // β1 so broad shoulders also read a little heavier up top.
+    shouldersWidth: [{beta: 2, scale: -1.2}, {beta: 1, scale: 0.3}],
   },
   torso: {
-    chestWidth: [{beta: 0, scale: 1.0}],
-    // More chest depth = heavier front torso → invert β1.
-    chestDepth: [{beta: 1, scale: -1.2}],
-    backWidth: [{beta: 0, scale: 0.5}],
+    // Chest width/back = upper-body bulk → β1 (weight). Chest depth is the
+    // clearest β1 signal (depth 0.264→0.336 at +3).
+    chestWidth: [{beta: 1, scale: 0.7}],
+    chestDepth: [{beta: 1, scale: 1.2}],
+    backWidth: [{beta: 1, scale: 0.5}, {beta: 2, scale: -0.3}],
   },
   waist: {
-    // A wider waist reads as more weight → invert β1; a touch of β3 thickness.
-    waistWidth: [{beta: 1, scale: -1.4}, {beta: 3, scale: 0.5}],
-    // Silhouette: hourglass(−) ↔ straight(+). Couple to depth + proportion.
-    torsoCurve: [{beta: 1, scale: 0.6}, {beta: 2, scale: 0.4}],
+    // A wider waist reads as more weight → β1 up; a touch of β3 thickness.
+    waistWidth: [{beta: 1, scale: 1.4}, {beta: 3, scale: 0.4}],
+    // Silhouette: hourglass(−) ↔ straight(+). A straighter torso is heavier
+    // (less waist taper) and less pear → +β1, −β2.
+    torsoCurve: [{beta: 1, scale: 0.6}, {beta: 2, scale: -0.4}],
   },
   hips: {
-    // Wider hips = lower-body bulk → β0 up + β2 toward lower (pear).
-    hipsWidth: [{beta: 0, scale: 0.7}, {beta: 2, scale: 1.0}],
-    hipsShape: [{beta: 2, scale: 0.8}, {beta: 1, scale: -0.4}],
+    // Wider hips = lower-body bulk → β2 toward hips (pear) + β3 hip width.
+    hipsWidth: [{beta: 2, scale: 1.1}, {beta: 3, scale: 0.7}],
+    // Hip shape: rounder/fuller hips → β3 width + a little β1 weight.
+    hipsShape: [{beta: 3, scale: 0.8}, {beta: 1, scale: 0.4}],
   },
 };
 

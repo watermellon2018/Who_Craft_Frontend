@@ -73,20 +73,20 @@ describe('MorphRig', () => {
 
   it('drives morph influences from body-shape sliders via the β table', () => {
     const mesh = rig.nodeByName('body') as THREE.Mesh;
-    // shouldersWidth maps onto β0 (+1.4) and β2 (−0.6).
+    // Broad shoulders → β2 toward shoulders (negative, V-taper) + a little β1.
     rig.applyParams(withParams({shoulders: {shouldersWidth: 1}}));
     const w = mesh.morphTargetInfluences as number[];
-    expect(w[0]).toBeGreaterThan(0); // β0 influence is positive
-    expect(w[2]).toBeLessThan(0); // β2 influence is negative
+    expect(w[2]).toBeLessThan(0); // β2 negative = wider shoulders / V
+    expect(w[1]).toBeGreaterThan(0); // β1 slightly up (broad-shouldered bulk)
   });
 
   it('sums contributions from several sliders into the same β', () => {
     const mesh = rig.nodeByName('body') as THREE.Mesh;
-    // chestWidth (β0 +1.0) and shouldersWidth (β0 +1.4) both push β0 up.
-    rig.applyParams(withParams({shoulders: {shouldersWidth: 1}, torso: {chestWidth: 1}}));
-    const both = (mesh.morphTargetInfluences as number[])[0];
-    rig.applyParams(withParams({shoulders: {shouldersWidth: 1}}));
-    const one = (mesh.morphTargetInfluences as number[])[0];
+    // chestWidth (β1 +0.7) and chestDepth (β1 +1.2) both push β1 (weight) up.
+    rig.applyParams(withParams({torso: {chestWidth: 1, chestDepth: 1}}));
+    const both = (mesh.morphTargetInfluences as number[])[1];
+    rig.applyParams(withParams({torso: {chestWidth: 1}}));
+    const one = (mesh.morphTargetInfluences as number[])[1];
     expect(both).toBeGreaterThan(one);
   });
 
