@@ -137,6 +137,7 @@ export class MorphRig implements Rig {
   // the hairstyle builder; hair params forward to it.
   private hairDonor: CharacterRig | null = null;
   private hairGroup: THREE.Object3D | null = null;
+  private hairAnchor: THREE.Object3D | null = null;
   // For each zone, the world-space-independent local Y mid of its vertex band,
   // used only to anchor zoneBounds when a single mesh can't be sub-selected.
   private vertexY: Float32Array;
@@ -271,6 +272,32 @@ export class MorphRig implements Rig {
     // Lower the anchor by the overshoot so the hair top meets the crown, then
     // tuck a few mm further so the cap grips the skull rather than floating.
     anchor.position.y -= top - this.baseMaxY + 0.01;
+    this.hairAnchor = anchor;
+    this.trimCurtain();
+  }
+
+  /**
+   * Hide the long back "curtain" hair meshes in morph mode. They are modeled to
+   * drape over the PROCEDURAL neck/back; on the differently-shaped SMPL-X body
+   * they hang off as a flat floating ribbon. The skull-hugging cap fits fine,
+   * so we keep meshes that stay around the head and hide any that fall well
+   * below the head center (the curtains). Re-run after every hair rebuild.
+   */
+  private trimCurtain(): void {
+    if (!this.hairAnchor) return;
+    this.hairAnchor.updateWorldMatrix(true, true);
+    // Cutoff sits between the cap (whose bottom reaches ~ear/jaw level) and a
+    // back curtain (which falls to the neck/chest). A mesh dipping below this
+    // is a curtain that won't drape on the SMPL-X body — hide it; keep the cap.
+    const cutoff = this.smplHeadCenter.y - 0.2;
+    const box = new THREE.Box3();
+    this.hairAnchor.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      m.visible = true;
+      box.setFromObject(m);
+      if (box.min.y < cutoff) m.visible = false;
+    });
   }
 
   /**
@@ -467,8 +494,12 @@ export class MorphRig implements Rig {
 
     // Hair: forward the full params to the donor so the A4 hairstyle picker
     // (shape/length/volume/color) drives the grafted hairGroup. The donor's
-    // hidden body ignores the rest.
-    this.hairDonor?.applyParams(params);
+    // hidden body ignores the rest. A rebuild may re-add curtain meshes, so
+    // re-trim the long back curtain that doesn't fit the SMPL-X body.
+    if (this.hairDonor) {
+      this.hairDonor.applyParams(params);
+      this.trimCurtain();
+    }
   }
 
   // No idle morph animation in A1 (the SMPL-X face has no driven blink yet).
