@@ -373,8 +373,23 @@ export class MorphRig implements Rig {
       this.smplHeadRadius = 0.09;
       return;
     }
-    this.smplHeadCenter = new THREE.Vector3(sx / n, sy / n, sz / n);
-    this.smplHeadRadius = Math.max(0.05, (maxX - minX) / 2);
+    // Second pass over the head band for the Z (front-back) extent + center.
+    // The SMPL-X head is DEEPER than it is wide, so a cap scaled only to the
+    // X half-width is too small front-to-back and the skull poked through it.
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < pos.count; i++) {
+      if (this.vertexY[i] < yThreshold) continue;
+      const z = pos.getZ(i);
+      if (z < minZ) minZ = z;
+      if (z > maxZ) maxZ = z;
+    }
+    this.smplHeadCenter = new THREE.Vector3(sx / n, sy / n, (minZ + maxZ) / 2);
+    // Enclosing radius = the LARGER of the half-width and half-depth, so the
+    // cap wraps the whole cranium in every direction (no poke-through).
+    const halfW = (maxX - minX) / 2;
+    const halfD = (maxZ - minZ) / 2;
+    this.smplHeadRadius = Math.max(0.05, halfW, halfD);
   }
 
   // ─────────── Public API (mirrors CharacterRig) ───────────
