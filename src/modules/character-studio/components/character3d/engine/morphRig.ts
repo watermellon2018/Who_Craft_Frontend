@@ -117,6 +117,10 @@ export class MorphRig implements Rig {
   // working in morph mode for free.
   private headDonor: CharacterRig;
   private headAnchor: THREE.Group;
+  // Measured SMPL head center/radius (resting pose) so the grafted head seats
+  // on it. The center shifts up/down with the shape morphs at runtime.
+  private smplHeadCenter = new THREE.Vector3(0, 1.6, 0.05);
+  private smplHeadRadius = 0.09;
   // For each zone, the world-space-independent local Y mid of its vertex band,
   // used only to anchor zoneBounds when a single mesh can't be sub-selected.
   private vertexY: Float32Array;
@@ -161,6 +165,14 @@ export class MorphRig implements Rig {
     mesh.userData.zoneId = 'body';
     mesh.userData.matKind = 'skin' satisfies MatKind;
 
+    // The converter writes POSITION + morphs but no NORMAL attribute, so the
+    // body renders BLACK under lighting (no normal → no diffuse response).
+    // Compute smooth vertex normals from the base geometry; morph targets shift
+    // them slightly but this is correct enough for a stylized body.
+    if (!mesh.geometry.getAttribute('normal')) {
+      mesh.geometry.computeVertexNormals();
+    }
+
     // Replace the imported material with the editor's skin material so colors
     // and lighting match the procedural engine.
     this.material = new THREE.MeshStandardMaterial({
@@ -191,21 +203,32 @@ export class MorphRig implements Rig {
     this.baseMinY = minY;
     this.baseMaxY = maxY;
 
+    // Measure the SMPL head so the grafted procedural head lands ON it (not
+    // floating above the crown). The head is the narrow region in the top
+    // ~10% of the figure; average its vertices for the center, halve its
+    // X-spread for the radius.
+    this.measureSmplHead(pos);
+
     this.root.add(mesh);
 
     // ── Borrow the procedural head (face features + hair) ──
     // The donor builds a whole figure; we take only its `head` subtree and
-    // reparent it onto an anchor at the SMPL crown. The donor's own root is
-    // never added to any scene, so its body/limbs don't render.
+    // reparent it onto an anchor sized + placed to match the SMPL head. The
+    // donor's own root is never added to any scene, so its body never renders.
     this.headDonor = new CharacterRig();
     this.headAnchor = new THREE.Group();
     this.headAnchor.name = 'smpl_head_anchor';
+    // The procedural skull radius is M.headR ≈ 0.114; scale the whole head so
+    // it matches the measured SMPL head radius.
+    const headScale = this.smplHeadRadius / 0.114;
+    this.headAnchor.scale.setScalar(headScale);
     const head = this.headDonor.nodeByName('head');
     if (head) {
       head.parent?.remove(head);
-      // The donor head sits at a neck-relative offset; reset its local transform
-      // so the anchor fully controls where the head lands on the SMPL body.
-      head.position.set(0, 0, 0);
+      // The donor's skull center sits at faceRoot's +0.06 offset inside `head`;
+      // drop the head by that (scaled) amount so the SKULL CENTER — not the
+      // head node origin — coincides with the anchor (the SMPL head center).
+      head.position.set(0, -0.06, 0);
       head.rotation.set(0, 0, 0);
       this.headAnchor.add(head);
     }
@@ -213,6 +236,39 @@ export class MorphRig implements Rig {
     this.positionHead();
 
     this.applyParams({});
+  }
+
+  /**
+   * Locate the SMPL head: average the vertices in the narrow top region of the
+   * resting mesh. Stores center + radius so the grafted procedural head can be
+   * scaled and seated to coincide with it.
+   */
+  private measureSmplHead(pos: THREE.BufferAttribute): void {
+    const yThreshold = this.baseMinY + 0.9 * (this.baseMaxY - this.baseMinY);
+    let sx = 0;
+    let sy = 0;
+    let sz = 0;
+    let n = 0;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    for (let i = 0; i < pos.count; i++) {
+      const y = this.vertexY[i];
+      if (y < yThreshold) continue;
+      const x = this.vertexX[i];
+      sx += x;
+      sy += y;
+      sz += pos.getZ(i);
+      n++;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+    }
+    if (n === 0) {
+      this.smplHeadCenter = new THREE.Vector3(0, this.baseMaxY - 0.12, 0.05);
+      this.smplHeadRadius = 0.09;
+      return;
+    }
+    this.smplHeadCenter = new THREE.Vector3(sx / n, sy / n, sz / n);
+    this.smplHeadRadius = Math.max(0.05, (maxX - minX) / 2);
   }
 
   // ─────────── Public API (mirrors CharacterRig) ───────────
@@ -350,19 +406,21 @@ export class MorphRig implements Rig {
   // ─────────── Internals ───────────
 
   /**
-   * Place the grafted head at the SMPL body's crown. The crown rises/falls with
-   * the shape morphs (a taller β lifts the head), so we read the live morphed
-   * bounding box. The procedural head's geometric center sits ~headR below its
-   * crown, so we drop the anchor by that much to seat the face over the SMPL
-   * head instead of floating above it. HEAD_DROP is tuned to the donor's
-   * head radius (M.headR ≈ 0.114).
+   * Seat the grafted head ON the SMPL head (anchor = measured SMPL head center),
+   * shifted by however much the shape morphs have moved the crown so a taller
+   * build lifts the face with the body. The anchor scale already matches the
+   * head to the SMPL head radius; the donor head was offset so its SKULL CENTER
+   * sits at the anchor origin.
    */
   private positionHead(): void {
-    const HEAD_DROP = 0.1;
     this.mesh.geometry.computeBoundingBox();
     const bb = this.mesh.geometry.boundingBox;
-    const crownY = bb ? bb.max.y : this.baseMaxY;
-    this.headAnchor.position.set(0, crownY - HEAD_DROP, 0);
+    const crownShift = bb ? bb.max.y - this.baseMaxY : 0;
+    this.headAnchor.position.set(
+      this.smplHeadCenter.x,
+      this.smplHeadCenter.y + crownShift,
+      this.smplHeadCenter.z,
+    );
   }
 
   private bandFor(zoneId: string): RegionBand | null {
