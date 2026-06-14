@@ -202,12 +202,13 @@ describe('MorphRig', () => {
     r.applyParams(withParams({eyes: {eyeColor: '#244a2a'}}));
     const overlay = r.root.getObjectByName('smpl_face_overlay');
     expect(overlay).toBeTruthy();
-    // 2 iris + 1 lip + 2 brow = 5 overlay meshes.
+    // 2 iris + 1 lip = 3 overlay meshes (no brow overlay — SMPL-X has no brow
+    // geometry to sit on, so painted arcs would read as stuck-on).
     let meshes = 0;
     overlay?.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) meshes += 1;
     });
-    expect(meshes).toBe(5);
+    expect(meshes).toBe(3);
     // Eye color applied to the iris material.
     let irisColored = false;
     overlay?.traverse((o) => {

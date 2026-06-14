@@ -130,7 +130,6 @@ export class MorphRig implements Rig {
   // editable from the palette — NOT the old whole-head graft.
   private irisMats: THREE.MeshStandardMaterial[] = [];
   private lipMat: THREE.MeshStandardMaterial | null = null;
-  private browMats: THREE.MeshStandardMaterial[] = [];
   // For each zone, the world-space-independent local Y mid of its vertex band,
   // used only to anchor zoneBounds when a single mesh can't be sub-selected.
   private vertexY: Float32Array;
@@ -257,26 +256,18 @@ export class MorphRig implements Rig {
       this.irisMats.push(mat);
     }
 
-    // Lip tint — a flattened ellipsoid hugging the mouth.
-    this.lipMat = new THREE.MeshStandardMaterial({color: '#b0524f', roughness: 0.5, transparent: true, opacity: 0.55});
+    // Lip tint — a thin, flattened patch over the lips. Subtle (semi-transparent)
+    // so it reads as lip color on the real mouth geometry, not a stuck-on blob.
+    this.lipMat = new THREE.MeshStandardMaterial({color: '#b0524f', roughness: 0.5, transparent: true, opacity: 0.5});
     this.lipMat.envMapIntensity = 0.55;
     const lips = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 10), this.lipMat);
-    lips.scale.set(r * 1.5, r * 0.5, r * 0.5);
-    lips.position.set(a.mouth[0], a.mouth[1], a.mouth[2] + 0.002);
+    lips.scale.set(r * 1.4, r * 0.42, r * 0.32);
+    lips.position.set(a.mouth[0], a.mouth[1], a.mouth[2]);
     lips.raycast = () => undefined;
     group.add(lips);
 
-    // Brow arcs — short tinted bars above each eye.
-    for (const c of [a.browL, a.browR]) {
-      const mat = new THREE.MeshStandardMaterial({color: '#1E1A18', roughness: 0.8});
-      mat.envMapIntensity = 0.55;
-      const brow = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), mat);
-      brow.scale.set(r * 0.9, r * 0.22, r * 0.35);
-      brow.position.set(c[0], c[1], c[2] + 0.003);
-      brow.raycast = () => undefined;
-      group.add(brow);
-      this.browMats.push(mat);
-    }
+    // NB: no brow overlay — SMPL-X has no brow geometry to sit on, so painted
+    // arcs read as stuck-on. Brows are better done later via a face texture.
 
     this.root.add(group);
   }
@@ -381,7 +372,7 @@ export class MorphRig implements Rig {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();
-    [...this.irisMats, ...this.browMats, this.lipMat].forEach((m) => m?.dispose());
+    [...this.irisMats, this.lipMat].forEach((m) => m?.dispose());
   }
 
   // ─────────── Parameter application ───────────
@@ -422,9 +413,6 @@ export class MorphRig implements Rig {
     const eyeHex = typeof params.eyes?.eyeColor === 'string' ? params.eyes.eyeColor : '#3a6ca8';
     this.irisMats.forEach((m) => m.color.set(eyeHex));
     if (this.lipMat) this.lipMat.color.copy(skin.clone().lerp(new THREE.Color('#b0524f'), 0.6));
-    const hairHex = typeof params.hair?.hairColor === 'string' ? params.hair.hairColor : '#1E1A18';
-    const browColor = new THREE.Color(hairHex).lerp(new THREE.Color('#000000'), 0.3);
-    this.browMats.forEach((m) => m.color.copy(browColor));
   }
 
   // No idle morph animation in A1 (the SMPL-X face has no driven blink yet).

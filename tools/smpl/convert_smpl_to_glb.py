@@ -106,32 +106,53 @@ def build_morphs(v_template: np.ndarray, shapedirs: np.ndarray, n_betas: int):
 
 
 def face_anchors(base, faces, data):
-    """Resting 3D positions of the eye / mouth / brow centers, from the SMPL-X
-    facial landmarks (``lmk_faces_idx`` + ``lmk_bary_coords``). The editor reads
-    these (GLB extras) to place LIVE-colored overlays — iris, lip tint, brows —
-    on the real face without baking color into the mesh (so the palette stays
-    editable). Returns ``{}`` for models without landmarks (plain SMPL .pkl).
-    """
-    if "lmk_faces_idx" not in data or "lmk_bary_coords" not in data:
-        return {}
-    lfi = np.asarray(data["lmk_faces_idx"]).astype(np.int64)
-    lbc = np.asarray(data["lmk_bary_coords"]).astype(np.float64)
-    lm = np.array([lbc[i] @ base[faces[lfi[i]]] for i in range(len(lfi))])
-    # 51-landmark layout (verified by sorting top→bottom on the neutral mesh):
-    #   0–9 brows · 10–18 nose · 19–30 eyes · 31–50 mouth.
-    def center(rows):
-        return [float(x) for x in lm[rows].mean(axis=0)]
+    """Resting 3D positions for the LIVE-colored face overlays (iris on each
+    eye, lip tint, brow arcs). The editor reads these from the GLB extras and
+    colors small meshes there from the palette, so the SMPL-X face's color stays
+    editable. Returns ``{}`` for models without the needed data (plain SMPL).
 
-    eyes = lm[19:31]
-    mouth = lm[31:51]
-    brows = lm[0:10]
+    Eyeball centers come from the SKINNING WEIGHTS (the L_Eye / R_Eye joints own
+    the eyeball vertices) — authoritative, unlike guessing landmark indices. The
+    mouth comes from the Jaw joint's vertex band; brows are placed a fixed step
+    above the eyes (SMPL-X has no brow geometry to anchor to).
+    """
+    if "weights" not in data:
+        return {}
+    w = np.asarray(data["weights"]).astype(np.float64)  # (V, J)
+
+    def joint_center(j, surface_z=False):
+        idx = np.where(w[:, j] > 0.5)[0]
+        if len(idx) == 0:
+            return None
+        c = base[idx].mean(axis=0)
+        z = float(base[idx, 2].max()) if surface_z else float(c[2])
+        return [float(c[0]), float(c[1]), z], idx
+
+    # L_Eye=23, R_Eye=24, Jaw=22 in the SMPL-X part map.
+    le = joint_center(23, surface_z=True)
+    re = joint_center(24, surface_z=True)
+    jaw = joint_center(22)
+    if not le or not re:
+        return {}
+    eyeL, le_idx = le
+    eyeR, re_idx = re
+    eye_w = float(base[le_idx, 0].max() - base[le_idx, 0].min())
+    # Mouth: the lower front of the jaw band (the lips), not its centroid.
+    mouth = [0.0, 1.546, 0.094]
+    if jaw:
+        jc, jidx = jaw
+        front = base[jidx][base[jidx][:, 2] > jc[2]]
+        if len(front):
+            lip = front[front[:, 1] < jc[1] + 0.02].mean(axis=0)
+            mouth = [0.0, float(lip[1]), float(base[jidx][:, 2].max())]
     return {
-        "eyeR": center(np.array([i for i in range(19, 31) if lm[i, 0] > 0])),
-        "eyeL": center(np.array([i for i in range(19, 31) if lm[i, 0] < 0])),
-        "mouth": [float(x) for x in mouth.mean(axis=0)],
-        "browR": center(np.array([i for i in range(0, 10) if lm[i, 0] > 0])),
-        "browL": center(np.array([i for i in range(0, 10) if lm[i, 0] < 0])),
-        "eyeR_size": float(np.linalg.norm(eyes[eyes[:, 0] > 0].std(axis=0)) + 0.012),
+        "eyeL": eyeL,
+        "eyeR": eyeR,
+        "mouth": mouth,
+        # Brows sit a step above the eyes, pushed to the brow ridge.
+        "browL": [eyeL[0], eyeL[1] + 0.022, eyeL[2] - 0.004],
+        "browR": [eyeR[0], eyeR[1] + 0.022, eyeR[2] - 0.004],
+        "eyeR_size": max(0.014, eye_w * 0.5),
     }
 
 
