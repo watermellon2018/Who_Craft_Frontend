@@ -258,13 +258,19 @@ export class MorphRig implements Rig {
     const scale = Math.max(0.05, this.smplHeadRadius) / 0.114;
     anchor.scale.setScalar(scale);
     anchor.add(hg);
-    // Seat so the procedural cap's crown lands on the SMPL-X crown. The cap top
-    // sits ~0.53·capR above the hairGroup origin (skull center); place the
-    // origin that far below the measured crown.
-    const capCrownRise = scale * (0.53 * 0.114 * 1.07);
-    anchor.position.set(0, this.baseMaxY - capCrownRise, this.smplHeadCenter.z);
+    // Seat the hair by MEASURING where it lands, then dropping the anchor so the
+    // hair's top sits just on the SMPL-X crown (an estimated cap-rise constant
+    // drifted — the cap's internal offsets are easy to mis-derive). Build the
+    // default hairstyle once, measure its world top, and correct.
+    anchor.position.set(0, this.baseMaxY, this.smplHeadCenter.z);
     this.root.add(anchor);
     this.hairGroup = hg;
+    this.hairDonor.applyParams({});
+    anchor.updateWorldMatrix(true, true);
+    const top = new THREE.Box3().setFromObject(anchor).max.y;
+    // Lower the anchor by the overshoot so the hair top meets the crown, then
+    // tuck a few mm further so the cap grips the skull rather than floating.
+    anchor.position.y -= top - this.baseMaxY + 0.01;
   }
 
   /**
