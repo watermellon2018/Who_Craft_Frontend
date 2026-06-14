@@ -117,7 +117,8 @@ export class MorphRig implements Rig {
   // working in morph mode for free.
   private headDonor: CharacterRig;
   private headAnchor: THREE.Group;
-  // Measured SMPL head center/radius (resting pose) so the grafted head seats
+  private headNode: THREE.Object3D | undefined;
+  // Measured SMPL head center/radius (resting pose) so the grafted features seat
   // on it. The center shifts up/down with the shape morphs at runtime.
   private smplHeadCenter = new THREE.Vector3(0, 1.6, 0.05);
   private smplHeadRadius = 0.09;
@@ -211,31 +212,45 @@ export class MorphRig implements Rig {
 
     this.root.add(mesh);
 
-    // ── Borrow the procedural head (face features + hair) ──
-    // The donor builds a whole figure; we take only its `head` subtree and
-    // reparent it onto an anchor sized + placed to match the SMPL head. The
-    // donor's own root is never added to any scene, so its body never renders.
+    // ── Borrow ONLY the facial features from the procedural head ──
+    // The SMPL body already has a good smooth head; grafting the whole
+    // procedural head produced a second, toy-looking head floating above it.
+    // So we keep the donor's eyes / brows / nose / mouth (the features SMPL
+    // lacks) and HIDE everything that would duplicate or clash with the SMPL
+    // head: its skull, jaw, chin, ears, cheeks, hair and skin decorations. The
+    // surviving features overlay the real SMPL head.
     this.headDonor = new CharacterRig();
     this.headAnchor = new THREE.Group();
     this.headAnchor.name = 'smpl_head_anchor';
-    // The procedural skull radius is M.headR ≈ 0.114; scale the whole head so
-    // it matches the measured SMPL head radius.
-    const headScale = this.smplHeadRadius / 0.114;
-    this.headAnchor.scale.setScalar(headScale);
+    // Procedural skull radius is M.headR ≈ 0.114; scale the feature cluster to
+    // the measured SMPL head radius so eyes/mouth land at the right spread.
+    this.headAnchor.scale.setScalar(this.smplHeadRadius / 0.114);
     const head = this.headDonor.nodeByName('head');
     if (head) {
       head.parent?.remove(head);
-      // The donor's skull center sits at faceRoot's +0.06 offset inside `head`;
-      // drop the head by that (scaled) amount so the SKULL CENTER — not the
-      // head node origin — coincides with the anchor (the SMPL head center).
-      head.position.set(0, -0.06, 0);
       head.rotation.set(0, 0, 0);
       this.headAnchor.add(head);
+      this.hideNonFeatureMeshes(head);
     }
+    this.headNode = head ?? undefined;
     this.root.add(this.headAnchor);
     this.positionHead();
 
     this.applyParams({});
+  }
+
+  // Zones whose meshes are real facial FEATURES the bare SMPL head lacks. Every
+  // other head mesh (skull/jaw/chin/ears/cheeks/decoration/hair) is hidden so we
+  // overlay features onto the SMPL head instead of stacking a whole second head.
+  private static readonly FEATURE_ZONES = new Set(['eyes', 'brows', 'nose', 'mouth']);
+
+  private hideNonFeatureMeshes(head: THREE.Object3D): void {
+    head.traverse((obj) => {
+      const m = obj as THREE.Mesh;
+      if (!m.isMesh) return;
+      const zone = m.userData?.zoneId;
+      if (!MorphRig.FEATURE_ZONES.has(zone)) m.visible = false;
+    });
   }
 
   /**
@@ -374,10 +389,18 @@ export class MorphRig implements Rig {
     // The crown moves with the shape morphs — re-seat the grafted head.
     this.positionHead();
 
-    // Face features + hair + eye/hair color all live on the borrowed head, so
-    // forward the full param set to the donor. Its hidden body ignores the
-    // body-shape sliders harmlessly; only its head subtree is in the scene.
+    // Face features + eye color live on the borrowed features, so forward the
+    // full param set to the donor. Its hidden body ignores the body-shape
+    // sliders harmlessly; only the surviving feature meshes are in the scene.
     this.headDonor.applyParams(params);
+    // The donor's applyParams overwrites head.position.y (to seat it on its own
+    // neck) and rebuilds the mouth/hair (re-adding meshes). Undo both: re-pin
+    // the head so its skull center sits at our anchor, and re-hide whatever the
+    // rebuild re-added.
+    if (this.headNode) {
+      this.headNode.position.set(0, -0.06, 0);
+      this.hideNonFeatureMeshes(this.headNode);
+    }
 
     // Colors: the body shares the skin material with the procedural engine.
     const skinHex =
