@@ -71,6 +71,21 @@ const SKIN_TONES = [
   {value: '#5a3a2a', label: 'Тёмная'},
 ];
 
+// hairStyle picks the SILHOUETTE (built as distinct geometry in rig.ts);
+// hairShape below is the strand TEXTURE (straight/wavy/curly) layered on top.
+// 'none' is a bald head — rig.ts builds no hair meshes and length/volume are
+// no-ops for it. Unknown saved values degrade to 'default' in the rig, so
+// older characters (which had no hairStyle at all) keep rendering.
+const HAIR_STYLES = [
+  {value: 'default', label: 'Обычные'},
+  {value: 'long', label: 'Длинные'},
+  {value: 'bob', label: 'Каре'},
+  {value: 'ponytail', label: 'Хвост'},
+  {value: 'bun', label: 'Пучок'},
+  {value: 'afro', label: 'Афро'},
+  {value: 'none', label: 'Без волос'},
+];
+
 // «Короткие» (buzz) was removed on purpose: it ignored hairLength and made
 // the length slider look broken — short hair is just a low hairLength value.
 const HAIR_PRESETS = [
@@ -439,6 +454,7 @@ export const ZONE_TREE: EditableZone[] = [
     group: 'hair',
     level: 1,
     parameters: [
+      preset('hairStyle', 'Причёска', HAIR_STYLES, 'default'),
       swatch('hairColor', 'Цвет волос', HAIR_COLORS, '#1E1A18'),
       {
         id: 'hairLength',

@@ -106,6 +106,143 @@ type MatKind =
   | 'skin' | 'hair' | 'brow' | 'lip' | 'mouthInner' | 'eyeWhite' | 'iris'
   | 'pupil' | 'blush' | 'freckle' | 'scar';
 
+// ─────────── Parametric hairstyle library (deterministic, no Math.random) ──
+//
+// Each builder generates a recognizable SILHOUETTE from primitives and emits
+// it through `addHairMesh` (which owns the mesh→zone / material / geometry
+// bookkeeping and the wavy/curly perturbation). They live at module scope as
+// pure functions of head geometry + length/volume — same spirit as the rest
+// of the parametric core. `hairStyle` selects one; an unknown value falls
+// back to `default`, so older saved characters keep rendering.
+interface HairBuildCtx {
+  addHairMesh: (
+    geo: THREE.BufferGeometry,
+    opts?: {perturb?: number; doubleSide?: boolean},
+  ) => THREE.Mesh;
+  length: number;
+  volume: number;
+}
+
+type HairBuilder = (ctx: HairBuildCtx) => void;
+
+// The classic skull-cap, tipped back so its front rim sits above the brows.
+// Shared by most styles as the crown; `volume` fattens it a touch.
+function hairCap(ctx: HairBuildCtx, radiusScale = 1.07): THREE.Mesh {
+  const v = 1 + 0.18 * ctx.volume;
+  const capR = M.headR * radiusScale;
+  const capGeo = new THREE.SphereGeometry(capR, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.49);
+  const cap = ctx.addHairMesh(capGeo, {perturb: 0.004});
+  cap.scale.set(v, 1 + 0.1 * ctx.volume, v);
+  // Tip the cap BACK (negative x lifts the +z rim): front rim lands at
+  // y ≈ +0.53·r (above the brows), back rim at y ≈ −0.49·r (the nape).
+  cap.rotation.x = -0.54;
+  cap.position.set(0, 0.01, -0.004);
+  return cap;
+}
+
+// A back-only curtain that hangs from the crown to the nape/shoulders. Used
+// for the default and long styles; `len` (0..1) drives how far it falls.
+function hairCurtain(ctx: HairBuildCtx, len: number, bottomScale: number): void {
+  const v = 1 + 0.18 * ctx.volume;
+  const h = 0.1 + 0.55 * len;
+  const curtainGeo = new THREE.CylinderGeometry(
+    M.headR * 1.04,
+    M.headR * bottomScale,
+    h,
+    24,
+    8,
+    true,
+    Math.PI * 0.6,
+    Math.PI * 0.8,
+  );
+  const curtain = ctx.addHairMesh(curtainGeo, {perturb: 0.007, doubleSide: true});
+  curtain.position.set(0, -h / 2, -0.012);
+  curtain.scale.set(v, 1, v);
+}
+
+const HAIR_BUILDERS: Record<string, HairBuilder> = {
+  // Today's silhouette, preserved verbatim: cap + (for longer hair) a back
+  // curtain whose drop tracks the length slider.
+  default: (ctx) => {
+    hairCap(ctx);
+    if (ctx.length > 0.18) hairCurtain(ctx, ctx.length, 0.72 + 0.45 * ctx.length);
+  },
+
+  // Long hair: same crown but a fuller, longer curtain that always falls past
+  // the shoulders and flares a little wider at the bottom.
+  long: (ctx) => {
+    hairCap(ctx);
+    const len = Math.max(0.6, ctx.length);
+    hairCurtain(ctx, len, 1.0 + 0.5 * ctx.length);
+  },
+
+  // Bob/caré: a blunt chin-length curtain at a fixed length (a bob reads by
+  // its even cut, not the length slider), slightly wider for the rounded
+  // shape. Curls/waves still layer on via the texture.
+  bob: (ctx) => {
+    hairCap(ctx, 1.09);
+    const h = 0.22;
+    const bobGeo = new THREE.CylinderGeometry(
+      M.headR * 1.12,
+      M.headR * 1.06,
+      h,
+      24,
+      6,
+      true,
+      Math.PI * 0.42,
+      Math.PI * 1.16,
+    );
+    const v = 1 + 0.18 * ctx.volume;
+    const bob = ctx.addHairMesh(bobGeo, {perturb: 0.006, doubleSide: true});
+    bob.position.set(0, -h / 2 + 0.02, -0.004);
+    bob.scale.set(v, 1, v);
+  },
+
+  // Ponytail: a sleek crown plus a tapered tail hanging off the back of the
+  // crown. `length` drives the tail's drop.
+  ponytail: (ctx) => {
+    hairCap(ctx, 1.05);
+    const tailLen = 0.16 + 0.5 * ctx.length;
+    const tailGeo = new THREE.CylinderGeometry(
+      M.headR * 0.34,
+      M.headR * 0.16,
+      tailLen,
+      16,
+      6,
+      false,
+    );
+    const tail = ctx.addHairMesh(tailGeo, {perturb: 0.006});
+    // Anchor at the back of the crown and let it fall, tilted slightly back.
+    tail.position.set(0, M.headR * 0.62 - tailLen / 2, -M.headR * 1.02);
+    tail.rotation.x = 0.32;
+  },
+
+  // Bun: a sleek crown with a rounded bun sitting high at the back of the
+  // head. Independent of length; volume fattens the bun a little.
+  bun: (ctx) => {
+    hairCap(ctx, 1.05);
+    const bunR = M.headR * (0.42 + 0.12 * ctx.volume);
+    const bunGeo = new THREE.SphereGeometry(bunR, 18, 14);
+    const bun = ctx.addHairMesh(bunGeo, {perturb: 0.004});
+    bun.position.set(0, M.headR * 0.74, -M.headR * 0.82);
+  },
+
+  // Afro: a large near-spherical halo around the skull. Volume drives the
+  // radius; the curly texture reads strongly here.
+  afro: (ctx) => {
+    const r = M.headR * (1.5 + 0.35 * ctx.volume);
+    const afroGeo = new THREE.SphereGeometry(r, 30, 24);
+    const afro = ctx.addHairMesh(afroGeo, {perturb: 0.02});
+    // Sit it slightly high so it haloes the crown, not the jaw.
+    afro.position.set(0, M.headR * 0.28, -M.headR * 0.12);
+  },
+
+  // Bald: no hair meshes at all. length/volume are no-ops by construction.
+  none: () => {
+    /* intentionally empty */
+  },
+};
+
 const clamp = (v: number, lo = -1, hi = 1) => Math.max(lo, Math.min(hi, v));
 
 export class CharacterRig {
@@ -406,6 +543,7 @@ export class CharacterRig {
 
     // ── Hair (rebuilt only when its inputs change) ──
     this.rebuildHairIfNeeded(
+      s('hair', 'hairStyle', 'default'),
       s('hair', 'hairShape', 'wavy'),
       clamp(n('hair', 'hairLength', 0.5), 0, 1),
       n('hair', 'hairVolume'),
@@ -851,8 +989,16 @@ export class CharacterRig {
     inner.position.y = centerY - 0.002 - gap * 0.5;
   }
 
-  private rebuildHairIfNeeded(shapePreset: string, length: number, volume: number): void {
-    const key = `${shapePreset}|${length.toFixed(2)}|${volume.toFixed(2)}`;
+  private rebuildHairIfNeeded(
+    style: string,
+    shapePreset: string,
+    length: number,
+    volume: number,
+  ): void {
+    // `style` is the silhouette (a distinct geometry builder); `shapePreset`
+    // is the strand texture (straight/wavy/curly) layered on top of it.
+    const builder = HAIR_BUILDERS[style] ?? HAIR_BUILDERS.default;
+    const key = `${style}|${shapePreset}|${length.toFixed(2)}|${volume.toFixed(2)}`;
     if (key === this.hairKey) return;
     this.hairKey = key;
 
@@ -868,40 +1014,26 @@ export class CharacterRig {
       this.geometries = this.geometries.filter((g) => g !== mesh.geometry);
     });
 
-    const v = 1 + 0.18 * volume;
-    const capR = M.headR * 1.07;
-    const capGeo = new THREE.SphereGeometry(capR, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.49);
-    this.perturbHair(capGeo, shapePreset, 0.004);
-    const cap = this.mesh(capGeo, 'hair', 'hair');
-    cap.scale.set(v, 1 + 0.1 * volume, v);
-    // Tip the cap BACK (negative x lifts the +z rim): front rim lands at
-    // y ≈ +0.53·r (above the brows), back rim at y ≈ −0.49·r (the nape).
-    cap.rotation.x = -0.54;
-    cap.position.set(0, 0.01, -0.004);
-    hairGroup.add(cap);
+    // Each builder emits its silhouette through this helper, which keeps the
+    // mesh→zone / material / geometry bookkeeping identical to every other
+    // hair mesh (so highlight, dispose and snapshot all keep working) and
+    // applies the wavy/curly perturbation uniformly.
+    const addHairMesh = (
+      geo: THREE.BufferGeometry,
+      opts: {perturb?: number; doubleSide?: boolean} = {},
+    ): THREE.Mesh => {
+      if (opts.perturb) this.perturbHair(geo, shapePreset, opts.perturb);
+      const mesh = this.mesh(geo, 'hair', 'hair');
+      if (opts.doubleSide) {
+        (mesh.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
+      }
+      hairGroup.add(mesh);
+      return mesh;
+    };
 
-    // Short hair is simply a hidden curtain — the cap alone reads as a crop.
-    if (length > 0.18) {
-      const h = 0.1 + 0.55 * length;
-      // Back half only, with the side edges pulled behind the ears so the
-      // curtain never flanks the face from a front view.
-      const curtainGeo = new THREE.CylinderGeometry(
-        M.headR * 1.04,
-        M.headR * (0.72 + 0.45 * length),
-        h,
-        24,
-        8,
-        true,
-        Math.PI * 0.6,
-        Math.PI * 0.8,
-      );
-      this.perturbHair(curtainGeo, shapePreset, 0.007);
-      const curtain = this.mesh(curtainGeo, 'hair', 'hair');
-      (curtain.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
-      curtain.position.set(0, -h / 2, -0.012);
-      curtain.scale.set(v, 1, v);
-      hairGroup.add(curtain);
-    }
+    // 'none' (bald) builds nothing; length/volume become no-ops, which is the
+    // intended behaviour. Every other style fills hairGroup.
+    builder({addHairMesh, length, volume});
     // New hair meshes must pick up the current colors right away; the next
     // applyParams() call also refreshes them, but rebuilds happen inside it.
   }
