@@ -60,7 +60,24 @@ _DEFAULT_OUT = os.path.normpath(os.path.join(_HERE, "..", "..", "public", "model
 
 
 def load_smpl(model_path: str):
-    """Load v_template, faces and shapedirs from an SMPL ``.pkl``."""
+    """Load v_template, faces and shapedirs from an SMPL/SMPL-X model file.
+
+    Supports both formats with no Blender:
+      • ``.pkl`` — the chumpy-pickled SMPL body model (read via chumpy_shim).
+      • ``.npz`` — the SMPL-X model (plain numpy). SMPL-X's v_template already
+        carries real facial geometry (eye sockets, lips, nose), so the loaded
+        body needs no procedural face graft.
+    """
+    if model_path.lower().endswith(".npz"):
+        # allow_pickle is required: the SMPL-X .npz stores a couple of object
+        # arrays (part2num/joint2num). Same trust model as the .pkl path (see
+        # the module docstring) — we only ever load the user's own model files
+        # from the official SMPL-X site (a trusted source, not untrusted input).
+        data = np.load(model_path, allow_pickle=True)  # nosec B301 - trusted local file
+        v_template = np.asarray(data["v_template"]).astype(np.float64)
+        faces = np.asarray(data["f"]).astype(np.uint32)
+        shapedirs = np.asarray(data["shapedirs"]).astype(np.float64)
+        return v_template, faces, shapedirs
     chumpy_shim.install()
     with open(model_path, "rb") as handle:
         data = pickle.load(handle, encoding="latin1")  # nosec B301 - trusted local file

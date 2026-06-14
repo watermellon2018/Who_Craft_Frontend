@@ -154,15 +154,13 @@ describe('MorphRig', () => {
     expect(hov.selected).toHaveLength(0);
   });
 
-  it('outlines the grafted head feature meshes for a face zone', () => {
-    // The borrowed procedural head carries eyes/brows/nose/etc, so selecting a
-    // face zone outlines those precise meshes (not the whole body, and not
-    // nothing — the pre-graft A1 behaviour).
+  it('outlines the whole body mesh for a face zone (SMPL-X is one mesh)', () => {
+    // The face is part of the single SMPL-X mesh, so selecting a face zone
+    // outlines the whole figure (a single mesh can't be sub-outlined).
     rig.setHighlight(null, 'eyes');
     const {selected, hovered} = rig.highlightedMeshes();
-    expect(selected.length).toBeGreaterThan(0);
+    expect(selected).toHaveLength(1);
     expect(hovered).toHaveLength(0);
-    selected.forEach((m) => expect(m.userData.zoneId).toBe('eyes'));
   });
 
   it('produces finite influences for every numeric parameter maxed', () => {
@@ -177,18 +175,17 @@ describe('MorphRig', () => {
     (mesh.morphTargetInfluences as number[]).forEach((w) => expect(Number.isFinite(w)).toBe(true));
   });
 
-  it('tick drives the grafted head idle motion and never throws', () => {
-    expect(() => rig.tick(0)).not.toThrow();
-    expect(() => rig.tick(1.5)).not.toThrow();
+  it('tick is a no-op that never throws (SMPL-X face has no driven idle yet)', () => {
+    expect(() => rig.tick()).not.toThrow();
   });
 
-  it('grafts a procedural head (face features + hair) onto the body', () => {
-    // The borrowed head subtree is parented under the rig root via the anchor,
-    // so the rendered figure has facial features the bare SMPL mesh lacks.
-    let hasFaceMesh = false;
+  it('renders a single body mesh (SMPL-X carries its own face — no graft)', () => {
+    // SMPL-X's base mesh already has facial geometry, so there is no grafted
+    // procedural head subtree: the figure is exactly one body mesh.
+    let meshCount = 0;
     rig.root.traverse((o) => {
-      if (o.userData?.zoneId === 'eyes' || o.userData?.zoneId === 'nose') hasFaceMesh = true;
+      if ((o as THREE.Mesh).isMesh) meshCount += 1;
     });
-    expect(hasFaceMesh).toBe(true);
+    expect(meshCount).toBe(1);
   });
 });

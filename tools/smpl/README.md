@@ -18,12 +18,19 @@ This is the asset the morph engine (`engine/morphRig.ts`) loads. See the plan:
 
 ## Run
 
+We ship **SMPL-X** as the body, because its base mesh already has a real face
+(eye sockets, lips, nose as geometry) — no procedural face graft needed:
+
 ```sh
 cd who_craft/tools/smpl
-python convert_smpl_to_glb.py            # → ../../public/models/body.glb
+python convert_smpl_to_glb.py \
+  --model ../../../smpl_assets/smplx/SMPLX_NEUTRAL.npz \
+  --betas 16 --out ../../public/models/body.glb
 ```
 
-Options: `--model PATH`, `--betas N` (default 10), `--out PATH`.
+The converter also still reads the plain SMPL `.pkl` (bare head) if you point
+`--model` at it. Options: `--model PATH` (`.npz` SMPL-X or `.pkl` SMPL),
+`--betas N`, `--out PATH`.
 
 The output is **deterministic** (same input → identical bytes) and is served by
 CRA at `/models/body.glb` (the URL `MORPH_GLB_URL` in `morphRig.ts`).

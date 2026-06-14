@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
 import {getAncestors} from '../zones';
-import {CharacterRig} from './rig';
 import type {Rig, ZoneParams} from './rig';
 
 // SMPL morph-target engine (A1). The SECOND 3D engine, sitting RIGHT NEXT TO
@@ -108,18 +107,9 @@ export class MorphRig implements Rig {
   private material: THREE.MeshStandardMaterial;
   private morphIndex: Record<string, number> = {};
   private lastHighlight: [string | null, string | null] = [null, null];
-  // SMPL's β space carries no face detail (A1 = shape only). Rather than leave a
-  // featureless head until SMPL-X/FLAME (Phase 5), we borrow the procedural
-  // rig's fully-parametric head subtree (eyes, brows, nose, mouth, ears, hair)
-  // and graft it onto the SMPL body's crown. The host CharacterRig's BODY is
-  // never added to the scene — only its `head` node is reparented here — and all
-  // face/hair/eye-color params forward to it, so every facial slider keeps
-  // working in morph mode for free.
-  private headDonor: CharacterRig;
-  private headAnchor: THREE.Group;
-  private headNode: THREE.Object3D | undefined;
-  // Measured SMPL head center/radius (resting pose) so the grafted features seat
-  // on it. The center shifts up/down with the shape morphs at runtime.
+  // Measured head center/radius (resting pose), used to anchor camera zoom for
+  // head/face zones on the single mesh. SMPL-X's mesh already has a real face,
+  // so no procedural feature graft is needed.
   private smplHeadCenter = new THREE.Vector3(0, 1.6, 0.05);
   private smplHeadRadius = 0.09;
   // For each zone, the world-space-independent local Y mid of its vertex band,
@@ -212,51 +202,16 @@ export class MorphRig implements Rig {
 
     this.root.add(mesh);
 
-    // ── Borrow ONLY the facial features from the procedural head ──
-    // The SMPL body already has a good smooth head; grafting the whole
-    // procedural head produced a second, toy-looking head floating above it.
-    // So we keep the donor's eyes / brows / nose / mouth (the features SMPL
-    // lacks) and HIDE everything that would duplicate or clash with the SMPL
-    // head: its skull, jaw, chin, ears, cheeks, hair and skin decorations. The
-    // surviving features overlay the real SMPL head.
-    this.headDonor = new CharacterRig();
-    this.headAnchor = new THREE.Group();
-    this.headAnchor.name = 'smpl_head_anchor';
-    // Procedural skull radius is M.headR ≈ 0.114; scale the feature cluster to
-    // the measured SMPL head radius so eyes/mouth land at the right spread.
-    this.headAnchor.scale.setScalar(this.smplHeadRadius / 0.114);
-    const head = this.headDonor.nodeByName('head');
-    if (head) {
-      head.parent?.remove(head);
-      head.rotation.set(0, 0, 0);
-      this.headAnchor.add(head);
-      this.hideNonFeatureMeshes(head);
-    }
-    this.headNode = head ?? undefined;
-    this.root.add(this.headAnchor);
-    this.positionHead();
+    // SMPL-X's base mesh carries a REAL face (eye sockets, lips, nose as
+    // geometry), so — unlike bare SMPL — no procedural feature graft is needed.
+    // The face is part of the body mesh and morphs with it naturally.
 
     this.applyParams({});
   }
 
-  // Zones whose meshes are real facial FEATURES the bare SMPL head lacks. Every
-  // other head mesh (skull/jaw/chin/ears/cheeks/decoration/hair) is hidden so we
-  // overlay features onto the SMPL head instead of stacking a whole second head.
-  private static readonly FEATURE_ZONES = new Set(['eyes', 'brows', 'nose', 'mouth']);
-
-  private hideNonFeatureMeshes(head: THREE.Object3D): void {
-    head.traverse((obj) => {
-      const m = obj as THREE.Mesh;
-      if (!m.isMesh) return;
-      const zone = m.userData?.zoneId;
-      if (!MorphRig.FEATURE_ZONES.has(zone)) m.visible = false;
-    });
-  }
-
   /**
-   * Locate the SMPL head: average the vertices in the narrow top region of the
-   * resting mesh. Stores center + radius so the grafted procedural head can be
-   * scaled and seated to coincide with it.
+   * Locate the head region: average the vertices in the narrow top of the
+   * resting mesh. Kept for camera bounds / zone anchoring on the single mesh.
    */
   private measureSmplHead(pos: THREE.BufferAttribute): void {
     const yThreshold = this.baseMinY + 0.9 * (this.baseMaxY - this.baseMinY);
@@ -336,23 +291,16 @@ export class MorphRig implements Rig {
 
   setHighlight(hoveredZoneId: string | null, selectedZoneId: string | null): void {
     this.lastHighlight = [hoveredZoneId, selectedZoneId];
-    // The grafted head carries the face/hair zones; let the donor compute the
-    // precise meshes to outline for those (eyes, brows, hair…).
-    this.headDonor.setHighlight(hoveredZoneId, selectedZoneId);
   }
 
   /**
-   * Outline target: the whole SMPL body mesh when a body zone is active (a
-   * single mesh can't be sub-outlined — the honest A1 degradation), OR the
-   * precise head/hair meshes when a face zone is active (those come from the
-   * grafted procedural head, which CAN be sub-outlined per feature).
+   * Outline target: the whole body mesh when any zone in its subtree (body or
+   * face — SMPL-X is one mesh) is active. A single mesh can't be sub-outlined,
+   * so outlining the whole figure is the honest degradation in morph mode.
    */
   highlightedMeshes(): {selected: THREE.Mesh[]; hovered: THREE.Mesh[]} {
     const [hovered, selected] = this.lastHighlight;
     if (!this.mesh.visible) return {selected: [], hovered: []};
-    // Face/hair zones → delegate to the donor head's per-feature outline.
-    const head = this.headDonor.highlightedMeshes();
-    if (head.selected.length || head.hovered.length) return head;
     if (selected && this.zoneInBody(selected)) return {selected: [this.mesh], hovered: []};
     if (hovered && this.zoneInBody(hovered)) return {selected: [], hovered: [this.mesh]};
     return {selected: [], hovered: []};
@@ -361,7 +309,6 @@ export class MorphRig implements Rig {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();
-    this.headDonor.dispose();
   }
 
   // ─────────── Parameter application ───────────
@@ -386,21 +333,6 @@ export class MorphRig implements Rig {
     for (let i = 0; i < influences.length; i++) {
       influences[i] = clamp(betaSum[i] / BETA_SCALE);
     }
-    // The crown moves with the shape morphs — re-seat the grafted head.
-    this.positionHead();
-
-    // Face features + eye color live on the borrowed features, so forward the
-    // full param set to the donor. Its hidden body ignores the body-shape
-    // sliders harmlessly; only the surviving feature meshes are in the scene.
-    this.headDonor.applyParams(params);
-    // The donor's applyParams overwrites head.position.y (to seat it on its own
-    // neck) and rebuilds the mouth/hair (re-adding meshes). Undo both: re-pin
-    // the head so its skull center sits at our anchor, and re-hide whatever the
-    // rebuild re-added.
-    if (this.headNode) {
-      this.headNode.position.set(0, -0.06, 0);
-      this.hideNonFeatureMeshes(this.headNode);
-    }
 
     // Colors: the body shares the skin material with the procedural engine.
     const skinHex =
@@ -414,10 +346,10 @@ export class MorphRig implements Rig {
     this.material.color.copy(skin);
   }
 
-  // Drive the borrowed head's idle motion (breathing is on the donor's hidden
-  // chest so it's a no-op here, but the blink animates the grafted eyelids).
-  tick(timeSeconds: number): void {
-    this.headDonor.tick(timeSeconds);
+  // No idle morph animation in A1 (the SMPL-X face has no driven blink yet).
+  // Kept for interface parity; a future pass could breathe/blink via morphs.
+  tick(): void {
+    /* intentionally empty for A1 */
   }
 
   /** Test/debug access. Only the single body mesh exists in morph mode. */
@@ -427,89 +359,6 @@ export class MorphRig implements Rig {
   }
 
   // ─────────── Internals ───────────
-
-  /**
-   * Seat the grafted head ON the SMPL head (anchor = measured SMPL head center),
-   * shifted by however much the shape morphs have moved the crown so a taller
-   * build lifts the face with the body. The anchor scale already matches the
-   * head to the SMPL head radius; the donor head was offset so its SKULL CENTER
-   * sits at the anchor origin.
-   */
-  private positionHead(): void {
-    // Seat the features on the head as it CURRENTLY is — morphs included.
-    // Measuring the head from the LIVE morphed vertices (not base + a crown
-    // delta) is the only drift-free way: β morphs move the crown and the head
-    // center by different amounts, so any base-relative shortcut floats the
-    // features off the head for non-neutral builds. O(headVerts) on each param
-    // change (not per frame), which is cheap.
-    const center = this.liveHeadCenter();
-    this.headAnchor.position.copy(center);
-  }
-
-  /**
-   * Average the top-region vertices in their CURRENT morphed positions to get
-   * the live head center. Falls back to the resting measurement if morph data
-   * is unavailable.
-   */
-  private liveHeadCenter(): THREE.Vector3 {
-    const geo = this.mesh.geometry;
-    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
-    const influences = this.mesh.morphTargetInfluences;
-    const morphPos = geo.morphAttributes.position as THREE.BufferAttribute[] | undefined;
-    // Resolve the live (morphed) crown first, so the head band tracks it.
-    let liveMinY = Infinity;
-    let liveMaxY = -Infinity;
-    const morphedY = (i: number): number => {
-      let y = pos.getY(i);
-      if (influences && morphPos) {
-        for (let t = 0; t < morphPos.length; t++) {
-          const w = influences[t];
-          if (w) y += w * morphPos[t].getY(i);
-        }
-      }
-      return y;
-    };
-    for (let i = 0; i < pos.count; i++) {
-      const y = morphedY(i);
-      if (y < liveMinY) liveMinY = y;
-      if (y > liveMaxY) liveMaxY = y;
-    }
-    const threshold = liveMinY + 0.9 * (liveMaxY - liveMinY);
-    let sx = 0;
-    let sy = 0;
-    let sz = 0;
-    let n = 0;
-    const morphedX = (i: number): number => {
-      let x = pos.getX(i);
-      if (influences && morphPos) {
-        for (let t = 0; t < morphPos.length; t++) {
-          const w = influences[t];
-          if (w) x += w * morphPos[t].getX(i);
-        }
-      }
-      return x;
-    };
-    const morphedZ = (i: number): number => {
-      let z = pos.getZ(i);
-      if (influences && morphPos) {
-        for (let t = 0; t < morphPos.length; t++) {
-          const w = influences[t];
-          if (w) z += w * morphPos[t].getZ(i);
-        }
-      }
-      return z;
-    };
-    for (let i = 0; i < pos.count; i++) {
-      const y = morphedY(i);
-      if (y < threshold) continue;
-      sx += morphedX(i);
-      sy += y;
-      sz += morphedZ(i);
-      n++;
-    }
-    if (n === 0) return this.smplHeadCenter.clone();
-    return new THREE.Vector3(sx / n, sy / n, sz / n);
-  }
 
   private bandFor(zoneId: string): RegionBand | null {
     // Map a clicked/selected zone to the body band that represents it. Face and
@@ -527,10 +376,9 @@ export class MorphRig implements Rig {
     return null;
   }
 
-  // Is the zone (or any descendant relationship to 'body') part of the figure?
+  // Every editable zone lives on the one SMPL-X mesh (body AND face), so any
+  // real zone outlines the whole figure — a single mesh can't be sub-outlined.
   private zoneInBody(zoneId: string): boolean {
-    if (zoneId === 'body' || zoneId === 'skin' || zoneId === 'pose') return true;
-    const ancestors = getAncestors(zoneId).map((z) => z.id);
-    return ancestors.includes('body') || ancestors.includes('pose');
+    return !!zoneId;
   }
 }
