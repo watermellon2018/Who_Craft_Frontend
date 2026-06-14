@@ -3,7 +3,7 @@ import {message} from 'antd';
 import {useNavigate, useParams} from 'react-router-dom';
 import BottomQuickBar from '../components/character3d/BottomQuickBar';
 import CharacterCategoryRail from '../components/character3d/CharacterCategoryRail';
-import CharacterViewport, {ViewAngle, ViewportApi} from '../components/character3d/CharacterViewport';
+import CharacterViewport, {EngineMode, ViewAngle, ViewportApi} from '../components/character3d/CharacterViewport';
 import ContextualZonePanel from '../components/character3d/ContextualZonePanel';
 import ReferenceDock from '../components/character3d/ReferenceDock';
 import StepperHeader from '../components/character3d/StepperHeader';
@@ -73,6 +73,9 @@ const Character3DEditorPage: React.FC = () => {
   const [autofitBusy, setAutofitBusy] = useState(false);
   // Turntable on/off — owned here so the toggle button reflects the state.
   const [turntableOn, setTurntableOn] = useState(false);
+  // 3D engine: procedural mannequin (default) ↔ SMPL morph body (A1). The
+  // viewport degrades to procedural if the morph GLB can't load.
+  const [engine, setEngine] = useState<EngineMode>('procedural');
 
   // Commit a new params object: keep the ref mirror in sync and trigger a
   // toolbar re-render. Pure with respect to React state updaters.
@@ -430,6 +433,7 @@ const Character3DEditorPage: React.FC = () => {
             onSideChange={setSelectedSide}
             onApiReady={setViewportApi}
             zoneParams={zoneParams}
+            engine={engine}
           />
 
           <ReferenceDock
@@ -478,6 +482,8 @@ const Character3DEditorPage: React.FC = () => {
         onSetView={viewportApi ? handleSetView : undefined}
         onToggleTurntable={viewportApi ? handleToggleTurntable : undefined}
         turntableOn={turntableOn}
+        engine={engine}
+        onToggleEngine={() => setEngine((prev) => (prev === 'morph' ? 'procedural' : 'morph'))}
         onReset={handleGlobalReset}
         onParameterChange={handleParameterChange}
         onCancel={handleCancel}

@@ -142,6 +142,22 @@ function buildSkinMaps(size = SKIN_TEX_SIZE, bumpScale = 0.6): SkinMaps {
 export type ZoneParamValues = Record<string, number | string | boolean>;
 export type ZoneParams = Record<string, ZoneParamValues>;
 
+// The contract the viewport (and its drag/outline/camera helpers) depends on,
+// shared by both engines: the procedural CharacterRig below and the SMPL
+// MorphRig (engine/morphRig.ts). Keeping it explicit lets the viewport hold
+// `Rig` and swap implementations behind a flag without `any`.
+export interface Rig {
+  readonly root: THREE.Group;
+  applyParams(params: ZoneParams): void;
+  setHighlight(hoveredZoneId: string | null, selectedZoneId: string | null): void;
+  highlightedMeshes(): {selected: THREE.Mesh[]; hovered: THREE.Mesh[]};
+  zoneBounds(zoneId: string): THREE.Box3 | null;
+  resolveZoneFromObject(obj: THREE.Object3D | null): string | null;
+  resolveSideFromObject(obj: THREE.Object3D | null): 'L' | 'R' | null;
+  tick(timeSeconds: number): void;
+  dispose(): void;
+}
+
 // ─────────── Base measurements (meters, Y-up, figure ≈ 1.76 m) ───────────
 const M = {
   pelvisY: 0.93,
@@ -367,7 +383,7 @@ const HAIR_BUILDERS: Record<string, HairBuilder> = {
 
 const clamp = (v: number, lo = -1, hi = 1) => Math.max(lo, Math.min(hi, v));
 
-export class CharacterRig {
+export class CharacterRig implements Rig {
   readonly root: THREE.Group;
 
   private nodes: Record<string, THREE.Object3D> = {};

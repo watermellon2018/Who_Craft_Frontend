@@ -9,9 +9,16 @@ import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {GTAOPass} from 'three/examples/jsm/postprocessing/GTAOPass';
 import {OutlinePass} from 'three/examples/jsm/postprocessing/OutlinePass';
 import {OutputPass} from 'three/examples/jsm/postprocessing/OutputPass';
-import {CharacterRig, ZoneParams} from './engine/rig';
+import {CharacterRig, Rig, ZoneParams} from './engine/rig';
+import {MorphRig} from './engine/morphRig';
 import {dragBindingFor} from './engine/dragBindings';
 import {resolveSelectableZone} from './engine/zoneSelection';
+
+// Which 3D engine backs the viewport. 'procedural' is the primitive-assembled
+// mannequin (engine/rig.ts); 'morph' loads the SMPL body mesh and drives morph
+// targets (engine/morphRig.ts), falling back to procedural if the GLB can't
+// load. A flag so the two can be compared side by side (A1 plan, Phase 4).
+export type EngineMode = 'procedural' | 'morph';
 
 // Canonical camera angles for reference-frame capture. The video pipeline
 // needs the figure shot head-on / in profile / three-quarter so the same
@@ -45,6 +52,9 @@ interface Props {
   onSideChange?: (side: 'L' | 'R') => void;
   onApiReady?: (api: ViewportApi | null) => void;
   zoneParams: ZoneParams;
+  // Which engine to render with. Defaults to the procedural mannequin; 'morph'
+  // loads the SMPL body and degrades to procedural if the GLB fails to load.
+  engine?: EngineMode;
 }
 
 // Real 3D viewport: React Three Fiber scene around the parametric
@@ -64,9 +74,45 @@ const CharacterViewport: React.FC<Props> = ({
   onSideChange,
   onApiReady,
   zoneParams,
+  engine = 'procedural',
 }) => {
-  const rig = useMemo(() => new CharacterRig(), []);
-  useEffect(() => () => rig.dispose(), [rig]);
+  // The active engine. We always start on the procedural rig (synchronous, no
+  // assets) so the scene is interactive immediately; when engine === 'morph' we
+  // load the SMPL MorphRig in the background and swap it in, keeping procedural
+  // as the fallback if the GLB can't load (degradation, A1 plan Phase 4).
+  const proceduralRig = useMemo(() => new CharacterRig(), []);
+  const [rig, setRig] = useState<Rig>(proceduralRig);
+
+  useEffect(() => {
+    if (engine !== 'morph') {
+      setRig(proceduralRig);
+      return undefined;
+    }
+    let alive = true;
+    let loaded: MorphRig | null = null;
+    MorphRig.create()
+      .then((morph) => {
+        if (!alive) {
+          morph.dispose();
+          return;
+        }
+        loaded = morph;
+        setRig(morph);
+      })
+      .catch(() => {
+        // GLB missing/broken → stay on the procedural fallback. No console
+        // (ESLint no-console); the figure simply renders as the mannequin.
+        if (alive) setRig(proceduralRig);
+      });
+    return () => {
+      alive = false;
+      if (loaded) loaded.dispose();
+    };
+  }, [engine, proceduralRig]);
+
+  // The procedural rig is owned for the viewport's lifetime (it is the fallback
+  // and the default), so dispose it only on unmount.
+  useEffect(() => () => proceduralRig.dispose(), [proceduralRig]);
 
   const controlsRef = useRef<OrbitControls | null>(null);
   const draggingRef = useRef(false);
@@ -391,7 +437,7 @@ const TURNTABLE_SPEED = (12 * Math.PI) / 180; // rad/s
 // OrbitControls gestures always win: a real user grab cancels any in-flight
 // glide and stops the turntable.
 const CameraDirector: React.FC<{
-  rig: CharacterRig;
+  rig: Rig;
   zoomZoneId: string | null;
   controlsRef: React.MutableRefObject<OrbitControls | null>;
   controlRef: React.MutableRefObject<CameraControl | null>;
@@ -528,7 +574,7 @@ const SceneEnvironment: React.FC = () => {
 };
 
 // ─────────── Idle motion (breathing) ───────────
-const IdleMotion: React.FC<{rig: CharacterRig}> = ({rig}) => {
+const IdleMotion: React.FC<{rig: Rig}> = ({rig}) => {
   useFrame((state) => rig.tick(state.clock.elapsedTime));
   return null;
 };
@@ -545,7 +591,7 @@ const OUTLINE_ACCENT = new THREE.Color('#f5b400');
 // frame rendering to us, so the composer — not the default renderer —
 // produces every frame.
 const HighlightOutline: React.FC<{
-  rig: CharacterRig;
+  rig: Rig;
   composerRef: React.MutableRefObject<EffectComposer | null>;
   hoveredZoneId: string | null;
   selectedZoneId: string | null;
@@ -652,7 +698,7 @@ const HighlightOutline: React.FC<{
 
 // ─────────── Snapshot / export / camera bridge ───────────
 const ApiBridge: React.FC<{
-  rig: CharacterRig;
+  rig: Rig;
   composerRef: React.MutableRefObject<EffectComposer | null>;
   cameraControlRef: React.MutableRefObject<CameraControl | null>;
   onApiReady?: (api: ViewportApi | null) => void;

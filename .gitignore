@@ -30,3 +30,13 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# SMPL / SMPL-X model files and anything derived from them. Their license
+# (smpl.is.tue.mpg.de) forbids redistributing the model itself, and this repo
+# is public — keep the raw assets AND the generated body mesh out of git.
+# Regenerate body.glb locally with tools/smpl/convert_smpl_to_glb.py.
+/smpl_assets/
+/public/models/*.glb
+
+# Python bytecode cache from the SMPL converter tools.
+tools/**/__pycache__/

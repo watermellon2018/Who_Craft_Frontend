@@ -492,7 +492,7 @@ describe('skin micro-detail maps', () => {
     rig.applyParams(buildInitialZoneParams());
     const mat = skinMeshes(rig)[0].material as THREE.MeshStandardMaterial;
     expect(mat.normalScale.x).toBeLessThanOrEqual(0.5);
-    const data = (mat.normalMap as THREE.DataTexture).image.data as Uint8Array;
+    const data = (mat.normalMap as THREE.DataTexture).image.data as ArrayLike<number>;
     let blueDominant = 0;
     const texels = data.length / 4;
     for (let i = 0; i < data.length; i += 4) {
