@@ -436,14 +436,79 @@ export class MorphRig implements Rig {
    * sits at the anchor origin.
    */
   private positionHead(): void {
-    this.mesh.geometry.computeBoundingBox();
-    const bb = this.mesh.geometry.boundingBox;
-    const crownShift = bb ? bb.max.y - this.baseMaxY : 0;
-    this.headAnchor.position.set(
-      this.smplHeadCenter.x,
-      this.smplHeadCenter.y + crownShift,
-      this.smplHeadCenter.z,
-    );
+    // Seat the features on the head as it CURRENTLY is — morphs included.
+    // Measuring the head from the LIVE morphed vertices (not base + a crown
+    // delta) is the only drift-free way: β morphs move the crown and the head
+    // center by different amounts, so any base-relative shortcut floats the
+    // features off the head for non-neutral builds. O(headVerts) on each param
+    // change (not per frame), which is cheap.
+    const center = this.liveHeadCenter();
+    this.headAnchor.position.copy(center);
+  }
+
+  /**
+   * Average the top-region vertices in their CURRENT morphed positions to get
+   * the live head center. Falls back to the resting measurement if morph data
+   * is unavailable.
+   */
+  private liveHeadCenter(): THREE.Vector3 {
+    const geo = this.mesh.geometry;
+    const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+    const influences = this.mesh.morphTargetInfluences;
+    const morphPos = geo.morphAttributes.position as THREE.BufferAttribute[] | undefined;
+    // Resolve the live (morphed) crown first, so the head band tracks it.
+    let liveMinY = Infinity;
+    let liveMaxY = -Infinity;
+    const morphedY = (i: number): number => {
+      let y = pos.getY(i);
+      if (influences && morphPos) {
+        for (let t = 0; t < morphPos.length; t++) {
+          const w = influences[t];
+          if (w) y += w * morphPos[t].getY(i);
+        }
+      }
+      return y;
+    };
+    for (let i = 0; i < pos.count; i++) {
+      const y = morphedY(i);
+      if (y < liveMinY) liveMinY = y;
+      if (y > liveMaxY) liveMaxY = y;
+    }
+    const threshold = liveMinY + 0.9 * (liveMaxY - liveMinY);
+    let sx = 0;
+    let sy = 0;
+    let sz = 0;
+    let n = 0;
+    const morphedX = (i: number): number => {
+      let x = pos.getX(i);
+      if (influences && morphPos) {
+        for (let t = 0; t < morphPos.length; t++) {
+          const w = influences[t];
+          if (w) x += w * morphPos[t].getX(i);
+        }
+      }
+      return x;
+    };
+    const morphedZ = (i: number): number => {
+      let z = pos.getZ(i);
+      if (influences && morphPos) {
+        for (let t = 0; t < morphPos.length; t++) {
+          const w = influences[t];
+          if (w) z += w * morphPos[t].getZ(i);
+        }
+      }
+      return z;
+    };
+    for (let i = 0; i < pos.count; i++) {
+      const y = morphedY(i);
+      if (y < threshold) continue;
+      sx += morphedX(i);
+      sy += y;
+      sz += morphedZ(i);
+      n++;
+    }
+    if (n === 0) return this.smplHeadCenter.clone();
+    return new THREE.Vector3(sx / n, sy / n, sz / n);
   }
 
   private bandFor(zoneId: string): RegionBand | null {
