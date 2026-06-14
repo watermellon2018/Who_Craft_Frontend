@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
 import {getAncestors} from '../zones';
+import {CharacterRig} from './rig';
 import type {Rig, ZoneParams} from './rig';
 
 // SMPL morph-target engine (A1). The SECOND 3D engine, sitting RIGHT NEXT TO
@@ -130,6 +131,12 @@ export class MorphRig implements Rig {
   // editable from the palette — NOT the old whole-head graft.
   private irisMats: THREE.MeshStandardMaterial[] = [];
   private lipMat: THREE.MeshStandardMaterial | null = null;
+  // Hair: SMPL-X is bald, so we borrow the procedural hairstyle library (A4) —
+  // ONLY its `hairGroup` (not the whole head, which floated as a toy before) —
+  // scaled and seated on the measured SMPL-X crown. A hidden CharacterRig owns
+  // the hairstyle builder; hair params forward to it.
+  private hairDonor: CharacterRig | null = null;
+  private hairGroup: THREE.Object3D | null = null;
   // For each zone, the world-space-independent local Y mid of its vertex band,
   // used only to anchor zoneBounds when a single mesh can't be sub-selected.
   private vertexY: Float32Array;
@@ -228,8 +235,36 @@ export class MorphRig implements Rig {
     // anchors so eye/lip/brow COLOR stays editable; the SMPL-X face is
     // monochrome geometry otherwise.
     if (anchors) this.buildFaceOverlay(anchors);
+    this.buildHair();
 
     this.applyParams({});
+  }
+
+  /**
+   * Borrow the procedural hairstyle library (A4) and seat it on the SMPL-X
+   * crown. We take ONLY the donor's `hairGroup` (the parametric hair meshes),
+   * scale it to the SMPL-X head size and anchor it so the cap sits on the real
+   * crown. Hair params (shape/length/volume/color) forward to the donor in
+   * applyParams, so the whole A4 hairstyle picker works in morph mode.
+   */
+  private buildHair(): void {
+    this.hairDonor = new CharacterRig();
+    const hg = this.hairDonor.nodeByName('hairGroup');
+    if (!hg) return;
+    hg.parent?.remove(hg);
+    const anchor = new THREE.Group();
+    anchor.name = 'smpl_hair_anchor';
+    // Procedural head radius M.headR ≈ 0.114 → SMPL-X head half-width ≈ 0.091.
+    const scale = Math.max(0.05, this.smplHeadRadius) / 0.114;
+    anchor.scale.setScalar(scale);
+    anchor.add(hg);
+    // Seat so the procedural cap's crown lands on the SMPL-X crown. The cap top
+    // sits ~0.53·capR above the hairGroup origin (skull center); place the
+    // origin that far below the measured crown.
+    const capCrownRise = scale * (0.53 * 0.114 * 1.07);
+    anchor.position.set(0, this.baseMaxY - capCrownRise, this.smplHeadCenter.z);
+    this.root.add(anchor);
+    this.hairGroup = hg;
   }
 
   /**
@@ -357,13 +392,22 @@ export class MorphRig implements Rig {
   }
 
   /**
-   * Outline target: the whole body mesh when any zone in its subtree (body or
-   * face — SMPL-X is one mesh) is active. A single mesh can't be sub-outlined,
-   * so outlining the whole figure is the honest degradation in morph mode.
+   * Outline target: the grafted hair meshes when the hair zone is active, else
+   * the whole body mesh (SMPL-X is one mesh — body and face can't be
+   * sub-outlined, so the whole figure outlines).
    */
   highlightedMeshes(): {selected: THREE.Mesh[]; hovered: THREE.Mesh[]} {
     const [hovered, selected] = this.lastHighlight;
     if (!this.mesh.visible) return {selected: [], hovered: []};
+    const hairMeshes = (): THREE.Mesh[] => {
+      const out: THREE.Mesh[] = [];
+      this.hairGroup?.traverse((o) => {
+        if ((o as THREE.Mesh).isMesh) out.push(o as THREE.Mesh);
+      });
+      return out;
+    };
+    if (selected === 'hair') return {selected: hairMeshes(), hovered: []};
+    if (hovered === 'hair') return {selected: [], hovered: hairMeshes()};
     if (selected && this.zoneInBody(selected)) return {selected: [this.mesh], hovered: []};
     if (hovered && this.zoneInBody(hovered)) return {selected: [], hovered: [this.mesh]};
     return {selected: [], hovered: []};
@@ -373,6 +417,7 @@ export class MorphRig implements Rig {
     this.mesh.geometry.dispose();
     this.material.dispose();
     [...this.irisMats, this.lipMat].forEach((m) => m?.dispose());
+    this.hairDonor?.dispose();
   }
 
   // ─────────── Parameter application ───────────
@@ -413,6 +458,11 @@ export class MorphRig implements Rig {
     const eyeHex = typeof params.eyes?.eyeColor === 'string' ? params.eyes.eyeColor : '#3a6ca8';
     this.irisMats.forEach((m) => m.color.set(eyeHex));
     if (this.lipMat) this.lipMat.color.copy(skin.clone().lerp(new THREE.Color('#b0524f'), 0.6));
+
+    // Hair: forward the full params to the donor so the A4 hairstyle picker
+    // (shape/length/volume/color) drives the grafted hairGroup. The donor's
+    // hidden body ignores the rest.
+    this.hairDonor?.applyParams(params);
   }
 
   // No idle morph animation in A1 (the SMPL-X face has no driven blink yet).

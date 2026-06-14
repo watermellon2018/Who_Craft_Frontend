@@ -179,14 +179,18 @@ describe('MorphRig', () => {
     expect(() => rig.tick()).not.toThrow();
   });
 
-  it('renders a single body mesh when no face anchors are present', () => {
-    // Without baked landmark anchors (e.g. plain SMPL), there is no overlay and
-    // no graft — the figure is exactly one body mesh.
-    let meshCount = 0;
-    rig.root.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) meshCount += 1;
+  it('has exactly one body mesh and grafts hair onto the head', () => {
+    // The body is a single SMPL-X mesh (its face is intrinsic); the only other
+    // meshes are the borrowed hairstyle (A4) seated on the crown.
+    const body = rig.nodeByName('smpl_body') as THREE.Mesh;
+    expect(body.isMesh).toBe(true);
+    const hairAnchor = rig.root.getObjectByName('smpl_hair_anchor');
+    expect(hairAnchor).toBeTruthy();
+    let hairMeshes = 0;
+    hairAnchor?.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) hairMeshes += 1;
     });
-    expect(meshCount).toBe(1);
+    expect(hairMeshes).toBeGreaterThan(0);
   });
 
   it('adds live-colored face overlays (iris/lips/brows) from baked anchors', () => {
