@@ -720,10 +720,23 @@ export class CharacterRig {
     rTop: number,
     rBottom: number,
     length: number,
+    caps: {top?: boolean; bottom?: boolean} = {},
   ): THREE.Group {
-    const geo = taperedLimbGeometry(rTop, rBottom, length);
+    // Open ends (caps.* === false) at internal joints drop the rounded dome so
+    // an elbow/knee reads as one continuous surface instead of two stacked
+    // hemispheres. Terminal ends stay domed (default true).
+    const geo = taperedLimbGeometry(rTop, rBottom, length, 18, {
+      top: caps.top !== false,
+      bottom: caps.bottom !== false,
+    });
     const mesh = this.mesh(geo, 'skin', zoneId);
     mesh.userData.baseLength = length;
+    // An open end exposes the tube interior, which a bent joint could briefly
+    // reveal. Render limb segments double-sided so any glimpsed backface reads
+    // as skin, never a hole — cheap (a handful of meshes) and local to limbs.
+    if (caps.top === false || caps.bottom === false) {
+      (mesh.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
+    }
     parent.add(mesh);
     this.nodes[`${name}Mesh`] = mesh;
     const end = this.group(`${name}End`, parent, 0, -length, 0);
@@ -813,8 +826,17 @@ export class CharacterRig {
       armRoot.add(shoulderMesh);
       this.nodes[`shoulderMesh${side}`] = shoulderMesh;
 
-      const elbow = this.segment(armRoot, `upperArm${side}`, 'upper_arm', 0.058, 0.047, M.upperArmLen);
-      const wrist = this.segment(elbow, `forearm${side}`, 'forearm', 0.047, 0.035, M.forearmLen);
+      // Upper arm: top open (the shoulder sphere covers the joint), bottom
+      // open at the elbow. Forearm: top open at the elbow (its ring continues
+      // the upper-arm surface), bottom domed at the wrist.
+      const elbow = this.segment(
+        armRoot, `upperArm${side}`, 'upper_arm', 0.058, 0.047, M.upperArmLen,
+        {top: false, bottom: false},
+      );
+      const wrist = this.segment(
+        elbow, `forearm${side}`, 'forearm', 0.047, 0.035, M.forearmLen,
+        {top: false},
+      );
       const handGeo = new THREE.CapsuleGeometry(0.034, 0.062, 5, 10);
       handGeo.scale(1, 1, 0.55);
       const handMesh = this.mesh(handGeo, 'skin', 'hand');
@@ -828,8 +850,17 @@ export class CharacterRig {
       const m = side === 'L' ? -1 : 1;
       const legRoot = this.group(`legRoot${side}`, pelvis, m * M.hipHalfX, -0.02, 0);
       legRoot.userData.side = side;
-      const knee = this.segment(legRoot, `thigh${side}`, 'thigh', 0.088, 0.064, M.thighLen);
-      const ankle = this.segment(knee, `calf${side}`, 'calf', 0.064, 0.044, M.calfLen);
+      // Thigh: top domed (tucks up into the pelvis), bottom open at the knee.
+      // Calf: top open at the knee (continues the thigh), bottom domed at the
+      // ankle (the foot box sits below).
+      const knee = this.segment(
+        legRoot, `thigh${side}`, 'thigh', 0.088, 0.064, M.thighLen,
+        {bottom: false},
+      );
+      const ankle = this.segment(
+        knee, `calf${side}`, 'calf', 0.064, 0.044, M.calfLen,
+        {top: false},
+      );
       const footGeo = new THREE.BoxGeometry(0.075, 0.052, 0.21);
       const footMesh = this.mesh(footGeo, 'skin', 'foot');
       footMesh.position.set(0, -0.085, 0.05);

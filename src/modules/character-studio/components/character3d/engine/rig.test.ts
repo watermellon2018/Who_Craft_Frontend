@@ -4,6 +4,7 @@ import {CharacterRig, ZoneParams} from './rig';
 import {DRAG_BINDINGS} from './dragBindings';
 import {resolveDirectPart, resolveSelectableZone} from './zoneSelection';
 import {applyAutofitSuggestions, collapseSideOverrides, mergeSavedParams} from './paramMerge';
+import {taperedLimbGeometry} from './geometry';
 
 // Engine math tests: the rig is plain three.js (no WebGL needed), so the
 // geometry/transform contract is verifiable in jsdom.
@@ -222,6 +223,178 @@ describe('CharacterRig', () => {
         }
       });
     }
+  });
+
+  it('builds a distinct, finite silhouette for every hairstyle', () => {
+    const styles = ['default', 'long', 'bob', 'ponytail', 'bun', 'afro'];
+    for (const hairStyle of styles) {
+      rig.applyParams(withParams({hair: {hairStyle, hairLength: 0.7, hairVolume: 0.4}}));
+      const hair = rig.nodeByName('hairGroup') as THREE.Group;
+      expect(hair.children.length).toBeGreaterThan(0);
+      hair.children.forEach((child) => {
+        const pos = (child as THREE.Mesh).geometry.getAttribute('position');
+        for (let i = 0; i < pos.count; i++) {
+          expect(Number.isFinite(pos.getX(i))).toBe(true);
+          expect(Number.isFinite(pos.getY(i))).toBe(true);
+          expect(Number.isFinite(pos.getZ(i))).toBe(true);
+        }
+        // Every hair mesh is registered on the hair zone so highlight/dispose
+        // keep working uniformly with the rest of the rig.
+        expect((child as THREE.Mesh).userData.zoneId).toBe('hair');
+      });
+    }
+  });
+
+  it('builds no hair meshes for the bald (none) style', () => {
+    rig.applyParams(withParams({hair: {hairStyle: 'none', hairLength: 0.9, hairVolume: 1}}));
+    const hair = rig.nodeByName('hairGroup') as THREE.Group;
+    expect(hair.children.length).toBe(0);
+  });
+
+  it('degrades an unknown hairstyle to the default silhouette', () => {
+    rig.applyParams(withParams({hair: {hairStyle: 'default', hairLength: 0.7}}));
+    const defaultCount = (rig.nodeByName('hairGroup') as THREE.Group).children.length;
+    // A value no builder knows (e.g. an older save, or a typo) must not throw
+    // or vanish — it falls back to the default style.
+    rig.applyParams(withParams({hair: {hairStyle: 'totally-unknown', hairLength: 0.7}}));
+    const hair = rig.nodeByName('hairGroup') as THREE.Group;
+    expect(hair.children.length).toBe(defaultCount);
+    expect(hair.children.length).toBeGreaterThan(0);
+  });
+
+  it('applies hair color to a non-default style', () => {
+    rig.applyParams(withParams({hair: {hairStyle: 'ponytail', hairColor: '#ff0000'}}));
+    const hair = rig.nodeByName('hairGroup') as THREE.Group;
+    expect(hair.children.length).toBeGreaterThan(0);
+    hair.children.forEach((child) => {
+      const mat = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      expect(mat.color.getHexString()).toBe('ff0000');
+    });
+  });
+
+  it('rebuilds hair only when a hair input changes', () => {
+    rig.applyParams(withParams({hair: {hairStyle: 'bob', hairLength: 0.5}}));
+    const before = [...(rig.nodeByName('hairGroup') as THREE.Group).children];
+    // Re-applying identical hair params must NOT rebuild (same mesh instances).
+    rig.applyParams(withParams({hair: {hairStyle: 'bob', hairLength: 0.5}}));
+    const after = [...(rig.nodeByName('hairGroup') as THREE.Group).children];
+    expect(after).toEqual(before);
+    // Changing the style rebuilds (fresh instances).
+    rig.applyParams(withParams({hair: {hairStyle: 'bun', hairLength: 0.5}}));
+    const rebuilt = (rig.nodeByName('hairGroup') as THREE.Group).children;
+    expect(rebuilt).not.toEqual(before);
+  });
+});
+
+// Mean center + radius of a limb mesh's boundary ring (the extreme-y ring in
+// LOCAL mesh space: y=0 for the top, y=−baseLength for the bottom), expressed
+// in the shared joint's local frame so segment rotation cancels out. Two
+// segments meet seamlessly iff their facing rings share a center and radius.
+const ringCenterInJoint = (mesh: THREE.Mesh, joint: THREE.Object3D, pickTop: boolean) => {
+  const p = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+  mesh.updateMatrixWorld(true);
+  joint.updateMatrixWorld(true);
+  const toJoint = new THREE.Matrix4().copy(joint.matrixWorld).invert().multiply(mesh.matrixWorld);
+  let ly = pickTop ? -Infinity : Infinity;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i);
+    if (pickTop ? y > ly : y < ly) ly = y;
+  }
+  const center = new THREE.Vector3();
+  const v = new THREE.Vector3();
+  let n = 0;
+  let r = 0;
+  for (let i = 0; i < p.count; i++) {
+    if (Math.abs(p.getY(i) - ly) < 1e-5) {
+      r += Math.hypot(p.getX(i), p.getZ(i));
+      v.set(p.getX(i), p.getY(i), p.getZ(i)).applyMatrix4(toJoint);
+      center.add(v);
+      n += 1;
+    }
+  }
+  return {center: center.multiplyScalar(1 / n), r: r / n};
+};
+
+describe('limb continuity (single-skin joints)', () => {
+  it('open ends drop the rounded dome; domed ends keep it', () => {
+    const len = 0.27;
+    const yRange = (g: THREE.BufferGeometry) => {
+      const p = g.getAttribute('position') as THREE.BufferAttribute;
+      let mn = Infinity;
+      let mx = -Infinity;
+      for (let i = 0; i < p.count; i++) {
+        mn = Math.min(mn, p.getY(i));
+        mx = Math.max(mx, p.getY(i));
+      }
+      return {mn, mx};
+    };
+    const domed = yRange(taperedLimbGeometry(0.058, 0.047, len, 18, {top: true, bottom: true}));
+    const open = yRange(taperedLimbGeometry(0.058, 0.047, len, 18, {top: false, bottom: false}));
+    // Domed ends bulge a hemisphere past each boundary; open ends are flush.
+    expect(domed.mx).toBeGreaterThan(0.001);
+    expect(domed.mn).toBeLessThan(-len - 0.001);
+    expect(open.mx).toBeCloseTo(0, 3);
+    expect(open.mn).toBeCloseTo(-len, 3);
+  });
+
+  it('defaults to domed on both ends (unchanged for existing callers)', () => {
+    const g = taperedLimbGeometry(0.05, 0.04, 0.2);
+    const p = g.getAttribute('position') as THREE.BufferAttribute;
+    let mx = -Infinity;
+    for (let i = 0; i < p.count; i++) mx = Math.max(mx, p.getY(i));
+    expect(mx).toBeGreaterThan(0.001); // top hemisphere present
+  });
+
+  it('elbow rings coincide: upper-arm bottom meets forearm top with no gap/step', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    rig.root.updateMatrixWorld(true);
+    const elbow = rig.nodeByName('upperArmLEnd') as THREE.Object3D;
+    const upper = ringCenterInJoint(rig.nodeByName('upperArmLMesh') as THREE.Mesh, elbow, false);
+    const fore = ringCenterInJoint(rig.nodeByName('forearmLMesh') as THREE.Mesh, elbow, true);
+    expect(upper.center.distanceTo(fore.center)).toBeLessThan(1e-3);
+    expect(upper.r).toBeCloseTo(fore.r, 3);
+    rig.dispose();
+  });
+
+  it('knee rings coincide: thigh bottom meets calf top with no gap/step', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    rig.root.updateMatrixWorld(true);
+    const knee = rig.nodeByName('thighLEnd') as THREE.Object3D;
+    const thigh = ringCenterInJoint(rig.nodeByName('thighLMesh') as THREE.Mesh, knee, false);
+    const calf = ringCenterInJoint(rig.nodeByName('calfLMesh') as THREE.Mesh, knee, true);
+    expect(thigh.center.distanceTo(calf.center)).toBeLessThan(1e-3);
+    expect(thigh.r).toBeCloseTo(calf.r, 3);
+    rig.dispose();
+  });
+
+  it('length sliders keep the elbow rings coincident (no gap opens)', () => {
+    const rig = new CharacterRig();
+    const params = buildInitialZoneParams();
+    params.upper_arm = {...params.upper_arm, length: 0.8};
+    params.forearm = {...params.forearm, length: -0.5};
+    rig.applyParams(params);
+    rig.root.updateMatrixWorld(true);
+    const elbow = rig.nodeByName('upperArmLEnd') as THREE.Object3D;
+    const upper = ringCenterInJoint(rig.nodeByName('upperArmLMesh') as THREE.Mesh, elbow, false);
+    const fore = ringCenterInJoint(rig.nodeByName('forearmLMesh') as THREE.Mesh, elbow, true);
+    expect(upper.center.distanceTo(fore.center)).toBeLessThan(1e-3);
+    rig.dispose();
+  });
+
+  it('limb meshes stay finite (no NaN from the open-ring build)', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    for (const name of ['upperArmL', 'forearmL', 'thighL', 'calfL']) {
+      const p = (rig.nodeByName(`${name}Mesh`) as THREE.Mesh).geometry.getAttribute('position');
+      for (let i = 0; i < p.count; i++) {
+        expect(Number.isFinite(p.getX(i))).toBe(true);
+        expect(Number.isFinite(p.getY(i))).toBe(true);
+        expect(Number.isFinite(p.getZ(i))).toBe(true);
+      }
+    }
+    rig.dispose();
   });
 });
 

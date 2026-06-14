@@ -85,31 +85,52 @@ export function buildLoft(
 }
 
 /**
- * Limb segment: a tapered tube with rounded ends, built in JOINT space —
- * the upper sphere is centered at the origin (the joint), the lower one at
- * y = −length. Matching the lower radius of one segment with the upper
- * radius of the next makes elbows/knees read as one smooth limb.
+ * Limb segment: a tapered tube built in JOINT space — the upper ring is at
+ * the origin (the joint), the lower one at y = −length. Matching the lower
+ * radius of one segment with the upper radius of the next makes elbows/knees
+ * read as one smooth limb.
+ *
+ * `caps` controls how each end is finished, exactly like buildLoft:
+ *   • domed end  → a rounded hemisphere closes the limb (wrist, ankle, the
+ *     top tucked into the shoulder/hip);
+ *   • open end   → the boundary ring is left flush with NO hemisphere and NO
+ *     cap fan, so where two segments meet at a joint there is a single shared
+ *     profile instead of two stacked domes (the old "sausage" bulge). The
+ *     next segment's matching ring continues the surface.
+ *
+ * Defaults keep both ends domed (the original capsule behaviour), so callers
+ * that don't opt in are unchanged.
  */
 export function taperedLimbGeometry(
   rTop: number,
   rBottom: number,
   length: number,
   radialSegments = 18,
+  caps: {top?: boolean; bottom?: boolean} = {top: true, bottom: true},
 ): THREE.BufferGeometry {
+  const domeTop = caps.top !== false;
+  const domeBottom = caps.bottom !== false;
   const hemisphereSteps = [0.92, 0.71, 0.38];
   const rings: LoftRing[] = [];
   const circle = (y: number, r: number): LoftRing => ({y, rx: r, rzFront: r, rzBack: r});
 
-  // Bottom hemisphere (below the lower joint), ascending y order.
-  for (const s of hemisphereSteps) {
-    rings.push(circle(-length - rBottom * s, rBottom * Math.sqrt(1 - s * s)));
+  // Bottom hemisphere (below the lower joint), ascending y order — only when
+  // this end is domed; an open end starts flush at the boundary ring.
+  if (domeBottom) {
+    for (const s of hemisphereSteps) {
+      rings.push(circle(-length - rBottom * s, rBottom * Math.sqrt(1 - s * s)));
+    }
   }
   rings.push(circle(-length, rBottom));
   rings.push(circle(0, rTop));
-  // Top hemisphere (above the upper joint).
-  for (const s of [...hemisphereSteps].reverse()) {
-    rings.push(circle(rTop * s, rTop * Math.sqrt(1 - s * s)));
+  // Top hemisphere (above the upper joint), only when this end is domed.
+  if (domeTop) {
+    for (const s of [...hemisphereSteps].reverse()) {
+      rings.push(circle(rTop * s, rTop * Math.sqrt(1 - s * s)));
+    }
   }
 
-  return buildLoft(rings, radialSegments, {top: true, bottom: true});
+  // The cap fan closes a domed end; an open end leaves the boundary ring bare
+  // so the adjoining segment's identical ring continues the surface seamlessly.
+  return buildLoft(rings, radialSegments, {top: domeTop, bottom: domeBottom});
 }
