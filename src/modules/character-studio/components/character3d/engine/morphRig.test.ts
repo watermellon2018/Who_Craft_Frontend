@@ -193,7 +193,7 @@ describe('MorphRig', () => {
     expect(hairMeshes).toBeGreaterThan(0);
   });
 
-  it('adds live-colored face overlays (iris/lips/brows) from baked anchors', () => {
+  it('adds layered eyes (sclera/iris/pupil) + lip tint from baked anchors', () => {
     const anchors = {
       eyeL: [-0.03, 1.61, 0.073] as [number, number, number],
       eyeR: [0.03, 1.61, 0.073] as [number, number, number],
@@ -206,13 +206,12 @@ describe('MorphRig', () => {
     r.applyParams(withParams({eyes: {eyeColor: '#244a2a'}}));
     const overlay = r.root.getObjectByName('smpl_face_overlay');
     expect(overlay).toBeTruthy();
-    // 2 iris + 1 lip = 3 overlay meshes (no brow overlay — SMPL-X has no brow
-    // geometry to sit on, so painted arcs would read as stuck-on).
+    // Per eye: sclera + iris + pupil = 3 layers × 2 eyes + 1 lip = 7 meshes.
     let meshes = 0;
     overlay?.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) meshes += 1;
     });
-    expect(meshes).toBe(3);
+    expect(meshes).toBe(7);
     // Eye color applied to the iris material.
     let irisColored = false;
     overlay?.traverse((o) => {

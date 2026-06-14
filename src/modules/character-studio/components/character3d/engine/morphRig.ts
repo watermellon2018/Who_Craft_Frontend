@@ -317,16 +317,37 @@ export class MorphRig implements Rig {
     group.name = 'smpl_face_overlay';
     const r = a.eyeR_size || 0.022;
 
-    // Iris discs — face +z, so a thin sphere just proud of the eye surface.
+    // Layered eye on each eyeball surface: a white sclera, the colored iris on
+    // top, and a dark pupil — stacked at increasing Z so they don't z-fight and
+    // read as a real eye instead of one flat colored dot.
     for (const c of [a.eyeL, a.eyeR]) {
-      const mat = new THREE.MeshStandardMaterial({color: '#3a6ca8', roughness: 0.25});
-      mat.envMapIntensity = 0.55;
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(r * 0.42, 16, 12), mat);
+      // Sclera (white of the eye) — a flattened disc, the widest layer.
+      const scleraMat = new THREE.MeshStandardMaterial({color: '#e9e4dc', roughness: 0.3});
+      scleraMat.envMapIntensity = 0.55;
+      const sclera = new THREE.Mesh(new THREE.SphereGeometry(r * 0.62, 18, 12), scleraMat);
+      sclera.scale.set(1.25, 0.7, 0.32);
+      sclera.position.set(c[0], c[1], c[2] + 0.002);
+      sclera.raycast = () => undefined;
+      group.add(sclera);
+
+      // Iris (colored) — sits on the sclera, color driven from the palette.
+      const irisMat = new THREE.MeshStandardMaterial({color: '#3a6ca8', roughness: 0.25});
+      irisMat.envMapIntensity = 0.55;
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(r * 0.42, 16, 12), irisMat);
       iris.scale.z = 0.4;
-      iris.position.set(c[0], c[1], c[2] + 0.004);
+      iris.position.set(c[0], c[1], c[2] + 0.005);
       iris.raycast = () => undefined;
       group.add(iris);
-      this.irisMats.push(mat);
+      this.irisMats.push(irisMat);
+
+      // Pupil (dark) — the smallest layer, just proud of the iris.
+      const pupilMat = new THREE.MeshStandardMaterial({color: '#14100e', roughness: 0.15});
+      pupilMat.envMapIntensity = 0.4;
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(r * 0.18, 12, 8), pupilMat);
+      pupil.scale.z = 0.35;
+      pupil.position.set(c[0], c[1], c[2] + 0.007);
+      pupil.raycast = () => undefined;
+      group.add(pupil);
     }
 
     // Lip tint — a thin, flattened patch over the lips. Subtle (semi-transparent)
