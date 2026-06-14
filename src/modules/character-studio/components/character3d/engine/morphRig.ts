@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader';
 import {getAncestors} from '../zones';
+import {CharacterRig} from './rig';
 import type {Rig, ZoneParams} from './rig';
 
 // SMPL morph-target engine (A1). The SECOND 3D engine, sitting RIGHT NEXT TO
@@ -107,6 +108,15 @@ export class MorphRig implements Rig {
   private material: THREE.MeshStandardMaterial;
   private morphIndex: Record<string, number> = {};
   private lastHighlight: [string | null, string | null] = [null, null];
+  // SMPL's β space carries no face detail (A1 = shape only). Rather than leave a
+  // featureless head until SMPL-X/FLAME (Phase 5), we borrow the procedural
+  // rig's fully-parametric head subtree (eyes, brows, nose, mouth, ears, hair)
+  // and graft it onto the SMPL body's crown. The host CharacterRig's BODY is
+  // never added to the scene — only its `head` node is reparented here — and all
+  // face/hair/eye-color params forward to it, so every facial slider keeps
+  // working in morph mode for free.
+  private headDonor: CharacterRig;
+  private headAnchor: THREE.Group;
   // For each zone, the world-space-independent local Y mid of its vertex band,
   // used only to anchor zoneBounds when a single mesh can't be sub-selected.
   private vertexY: Float32Array;
@@ -182,6 +192,26 @@ export class MorphRig implements Rig {
     this.baseMaxY = maxY;
 
     this.root.add(mesh);
+
+    // ── Borrow the procedural head (face features + hair) ──
+    // The donor builds a whole figure; we take only its `head` subtree and
+    // reparent it onto an anchor at the SMPL crown. The donor's own root is
+    // never added to any scene, so its body/limbs don't render.
+    this.headDonor = new CharacterRig();
+    this.headAnchor = new THREE.Group();
+    this.headAnchor.name = 'smpl_head_anchor';
+    const head = this.headDonor.nodeByName('head');
+    if (head) {
+      head.parent?.remove(head);
+      // The donor head sits at a neck-relative offset; reset its local transform
+      // so the anchor fully controls where the head lands on the SMPL body.
+      head.position.set(0, 0, 0);
+      head.rotation.set(0, 0, 0);
+      this.headAnchor.add(head);
+    }
+    this.root.add(this.headAnchor);
+    this.positionHead();
+
     this.applyParams({});
   }
 
@@ -235,16 +265,23 @@ export class MorphRig implements Rig {
 
   setHighlight(hoveredZoneId: string | null, selectedZoneId: string | null): void {
     this.lastHighlight = [hoveredZoneId, selectedZoneId];
+    // The grafted head carries the face/hair zones; let the donor compute the
+    // precise meshes to outline for those (eyes, brows, hair…).
+    this.headDonor.setHighlight(hoveredZoneId, selectedZoneId);
   }
 
   /**
-   * The whole body mesh is outlined when any zone in its subtree is the
-   * hovered/selected zone. Per-zone outlining isn't possible on a single mesh;
-   * outlining the whole figure is the honest degradation for A1.
+   * Outline target: the whole SMPL body mesh when a body zone is active (a
+   * single mesh can't be sub-outlined — the honest A1 degradation), OR the
+   * precise head/hair meshes when a face zone is active (those come from the
+   * grafted procedural head, which CAN be sub-outlined per feature).
    */
   highlightedMeshes(): {selected: THREE.Mesh[]; hovered: THREE.Mesh[]} {
     const [hovered, selected] = this.lastHighlight;
     if (!this.mesh.visible) return {selected: [], hovered: []};
+    // Face/hair zones → delegate to the donor head's per-feature outline.
+    const head = this.headDonor.highlightedMeshes();
+    if (head.selected.length || head.hovered.length) return head;
     if (selected && this.zoneInBody(selected)) return {selected: [this.mesh], hovered: []};
     if (hovered && this.zoneInBody(hovered)) return {selected: [], hovered: [this.mesh]};
     return {selected: [], hovered: []};
@@ -253,6 +290,7 @@ export class MorphRig implements Rig {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();
+    this.headDonor.dispose();
   }
 
   // ─────────── Parameter application ───────────
@@ -277,6 +315,13 @@ export class MorphRig implements Rig {
     for (let i = 0; i < influences.length; i++) {
       influences[i] = clamp(betaSum[i] / BETA_SCALE);
     }
+    // The crown moves with the shape morphs — re-seat the grafted head.
+    this.positionHead();
+
+    // Face features + hair + eye/hair color all live on the borrowed head, so
+    // forward the full param set to the donor. Its hidden body ignores the
+    // body-shape sliders harmlessly; only its head subtree is in the scene.
+    this.headDonor.applyParams(params);
 
     // Colors: the body shares the skin material with the procedural engine.
     const skinHex =
@@ -290,10 +335,10 @@ export class MorphRig implements Rig {
     this.material.color.copy(skin);
   }
 
-  // No idle morph animation in A1 (breathing/blink live on the procedural face).
-  // Kept for interface parity; a future pass could breathe via a morph.
-  tick(): void {
-    /* intentionally empty for A1 */
+  // Drive the borrowed head's idle motion (breathing is on the donor's hidden
+  // chest so it's a no-op here, but the blink animates the grafted eyelids).
+  tick(timeSeconds: number): void {
+    this.headDonor.tick(timeSeconds);
   }
 
   /** Test/debug access. Only the single body mesh exists in morph mode. */
@@ -303,6 +348,22 @@ export class MorphRig implements Rig {
   }
 
   // ─────────── Internals ───────────
+
+  /**
+   * Place the grafted head at the SMPL body's crown. The crown rises/falls with
+   * the shape morphs (a taller β lifts the head), so we read the live morphed
+   * bounding box. The procedural head's geometric center sits ~headR below its
+   * crown, so we drop the anchor by that much to seat the face over the SMPL
+   * head instead of floating above it. HEAD_DROP is tuned to the donor's
+   * head radius (M.headR ≈ 0.114).
+   */
+  private positionHead(): void {
+    const HEAD_DROP = 0.1;
+    this.mesh.geometry.computeBoundingBox();
+    const bb = this.mesh.geometry.boundingBox;
+    const crownY = bb ? bb.max.y : this.baseMaxY;
+    this.headAnchor.position.set(0, crownY - HEAD_DROP, 0);
+  }
 
   private bandFor(zoneId: string): RegionBand | null {
     // Map a clicked/selected zone to the body band that represents it. Face and

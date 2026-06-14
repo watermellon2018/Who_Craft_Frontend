@@ -154,11 +154,15 @@ describe('MorphRig', () => {
     expect(hov.selected).toHaveLength(0);
   });
 
-  it('does not outline non-body zones (face/hair have no morph region)', () => {
+  it('outlines the grafted head feature meshes for a face zone', () => {
+    // The borrowed procedural head carries eyes/brows/nose/etc, so selecting a
+    // face zone outlines those precise meshes (not the whole body, and not
+    // nothing — the pre-graft A1 behaviour).
     rig.setHighlight(null, 'eyes');
     const {selected, hovered} = rig.highlightedMeshes();
-    expect(selected).toHaveLength(0);
+    expect(selected.length).toBeGreaterThan(0);
     expect(hovered).toHaveLength(0);
+    selected.forEach((m) => expect(m.userData.zoneId).toBe('eyes'));
   });
 
   it('produces finite influences for every numeric parameter maxed', () => {
@@ -173,7 +177,18 @@ describe('MorphRig', () => {
     (mesh.morphTargetInfluences as number[]).forEach((w) => expect(Number.isFinite(w)).toBe(true));
   });
 
-  it('tick is a no-op that never throws (idle motion lives on the procedural face)', () => {
-    expect(() => rig.tick()).not.toThrow();
+  it('tick drives the grafted head idle motion and never throws', () => {
+    expect(() => rig.tick(0)).not.toThrow();
+    expect(() => rig.tick(1.5)).not.toThrow();
+  });
+
+  it('grafts a procedural head (face features + hair) onto the body', () => {
+    // The borrowed head subtree is parented under the rig root via the anchor,
+    // so the rendered figure has facial features the bare SMPL mesh lacks.
+    let hasFaceMesh = false;
+    rig.root.traverse((o) => {
+      if (o.userData?.zoneId === 'eyes' || o.userData?.zoneId === 'nose') hasFaceMesh = true;
+    });
+    expect(hasFaceMesh).toBe(true);
   });
 });
