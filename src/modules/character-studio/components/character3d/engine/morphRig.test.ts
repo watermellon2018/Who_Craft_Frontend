@@ -179,13 +179,44 @@ describe('MorphRig', () => {
     expect(() => rig.tick()).not.toThrow();
   });
 
-  it('renders a single body mesh (SMPL-X carries its own face — no graft)', () => {
-    // SMPL-X's base mesh already has facial geometry, so there is no grafted
-    // procedural head subtree: the figure is exactly one body mesh.
+  it('renders a single body mesh when no face anchors are present', () => {
+    // Without baked landmark anchors (e.g. plain SMPL), there is no overlay and
+    // no graft — the figure is exactly one body mesh.
     let meshCount = 0;
     rig.root.traverse((o) => {
       if ((o as THREE.Mesh).isMesh) meshCount += 1;
     });
     expect(meshCount).toBe(1);
+  });
+
+  it('adds live-colored face overlays (iris/lips/brows) from baked anchors', () => {
+    const anchors = {
+      eyeL: [-0.03, 1.61, 0.073] as [number, number, number],
+      eyeR: [0.03, 1.61, 0.073] as [number, number, number],
+      mouth: [0, 1.546, 0.094] as [number, number, number],
+      browL: [-0.037, 1.632, 0.072] as [number, number, number],
+      browR: [0.037, 1.632, 0.072] as [number, number, number],
+      eyeR_size: 0.022,
+    };
+    const r = MorphRig.fromMesh(makeMorphMesh(), anchors);
+    r.applyParams(withParams({eyes: {eyeColor: '#244a2a'}}));
+    const overlay = r.root.getObjectByName('smpl_face_overlay');
+    expect(overlay).toBeTruthy();
+    // 2 iris + 1 lip + 2 brow = 5 overlay meshes.
+    let meshes = 0;
+    overlay?.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) meshes += 1;
+    });
+    expect(meshes).toBe(5);
+    // Eye color applied to the iris material.
+    let irisColored = false;
+    overlay?.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && (m.material as THREE.MeshStandardMaterial).color.getHexString() === '244a2a') {
+        irisColored = true;
+      }
+    });
+    expect(irisColored).toBe(true);
+    r.dispose();
   });
 });

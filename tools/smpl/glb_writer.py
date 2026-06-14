@@ -37,6 +37,7 @@ def write_glb(
     faces: np.ndarray,
     morph_targets: List[np.ndarray],
     morph_names: List[str],
+    extras: dict | None = None,
 ) -> None:
     """Write a GLB with one mesh, ``vertices``/``faces`` and POSITION morphs.
 
@@ -44,6 +45,7 @@ def write_glb(
     faces: (F, 3) uint32 triangle indices.
     morph_targets: list of (V, 3) float32 POSITION deltas (target − base).
     morph_names: human-readable names, surfaced as ``mesh.extras.targetNames``.
+    extras: extra JSON merged into ``mesh.extras`` (e.g. face anchor positions).
     """
     vertices = np.ascontiguousarray(vertices, dtype=np.float32)
     faces = np.ascontiguousarray(faces.reshape(-1), dtype=np.uint32)
@@ -114,8 +116,13 @@ def write_glb(
         # Neutral resting weights (base shape) — the app overrides at runtime.
         "weights": [0.0] * len(targets),
     }
+    mesh_extras: dict = {}
     if morph_names:
-        mesh["extras"] = {"targetNames": list(morph_names)}
+        mesh_extras["targetNames"] = list(morph_names)
+    if extras:
+        mesh_extras.update(extras)
+    if mesh_extras:
+        mesh["extras"] = mesh_extras
 
     gltf = {
         "asset": {"version": "2.0", "generator": "who_craft smpl converter"},

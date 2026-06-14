@@ -77,14 +77,14 @@ def load_smpl(model_path: str):
         v_template = np.asarray(data["v_template"]).astype(np.float64)
         faces = np.asarray(data["f"]).astype(np.uint32)
         shapedirs = np.asarray(data["shapedirs"]).astype(np.float64)
-        return v_template, faces, shapedirs
+        return v_template, faces, shapedirs, data
     chumpy_shim.install()
     with open(model_path, "rb") as handle:
         data = pickle.load(handle, encoding="latin1")  # nosec B301 - trusted local file
     v_template = chumpy_shim.as_array(data["v_template"]).astype(np.float64)
     faces = chumpy_shim.as_array(data["f"]).astype(np.uint32)
     shapedirs = chumpy_shim.as_array(data["shapedirs"]).astype(np.float64)
-    return v_template, faces, shapedirs
+    return v_template, faces, shapedirs, data
 
 
 def build_morphs(v_template: np.ndarray, shapedirs: np.ndarray, n_betas: int):
@@ -105,6 +105,36 @@ def build_morphs(v_template: np.ndarray, shapedirs: np.ndarray, n_betas: int):
     return base, targets, names
 
 
+def face_anchors(base, faces, data):
+    """Resting 3D positions of the eye / mouth / brow centers, from the SMPL-X
+    facial landmarks (``lmk_faces_idx`` + ``lmk_bary_coords``). The editor reads
+    these (GLB extras) to place LIVE-colored overlays — iris, lip tint, brows —
+    on the real face without baking color into the mesh (so the palette stays
+    editable). Returns ``{}`` for models without landmarks (plain SMPL .pkl).
+    """
+    if "lmk_faces_idx" not in data or "lmk_bary_coords" not in data:
+        return {}
+    lfi = np.asarray(data["lmk_faces_idx"]).astype(np.int64)
+    lbc = np.asarray(data["lmk_bary_coords"]).astype(np.float64)
+    lm = np.array([lbc[i] @ base[faces[lfi[i]]] for i in range(len(lfi))])
+    # 51-landmark layout (verified by sorting top→bottom on the neutral mesh):
+    #   0–9 brows · 10–18 nose · 19–30 eyes · 31–50 mouth.
+    def center(rows):
+        return [float(x) for x in lm[rows].mean(axis=0)]
+
+    eyes = lm[19:31]
+    mouth = lm[31:51]
+    brows = lm[0:10]
+    return {
+        "eyeR": center(np.array([i for i in range(19, 31) if lm[i, 0] > 0])),
+        "eyeL": center(np.array([i for i in range(19, 31) if lm[i, 0] < 0])),
+        "mouth": [float(x) for x in mouth.mean(axis=0)],
+        "browR": center(np.array([i for i in range(0, 10) if lm[i, 0] > 0])),
+        "browL": center(np.array([i for i in range(0, 10) if lm[i, 0] < 0])),
+        "eyeR_size": float(np.linalg.norm(eyes[eyes[:, 0] > 0].std(axis=0)) + 0.012),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default=_DEFAULT_MODEL, help="path to SMPL .pkl")
@@ -120,15 +150,19 @@ def main() -> None:
         )
 
     print(f"Reading SMPL model: {args.model}")
-    v_template, faces, shapedirs = load_smpl(args.model)
+    v_template, faces, shapedirs, raw = load_smpl(args.model)
     print(f"  vertices={v_template.shape[0]} faces={faces.shape[0]} shapedirs={shapedirs.shape}")
 
     base, targets, names = build_morphs(v_template, shapedirs, args.betas)
     height = base[:, 1].max() - base[:, 1].min()
     print(f"  baked {len(targets)} morph targets; figure height ≈ {height:.3f} m, feet at y=0")
 
+    anchors = face_anchors(base, faces.astype(np.int64), raw)
+    if anchors:
+        print(f"  face anchors: eyes/mouth/brows from {len(raw['lmk_faces_idx'])} landmarks")
+
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    write_glb(args.out, base, faces, targets, names)
+    write_glb(args.out, base, faces, targets, names, extras={"faceAnchors": anchors})
     size_kb = os.path.getsize(args.out) / 1024
     print(f"Wrote {args.out} ({size_kb:.0f} KB)")
 

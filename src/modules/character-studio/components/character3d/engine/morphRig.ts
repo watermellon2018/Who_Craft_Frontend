@@ -82,6 +82,19 @@ const clamp = (v: number, lo = -1, hi = 1) => Math.max(lo, Math.min(hi, v));
 
 type MatKind = 'skin';
 
+// Resting face landmark centers baked into the GLB by the converter (from the
+// SMPL-X facial landmarks). Used to place LIVE-colored overlays — iris, lips,
+// brows — on the real face so the color stays editable from the palette.
+type Vec3 = [number, number, number];
+interface FaceAnchors {
+  eyeL: Vec3;
+  eyeR: Vec3;
+  mouth: Vec3;
+  browL: Vec3;
+  browR: Vec3;
+  eyeR_size: number;
+}
+
 // Vertex-region partition for click-selection / zoom bounds. The SMPL body is
 // ONE mesh, so we tag vertex index ranges by their resting Y band (and X side)
 // to recover which zone a raycast hit falls in and where a zone lives in space.
@@ -112,6 +125,12 @@ export class MorphRig implements Rig {
   // so no procedural feature graft is needed.
   private smplHeadCenter = new THREE.Vector3(0, 1.6, 0.05);
   private smplHeadRadius = 0.09;
+  // Live-colored face overlays placed on the real SMPL-X face from its baked
+  // landmark anchors: iris discs (eye color), a lip tint, brow arcs. Tiny and
+  // editable from the palette — NOT the old whole-head graft.
+  private irisMats: THREE.MeshStandardMaterial[] = [];
+  private lipMat: THREE.MeshStandardMaterial | null = null;
+  private browMats: THREE.MeshStandardMaterial[] = [];
   // For each zone, the world-space-independent local Y mid of its vertex band,
   // used only to anchor zoneBounds when a single mesh can't be sub-selected.
   private vertexY: Float32Array;
@@ -132,7 +151,8 @@ export class MorphRig implements Rig {
       if (!mesh && (obj as THREE.Mesh).isMesh) mesh = obj as THREE.Mesh;
     });
     if (!mesh) throw new Error('MorphRig: GLB contained no mesh');
-    return MorphRig.fromMesh(mesh as THREE.Mesh);
+    const anchors = (mesh as THREE.Mesh).userData?.faceAnchors as FaceAnchors | undefined;
+    return MorphRig.fromMesh(mesh as THREE.Mesh, anchors);
   }
 
   /**
@@ -140,14 +160,14 @@ export class MorphRig implements Rig {
    * can build a MorphRig from a synthetic mesh without a GLB/network, and so a
    * future loader (a different asset, an embedded buffer) can reuse it.
    */
-  static fromMesh(mesh: THREE.Mesh): MorphRig {
+  static fromMesh(mesh: THREE.Mesh, anchors?: FaceAnchors): MorphRig {
     if (!mesh.morphTargetInfluences?.length) {
       throw new Error('MorphRig: mesh has no morph targets');
     }
-    return new MorphRig(mesh);
+    return new MorphRig(mesh, anchors);
   }
 
-  private constructor(mesh: THREE.Mesh) {
+  private constructor(mesh: THREE.Mesh, anchors?: FaceAnchors) {
     this.root = new THREE.Group();
     this.root.name = 'character-rig';
     this.mesh = mesh;
@@ -204,9 +224,61 @@ export class MorphRig implements Rig {
 
     // SMPL-X's base mesh carries a REAL face (eye sockets, lips, nose as
     // geometry), so — unlike bare SMPL — no procedural feature graft is needed.
-    // The face is part of the body mesh and morphs with it naturally.
+    // The face is part of the body mesh and morphs with it naturally. We only
+    // add tiny LIVE-colored overlays (iris, lips, brows) at the baked landmark
+    // anchors so eye/lip/brow COLOR stays editable; the SMPL-X face is
+    // monochrome geometry otherwise.
+    if (anchors) this.buildFaceOverlay(anchors);
 
     this.applyParams({});
+  }
+
+  /**
+   * Place small colored overlays on the real face from the baked landmark
+   * anchors: an iris disc in each eye, a lip tint over the mouth, a brow arc
+   * over each brow. Anchored to the head so they ride along as the figure
+   * morphs (the head moves little under shape morphs, so static anchors are
+   * close enough; a future pass could re-seat them from live landmarks).
+   */
+  private buildFaceOverlay(a: FaceAnchors): void {
+    const group = new THREE.Group();
+    group.name = 'smpl_face_overlay';
+    const r = a.eyeR_size || 0.022;
+
+    // Iris discs — face +z, so a thin sphere just proud of the eye surface.
+    for (const c of [a.eyeL, a.eyeR]) {
+      const mat = new THREE.MeshStandardMaterial({color: '#3a6ca8', roughness: 0.25});
+      mat.envMapIntensity = 0.55;
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(r * 0.42, 16, 12), mat);
+      iris.scale.z = 0.4;
+      iris.position.set(c[0], c[1], c[2] + 0.004);
+      iris.raycast = () => undefined;
+      group.add(iris);
+      this.irisMats.push(mat);
+    }
+
+    // Lip tint — a flattened ellipsoid hugging the mouth.
+    this.lipMat = new THREE.MeshStandardMaterial({color: '#b0524f', roughness: 0.5, transparent: true, opacity: 0.55});
+    this.lipMat.envMapIntensity = 0.55;
+    const lips = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 10), this.lipMat);
+    lips.scale.set(r * 1.5, r * 0.5, r * 0.5);
+    lips.position.set(a.mouth[0], a.mouth[1], a.mouth[2] + 0.002);
+    lips.raycast = () => undefined;
+    group.add(lips);
+
+    // Brow arcs — short tinted bars above each eye.
+    for (const c of [a.browL, a.browR]) {
+      const mat = new THREE.MeshStandardMaterial({color: '#1E1A18', roughness: 0.8});
+      mat.envMapIntensity = 0.55;
+      const brow = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), mat);
+      brow.scale.set(r * 0.9, r * 0.22, r * 0.35);
+      brow.position.set(c[0], c[1], c[2] + 0.003);
+      brow.raycast = () => undefined;
+      group.add(brow);
+      this.browMats.push(mat);
+    }
+
+    this.root.add(group);
   }
 
   /**
@@ -309,6 +381,7 @@ export class MorphRig implements Rig {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();
+    [...this.irisMats, ...this.browMats, this.lipMat].forEach((m) => m?.dispose());
   }
 
   // ─────────── Parameter application ───────────
@@ -344,6 +417,14 @@ export class MorphRig implements Rig {
     skin.getHSL(hsl);
     skin.setHSL(hsl.h, clamp(hsl.s * (1 + 0.45 * saturation), 0, 1), hsl.l);
     this.material.color.copy(skin);
+
+    // Live face-overlay colors from the same palette the procedural engine uses.
+    const eyeHex = typeof params.eyes?.eyeColor === 'string' ? params.eyes.eyeColor : '#3a6ca8';
+    this.irisMats.forEach((m) => m.color.set(eyeHex));
+    if (this.lipMat) this.lipMat.color.copy(skin.clone().lerp(new THREE.Color('#b0524f'), 0.6));
+    const hairHex = typeof params.hair?.hairColor === 'string' ? params.hair.hairColor : '#1E1A18';
+    const browColor = new THREE.Color(hairHex).lerp(new THREE.Color('#000000'), 0.3);
+    this.browMats.forEach((m) => m.color.copy(browColor));
   }
 
   // No idle morph animation in A1 (the SMPL-X face has no driven blink yet).
