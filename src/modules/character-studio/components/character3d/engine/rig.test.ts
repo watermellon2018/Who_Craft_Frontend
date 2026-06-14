@@ -4,7 +4,7 @@ import {CharacterRig, ZoneParams} from './rig';
 import {DRAG_BINDINGS} from './dragBindings';
 import {resolveDirectPart, resolveSelectableZone} from './zoneSelection';
 import {applyAutofitSuggestions, collapseSideOverrides, mergeSavedParams} from './paramMerge';
-import {taperedLimbGeometry} from './geometry';
+import {browGeometry, noseGeometry, taperedLimbGeometry} from './geometry';
 
 // Engine math tests: the rig is plain three.js (no WebGL needed), so the
 // geometry/transform contract is verifiable in jsdom.
@@ -386,14 +386,216 @@ describe('limb continuity (single-skin joints)', () => {
   it('limb meshes stay finite (no NaN from the open-ring build)', () => {
     const rig = new CharacterRig();
     rig.applyParams(buildInitialZoneParams());
-    for (const name of ['upperArmL', 'forearmL', 'thighL', 'calfL']) {
-      const p = (rig.nodeByName(`${name}Mesh`) as THREE.Mesh).geometry.getAttribute('position');
+    const limbNodes = ['upperArmLMesh', 'forearmLMesh', 'thighLMesh', 'calfLMesh', 'handMeshL', 'footMeshL'];
+    for (const node of limbNodes) {
+      const p = (rig.nodeByName(node) as THREE.Mesh).geometry.getAttribute('position');
       for (let i = 0; i < p.count; i++) {
         expect(Number.isFinite(p.getX(i))).toBe(true);
         expect(Number.isFinite(p.getY(i))).toBe(true);
         expect(Number.isFinite(p.getZ(i))).toBe(true);
       }
     }
+    rig.dispose();
+  });
+
+  it('wrist rings coincide: forearm open bottom meets the hand top', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    rig.root.updateMatrixWorld(true);
+    const wrist = rig.nodeByName('forearmLEnd') as THREE.Object3D;
+    const fore = ringCenterInJoint(rig.nodeByName('forearmLMesh') as THREE.Mesh, wrist, false);
+    const hand = ringCenterInJoint(rig.nodeByName('handMeshL') as THREE.Mesh, wrist, true);
+    expect(fore.center.distanceTo(hand.center)).toBeLessThan(1e-3);
+    expect(fore.r).toBeCloseTo(hand.r, 3); // same radius → no wrist step
+    rig.dispose();
+  });
+
+  it('ankle rings coincide: calf open bottom meets the foot top', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    rig.root.updateMatrixWorld(true);
+    const ankle = rig.nodeByName('calfLEnd') as THREE.Object3D;
+    const calf = ringCenterInJoint(rig.nodeByName('calfLMesh') as THREE.Mesh, ankle, false);
+    const foot = ringCenterInJoint(rig.nodeByName('footMeshL') as THREE.Mesh, ankle, true);
+    expect(calf.center.distanceTo(foot.center)).toBeLessThan(1e-3);
+    expect(calf.r).toBeCloseTo(foot.r, 3);
+    rig.dispose();
+  });
+
+  it('the figure still stands on the floor after the foot reshape', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    rig.root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(rig.root);
+    expect(box.min.y).toBeGreaterThan(-0.03);
+    expect(box.min.y).toBeLessThan(0.03);
+    rig.dispose();
+  });
+
+  it('hand and foot are double-sided (open wrist/ankle never reads as a hole)', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    for (const node of ['handMeshL', 'footMeshL', 'handMeshR', 'footMeshR']) {
+      const mat = (rig.nodeByName(node) as THREE.Mesh).material as THREE.MeshStandardMaterial;
+      expect(mat.side).toBe(THREE.DoubleSide);
+    }
+    rig.dispose();
+  });
+});
+
+describe('skin micro-detail maps', () => {
+  const skinMeshes = (rig: CharacterRig): THREE.Mesh[] => {
+    const out: THREE.Mesh[] = [];
+    rig.root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.userData.matKind === 'skin') out.push(m);
+    });
+    return out;
+  };
+
+  it('attaches one shared normal+roughness map across every skin mesh', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    const normals = new Set<THREE.Texture>();
+    const roughs = new Set<THREE.Texture>();
+    const skins = skinMeshes(rig);
+    expect(skins.length).toBeGreaterThan(0);
+    skins.forEach((mesh) => {
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      expect(mat.normalMap).toBeTruthy();
+      expect(mat.roughnessMap).toBeTruthy();
+      normals.add(mat.normalMap as THREE.Texture);
+      roughs.add(mat.roughnessMap as THREE.Texture);
+      // The map only samples if the geometry carries UVs.
+      expect(mesh.geometry.getAttribute('uv')).toBeTruthy();
+    });
+    // Generated once, shared — not one texture per mesh.
+    expect(normals.size).toBe(1);
+    expect(roughs.size).toBe(1);
+    rig.dispose();
+  });
+
+  it('leaves non-skin materials (hair/eyes/lips) without skin maps', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    rig.root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.userData.matKind && m.userData.matKind !== 'skin') {
+        expect((m.material as THREE.MeshStandardMaterial).normalMap).toBeFalsy();
+      }
+    });
+    rig.dispose();
+  });
+
+  it('keeps the normal map subtle (a hint, not a relief)', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    const mat = skinMeshes(rig)[0].material as THREE.MeshStandardMaterial;
+    expect(mat.normalScale.x).toBeLessThanOrEqual(0.5);
+    const data = (mat.normalMap as THREE.DataTexture).image.data as Uint8Array;
+    let blueDominant = 0;
+    const texels = data.length / 4;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 2] >= data[i] && data[i + 2] >= data[i + 1]) blueDominant += 1;
+    }
+    // Almost every texel points mostly "up" (+Z) — a gentle perturbation.
+    expect(blueDominant / texels).toBeGreaterThan(0.9);
+    rig.dispose();
+  });
+
+  it('keeps skin color working on top of the map', () => {
+    const rig = new CharacterRig();
+    const params = buildInitialZoneParams();
+    params.skin_color = {...params.skin_color, skinTone: '#cc8844'};
+    rig.applyParams(params);
+    skinMeshes(rig).forEach((mesh) => {
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      expect(mat.color.getHexString()).toBe('cc8844');
+      expect(mat.normalMap).toBeTruthy();
+    });
+    rig.dispose();
+  });
+});
+
+describe('face features (nose & brows)', () => {
+  const allFinite = (g: THREE.BufferGeometry): boolean => {
+    const p = g.getAttribute('position') as THREE.BufferAttribute;
+    for (let i = 0; i < p.count; i++) {
+      if (!Number.isFinite(p.getX(i)) || !Number.isFinite(p.getY(i)) || !Number.isFinite(p.getZ(i))) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  it('nose is a lofted surface that leans off the face and carries UVs', () => {
+    const flat = noseGeometry(0, 0);
+    const tall = noseGeometry(1, 1);
+    expect(allFinite(flat)).toBe(true);
+    expect(allFinite(tall)).toBe(true);
+    expect(flat.getAttribute('uv')).toBeTruthy(); // so the skin maps sample it
+    const frontZ = (g: THREE.BufferGeometry) => {
+      const p = g.getAttribute('position') as THREE.BufferAttribute;
+      let mx = -Infinity;
+      for (let i = 0; i < p.count; i++) mx = Math.max(mx, p.getZ(i));
+      return mx;
+    };
+    expect(frontZ(flat)).toBeGreaterThan(0); // protrudes forward
+    expect(frontZ(tall)).toBeGreaterThan(frontZ(flat)); // bridge/tip push it out
+  });
+
+  it('brow is wider than it is deep and actually arches (not a flat box)', () => {
+    const g = browGeometry(-1);
+    expect(allFinite(g)).toBe(true);
+    const p = g.getAttribute('position') as THREE.BufferAttribute;
+    let xMax = 0;
+    let zMax = 0;
+    let yMin = Infinity;
+    let yMax = -Infinity;
+    for (let i = 0; i < p.count; i++) {
+      xMax = Math.max(xMax, Math.abs(p.getX(i)));
+      zMax = Math.max(zMax, Math.abs(p.getZ(i)));
+      yMin = Math.min(yMin, p.getY(i));
+      yMax = Math.max(yMax, p.getY(i));
+    }
+    expect(xMax).toBeGreaterThan(zMax); // brow-shaped, not a round tube
+    expect(yMax - yMin).toBeGreaterThan(0.003);
+  });
+
+  it('wires nose and brows to the right zones (click-select/highlight intact)', () => {
+    const rig = new CharacterRig();
+    rig.applyParams(buildInitialZoneParams());
+    const nose = rig.nodeByName('noseMesh') as THREE.Mesh;
+    expect(nose.userData.zoneId).toBe('nose');
+    expect(nose.userData.matKind).toBe('skin');
+    for (const side of ['L', 'R'] as const) {
+      const brow = rig.nodeByName(`brow${side}`) as THREE.Mesh;
+      expect(brow.userData.zoneId).toBe('brows');
+      expect(brow.userData.matKind).toBe('brow');
+    }
+    rig.dispose();
+  });
+
+  it('rebuilds the nose only when bridgeHeight/tip change (keyed, not per frame)', () => {
+    const rig = new CharacterRig();
+    const base = buildInitialZoneParams();
+    rig.applyParams(base);
+    const g1 = (rig.nodeByName('noseMesh') as THREE.Mesh).geometry;
+    rig.applyParams(base); // identical inputs → no rebuild
+    expect((rig.nodeByName('noseMesh') as THREE.Mesh).geometry).toBe(g1);
+    rig.applyParams({...base, nose: {...base.nose, bridgeHeight: 0.8, noseTip: 0.6}});
+    expect((rig.nodeByName('noseMesh') as THREE.Mesh).geometry).not.toBe(g1);
+    rig.dispose();
+  });
+
+  it('nose width/length still drive the group scale', () => {
+    const rig = new CharacterRig();
+    const params = buildInitialZoneParams();
+    params.nose = {...params.nose, noseWidth: 1, noseLength: 1};
+    rig.applyParams(params);
+    const nose = rig.nodeByName('nose') as THREE.Object3D;
+    expect(nose.scale.x).toBeGreaterThan(1);
+    expect(nose.scale.y).toBeGreaterThan(1);
     rig.dispose();
   });
 });

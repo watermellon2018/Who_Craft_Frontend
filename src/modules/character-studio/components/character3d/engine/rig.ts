@@ -1,6 +1,128 @@
 import * as THREE from 'three';
 import {getAncestors} from '../zones';
-import {buildLoft, LoftRing, taperedLimbGeometry} from './geometry';
+import {
+  browGeometry,
+  buildLoft,
+  footGeometry,
+  handGeometry,
+  LoftRing,
+  noseGeometry,
+  taperedLimbGeometry,
+} from './geometry';
+
+// ─────────── Procedural skin micro-detail maps (deterministic) ───────────
+//
+// Flat matte skin reads as plastic/vinyl under the IBL. These code-generated
+// maps add a faint micro-relief (a normal map) and a non-uniform sheen (a
+// roughness map) so the surface looks organic without any asset files. They
+// are baked once and SHARED across every skin mesh (one texture pair, not one
+// per mesh). The intensity is deliberately low — this is a stylized model, so
+// it wants a hint of texture, not a "toad". Generation is fully deterministic
+// (an integer hash, no Math.random) so a character always renders the same.
+
+const SKIN_TEX_SIZE = 256;
+
+// Cheap integer hash → [0, 1). Deterministic value noise without Math.random.
+function hash2(x: number, y: number): number {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = (h ^ (h >>> 13)) * 1274126177;
+  h = h ^ (h >>> 16);
+  return (h >>> 0) / 4294967296;
+}
+
+function smooth(t: number): number {
+  return t * t * (3 - 2 * t);
+}
+
+// Bilinearly-interpolated value noise sampled on a `cells`-period lattice that
+// wraps, so the texture tiles seamlessly when repeated across a surface.
+function valueNoise(u: number, v: number, cells: number): number {
+  const x = u * cells;
+  const y = v * cells;
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const fx = smooth(x - x0);
+  const fy = smooth(y - y0);
+  const wrap = (n: number) => ((n % cells) + cells) % cells;
+  const x0w = wrap(x0);
+  const y0w = wrap(y0);
+  const x1w = wrap(x0 + 1);
+  const y1w = wrap(y0 + 1);
+  const a = hash2(x0w, y0w);
+  const b = hash2(x1w, y0w);
+  const c = hash2(x0w, y1w);
+  const d = hash2(x1w, y1w);
+  const top = a + (b - a) * fx;
+  const bottom = c + (d - c) * fx;
+  return top + (bottom - top) * fy;
+}
+
+// Multi-octave height in [0, 1] for the pore/bump field.
+function skinHeight(u: number, v: number): number {
+  // Fine pores dominate; a coarse octave adds gentle large-scale unevenness.
+  const fine = valueNoise(u, v, 64);
+  const mid = valueNoise(u, v, 24);
+  const coarse = valueNoise(u, v, 8);
+  return 0.55 * fine + 0.3 * mid + 0.15 * coarse;
+}
+
+interface SkinMaps {
+  normalMap: THREE.DataTexture;
+  roughnessMap: THREE.DataTexture;
+}
+
+// Bake the normal + roughness maps from the height field. Normals come from
+// finite differences of the height; `bumpScale` keeps the relief subtle.
+function buildSkinMaps(size = SKIN_TEX_SIZE, bumpScale = 0.6): SkinMaps {
+  const normal = new Uint8Array(size * size * 4);
+  const rough = new Uint8Array(size * size * 4);
+  const eps = 1 / size;
+
+  for (let j = 0; j < size; j++) {
+    for (let i = 0; i < size; i++) {
+      const u = i / size;
+      const v = j / size;
+      // Tangent-space normal from the height gradient (wrap at the edges so
+      // the map tiles). Z fixed at 1, X/Y scaled by the gradient × bumpScale.
+      const hL = skinHeight((u - eps + 1) % 1, v);
+      const hR = skinHeight((u + eps) % 1, v);
+      const hD = skinHeight(u, (v - eps + 1) % 1);
+      const hU = skinHeight(u, (v + eps) % 1);
+      const nx = (hL - hR) * bumpScale;
+      const ny = (hD - hU) * bumpScale;
+      const nz = 1;
+      const inv = 1 / Math.sqrt(nx * nx + ny * ny + nz * nz);
+      const idx = (j * size + i) * 4;
+      normal[idx] = Math.round((nx * inv * 0.5 + 0.5) * 255);
+      normal[idx + 1] = Math.round((ny * inv * 0.5 + 0.5) * 255);
+      normal[idx + 2] = Math.round((nz * inv * 0.5 + 0.5) * 255);
+      normal[idx + 3] = 255;
+
+      // Roughness: vary gently around mid so the specular isn't a perfect
+      // uniform sheen. Stored in G (three reads roughnessMap.g × roughness).
+      const h = skinHeight(u, v);
+      const r = Math.round((0.82 + 0.18 * h) * 255);
+      rough[idx] = r;
+      rough[idx + 1] = r;
+      rough[idx + 2] = r;
+      rough[idx + 3] = 255;
+    }
+  }
+
+  // Tile a few times across each part so the pore field stays small-scale on
+  // mid-sized surfaces (torso/limbs). A single shared repeat is a reasonable
+  // first step; the noise wraps, so the tiling has no visible seam.
+  const repeat = 3;
+  const finish = (data: Uint8Array): THREE.DataTexture => {
+    const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeat, repeat);
+    tex.needsUpdate = true;
+    return tex;
+  };
+  return {normalMap: finish(normal), roughnessMap: finish(rough)};
+}
 
 // Parametric humanoid rig for the 3D character editor.
 //
@@ -253,8 +375,12 @@ export class CharacterRig {
   // mesh → set of zone ids (its own zone + all ancestors) for highlight/bounds.
   private meshZones = new Map<THREE.Mesh, Set<string>>();
   private geometries: THREE.BufferGeometry[] = [];
+  // Procedural skin micro-detail maps, baked once and shared by every skin
+  // material on this rig (one texture pair, disposed in dispose()).
+  private skinMaps: SkinMaps | null = null;
   private hairKey = '';
   private mouthKey = '';
+  private noseKey = '';
   private torsoKey = '';
   private lastHighlight: [string | null, string | null] = [null, null];
 
@@ -347,6 +473,13 @@ export class CharacterRig {
   dispose(): void {
     this.geometries.forEach((g) => g.dispose());
     this.mats.forEach(({material}) => material.dispose());
+    // The shared skin maps are owned by the rig, so dispose them here (the
+    // materials reference but don't own them).
+    if (this.skinMaps) {
+      this.skinMaps.normalMap.dispose();
+      this.skinMaps.roughnessMap.dispose();
+      this.skinMaps = null;
+    }
     this.geometries = [];
     this.mats = [];
     this.meshZones.clear();
@@ -523,13 +656,11 @@ export class CharacterRig {
     });
 
     // ── Nose ──
+    // Width/length stay on the group scale (cheap); bridgeHeight/tip reshape
+    // the lofted geometry, rebuilt only when they change (noseKey).
     const nose = node('nose');
     nose.scale.set(1 + 0.35 * n('nose', 'noseWidth'), 1 + 0.3 * n('nose', 'noseLength'), 1);
-    const bridge = node('noseBridge');
-    bridge.position.z = 0.002 + 0.008 * n('nose', 'bridgeHeight');
-    bridge.scale.z = 1 + 0.5 * Math.max(0, n('nose', 'bridgeHeight'));
-    const tip = node('noseTip');
-    tip.position.set(0, -0.018 + 0.005 * n('nose', 'noseTip'), 0.01 + 0.006 * n('nose', 'noseTip'));
+    this.rebuildNoseIfNeeded(n('nose', 'bridgeHeight'), n('nose', 'noseTip'));
 
     // ── Mouth (parametric tubes — rebuilt only when its inputs change) ──
     this.rebuildMouthIfNeeded({
@@ -657,6 +788,12 @@ export class CharacterRig {
     // keep its contribution moderate so the skin doesn't look plastic.
     material.envMapIntensity = 0.55;
     switch (kind) {
+      case 'skin':
+        // Procedural micro-relief + non-uniform sheen so skin reads as skin,
+        // not plastic. The maps are shared across all skin meshes; the normal
+        // intensity is intentionally small (stylized hint, not a relief).
+        this.applySkinMaps(material);
+        break;
       case 'eyeWhite': material.color.set('#f4f1ec'); material.roughness = 0.25; break;
       case 'iris': material.roughness = 0.2; break;
       case 'pupil': material.color.set('#14100e'); material.roughness = 0.15; break;
@@ -670,6 +807,16 @@ export class CharacterRig {
       default: break;
     }
     return material;
+  }
+
+  /** Attach the shared, lazily-baked skin maps to a skin material. */
+  private applySkinMaps(material: THREE.MeshStandardMaterial): void {
+    if (!this.skinMaps) this.skinMaps = buildSkinMaps();
+    material.normalMap = this.skinMaps.normalMap;
+    // Subtle — a stylized hint of pores, never a "toad". x and y are equal so
+    // the relief reads the same regardless of UV handedness.
+    material.normalScale = new THREE.Vector2(0.35, 0.35);
+    material.roughnessMap = this.skinMaps.roughnessMap;
   }
 
   private mesh(
@@ -822,25 +969,31 @@ export class CharacterRig {
       const m = side === 'L' ? -1 : 1;
       const armRoot = this.group(`armRoot${side}`, chest, m * M.shoulderX, M.shoulderY, 0);
       armRoot.userData.side = side;
-      const shoulderMesh = this.mesh(new THREE.SphereGeometry(0.062, 20, 14), 'skin', 'shoulders');
+      // Deltoid cap: a flattened ellipsoid that sits low over the upper-arm
+      // top ring (r 0.058) and tucks slightly inward/up, so it blends into the
+      // arm instead of reading as a ball stuck on the joint. Radius is matched
+      // to the arm top; the squash + offset remove the old sphere step.
+      const shoulderMesh = this.mesh(this.ellipsoid(0.06, 0.058, 0.06), 'skin', 'shoulders');
+      shoulderMesh.position.set(-m * 0.006, 0.012, 0);
       armRoot.add(shoulderMesh);
       this.nodes[`shoulderMesh${side}`] = shoulderMesh;
 
-      // Upper arm: top open (the shoulder sphere covers the joint), bottom
-      // open at the elbow. Forearm: top open at the elbow (its ring continues
-      // the upper-arm surface), bottom domed at the wrist.
+      // Upper arm: top open (the deltoid cap covers the joint), bottom open at
+      // the elbow. Forearm: top open at the elbow, bottom now ALSO open at the
+      // wrist so the hand continues the surface (no domed stub + capsule).
       const elbow = this.segment(
         armRoot, `upperArm${side}`, 'upper_arm', 0.058, 0.047, M.upperArmLen,
         {top: false, bottom: false},
       );
       const wrist = this.segment(
         elbow, `forearm${side}`, 'forearm', 0.047, 0.035, M.forearmLen,
-        {top: false},
+        {top: false, bottom: false},
       );
-      const handGeo = new THREE.CapsuleGeometry(0.034, 0.062, 5, 10);
-      handGeo.scale(1, 1, 0.55);
-      const handMesh = this.mesh(handGeo, 'skin', 'hand');
-      handMesh.position.y = -0.055;
+      // Lofted hand whose wrist ring matches the forearm's open lower ring
+      // (r 0.035, 18 radial), so the forearm flows into the hand with a gentle
+      // wrist taper. Open top + DoubleSide → no seam at the wrist.
+      const handMesh = this.mesh(handGeometry(0.035, 18), 'skin', 'hand');
+      (handMesh.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
       wrist.add(handMesh);
       this.nodes[`handMesh${side}`] = handMesh;
     });
@@ -851,19 +1004,21 @@ export class CharacterRig {
       const legRoot = this.group(`legRoot${side}`, pelvis, m * M.hipHalfX, -0.02, 0);
       legRoot.userData.side = side;
       // Thigh: top domed (tucks up into the pelvis), bottom open at the knee.
-      // Calf: top open at the knee (continues the thigh), bottom domed at the
-      // ankle (the foot box sits below).
+      // Calf: top open at the knee, bottom now ALSO open at the ankle so the
+      // lofted foot continues the surface (no dome-over-box stub).
       const knee = this.segment(
         legRoot, `thigh${side}`, 'thigh', 0.088, 0.064, M.thighLen,
         {bottom: false},
       );
       const ankle = this.segment(
         knee, `calf${side}`, 'calf', 0.064, 0.044, M.calfLen,
-        {top: false},
+        {top: false, bottom: false},
       );
-      const footGeo = new THREE.BoxGeometry(0.075, 0.052, 0.21);
-      const footMesh = this.mesh(footGeo, 'skin', 'foot');
-      footMesh.position.set(0, -0.085, 0.05);
+      // Lofted foot whose ankle ring matches the calf's open lower ring
+      // (r 0.044, 18 radial): the calf flows into the instep and forward to a
+      // rounded toe instead of a hemisphere over a box.
+      const footMesh = this.mesh(footGeometry(0.044, 18), 'skin', 'foot');
+      (footMesh.material as THREE.MeshStandardMaterial).side = THREE.DoubleSide;
       ankle.add(footMesh);
       this.nodes[`footMesh${side}`] = footMesh;
     });
@@ -911,7 +1066,9 @@ export class CharacterRig {
       eye.add(lid);
       this.nodes[`eyelid${side}`] = lid;
 
-      const brow = this.mesh(new THREE.BoxGeometry(0.04, 0.0068, 0.01), 'brow', 'brows');
+      // Arched, tapered brow (replaces the flat box). Built in local space so
+      // the apply transform (height/angle/thickness) keeps driving it.
+      const brow = this.mesh(browGeometry(m), 'brow', 'brows');
       brow.position.set(m * FACE.eyeX, FACE.browY, FACE.browZ);
       brow.userData.side = side;
       face.add(brow);
@@ -930,16 +1087,13 @@ export class CharacterRig {
       this.nodes[`cheekMesh${side}`] = cheek;
     });
 
-    // Nose.
+    // Nose: one lofted surface (ridge → tip → wings) that leans off the face,
+    // rebuilt parametrically (see rebuildNoseIfNeeded). Replaces the old
+    // box-bridge + sphere-tip, which read as stuck-on parts.
     const nose = this.group('nose', face, 0, FACE.noseY, FACE.noseZ);
-    const bridge = this.mesh(new THREE.BoxGeometry(0.018, 0.04, 0.024), 'skin', 'nose');
-    bridge.position.set(0, 0.004, 0.002);
-    nose.add(bridge);
-    this.nodes.noseBridge = bridge;
-    const noseTip = this.mesh(new THREE.SphereGeometry(0.0125, 14, 10), 'skin', 'nose');
-    noseTip.position.set(0, -0.018, 0.01);
-    nose.add(noseTip);
-    this.nodes.noseTip = noseTip;
+    const noseMesh = this.mesh(noseGeometry(0, 0), 'skin', 'nose');
+    nose.add(noseMesh);
+    this.nodes.noseMesh = noseMesh;
 
     // Mouth: tube meshes whose geometry is rebuilt parametrically.
     const mouth = this.group('mouth', face, 0, FACE.mouthY, FACE.mouthZ);
@@ -1018,6 +1172,14 @@ export class CharacterRig {
     inner.visible = p.open > 0.08;
     inner.scale.set(1 + 0.3 * p.width, 0.4 + 1.6 * p.open, 1);
     inner.position.y = centerY - 0.002 - gap * 0.5;
+  }
+
+  /** Rebuild the lofted nose geometry when bridgeHeight/tip change. */
+  private rebuildNoseIfNeeded(bridgeHeight: number, tip: number): void {
+    const key = `${bridgeHeight.toFixed(3)}|${tip.toFixed(3)}`;
+    if (key === this.noseKey) return;
+    this.noseKey = key;
+    this.swapGeometry(this.nodes.noseMesh as THREE.Mesh, noseGeometry(bridgeHeight, tip));
   }
 
   private rebuildHairIfNeeded(
