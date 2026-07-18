@@ -11,6 +11,7 @@ const CATEGORIES: Array<{key: ZoneGroup; label: string; icon: React.ReactNode}> 
   {key: 'face', label: 'Лицо', icon: <FaceIcon />},
   {key: 'hair', label: 'Волосы', icon: <HairIcon />},
   {key: 'skin', label: 'Кожа', icon: <SkinIcon />},
+  {key: 'clothing', label: 'Одежда', icon: <ClothingIcon />},
   {key: 'pose', label: 'Поза', icon: <PoseIcon />},
 ];
 
@@ -76,6 +77,15 @@ function SkinIcon() {
       <circle cx={14} cy={9} r={0.6} fill="currentColor" />
       <circle cx={15} cy={13} r={0.7} fill="currentColor" />
       <circle cx={10} cy={14} r={0.5} fill="currentColor" />
+    </svg>
+  );
+}
+
+function ClothingIcon() {
+  // A simple t-shirt glyph: collar + body + two sleeves.
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 4 L6 6 L3.5 8.5 L6 11 L7.5 9.5 L7.5 20 L16.5 20 L16.5 9.5 L18 11 L20.5 8.5 L18 6 L15 4 Q12 6 9 4 Z" />
     </svg>
   );
 }

@@ -33,7 +33,7 @@ export interface EditableParameter {
   hint?: string;
 }
 
-export type ZoneGroup = 'body' | 'face' | 'hair' | 'skin' | 'pose';
+export type ZoneGroup = 'body' | 'face' | 'hair' | 'skin' | 'pose' | 'clothing';
 
 export interface EditableZone {
   id: string;
@@ -52,6 +52,7 @@ const HAIR_COLORS = [
   {value: '#1E1A18', label: 'Тёмный шоколад'},
   {value: '#3a2a1f', label: 'Каштан'},
   {value: '#7a4a2a', label: 'Светло-каштановый'},
+  {value: '#c98257', label: 'Клубничный блонд'},
   {value: '#c4a06a', label: 'Блонд'},
 ];
 
@@ -69,6 +70,17 @@ const SKIN_TONES = [
   {value: '#b58a6a', label: 'Загар'},
   {value: '#8a6a55', label: 'Смуглая'},
   {value: '#5a3a2a', label: 'Тёмная'},
+];
+
+// Garment fabric colors for the A5 clothing layer (top / bottom). A fixed
+// palette — like every other swatch here, clothing is analytic/parametric, not
+// AI-generated, so the "no generative nets in the core" invariant holds.
+const CLOTHING_COLORS = [
+  {value: '#3b5266', label: 'Синий'},
+  {value: '#6b3b3b', label: 'Бордовый'},
+  {value: '#2d2d33', label: 'Графит'},
+  {value: '#3b5a3b', label: 'Зелёный'},
+  {value: '#c9b99b', label: 'Бежевый'},
 ];
 
 // hairStyle picks the SILHOUETTE (built as distinct geometry in rig.ts);
@@ -167,12 +179,17 @@ const preset = (
   options,
 });
 
-const toggle = (id: string, label: string, type: ParameterType = 'material'): EditableParameter => ({
+const toggle = (
+  id: string,
+  label: string,
+  type: ParameterType = 'material',
+  defaultValue = false,
+): EditableParameter => ({
   id,
   label,
   type,
   ui: 'toggle',
-  defaultValue: false,
+  defaultValue,
 });
 
 // ─────────── The tree ───────────
@@ -365,6 +382,7 @@ export const ZONE_TREE: EditableZone[] = [
             'morph',
           ),
           morphSlider('cheekbones', 'Скулы'),
+          morphSlider('faceDepth', 'Глубина лица'),
         ],
       },
       {
@@ -500,6 +518,44 @@ export const ZONE_TREE: EditableZone[] = [
           toggle('moles', 'Родинки', 'texture'),
           toggle('scars', 'Шрамы', 'texture'),
           toggle('blush', 'Румянец', 'texture'),
+        ],
+      },
+    ],
+  },
+
+  // ───── Clothing (A5) ─────
+  // A basic top + bottom garment layered on the body. In morph mode (MorphRig)
+  // each garment is a thickened, band-masked copy of the SMPL-X body surface
+  // that tracks the shape morphs; in the procedural engine these zones are
+  // inert (no garment meshes) — both read the same {zone:{param}} doc, so
+  // autofit/save/undo need no special casing. 'enabled' defaults ON so a fresh
+  // character is dressed; 'color' is a fixed fabric palette.
+  {
+    id: 'clothing',
+    label: 'Одежда',
+    group: 'clothing',
+    level: 1,
+    children: [
+      {
+        id: 'clothing_top',
+        label: 'Верх',
+        group: 'clothing',
+        level: 2,
+        parentId: 'clothing',
+        parameters: [
+          toggle('enabled', 'Надеть верх', 'asset', true),
+          swatch('color', 'Цвет', CLOTHING_COLORS, '#3b5266'),
+        ],
+      },
+      {
+        id: 'clothing_bottom',
+        label: 'Низ',
+        group: 'clothing',
+        level: 2,
+        parentId: 'clothing',
+        parameters: [
+          toggle('enabled', 'Надеть низ', 'asset', true),
+          swatch('color', 'Цвет', CLOTHING_COLORS, '#2d2d33'),
         ],
       },
     ],

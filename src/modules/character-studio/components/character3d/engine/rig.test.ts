@@ -688,6 +688,20 @@ describe('mergeSavedParams', () => {
     expect(merged.hair.hairShape).toBe('wavy');
   });
 
+  it('keeps safe measured swatch colors outside the fixed UI palettes', () => {
+    const merged = mergeSavedParams({
+      eyes: {eyeColor: '#5b7084'},
+      hair: {hairColor: '#ebb88e'},
+      skin_color: {skinTone: '#f0c6ad'},
+    });
+    expect(merged.eyes.eyeColor).toBe('#5b7084');
+    expect(merged.hair.hairColor).toBe('#ebb88e');
+    expect(merged.skin_color.skinTone).toBe('#f0c6ad');
+
+    const unsafe = mergeSavedParams({hair: {hairColor: 'url(javascript:bad)'}});
+    expect(unsafe.hair.hairColor).toBe('#1E1A18');
+  });
+
   it('ignores non-object payloads', () => {
     expect(mergeSavedParams(null)).toEqual(buildInitialZoneParams());
     expect(mergeSavedParams([1, 2])).toEqual(buildInitialZoneParams());

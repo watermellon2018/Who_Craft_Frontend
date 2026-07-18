@@ -7,8 +7,8 @@ import {
   SyncOutlined,
   UndoOutlined,
 } from '@ant-design/icons';
-import {EditableZone} from './zones';
-import {EngineMode, ViewAngle} from './CharacterViewport';
+import type {ViewAngle} from './CharacterViewport';
+import type {EditableZone} from './zones';
 
 interface Props {
   selectedZone: EditableZone | null;
@@ -25,10 +25,6 @@ interface Props {
   onSetView?: (angle: ViewAngle) => void;
   onToggleTurntable?: () => void;
   turntableOn?: boolean;
-  // 3D engine switch: procedural mannequin ↔ SMPL morph body (A1). Compare the
-  // two side by side; morph degrades to procedural if its GLB can't load.
-  engine?: EngineMode;
-  onToggleEngine?: () => void;
   onReset: () => void;
   onParameterChange: (zoneId: string, paramId: string, value: number | string | boolean) => void;
   onCancel: () => void;
@@ -66,8 +62,6 @@ const BottomQuickBar: React.FC<Props> = ({
   onSetView,
   onToggleTurntable,
   turntableOn,
-  engine,
-  onToggleEngine,
   onReset,
   onParameterChange,
   onCancel,
@@ -190,21 +184,6 @@ const BottomQuickBar: React.FC<Props> = ({
       </div>
 
       <div className="c3d-bottom__right">
-        {/* Engine switch: procedural mannequin ↔ SMPL morph body (A1). Lives in
-            the always-visible right cluster (not the scrollable left one) so
-            this mode control is never clipped or hidden behind a scroll. */}
-        {onToggleEngine ? (
-          <button
-            type="button"
-            className={`c3d-engine-toggle ${engine === 'morph' ? 'c3d-engine-toggle--morph' : ''}`}
-            onClick={onToggleEngine}
-            title="Движок: примитивы ↔ SMPL-морфы"
-            aria-pressed={engine === 'morph'}
-          >
-            <span className="c3d-engine-toggle__dot" aria-hidden="true" />
-            <span>{engine === 'morph' ? 'SMPL' : 'Примитивы'}</span>
-          </button>
-        ) : null}
         <button type="button" className="c3d-bottom__ghost" onClick={onCancel}>
           Отмена
         </button>

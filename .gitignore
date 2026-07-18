@@ -37,6 +37,8 @@ yarn-error.log*
 # Regenerate body.glb locally with tools/smpl/convert_smpl_to_glb.py.
 /smpl_assets/
 /public/models/*.glb
+# Hunyuan output is generated from user-owned references, not SMPL data.
+!/public/models/reconstructed-head.glb
 
 # Python bytecode cache from the SMPL converter tools.
 tools/**/__pycache__/

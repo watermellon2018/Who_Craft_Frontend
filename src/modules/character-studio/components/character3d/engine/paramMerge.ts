@@ -1,6 +1,8 @@
 import {buildInitialZoneParams, ZONE_INDEX} from '../zones';
 import type {ZoneParams} from './rig';
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
 // Merge parameters loaded from the backend over the registry defaults.
 // Defensive by design: the payload crossed the network and may come from an
 // older client / future registry, so every leaf is type-checked against the
@@ -36,8 +38,11 @@ export function mergeSavedParams(saved: unknown): ZoneParams {
       } else if (typeof param.defaultValue === 'boolean') {
         if (typeof value === 'boolean') out[zoneId][param.id] = value;
       } else if (typeof value === 'string') {
-        // Presets keep only known options; free-form strings (colors) pass.
-        if (!param.options || param.options.some((opt) => opt.value === value)) {
+        // Presets keep only known options. Swatches also accept a measured
+        // autofit color outside the small UI palette, but only as a safe
+        // six-digit hex value.
+        const isMeasuredSwatch = param.ui === 'swatch' && HEX_COLOR.test(value);
+        if (isMeasuredSwatch || !param.options || param.options.some((opt) => opt.value === value)) {
           out[zoneId][param.id] = value;
         }
       }

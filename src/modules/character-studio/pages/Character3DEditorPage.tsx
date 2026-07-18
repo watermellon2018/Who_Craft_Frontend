@@ -3,7 +3,8 @@ import {message} from 'antd';
 import {useNavigate, useParams} from 'react-router-dom';
 import BottomQuickBar from '../components/character3d/BottomQuickBar';
 import CharacterCategoryRail from '../components/character3d/CharacterCategoryRail';
-import CharacterViewport, {EngineMode, ViewAngle, ViewportApi} from '../components/character3d/CharacterViewport';
+import CharacterViewport from '../components/character3d/CharacterViewport';
+import type {ViewAngle, ViewportApi} from '../components/character3d/CharacterViewport';
 import ContextualZonePanel from '../components/character3d/ContextualZonePanel';
 import ReferenceDock from '../components/character3d/ReferenceDock';
 import StepperHeader from '../components/character3d/StepperHeader';
@@ -36,10 +37,12 @@ import './Character3DEditorPage.css';
 //                          (kept here so side-aware parameter application
 //                          can read it without a state shape migration)
 //
-// The viewport renders a parametric Three.js rig (engine/rig.ts): zone
+// The viewport renders the SMPL morph rig (engine/morphRig.ts): zone
 // raycasting, drag-to-edit and camera focus are real; zoneParams is the
 // single source of truth shared with the panel and persisted via
 // characterApi.getModel3D / saveModel3D.
+const MODEL3D_AUTOFIT_VERSION = 5;
+
 const Character3DEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -73,10 +76,6 @@ const Character3DEditorPage: React.FC = () => {
   const [autofitBusy, setAutofitBusy] = useState(false);
   // Turntable on/off — owned here so the toggle button reflects the state.
   const [turntableOn, setTurntableOn] = useState(false);
-  // 3D engine: procedural mannequin (default) ↔ SMPL morph body (A1). The
-  // viewport degrades to procedural if the morph GLB can't load.
-  const [engine, setEngine] = useState<EngineMode>('procedural');
-
   // Commit a new params object: keep the ref mirror in sync and trigger a
   // toolbar re-render. Pure with respect to React state updaters.
   const commitParams = useCallback((next: ZoneParamsState) => {
@@ -109,10 +108,8 @@ const Character3DEditorPage: React.FC = () => {
 
   // ─── Open the 3D stage: load saved state, or auto-fit on the first open ───
   //
-  // The "fit to references" button is gone: the editor seeds itself from the
-  // portrait the very first time it opens (autofit_done=false on the server),
-  // then loads the saved parameters on every open after. A manual reset never
-  // re-triggers autofit, because the server flag stays set.
+  // The editor seeds itself automatically. A newer character-aware autofit may
+  // supplement a legacy sparse fit once; existing saved values remain intact.
   useEffect(() => {
     if (!projectId || !characterId) return;
     let alive = true;
@@ -133,17 +130,13 @@ const Character3DEditorPage: React.FC = () => {
         if (!alive) return;
         const saved = res.data?.params;
         const hasSaved = saved && typeof saved === 'object' && Object.keys(saved).length > 0;
-        if (hasSaved) {
-          adopt(saved);
+        if (hasSaved) adopt(saved);
+        const autofitVersion = Number(res.data?.autofit_version ?? 0);
+        if (res.data?.autofit_done && autofitVersion >= MODEL3D_AUTOFIT_VERSION) {
+          // Current fit (including an intentional empty/reset state): keep it.
           return;
         }
-        if (res.data?.autofit_done) {
-          // Already fitted (and the user may have cleared everything) — the
-          // empty/registry defaults are intentional, don't refit.
-          return;
-        }
-        // First open: seed from references. The server persists the result
-        // and sets autofit_done, so this happens exactly once.
+        // First open, or a one-time upgrade from the old image-only profile.
         setAutofitBusy(true);
         characterApi
           .autofitModel3D(projectId, characterId)
@@ -151,7 +144,7 @@ const Character3DEditorPage: React.FC = () => {
             if (!alive) return;
             adopt(fit.data?.params);
             const warnings: string[] = Array.isArray(fit.data?.warnings) ? fit.data.warnings : [];
-            if (warnings.includes('no_portrait')) return; // nothing to fit from
+            if (warnings.includes('no_portrait')) return; // authored fields were still applied
             // Body proportions come from the full-body reference; the face
             // (and colors) from the portrait. Each can be skipped on its own.
             const bodyFitted = !!fit.data?.params?.shoulders || !!fit.data?.params?.hips;
@@ -433,7 +426,6 @@ const Character3DEditorPage: React.FC = () => {
             onSideChange={setSelectedSide}
             onApiReady={setViewportApi}
             zoneParams={zoneParams}
-            engine={engine}
           />
 
           <ReferenceDock
@@ -482,8 +474,6 @@ const Character3DEditorPage: React.FC = () => {
         onSetView={viewportApi ? handleSetView : undefined}
         onToggleTurntable={viewportApi ? handleToggleTurntable : undefined}
         turntableOn={turntableOn}
-        engine={engine}
-        onToggleEngine={() => setEngine((prev) => (prev === 'morph' ? 'procedural' : 'morph'))}
         onReset={handleGlobalReset}
         onParameterChange={handleParameterChange}
         onCancel={handleCancel}

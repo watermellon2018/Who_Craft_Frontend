@@ -9,16 +9,10 @@ import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {GTAOPass} from 'three/examples/jsm/postprocessing/GTAOPass';
 import {OutlinePass} from 'three/examples/jsm/postprocessing/OutlinePass';
 import {OutputPass} from 'three/examples/jsm/postprocessing/OutputPass';
-import {CharacterRig, Rig, ZoneParams} from './engine/rig';
+import type {Rig, ZoneParams} from './engine/rig';
 import {MorphRig} from './engine/morphRig';
 import {dragBindingFor} from './engine/dragBindings';
 import {resolveSelectableZone} from './engine/zoneSelection';
-
-// Which 3D engine backs the viewport. 'procedural' is the primitive-assembled
-// mannequin (engine/rig.ts); 'morph' loads the SMPL body mesh and drives morph
-// targets (engine/morphRig.ts), falling back to procedural if the GLB can't
-// load. A flag so the two can be compared side by side (A1 plan, Phase 4).
-export type EngineMode = 'procedural' | 'morph';
 
 // Canonical camera angles for reference-frame capture. The video pipeline
 // needs the figure shot head-on / in profile / three-quarter so the same
@@ -52,13 +46,10 @@ interface Props {
   onSideChange?: (side: 'L' | 'R') => void;
   onApiReady?: (api: ViewportApi | null) => void;
   zoneParams: ZoneParams;
-  // Which engine to render with. Defaults to the procedural mannequin; 'morph'
-  // loads the SMPL body and degrades to procedural if the GLB fails to load.
-  engine?: EngineMode;
 }
 
-// Real 3D viewport: React Three Fiber scene around the parametric
-// CharacterRig. Raycasting comes from R3F's pointer events on the rig's
+// Real 3D viewport: React Three Fiber scene around the SMPL MorphRig.
+// Raycasting comes from R3F's pointer events on the rig's
 // meshes; hovering resolves to the zone the click would select (same
 // drill-down rules as the old 2D overlays), and dragging on the selected
 // zone edits its bound parameters directly (see engine/dragBindings.ts).
@@ -74,22 +65,14 @@ const CharacterViewport: React.FC<Props> = ({
   onSideChange,
   onApiReady,
   zoneParams,
-  engine = 'procedural',
 }) => {
-  // The active engine. We always start on the procedural rig (synchronous, no
-  // assets) so the scene is interactive immediately; when engine === 'morph' we
-  // load the SMPL MorphRig in the background and swap it in, keeping procedural
-  // as the fallback if the GLB can't load (degradation, A1 plan Phase 4).
-  const proceduralRig = useMemo(() => new CharacterRig(), []);
-  const [rig, setRig] = useState<Rig>(proceduralRig);
+  const [rig, setRig] = useState<MorphRig | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
-    if (engine !== 'morph') {
-      setRig(proceduralRig);
-      return undefined;
-    }
     let alive = true;
     let loaded: MorphRig | null = null;
+    setLoadFailed(false);
     MorphRig.create()
       .then((morph) => {
         if (!alive) {
@@ -100,19 +83,13 @@ const CharacterViewport: React.FC<Props> = ({
         setRig(morph);
       })
       .catch(() => {
-        // GLB missing/broken → stay on the procedural fallback. No console
-        // (ESLint no-console); the figure simply renders as the mannequin.
-        if (alive) setRig(proceduralRig);
+        if (alive) setLoadFailed(true);
       });
     return () => {
       alive = false;
       if (loaded) loaded.dispose();
     };
-  }, [engine, proceduralRig]);
-
-  // The procedural rig is owned for the viewport's lifetime (it is the fallback
-  // and the default), so dispose it only on unmount.
-  useEffect(() => () => proceduralRig.dispose(), [proceduralRig]);
+  }, []);
 
   const controlsRef = useRef<OrbitControls | null>(null);
   const draggingRef = useRef(false);
@@ -130,19 +107,21 @@ const CharacterViewport: React.FC<Props> = ({
 
   // Parameters → math. The rig mutates its own scene graph; no React re-render.
   useEffect(() => {
-    rig.applyParams(zoneParams);
+    rig?.applyParams(zoneParams);
   }, [rig, zoneParams]);
 
   useEffect(() => {
-    rig.setHighlight(hoveredZoneId, selectedZoneId);
+    rig?.setHighlight(hoveredZoneId, selectedZoneId);
   }, [rig, hoveredZoneId, selectedZoneId]);
 
   const selectedBinding = useMemo(() => dragBindingFor(selectedZoneId), [selectedZoneId]);
   const isZoomed = !!zoomZoneId;
 
   const resolveHit = useCallback(
-    (object: THREE.Object3D | null) =>
-      resolveSelectableZone(rig.resolveZoneFromObject(object), selectedZoneId, ancestorIds),
+    (object: THREE.Object3D | null) => {
+      if (!rig) return null;
+      return resolveSelectableZone(rig.resolveZoneFromObject(object), selectedZoneId, ancestorIds);
+    },
     [rig, selectedZoneId, ancestorIds],
   );
 
@@ -188,7 +167,7 @@ const CharacterViewport: React.FC<Props> = ({
   // ─── Direct manipulation: drag on the selected zone edits parameters ───
   const handlePointerDown = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
-      if (!onParameterChange || !selectedZoneId || !selectedBinding) return;
+      if (!rig || !onParameterChange || !selectedZoneId || !selectedBinding) return;
       if (event.button !== 0) return;
       const zone = resolveHit(event.object);
       if (zone !== selectedZoneId) return;
@@ -196,7 +175,7 @@ const CharacterViewport: React.FC<Props> = ({
       event.stopPropagation();
       // With symmetry off, the drag edits the half that was grabbed — pulling
       // the left arm changes the left arm. The side selector follows along.
-      const grabbedSide = editSide ? rig.resolveSideFromObject(event.object) ?? editSide : null;
+      const grabbedSide = editSide ? rig.resolveSideFromObject() ?? editSide : null;
       if (grabbedSide && onSideChange && grabbedSide !== editSide) onSideChange(grabbedSide);
       const native = event.nativeEvent;
       const canvas = native.target as HTMLElement;
@@ -306,34 +285,40 @@ const CharacterViewport: React.FC<Props> = ({
         </mesh>
         <gridHelper args={[3.7, 26, '#4a3f1e', '#1d1a12']} position-y={0.001} />
 
-        <primitive
-          object={rig.root}
-          onPointerMove={handlePointerMove}
-          onPointerOut={handlePointerOut}
-          onPointerDown={handlePointerDown}
-          onClick={handleClick}
-        />
+        {rig ? (
+          <primitive
+            object={rig.root}
+            onPointerMove={handlePointerMove}
+            onPointerOut={handlePointerOut}
+            onPointerDown={handlePointerDown}
+            onClick={handleClick}
+          />
+        ) : null}
 
         <Controls controlsRef={controlsRef} />
-        <CameraDirector
-          rig={rig}
-          zoomZoneId={zoomZoneId}
-          controlsRef={controlsRef}
-          controlRef={cameraControlRef}
-        />
-        <IdleMotion rig={rig} />
-        <HighlightOutline
-          rig={rig}
-          composerRef={composerRef}
-          hoveredZoneId={hoveredZoneId}
-          selectedZoneId={selectedZoneId}
-        />
-        <ApiBridge
-          rig={rig}
-          composerRef={composerRef}
-          cameraControlRef={cameraControlRef}
-          onApiReady={onApiReady}
-        />
+        {rig ? (
+          <>
+            <CameraDirector
+              rig={rig}
+              zoomZoneId={zoomZoneId}
+              controlsRef={controlsRef}
+              controlRef={cameraControlRef}
+            />
+            <IdleMotion rig={rig} />
+            <HighlightOutline
+              rig={rig}
+              composerRef={composerRef}
+              hoveredZoneId={hoveredZoneId}
+              selectedZoneId={selectedZoneId}
+            />
+            <ApiBridge
+              rig={rig}
+              composerRef={composerRef}
+              cameraControlRef={cameraControlRef}
+              onApiReady={onApiReady}
+            />
+          </>
+        ) : null}
       </Canvas>
       </div>
 
@@ -342,7 +327,15 @@ const CharacterViewport: React.FC<Props> = ({
           panel already communicates selection and zoom state. */}
 
       {/* Hints. */}
-      {!selectedZoneId ? (
+      {!rig ? (
+        <div className="c3d-empty-hint">
+          <span>
+            {loadFailed
+              ? 'Не удалось загрузить SMPL-модель. Обновите страницу и попробуйте снова'
+              : 'Загружаем SMPL-модель персонажа…'}
+          </span>
+        </div>
+      ) : !selectedZoneId ? (
         <div className="c3d-empty-hint">
           <span>Кликните на часть персонажа, чтобы редактировать её · Вращайте сцену мышью</span>
         </div>
