@@ -13,6 +13,10 @@ import cv2
 import numpy as np
 
 
+MAX_FOREGROUND_RATIO = 0.72
+MAX_BORDER_FOREGROUND_RATIO = 0.08
+
+
 @dataclass(frozen=True)
 class FaceBox:
     """Face bounding box in source-image pixel coordinates."""
@@ -36,7 +40,7 @@ class FaceBox:
 def _parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--metrics", required=True, type=Path)
+    parser.add_argument("--metrics", type=Path)
     parser.add_argument("--front", required=True, type=Path)
     parser.add_argument("--left", required=True, type=Path)
     parser.add_argument("--out-dir", required=True, type=Path)
@@ -86,6 +90,44 @@ def _read_image(path: Path) -> np.ndarray:
     return image
 
 
+def _heuristic_face_box(image_shape: tuple[int, ...]) -> FaceBox:
+    """Return a conservative upper-centre face box when detection fails."""
+    height, width = image_shape[:2]
+    return FaceBox(
+        left=width * 0.32,
+        top=height * 0.08,
+        right=width * 0.68,
+        bottom=height * 0.50,
+    )
+
+
+def _detect_face_box(image: np.ndarray) -> FaceBox:
+    """Detect one face with MediaPipe, falling back for stylized references."""
+    try:
+        import mediapipe
+
+        with mediapipe.solutions.face_mesh.FaceMesh(
+            static_image_mode=True,
+            max_num_faces=1,
+            refine_landmarks=False,
+            min_detection_confidence=0.4,
+        ) as face_mesh:
+            result = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    except (AttributeError, ImportError, RuntimeError, ValueError):
+        return _heuristic_face_box(image.shape)
+
+    if not result.multi_face_landmarks:
+        return _heuristic_face_box(image.shape)
+    height, width = image.shape[:2]
+    points = result.multi_face_landmarks[0].landmark
+    xs = [float(point.x) * width for point in points]
+    ys = [float(point.y) * height for point in points]
+    box = FaceBox(min(xs), min(ys), max(xs), max(ys))
+    if box.width < 8.0 or box.height < 8.0:
+        return _heuristic_face_box(image.shape)
+    return box
+
+
 def _square_crop_bounds(
     box: FaceBox,
     image_shape: tuple[int, ...],
@@ -93,7 +135,7 @@ def _square_crop_bounds(
     """Build a head-and-hair square around a detected face."""
     height, width = image_shape[:2]
     side = int(round(max(box.width * 2.0, box.height * 2.0)))
-    side = max(side, 64)
+    side = min(max(side, 64), height, width)
     center_x = (box.left + box.right) * 0.5
     center_y = (box.top + box.bottom) * 0.5
     left = int(round(center_x - side * 0.5))
@@ -135,6 +177,63 @@ def _component_intersecting_face(
     return np.where(labels == selected, 255, 0).astype(np.uint8)
 
 
+def _foreground_is_suspicious(alpha: np.ndarray) -> bool:
+    """Return whether a mask still contains a large part of the background."""
+    foreground = alpha > 127
+    border = np.concatenate(
+        (
+            foreground[0],
+            foreground[-1],
+            foreground[1:-1, 0],
+            foreground[1:-1, -1],
+        )
+    )
+    return bool(
+        np.mean(foreground) > MAX_FOREGROUND_RATIO
+        or np.mean(border) > MAX_BORDER_FOREGROUND_RATIO
+    )
+
+
+def _grabcut_foreground_alpha(
+    image: np.ndarray,
+    local_face: tuple[int, int, int, int],
+) -> np.ndarray:
+    """Segment a centred character when a gradient defeats colour distance."""
+    height, width = image.shape[:2]
+    margin_x = max(2, int(round(width * 0.035)))
+    margin_y = max(2, int(round(height * 0.01)))
+    rectangle = (
+        margin_x,
+        margin_y,
+        width - 2 * margin_x,
+        height - 2 * margin_y,
+    )
+    mask = np.full((height, width), cv2.GC_BGD, dtype=np.uint8)
+    background_model = np.zeros((1, 65), dtype=np.float64)
+    foreground_model = np.zeros((1, 65), dtype=np.float64)
+    try:
+        cv2.grabCut(
+            image,
+            mask,
+            rectangle,
+            background_model,
+            foreground_model,
+            7,
+            cv2.GC_INIT_WITH_RECT,
+        )
+    except cv2.error as error:
+        raise RuntimeError("GrabCut could not segment the reference") from error
+    binary = np.where(
+        (mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD),
+        255,
+        0,
+    ).astype(np.uint8)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    binary = _component_intersecting_face(binary, local_face)
+    return cv2.GaussianBlur(binary, (5, 5), 0)
+
+
 def _foreground_alpha(
     image: np.ndarray,
     local_face: tuple[int, int, int, int],
@@ -166,9 +265,12 @@ def _foreground_alpha(
         0.0,
         1.0,
     )
-    return (
+    alpha = (
         soft_alpha * (binary.astype(np.float32) / 255.0) * 255.0
     ).round().astype(np.uint8)
+    if _foreground_is_suspicious(alpha):
+        return _grabcut_foreground_alpha(image, local_face)
+    return alpha
 
 
 def _save_prepared_view(
@@ -227,7 +329,7 @@ def _save_prepared_view(
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     """Prepare front and left views and write their metadata."""
-    metrics = _read_metrics(args.metrics)
+    metrics = _read_metrics(args.metrics) if args.metrics else None
     output_dir = args.out_dir.resolve()
     prepared_dir = output_dir / "inputs"
     preview_dir = output_dir / "mask-previews"
@@ -235,10 +337,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "front": (args.front, "portrait"),
         "left": (args.left, "profile"),
     }
+
+    def box_for(source_path: Path, metrics_name: str) -> FaceBox:
+        if metrics is not None:
+            return _face_box(metrics, metrics_name)
+        return _detect_face_box(_read_image(source_path))
+
     views = {
         output_name: _save_prepared_view(
             source_path=source_path,
-            box=_face_box(metrics, metrics_name),
+            box=box_for(source_path, metrics_name),
             output_path=prepared_dir / f"{output_name}.png",
             preview_path=preview_dir / f"{output_name}.png",
             size=args.size,
@@ -247,7 +355,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         for output_name, (source_path, metrics_name) in sources.items()
     }
     report = {
-        "method": "facemesh_box_background_distance_v1",
+        "method": (
+            "facemesh_box_background_distance_grabcut_v3"
+            if metrics is not None
+            else "live_facemesh_or_heuristic_background_distance_grabcut_v3"
+        ),
         "views": views,
         "known_limitations": [
             (

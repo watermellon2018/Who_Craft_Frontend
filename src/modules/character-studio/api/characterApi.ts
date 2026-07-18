@@ -2,6 +2,8 @@ import api from '../../../api/http';
 import {
   CreateCharacterFromReferencePayload,
   EditRequest,
+  Model3DReconstruction,
+  Model3DState,
   ReferenceType,
   ZoneEditRequest,
 } from '../types/character.types';
@@ -74,13 +76,18 @@ export const characterApi = {
     return api.get(`api/generation-jobs/${jobId}`);
   },
   getModel3D(projectId: string | number, characterId: string) {
-    return api.get(`${base(projectId, characterId)}/model3d`);
+    return api.get<Model3DState>(`${base(projectId, characterId)}/model3d`);
   },
   saveModel3D(projectId: string | number, characterId: string, params: Record<string, unknown>) {
     return api.put(`${base(projectId, characterId)}/model3d`, { params });
   },
   autofitModel3D(projectId: string | number, characterId: string) {
     return api.post(`${base(projectId, characterId)}/model3d/autofit`);
+  },
+  retryModel3DReconstruction(projectId: string | number, characterId: string) {
+    return api.post<{reconstruction: Model3DReconstruction}>(
+      `${base(projectId, characterId)}/model3d/reconstruction`,
+    );
   },
   applyVariant(
     projectId: string | number,

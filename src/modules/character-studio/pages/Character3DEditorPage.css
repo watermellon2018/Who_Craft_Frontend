@@ -706,6 +706,79 @@
   animation: c3d-hint-in 800ms 0.2s ease both;
 }
 
+.c3d-empty-hint--model-status {
+  bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(520px, calc(100% - 48px));
+  border-radius: 16px;
+  text-align: center;
+}
+
+.c3d-empty-hint__copy {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.c3d-empty-hint__copy small {
+  color: var(--c3d-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.c3d-model-progress {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.c3d-model-progress > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 3%;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--c3d-accent), var(--c3d-accent-2));
+  box-shadow: 0 0 14px var(--c3d-accent-glow);
+  transition: width 500ms ease;
+}
+
+.c3d-model-progress > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.55), transparent 80%);
+  animation: c3d-model-progress-shimmer 1.4s linear infinite;
+}
+
+@keyframes c3d-model-progress-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.c3d-empty-hint__retry {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid rgba(245, 180, 0, 0.55);
+  border-radius: 999px;
+  background: rgba(245, 180, 0, 0.14);
+  color: var(--c3d-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.c3d-empty-hint__retry:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 /* ───── Contextual inspector (right) ─────────────────────────────── */
 /*
  * Layout contract:

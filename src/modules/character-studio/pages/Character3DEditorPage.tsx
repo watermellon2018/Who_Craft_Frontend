@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {message} from 'antd';
+import {backendAssetUrl} from '../../../api/http';
 import {useNavigate, useParams} from 'react-router-dom';
 import BottomQuickBar from '../components/character3d/BottomQuickBar';
 import CharacterCategoryRail from '../components/character3d/CharacterCategoryRail';
@@ -20,6 +21,7 @@ import {
 
 const MOCK_CHARACTER_NAME = 'Персонаж';
 import {characterApi} from '../api/characterApi';
+import type {Model3DReconstruction} from '../types/character.types';
 import {collapseSideOverrides, mergeSavedParams} from '../components/character3d/engine/paramMerge';
 import {useCharacter} from '../hooks/useCharacter';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
@@ -74,6 +76,8 @@ const Character3DEditorPage: React.FC = () => {
   const [, setHistoryVersion] = useState(0);
   const [viewportApi, setViewportApi] = useState<ViewportApi | null>(null);
   const [autofitBusy, setAutofitBusy] = useState(false);
+  const [reconstruction, setReconstruction] = useState<Model3DReconstruction | null>(null);
+  const [reconstructionRetryBusy, setReconstructionRetryBusy] = useState(false);
   // Turntable on/off — owned here so the toggle button reflects the state.
   const [turntableOn, setTurntableOn] = useState(false);
   // Commit a new params object: keep the ref mirror in sync and trigger a
@@ -128,6 +132,7 @@ const Character3DEditorPage: React.FC = () => {
       .getModel3D(projectId, characterId)
       .then((res) => {
         if (!alive) return;
+        setReconstruction(res.data?.reconstruction ?? null);
         const saved = res.data?.params;
         const hasSaved = saved && typeof saved === 'object' && Object.keys(saved).length > 0;
         if (hasSaved) adopt(saved);
@@ -143,24 +148,6 @@ const Character3DEditorPage: React.FC = () => {
           .then((fit) => {
             if (!alive) return;
             adopt(fit.data?.params);
-            const warnings: string[] = Array.isArray(fit.data?.warnings) ? fit.data.warnings : [];
-            if (warnings.includes('no_portrait')) return; // authored fields were still applied
-            // Body proportions come from the full-body reference; the face
-            // (and colors) from the portrait. Each can be skipped on its own.
-            const bodyFitted = !!fit.data?.params?.shoulders || !!fit.data?.params?.hips;
-            if (warnings.includes('landmarks_unavailable')) {
-              message.info(
-                bodyFitted
-                  ? 'Фигура и цвета подобраны по фото — черты лица настройте слайдерами'
-                  : 'Цвета подобраны по фото — пропорции лица настройте слайдерами',
-              );
-            } else {
-              message.success(
-                bodyFitted
-                  ? 'Лицо и фигура подогнаны по референсам — доработайте слайдерами'
-                  : 'Лицо подогнано по референсам — фигуру настройте слайдерами',
-              );
-            }
           })
           .catch(() => {
             // Autofit is best-effort; defaults stand if it fails.
@@ -171,11 +158,43 @@ const Character3DEditorPage: React.FC = () => {
       })
       .catch(() => {
         // No saved state (or transient error) — the registry defaults stand.
+        if (alive) {
+          setReconstruction((current) => current ?? {
+            status: 'failed',
+            progress: 0,
+            job_id: null,
+            asset_id: null,
+            model_url: null,
+            error_message: 'Не удалось получить статус 3D-реконструкции.',
+          });
+        }
       });
     return () => {
       alive = false;
     };
   }, [projectId, characterId]);
+
+  // Hunyuan generation is a detached GPU job and can take several minutes.
+  // Poll only while it is active; a ready URL stops polling and is loaded once.
+  useEffect(() => {
+    if (!projectId || !characterId) return;
+    if (reconstruction?.status !== 'queued' && reconstruction?.status !== 'processing') return;
+    let alive = true;
+    const timer = window.setInterval(() => {
+      characterApi
+        .getModel3D(projectId, characterId)
+        .then((response) => {
+          if (alive) setReconstruction(response.data.reconstruction);
+        })
+        .catch(() => {
+          // Keep the last known state; the next polling tick can recover.
+        });
+    }, 4000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [projectId, characterId, reconstruction?.status]);
 
   // ─── Derived state ───
   const selectedZone: EditableZone | null = useMemo(() => findZone(selectedZoneId), [selectedZoneId]);
@@ -382,7 +401,21 @@ const Character3DEditorPage: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [zoomZoneId, selectedZoneId, handleSelectZone]);
 
+  const handleRetryReconstruction = useCallback(() => {
+    if (!projectId || !characterId || reconstructionRetryBusy) return;
+    setReconstructionRetryBusy(true);
+    characterApi
+      .retryModel3DReconstruction(projectId, characterId)
+      .then((response) => setReconstruction(response.data.reconstruction))
+      .catch(() => message.error('Не удалось перезапустить 3D-реконструкцию'))
+      .finally(() => setReconstructionRetryBusy(false));
+  }, [projectId, characterId, reconstructionRetryBusy]);
+
   const characterName = character?.name || MOCK_CHARACTER_NAME;
+  const reconstructedHeadUrl =
+    reconstruction?.status === 'ready' && reconstruction.model_url
+      ? backendAssetUrl(reconstruction.model_url)
+      : null;
 
   const handleBack = () => {
     if (characterId && projectId) {
@@ -426,6 +459,12 @@ const Character3DEditorPage: React.FC = () => {
             onSideChange={setSelectedSide}
             onApiReady={setViewportApi}
             zoneParams={zoneParams}
+            reconstructedHeadUrl={reconstructedHeadUrl}
+            reconstructionStatus={reconstruction?.status}
+            reconstructionProgress={reconstruction?.progress ?? 0}
+            reconstructionError={reconstruction?.error_message}
+            reconstructionRetryBusy={reconstructionRetryBusy}
+            onRetryReconstruction={handleRetryReconstruction}
           />
 
           <ReferenceDock

@@ -36,6 +36,12 @@ class ViewPreparationTests(unittest.TestCase):
         self.assertLessEqual(bottom, 160)
         self.assertEqual(right - left, bottom - top)
 
+    def test_oversized_face_crop_is_clamped_to_a_square(self) -> None:
+        box = FaceBox(left=240.0, top=100.0, right=520.0, bottom=700.0)
+        left, top, right, bottom = _square_crop_bounds(box, (1376, 768, 3))
+        self.assertEqual(right - left, bottom - top)
+        self.assertEqual(right - left, 768)
+
     def test_background_distance_keeps_coloured_subject(self) -> None:
         image = np.full((128, 128, 3), 205, dtype=np.uint8)
         cv2.ellipse(
@@ -51,6 +57,30 @@ class ViewPreparationTests(unittest.TestCase):
         alpha = _foreground_alpha(image, (45, 35, 83, 80), 12.0)
         self.assertGreater(int(alpha[58, 64]), 240)
         self.assertEqual(int(alpha[0, 0]), 0)
+
+    def test_gradient_background_uses_grabcut_fallback(self) -> None:
+        gradient = np.linspace(110, 220, 160, dtype=np.uint8)
+        image = np.repeat(gradient[None, :, None], 160, axis=0)
+        image = np.repeat(image, 3, axis=2)
+        cv2.ellipse(
+            image,
+            (80, 72),
+            (38, 55),
+            0.0,
+            0.0,
+            360.0,
+            (55, 120, 215),
+            thickness=-1,
+        )
+
+        alpha = _foreground_alpha(image, (58, 42, 102, 105), 12.0)
+
+        border = np.concatenate(
+            (alpha[0], alpha[-1], alpha[:, 0], alpha[:, -1])
+        )
+        self.assertGreater(int(alpha[72, 80]), 240)
+        self.assertLess(float(np.mean(alpha > 127)), 0.45)
+        self.assertEqual(int(np.count_nonzero(border > 127)), 0)
 
 
 class BenchmarkValidationTests(unittest.TestCase):

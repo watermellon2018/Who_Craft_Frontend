@@ -206,6 +206,30 @@ export interface GenerationJob {
   variants: CharacterVariant[];
 }
 
+export type Model3DReconstructionStatus =
+  | 'missing'
+  | 'queued'
+  | 'processing'
+  | 'ready'
+  | 'failed';
+
+export interface Model3DReconstruction {
+  status: Model3DReconstructionStatus;
+  progress: number;
+  job_id: string | null;
+  asset_id: string | null;
+  model_url: string | null;
+  error_message: string;
+}
+
+export interface Model3DState {
+  params: Record<string, Record<string, number | string | boolean>>;
+  reconstruction: Model3DReconstruction;
+  autofit_done: boolean;
+  autofit_version: number;
+  updated_at: string;
+}
+
 export interface EditRequest {
   region: CharacterRegion;
   image_type?: CharacterImageType;
@@ -326,6 +350,7 @@ export interface ProceedTo3DResponse {
   next_stage?: string;
   next_url?: string;
   locked_reference_ids?: string[];
+  reconstruction?: Model3DReconstruction;
   blockers?: string[];
   checklist?: ReferencesChecklist;
 }

@@ -140,6 +140,28 @@ def _write_metadata(path: Path, metadata: dict[str, Any]) -> None:
         handle.write("\n")
 
 
+def _enable_cpu_offload(pipeline: Any) -> None:
+    """Bridge the pinned Hunyuan pipeline to its Diffusers-style offloader.
+
+    The pinned upstream class implements ``enable_model_cpu_offload`` but does
+    not expose the ``components`` mapping that its own method reads.  Populate
+    only that missing contract locally so the 6 GB development GPU can run the
+    model without modifying the vendored Hunyuan checkout.
+    """
+    if not hasattr(pipeline, "components"):
+        pipeline.components = {
+            "conditioner": pipeline.conditioner,
+            "model": pipeline.model,
+            "vae": pipeline.vae,
+        }
+    pipeline.enable_model_cpu_offload(device="cuda")
+    # Upstream __call__ reads ``self.device`` directly (instead of the
+    # offload hook's execution device). Keep tensors on CUDA while hooks move
+    # each model component between CPU and GPU.
+    import torch
+    pipeline.device = torch.device("cuda")
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     """Load Hunyuan3D-2mv, generate one mesh, and record diagnostics."""
     settings = BenchmarkSettings(
@@ -235,7 +257,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             dtype=torch.float16,
         )
         if settings.cpu_offload:
-            pipeline.enable_model_cpu_offload(device="cuda")
+            _enable_cpu_offload(pipeline)
         generator = torch.Generator(device="cpu").manual_seed(settings.seed)
         generated = pipeline(
             image=images,

@@ -46,6 +46,12 @@ interface Props {
   onSideChange?: (side: 'L' | 'R') => void;
   onApiReady?: (api: ViewportApi | null) => void;
   zoneParams: ZoneParams;
+  reconstructedHeadUrl: string | null;
+  reconstructionStatus?: 'missing' | 'queued' | 'processing' | 'ready' | 'failed';
+  reconstructionProgress?: number;
+  reconstructionError?: string;
+  reconstructionRetryBusy?: boolean;
+  onRetryReconstruction?: () => void;
 }
 
 // Real 3D viewport: React Three Fiber scene around the SMPL MorphRig.
@@ -65,15 +71,35 @@ const CharacterViewport: React.FC<Props> = ({
   onSideChange,
   onApiReady,
   zoneParams,
+  reconstructedHeadUrl,
+  reconstructionStatus,
+  reconstructionProgress = 0,
+  reconstructionError,
+  reconstructionRetryBusy = false,
+  onRetryReconstruction,
 }) => {
   const [rig, setRig] = useState<MorphRig | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const reconstructionInProgress =
+    reconstructionStatus === 'queued' || reconstructionStatus === 'processing';
+  const boundedReconstructionProgress = Math.max(
+    0,
+    Math.min(100, reconstructionProgress),
+  );
+  const visibleReconstructionProgress = Math.max(
+    reconstructionStatus === 'queued' ? 3 : 0,
+    boundedReconstructionProgress,
+  );
 
   useEffect(() => {
     let alive = true;
     let loaded: MorphRig | null = null;
+    setRig(null);
     setLoadFailed(false);
-    MorphRig.create()
+    // A null URL means the personalized reconstruction is still pending (or
+    // failed). Never show the old shared demo head for a different character.
+    if (!reconstructedHeadUrl) return undefined;
+    MorphRig.create(undefined, reconstructedHeadUrl)
       .then((morph) => {
         if (!alive) {
           morph.dispose();
@@ -89,7 +115,7 @@ const CharacterViewport: React.FC<Props> = ({
       alive = false;
       if (loaded) loaded.dispose();
     };
-  }, []);
+  }, [reconstructedHeadUrl]);
 
   const controlsRef = useRef<OrbitControls | null>(null);
   const draggingRef = useRef(false);
@@ -328,12 +354,46 @@ const CharacterViewport: React.FC<Props> = ({
 
       {/* Hints. */}
       {!rig ? (
-        <div className="c3d-empty-hint">
-          <span>
-            {loadFailed
-              ? 'Не удалось загрузить SMPL-модель. Обновите страницу и попробуйте снова'
-              : 'Загружаем SMPL-модель персонажа…'}
-          </span>
+        <div className="c3d-empty-hint c3d-empty-hint--model-status">
+          <div className="c3d-empty-hint__copy">
+            <span>
+              {loadFailed
+                ? 'Персональная модель готова, но GLB не удалось загрузить. Обновите страницу'
+                : reconstructionStatus === 'failed'
+                  ? reconstructionError || 'Не удалось создать 3D-модель по референсам'
+                  : reconstructionStatus === 'missing'
+                    ? 'Сначала завершите и подтвердите этап референсов'
+                    : reconstructionStatus === 'ready'
+                      ? 'Загружаем персональную 3D-модель…'
+                      : `Воссоздаём лицо и волосы по референсам — ${boundedReconstructionProgress}%`}
+            </span>
+            {reconstructionInProgress ? (
+              <>
+                <div
+                  className="c3d-model-progress"
+                  role="progressbar"
+                  aria-label="Создание персональной 3D-модели"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={boundedReconstructionProgress}
+                >
+                  <span style={{width: `${visibleReconstructionProgress}%`}} />
+                </div>
+                <small>Создание продолжается в фоне и может занять несколько минут.</small>
+              </>
+            ) : null}
+          </div>
+          {reconstructionStatus === 'failed' && onRetryReconstruction ? (
+            <button
+              type="button"
+              className="c3d-empty-hint__retry"
+              disabled={reconstructionRetryBusy}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={onRetryReconstruction}
+            >
+              {reconstructionRetryBusy ? 'Перезапускаем…' : 'Повторить'}
+            </button>
+          ) : null}
         </div>
       ) : !selectedZoneId ? (
         <div className="c3d-empty-hint">
