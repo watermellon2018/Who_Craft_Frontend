@@ -220,6 +220,27 @@ const HAIR_STYLE_PROFILES: Record<string, HairStyleProfile> = {
 
 const hairStyleProfileFor = (style: string): HairStyleProfile =>
   HAIR_STYLE_PROFILES[style] ?? HAIR_STYLE_PROFILES.default;
+
+interface ReconstructedHairStyleProfile {
+  backSweep: number;
+  crownLift: number;
+  length: number;
+  sideTuck: number;
+  volume: number;
+}
+
+const RECONSTRUCTED_HAIR_STYLE_PROFILES: Record<string, ReconstructedHairStyleProfile> = {
+  default: {backSweep: 0, crownLift: 0, length: 0, sideTuck: 0, volume: 0},
+  long: {backSweep: 0, crownLift: 0, length: 0.04, sideTuck: 0, volume: 0.01},
+  bob: {backSweep: 0, crownLift: 0, length: -0.03, sideTuck: -0.02, volume: 0.04},
+  ponytail: {backSweep: 0.07, crownLift: 0.01, length: 0.01, sideTuck: 0.09, volume: -0.03},
+  bun: {backSweep: 0.09, crownLift: 0.05, length: -0.05, sideTuck: 0.12, volume: -0.04},
+  afro: {backSweep: 0, crownLift: 0.08, length: -0.01, sideTuck: -0.04, volume: 0.18},
+  none: {backSweep: 0, crownLift: 0, length: 0, sideTuck: 0, volume: 0},
+};
+
+const reconstructedHairStyleProfileFor = (style: string): ReconstructedHairStyleProfile =>
+  RECONSTRUCTED_HAIR_STYLE_PROFILES[style] ?? RECONSTRUCTED_HAIR_STYLE_PROFILES.default;
 // Resting face landmark centers baked into the GLB by the converter (from the
 // SMPL-X facial landmarks). Used to place LIVE-colored overlays — iris, lips,
 // brows — on the real face so the color stays editable from the palette.
@@ -748,9 +769,69 @@ export class MorphRig implements Rig {
     return mb;
   }
 
-  /** Apply hair style/color/length/volume to the SMPL-native scalp shells. */
+  /** Deform the separate reconstructed hair asset while preserving its reference silhouette. */
+  private updateReconstructedHair(params: ZoneParams): void {
+    const head = this.reconstructedHead;
+    if (!head) return;
+    const hair = params.hair ?? {};
+    const style = typeof hair.hairStyle === 'string' ? hair.hairStyle : 'default';
+    const length = typeof hair.hairLength === 'number' ? clamp(hair.hairLength, 0, 1) : 0.5;
+    const volume = typeof hair.hairVolume === 'number' ? clamp(hair.hairVolume) : 0;
+    head.hairGroup.visible = style !== 'none' && head.hairMeshes.length > 0;
+    if (!head.hairGroup.visible) return;
+
+    const profile = reconstructedHairStyleProfileFor(style);
+    const size = head.hairBounds.getSize(new THREE.Vector3());
+    const center = head.hairBounds.getCenter(new THREE.Vector3());
+    const height = Math.max(size.y, 1e-6);
+    const halfWidth = Math.max(size.x * 0.5, 1e-6);
+    const depth = Math.max(size.z, 1e-6);
+    const lengthFactor = (length - 0.5) * 0.2 + profile.length;
+    const volumeFactor = volume * 0.12 + profile.volume;
+    const {backSweep, crownLift, sideTuck} = profile;
+    const localPoint = new THREE.Vector3();
+
+    for (const surface of head.hairSurfaces) {
+      const position = surface.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+      const localBounds = new THREE.Box3();
+      for (let vertex = 0; vertex < position.count; vertex++) {
+        const offset = vertex * 3;
+        const baseX = surface.baseCanonicalPositions[offset];
+        const baseY = surface.baseCanonicalPositions[offset + 1];
+        const baseZ = surface.baseCanonicalPositions[offset + 2];
+        const dx = baseX - center.x;
+        const dz = baseZ - center.z;
+        const lowerWeight = smooth01((head.hairBounds.max.y - baseY) / (height * 0.78));
+        const crownWeight = smooth01(
+          (baseY - (head.hairBounds.max.y - height * 0.42)) / (height * 0.42),
+        );
+        const sideWeight = smooth01(Math.abs(dx) / (halfWidth * 0.9));
+        const backWeight = smooth01((center.z - baseZ) / (depth * 0.7) + 0.5);
+        const radialScale = volumeFactor * (0.32 + lowerWeight * 0.68) + crownLift * crownWeight;
+
+        let x = baseX + dx * radialScale;
+        let y = baseY - height * lengthFactor * Math.pow(lowerWeight, 1.35);
+        let z = baseZ + dz * radialScale;
+        x -= dx * sideTuck * lowerWeight * sideWeight;
+        y += height * crownLift * crownWeight;
+        z -= depth * backSweep * lowerWeight * (0.25 + backWeight * 0.75);
+
+        localPoint.set(x, y, z).applyMatrix4(surface.localFromCanonical);
+        position.setXYZ(vertex, localPoint.x, localPoint.y, localPoint.z);
+        localBounds.expandByPoint(localPoint);
+      }
+      position.needsUpdate = true;
+      surface.mesh.geometry.boundingBox = localBounds;
+      surface.mesh.geometry.boundingSphere = localBounds.getBoundingSphere(new THREE.Sphere());
+    }
+  }
+
+  /** Apply hair style/color/length/volume to the active hair asset. */
   private updateHair(params: ZoneParams, mb: Float32Array): void {
-    if (this.reconstructedHead) return;
+    if (this.reconstructedHead) {
+      this.updateReconstructedHair(params);
+      return;
+    }
     if (!this.hairSlots.length) return;
     const hair = params.hair ?? {};
     const style = typeof hair.hairStyle === 'string' ? hair.hairStyle : 'default';
@@ -927,12 +1008,156 @@ export class MorphRig implements Rig {
     this.smplHeadRadius = Math.max(0.05, halfW, halfD);
   }
 
+  /** Apply reference-derived proportions to the visible reconstructed surface. */
+  private applyReconstructedFaceGeometry(params: ZoneParams): void {
+    const head = this.reconstructedHead;
+    if (!head) return;
+    const numberParam = (zone: string, id: string): number => {
+      const value = params[zone]?.[id];
+      return typeof value === 'number' && Number.isFinite(value) ? clamp(value) : 0;
+    };
+
+    const faceSize = head.faceBounds.getSize(new THREE.Vector3());
+    const [leftEye, rightEye] = head.eyes.canonicalPositions;
+    const eyeCenterX = (leftEye.x + rightEye.x) / 2;
+    const eyeY = (leftEye.y + rightEye.y) / 2;
+    const eyeSpan = Math.max(Math.abs(leftEye.x - rightEye.x), faceSize.x * 0.32, 1e-6);
+    const chinY = head.faceBounds.min.y;
+    const foreheadY = head.faceBounds.max.y;
+    const faceHeight = Math.max(foreheadY - chinY, eyeSpan * 1.7, 1e-6);
+    const faceHalfWidth = Math.max(faceSize.x * 0.5, eyeSpan * 0.78);
+    const mouthY = chinY + (eyeY - chinY) * 0.42;
+
+    const shapeName =
+      typeof params.face_shape?.shape === 'string' ? params.face_shape.shape : 'oval';
+    const shape = {
+      heart: {cheek: 0.08, jaw: -0.09, chin: -0.15},
+      oval: {cheek: 0, jaw: 0, chin: 0},
+      round: {cheek: 0.09, jaw: 0.06, chin: 0.05},
+      square: {cheek: 0.04, jaw: 0.13, chin: 0.14},
+    }[shapeName] ?? {cheek: 0, jaw: 0, chin: 0};
+
+    const cheekbones = numberParam('face_shape', 'cheekbones');
+    const faceDepth = numberParam('face_shape', 'faceDepth');
+    const jawWidth = numberParam('jaw_chin', 'jawWidth');
+    const chinLength = numberParam('jaw_chin', 'chinLength');
+    const chinShape = numberParam('jaw_chin', 'chinShape');
+    const eyeSize = numberParam('eyes', 'eyeSize');
+    const eyeDistance = numberParam('eyes', 'eyeDistance');
+    const eyeTilt = numberParam('eyes', 'eyeTilt');
+    const noseLength = numberParam('nose', 'noseLength');
+    const noseWidth = numberParam('nose', 'noseWidth');
+    const noseTip = numberParam('nose', 'noseTip');
+    const bridgeHeight = numberParam('nose', 'bridgeHeight');
+    const mouthWidth = numberParam('mouth', 'mouthWidth');
+    const upperLip = numberParam('mouth', 'upperLip');
+    const lowerLip = numberParam('mouth', 'lowerLip');
+    const cornerLift = numberParam('mouth', 'cornerLift');
+    const localPoint = new THREE.Vector3();
+
+    for (const surface of head.faceSurfaces) {
+      const position = surface.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+      for (let index = 0; index < surface.faceVertexIndices.length; index++) {
+        const vertex = surface.faceVertexIndices[index];
+        const offset = index * 3;
+        const baseX = surface.baseCanonicalPositions[offset];
+        const baseY = surface.baseCanonicalPositions[offset + 1];
+        const baseZ = surface.baseCanonicalPositions[offset + 2];
+        const faceWeight = surface.faceWeights[index];
+        const originalDx = baseX - eyeCenterX;
+        const normalizedY = (baseY - chinY) / faceHeight;
+        let x = baseX;
+        let y = baseY;
+        let z = baseZ;
+
+        const cheekWeight = bell(normalizedY, 0.56, 0.32) * faceWeight;
+        const jawWeight = bell(normalizedY, 0.2, 0.28) * faceWeight;
+        const chinWeight = bell(normalizedY, 0.04, 0.16) * faceWeight;
+        const widthFactor =
+          shape.cheek * cheekWeight
+          + shape.jaw * jawWeight
+          + shape.chin * chinWeight
+          + 0.12 * jawWidth * jawWeight
+          + 0.08 * cheekbones * cheekWeight
+          + 0.16 * chinShape * chinWeight;
+        x += originalDx * widthFactor;
+        y -= faceHeight * 0.07 * chinLength * chinWeight;
+        z += faceHeight * (
+          0.075 * faceDepth * faceWeight
+          + 0.05 * Math.max(0, cheekbones) * cheekWeight
+          + 0.04 * chinShape * chinWeight
+        );
+
+        const noseCenterY = mouthY + (eyeY - mouthY) * 0.46;
+        const noseWeight =
+          bell(baseX, eyeCenterX, Math.max(eyeSpan * 0.43, faceHalfWidth * 0.22))
+          * bell(baseY, noseCenterY, faceHeight * 0.23)
+          * faceWeight;
+        if (noseWeight > 0) {
+          x += originalDx * 0.3 * noseWidth * noseWeight;
+          const bridgeY = eyeY - faceHeight * 0.05;
+          y += (baseY - bridgeY) * 0.18 * noseLength * noseWeight;
+          const tipWeight = bell(baseY, noseCenterY - faceHeight * 0.025, faceHeight * 0.16);
+          const bridgeWeight = bell(baseY, eyeY - faceHeight * 0.05, faceHeight * 0.12);
+          z += faceHeight * (
+            0.085 * noseTip * tipWeight
+            + 0.055 * bridgeHeight * bridgeWeight
+          ) * bell(baseX, eyeCenterX, eyeSpan * 0.3) * faceWeight;
+        }
+
+        const mouthRegion =
+          bell(baseX, eyeCenterX, eyeSpan * 0.86)
+          * bell(baseY, mouthY, faceHeight * 0.1)
+          * faceWeight;
+        if (mouthRegion > 0) {
+          x += originalDx * 0.22 * mouthWidth * mouthRegion;
+          const upperWeight = bell(baseY, mouthY + faceHeight * 0.012, faceHeight * 0.05);
+          const lowerWeight = bell(baseY, mouthY - faceHeight * 0.015, faceHeight * 0.055);
+          z += faceHeight * 0.035 * (
+            upperLip * upperWeight + lowerLip * lowerWeight
+          ) * bell(baseX, eyeCenterX, eyeSpan * 0.68) * faceWeight;
+          const cornerWeight = smooth01(
+            (Math.abs(originalDx) - eyeSpan * 0.25) / (eyeSpan * 0.38),
+          );
+          y += faceHeight * 0.025 * cornerLift * cornerWeight * mouthRegion;
+        }
+
+        for (const eye of [leftEye, rightEye]) {
+          const dx = baseX - eye.x;
+          const dy = baseY - eye.y;
+          const radius = Math.hypot(
+            dx / Math.max(head.eyes.radius * 1.65, 1e-6),
+            dy / Math.max(head.eyes.radius * 0.95, 1e-6),
+          );
+          const eyeWeight = smooth01(1 - radius) * faceWeight;
+          if (eyeWeight <= 0) continue;
+          const side = Math.sign(eye.x - eyeCenterX) || 1;
+          const angle = -side * eyeTilt * 0.18;
+          const scale = 1 + eyeSize * 0.22;
+          const rotatedX = (dx * Math.cos(angle) - dy * Math.sin(angle)) * scale;
+          const rotatedY = (dx * Math.sin(angle) + dy * Math.cos(angle)) * scale;
+          x += (
+            rotatedX - dx + side * head.eyes.span * 0.13 * eyeDistance
+          ) * eyeWeight;
+          y += (rotatedY - dy) * eyeWeight;
+        }
+
+        localPoint.set(x, y, z).applyMatrix4(surface.localFromCanonical);
+        position.setXYZ(vertex, localPoint.x, localPoint.y, localPoint.z);
+      }
+      // Reconstructed heads can exceed 800k vertices. The deformation is
+      // deliberately local and bounded, so retaining the imported smooth
+      // normals/bounds avoids a full-mesh CPU pass on every slider event.
+      position.needsUpdate = true;
+    }
+  }
+
   /** Apply Sims-style local deformations directly to the SMPL-X face surface. */
   private applyFaceGeometry(params: ZoneParams): void {
-    // The reconstructed head owns the visible face. Its topology does not match
-    // the SMPL-X vertex regions or landmark overlays below, so driving those
-    // hidden controls would only produce detached eyes/lips over the new mesh.
-    if (this.reconstructedHead) return;
+    if (this.reconstructedHead) {
+      this.applyReconstructedFaceGeometry(params);
+      return;
+    }
 
     const anchors = this.faceAnchors;
     const base = this.faceBasePositions;
@@ -1198,6 +1423,11 @@ export class MorphRig implements Rig {
       const eyeBox = new THREE.Box3().setFromObject(this.reconstructedHead.eyes.group);
       if (!eyeBox.isEmpty()) return eyeBox;
     }
+    if (this.reconstructedHead && zoneId === 'hair') {
+      this.reconstructedHead.hairGroup.updateMatrixWorld(true);
+      const hairBox = new THREE.Box3().setFromObject(this.reconstructedHead.hairGroup);
+      if (!hairBox.isEmpty()) return hairBox;
+    }
     if (this.reconstructedHead && this.isReconstructedHeadZone(zoneId)) {
       this.reconstructedHead.root.updateMatrixWorld(true);
       const headBox = this.reconstructedHead.bounds.clone().applyMatrix4(this.reconstructedHead.root.matrixWorld);
@@ -1263,7 +1493,8 @@ export class MorphRig implements Rig {
     if (!this.mesh.visible) return {selected: [], hovered: []};
     const hairMeshes = (): THREE.Mesh[] => {
       if (this.reconstructedHead) {
-        return this.reconstructedHead.meshes.filter((mesh) => mesh.visible);
+        if (!this.reconstructedHead.hairGroup.visible) return [];
+        return this.reconstructedHead.hairMeshes.filter((mesh) => mesh.visible);
       }
       const out: THREE.Mesh[] = [];
       this.hairGroup?.traverse((o) => {
@@ -1272,6 +1503,8 @@ export class MorphRig implements Rig {
       });
       return out;
     };
+    const reconstructedFaceMeshes = (): THREE.Mesh[] =>
+      this.reconstructedHead?.skinMeshes.filter((mesh) => mesh.visible) ?? [];
     const reconstructedEyeMeshes = (): THREE.Mesh[] =>
       this.reconstructedHead?.eyes.meshes.filter((mesh) => mesh.visible) ?? [];
     if (selected === 'eyes' && this.reconstructedHead) {
@@ -1283,10 +1516,10 @@ export class MorphRig implements Rig {
     if (selected === 'hair') return {selected: hairMeshes(), hovered: []};
     if (hovered === 'hair') return {selected: [], hovered: hairMeshes()};
     if (selected && this.isReconstructedHeadZone(selected)) {
-      return {selected: hairMeshes(), hovered: []};
+      return {selected: reconstructedFaceMeshes(), hovered: []};
     }
     if (hovered && this.isReconstructedHeadZone(hovered)) {
-      return {selected: [], hovered: hairMeshes()};
+      return {selected: [], hovered: reconstructedFaceMeshes()};
     }
     // Clothing zones outline their own garment mesh (only while it's visible).
     const garment = (zone: string | null): THREE.Mesh[] => {
@@ -1400,7 +1633,9 @@ export class MorphRig implements Rig {
     if (name === 'reconstructed_eyes' || name === 'eyes') {
       return this.reconstructedHead?.eyes.group;
     }
-    if (name === 'hair' && this.reconstructedHead) return this.reconstructedHead.root;
+    if ((name === 'hair' || name === 'reconstructed_hair') && this.reconstructedHead) {
+      return this.reconstructedHead.hairGroup;
+    }
     if (name === 'hair' || name === 'smpl_hair_anchor') return this.hairGroup ?? undefined;
     const h = this.hairSlots.find((s) => s.id === name || s.mesh.name === name);
     if (h) return h.mesh;

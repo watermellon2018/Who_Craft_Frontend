@@ -76,13 +76,18 @@ const makeBody = (): THREE.Mesh => {
 describe('reconstructed head integration', () => {
   it('crops the generated plinth and creates editable skin/hair groups', () => {
     const prepared = prepareReconstructedHead(makeReconstructedHead());
-    const mesh = prepared.meshes[0];
+    const skinMesh = prepared.skinMeshes[0];
+    const hairMesh = prepared.hairMeshes[0];
 
-    expect(mesh.geometry.getIndex()?.count).toBe(6);
-    expect(mesh.geometry.groups).toEqual([
-      {start: 0, count: 3, materialIndex: 0},
-      {start: 3, count: 3, materialIndex: 1},
-    ]);
+    expect(prepared.skinMeshes).toHaveLength(1);
+    expect(prepared.hairMeshes).toHaveLength(1);
+    expect(skinMesh.geometry.getIndex()?.count).toBe(3);
+    expect(hairMesh.geometry.getIndex()?.count).toBe(3);
+    expect(skinMesh.material).toBe(prepared.skinMaterial);
+    expect(hairMesh.material).toBe(prepared.hairMaterial);
+    expect(prepared.hairGroup.children).toEqual([hairMesh]);
+    expect(skinMesh.userData.zoneId).toBe('face');
+    expect(hairMesh.userData.zoneId).toBe('hair');
     expect(prepared.bounds.min.y).toBeCloseTo(0.14, 6);
     expect(prepared.bounds.max.y).toBeCloseTo(0.29, 6);
     expect(prepared.root.userData.zoneId).toBe('face');
@@ -99,6 +104,11 @@ describe('reconstructed head integration', () => {
     });
     expect(prepared.eyes.basePositions[0].x).toBeLessThan(prepared.eyes.basePositions[1].x);
     expect(prepared.eyes.basePositions[0].y).toBeCloseTo(prepared.eyes.basePositions[1].y, 6);
+    expect(prepared.faceSurfaces).toHaveLength(1);
+    expect(Array.from(prepared.faceSurfaces[0].faceVertexIndices)).toEqual([0, 1, 2]);
+    expect(Array.from(prepared.faceSurfaces[0].faceWeights).every((weight) => weight > 0)).toBe(true);
+    expect(prepared.hairSurfaces).toHaveLength(1);
+    expect(prepared.hairSurfaces[0].baseCanonicalPositions).toHaveLength(9);
 
     disposeReconstructedHead(prepared);
   });
@@ -155,7 +165,18 @@ describe('reconstructed head integration', () => {
     const rightEye = reconstructedEyes.children[1] as THREE.Group;
     const initialLeftX = leftEye.position.x;
     const initialRightX = rightEye.position.x;
+    const headMesh = head.children[0] as THREE.Mesh;
+    const hairGroup = rig.nodeByName('reconstructed_hair') as THREE.Group;
+    const hairMesh = hairGroup.children[0] as THREE.Mesh;
+    const headPositions = headMesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const hairPositions = hairMesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const initialFaceDepth = headPositions.getZ(1);
+    const initialHairDepth = hairPositions.getZ(1);
+    const initialHairX = hairPositions.getX(0);
+    const initialHairY = hairPositions.getY(0);
     const params = buildInitialZoneParams();
+    rig.applyParams(params);
+    params.face_shape = {...params.face_shape, faceDepth: 1};
     params.hair = {...params.hair, hairColor: '#d08045'};
     params.eyes = {
       ...params.eyes,
@@ -165,10 +186,33 @@ describe('reconstructed head integration', () => {
       eyeTilt: 1,
     };
     rig.applyParams(params);
-    const headMesh = head.children[0] as THREE.Mesh;
-    const materials = headMesh.material as THREE.MeshStandardMaterial[];
-    expect(materials).toHaveLength(2);
-    expect(materials[1].color.getHexString()).toBe('d08045');
+    expect((hairMesh.material as THREE.MeshStandardMaterial).color.getHexString()).toBe('d08045');
+    expect(headPositions.getZ(1)).toBeGreaterThan(initialFaceDepth);
+    expect(hairPositions.getZ(1)).toBeCloseTo(initialHairDepth, 7);
+    params.face_shape = {...params.face_shape, faceDepth: 0};
+    rig.applyParams(params);
+    expect(headPositions.getZ(1)).toBeCloseTo(initialFaceDepth, 7);
+    expect(hairPositions.getZ(1)).toBeCloseTo(initialHairDepth, 7);
+
+    params.hair = {...params.hair, hairLength: 1, hairVolume: 1};
+    rig.applyParams(params);
+    expect(hairPositions.getY(0)).toBeLessThan(initialHairY);
+    expect(hairPositions.getX(0)).toBeLessThan(initialHairX);
+    expect(headPositions.getZ(1)).toBeCloseTo(initialFaceDepth, 7);
+    params.hair = {...params.hair, hairLength: 0.5, hairVolume: 0};
+    rig.applyParams(params);
+    expect(hairPositions.getX(0)).toBeCloseTo(initialHairX, 7);
+    expect(hairPositions.getY(0)).toBeCloseTo(initialHairY, 7);
+    params.hair = {...params.hair, hairStyle: 'afro'};
+    rig.applyParams(params);
+    expect(hairPositions.getX(0)).toBeLessThan(initialHairX);
+    params.hair = {...params.hair, hairStyle: 'none'};
+    rig.applyParams(params);
+    expect(hairGroup.visible).toBe(false);
+    params.hair = {...params.hair, hairStyle: 'default'};
+    rig.applyParams(params);
+    expect(hairGroup.visible).toBe(true);
+    expect(hairPositions.getX(0)).toBeCloseTo(initialHairX, 7);
     const iris = reconstructedEyes.getObjectByName('reconstructed_eye_left_iris') as THREE.Mesh;
     expect((iris.material as THREE.MeshStandardMaterial).color.getHexString()).toBe('244a2a');
     expect(leftEye.position.x).toBeLessThan(initialLeftX);
@@ -176,6 +220,10 @@ describe('reconstructed head integration', () => {
     expect(leftEye.scale.x).toBeGreaterThan(1);
     expect(leftEye.rotation.z).toBeGreaterThan(0);
     expect(rightEye.rotation.z).toBeLessThan(0);
+    rig.setHighlight(null, 'hair');
+    expect(rig.highlightedMeshes().selected).toEqual([hairMesh]);
+    rig.setHighlight(null, 'face');
+    expect(rig.highlightedMeshes().selected).toEqual([headMesh]);
     rig.setHighlight(null, 'eyes');
     expect(rig.highlightedMeshes().selected).toHaveLength(6);
 

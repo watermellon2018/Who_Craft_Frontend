@@ -9,6 +9,7 @@ export const RECONSTRUCTED_HEAD_CUT_Y = 0.045;
 
 export interface PreparedReconstructedEyes {
   basePositions: [THREE.Vector3, THREE.Vector3];
+  canonicalPositions: [THREE.Vector3, THREE.Vector3];
   geometries: THREE.BufferGeometry[];
   group: THREE.Group;
   irisMaterial: THREE.MeshStandardMaterial;
@@ -19,12 +20,33 @@ export interface PreparedReconstructedEyes {
   span: number;
 }
 
+export interface PreparedReconstructedFaceSurface {
+  baseCanonicalPositions: Float32Array;
+  faceVertexIndices: Uint32Array;
+  faceWeights: Float32Array;
+  localFromCanonical: THREE.Matrix4;
+  mesh: THREE.Mesh;
+}
+
+export interface PreparedReconstructedHairSurface {
+  baseCanonicalPositions: Float32Array;
+  localFromCanonical: THREE.Matrix4;
+  mesh: THREE.Mesh;
+}
+
 export interface PreparedReconstructedHead {
   bounds: THREE.Box3;
   eyes: PreparedReconstructedEyes;
+  faceBounds: THREE.Box3;
+  faceSurfaces: PreparedReconstructedFaceSurface[];
+  hairBounds: THREE.Box3;
+  hairGroup: THREE.Group;
   hairMaterial: THREE.MeshStandardMaterial;
+  hairMeshes: THREE.Mesh[];
+  hairSurfaces: PreparedReconstructedHairSurface[];
   meshes: THREE.Mesh[];
   root: THREE.Object3D;
+  skinMeshes: THREE.Mesh[];
   skinMaterial: THREE.MeshStandardMaterial;
 }
 
@@ -48,6 +70,20 @@ const isFacePoint = (x: number, y: number, z: number): boolean => {
   );
 };
 
+const reconstructedFaceWeight = (x: number, y: number, z: number): number => {
+  if (!isFacePoint(x, y, z)) return 0;
+  const faceVertical = (y - 0.175) / 0.082;
+  const faceHalfWidth = Math.max(
+    0.027,
+    0.068 * Math.sqrt(Math.max(0, 1 - faceVertical * faceVertical)),
+  );
+  const horizontalFade = Math.max(0, Math.min(1, (faceHalfWidth - Math.abs(x)) / 0.012));
+  const lowerFade = Math.max(0, Math.min(1, (y - 0.088) / 0.018));
+  const upperFade = Math.max(0, Math.min(1, (0.263 - y) / 0.022));
+  const depthFade = Math.max(0, Math.min(1, (z - 0.012) / 0.025));
+  return horizontalFade * lowerFade * upperFade * depthFade;
+};
+
 const isSkinPoint = (x: number, y: number, z: number): boolean => {
   const ear =
     y >= 0.13
@@ -62,6 +98,66 @@ const isSkinPoint = (x: number, y: number, z: number): boolean => {
 const sourceIndices = (geometry: THREE.BufferGeometry): ArrayLike<number> => {
   const index = geometry.getIndex();
   return index ? index.array : Array.from({length: geometry.getAttribute('position').count}, (_, i) => i);
+};
+
+const attributeComponent = (
+  attribute: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
+  index: number,
+  component: number,
+): number => {
+  if (component === 0) return attribute.getX(index);
+  if (component === 1) return attribute.getY(index);
+  if (component === 2) return attribute.getZ(index);
+  if (component === 3) return attribute.getW(index);
+  return 0;
+};
+
+/** Copy only the vertices used by one semantic region instead of duplicating an 800k-vertex head. */
+const extractGeometry = (
+  source: THREE.BufferGeometry,
+  triangleIndices: number[],
+): THREE.BufferGeometry => {
+  const geometry = new THREE.BufferGeometry();
+  const sourceVertices: number[] = [];
+  const compactIndices = new Uint32Array(triangleIndices.length);
+  const sourceVertexCount = source.getAttribute('position').count;
+  const remappedVertices = new Int32Array(sourceVertexCount);
+  remappedVertices.fill(-1);
+
+  for (let index = 0; index < triangleIndices.length; index++) {
+    const sourceVertex = triangleIndices[index];
+    let compactVertex = remappedVertices[sourceVertex];
+    if (compactVertex < 0) {
+      compactVertex = sourceVertices.length;
+      remappedVertices[sourceVertex] = compactVertex;
+      sourceVertices.push(sourceVertex);
+    }
+    compactIndices[index] = compactVertex;
+  }
+
+  for (const [name, attribute] of Object.entries(source.attributes)) {
+    const values = new Float32Array(sourceVertices.length * attribute.itemSize);
+    for (let vertex = 0; vertex < sourceVertices.length; vertex++) {
+      for (let component = 0; component < attribute.itemSize; component++) {
+        values[vertex * attribute.itemSize + component] = attributeComponent(
+          attribute,
+          sourceVertices[vertex],
+          component,
+        );
+      }
+    }
+    geometry.setAttribute(
+      name,
+      new THREE.BufferAttribute(values, attribute.itemSize, attribute.normalized),
+    );
+  }
+  geometry.setIndex(new THREE.BufferAttribute(compactIndices, 1));
+  if (!geometry.getAttribute('normal') && geometry.getAttribute('position')) {
+    geometry.computeVertexNormals();
+  }
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
 };
 
 const percentile = (values: number[], fraction: number): number => {
@@ -203,6 +299,7 @@ const buildReconstructedEyes = (
   group.userData.zoneId = 'eyes';
   const roots: THREE.Group[] = [];
   const basePositions: THREE.Vector3[] = [];
+  const canonicalPositions: THREE.Vector3[] = [];
   const eyeMeshes: THREE.Mesh[] = [];
 
   for (const side of [-1, 1] as const) {
@@ -240,12 +337,14 @@ const buildReconstructedEyes = (
     group.add(eyeRoot);
     roots.push(eyeRoot);
     basePositions.push(localPosition.clone());
+    canonicalPositions.push(worldPosition);
     eyeMeshes.push(sclera, iris, pupil);
   }
 
   root.add(group);
   return {
     basePositions: basePositions as [THREE.Vector3, THREE.Vector3],
+    canonicalPositions: canonicalPositions as [THREE.Vector3, THREE.Vector3],
     geometries,
     group,
     irisMaterial,
@@ -280,8 +379,9 @@ export const keepGeometryBelowY = (
 };
 
 /**
- * Remove the generated plinth, split the fused mesh into skin/hair material
- * groups, and tag it for the existing Character Studio selection system.
+ * Remove the generated plinth and turn Hunyuan's fused surface into two real
+ * runtime assets. Skin keeps the source-node transform; hair is compacted into
+ * a dedicated root-local group so it can be selected and deformed independently.
  */
 export const prepareReconstructedHead = (
   root: THREE.Object3D,
@@ -299,25 +399,43 @@ export const prepareReconstructedHead = (
   skinMaterial.envMapIntensity = 0.5;
   hairMaterial.envMapIntensity = 0.35;
 
+  const importedGeometries = new Set<THREE.BufferGeometry>();
   const importedMaterials = new Set<THREE.Material>();
   const meshes: THREE.Mesh[] = [];
+  const skinMeshes: THREE.Mesh[] = [];
+  const hairMeshes: THREE.Mesh[] = [];
+  const faceSurfaces: PreparedReconstructedFaceSurface[] = [];
+  const hairSurfaces: PreparedReconstructedHairSurface[] = [];
   const centroid = new THREE.Vector3();
   const point = new THREE.Vector3();
   const visibleBounds = new THREE.Box3();
   const faceBounds = new THREE.Box3();
-  root.updateMatrixWorld(true);
+  const hairBounds = new THREE.Box3();
+  const hairGroup = new THREE.Group();
+  hairGroup.name = 'reconstructed_hair';
+  hairGroup.userData.zoneId = 'hair';
 
+  root.updateMatrixWorld(true);
+  const rootWorldInverse = root.matrixWorld.clone().invert();
+  const sourceMeshes: THREE.Mesh[] = [];
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    const geometry = mesh.geometry;
-    const position = geometry.getAttribute('position') as THREE.BufferAttribute | undefined;
-    if (!position) return;
+    if (mesh.isMesh) sourceMeshes.push(mesh);
+  });
 
+  for (let meshIndex = 0; meshIndex < sourceMeshes.length; meshIndex++) {
+    const mesh = sourceMeshes[meshIndex];
+    const sourceGeometry = mesh.geometry;
+    const sourcePosition = sourceGeometry.getAttribute('position') as
+      | THREE.BufferAttribute
+      | undefined;
+    if (!sourcePosition) continue;
+
+    importedGeometries.add(sourceGeometry);
     const oldMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     oldMaterials.forEach((material) => importedMaterials.add(material));
 
-    const indices = sourceIndices(geometry);
+    const indices = sourceIndices(sourceGeometry);
     const skinIndices: number[] = [];
     const hairIndices: number[] = [];
     for (let offset = 0; offset + 2 < indices.length; offset += 3) {
@@ -326,51 +444,105 @@ export const prepareReconstructedHead = (
       const c = indices[offset + 2];
       centroid
         .set(
-          (position.getX(a) + position.getX(b) + position.getX(c)) / 3,
-          (position.getY(a) + position.getY(b) + position.getY(c)) / 3,
-          (position.getZ(a) + position.getZ(b) + position.getZ(c)) / 3,
+          (sourcePosition.getX(a) + sourcePosition.getX(b) + sourcePosition.getX(c)) / 3,
+          (sourcePosition.getY(a) + sourcePosition.getY(b) + sourcePosition.getY(c)) / 3,
+          (sourcePosition.getZ(a) + sourcePosition.getZ(b) + sourcePosition.getZ(c)) / 3,
         )
         .applyMatrix4(mesh.matrixWorld);
       if (centroid.y < RECONSTRUCTED_HEAD_CUT_Y) continue;
-      const isFace = isFacePoint(centroid.x, centroid.y, centroid.z);
-      pushTriangle(isSkinPoint(centroid.x, centroid.y, centroid.z) ? skinIndices : hairIndices, a, b, c);
-      if (isFace) {
-        for (const vertex of [a, b, c]) {
-          point
-            .set(position.getX(vertex), position.getY(vertex), position.getZ(vertex))
-            .applyMatrix4(mesh.matrixWorld);
-          faceBounds.expandByPoint(point);
-        }
+
+      const target = isSkinPoint(centroid.x, centroid.y, centroid.z)
+        ? skinIndices
+        : hairIndices;
+      pushTriangle(target, a, b, c);
+      for (const vertex of [a, b, c]) {
+        point
+          .set(
+            sourcePosition.getX(vertex),
+            sourcePosition.getY(vertex),
+            sourcePosition.getZ(vertex),
+          )
+          .applyMatrix4(mesh.matrixWorld);
+        visibleBounds.expandByPoint(point);
+        if (target === hairIndices) hairBounds.expandByPoint(point);
+        if (isFacePoint(centroid.x, centroid.y, centroid.z)) faceBounds.expandByPoint(point);
       }
     }
 
-    const combined = new Uint32Array(skinIndices.length + hairIndices.length);
-    combined.set(skinIndices);
-    combined.set(hairIndices, skinIndices.length);
-    for (let offset = 0; offset < combined.length; offset++) {
-      const vertex = combined[offset];
-      point
-        .set(position.getX(vertex), position.getY(vertex), position.getZ(vertex))
-        .applyMatrix4(mesh.matrixWorld);
-      visibleBounds.expandByPoint(point);
+    if (skinIndices.length) {
+      const skinGeometry = extractGeometry(sourceGeometry, skinIndices);
+      mesh.geometry = skinGeometry;
+      mesh.material = skinMaterial;
+      mesh.name = `${mesh.name || `reconstructed_surface_${meshIndex}`}_skin`;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData.zoneId = 'face';
+      mesh.visible = true;
+      meshes.push(mesh);
+      skinMeshes.push(mesh);
+
+      const canonicalFromLocal = mesh.matrixWorld.clone();
+      const localFromCanonical = canonicalFromLocal.clone().invert();
+      const position = skinGeometry.getAttribute('position') as THREE.BufferAttribute;
+      const baseCanonicalPositions: number[] = [];
+      const faceVertexIndices: number[] = [];
+      const faceWeights: number[] = [];
+      for (let vertex = 0; vertex < position.count; vertex++) {
+        point
+          .set(position.getX(vertex), position.getY(vertex), position.getZ(vertex))
+          .applyMatrix4(canonicalFromLocal);
+        const weight = reconstructedFaceWeight(point.x, point.y, point.z);
+        if (weight <= 0) continue;
+        faceVertexIndices.push(vertex);
+        faceWeights.push(weight);
+        baseCanonicalPositions.push(point.x, point.y, point.z);
+      }
+      faceSurfaces.push({
+        baseCanonicalPositions: new Float32Array(baseCanonicalPositions),
+        faceVertexIndices: new Uint32Array(faceVertexIndices),
+        faceWeights: new Float32Array(faceWeights),
+        localFromCanonical,
+        mesh,
+      });
+    } else {
+      mesh.geometry = new THREE.BufferGeometry();
+      mesh.material = skinMaterial;
+      mesh.visible = false;
+      meshes.push(mesh);
     }
-    geometry.setIndex(new THREE.BufferAttribute(combined, 1));
-    geometry.clearGroups();
-    if (skinIndices.length) geometry.addGroup(0, skinIndices.length, 0);
-    if (hairIndices.length) geometry.addGroup(skinIndices.length, hairIndices.length, 1);
-    geometry.computeVertexNormals();
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
 
-    mesh.material = [skinMaterial, hairMaterial];
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.userData.zoneId = 'face';
-    meshes.push(mesh);
-  });
+    if (hairIndices.length) {
+      const hairGeometry = extractGeometry(sourceGeometry, hairIndices);
+      const sourceToRoot = rootWorldInverse.clone().multiply(mesh.matrixWorld);
+      hairGeometry.applyMatrix4(sourceToRoot);
+      const hairMesh = new THREE.Mesh(hairGeometry, hairMaterial);
+      hairMesh.name = `${mesh.name || `reconstructed_surface_${meshIndex}`}_hair`;
+      hairMesh.castShadow = true;
+      hairMesh.receiveShadow = true;
+      hairMesh.userData.zoneId = 'hair';
+      hairGroup.add(hairMesh);
+      meshes.push(hairMesh);
+      hairMeshes.push(hairMesh);
 
+      const position = hairGeometry.getAttribute('position') as THREE.BufferAttribute;
+      const baseCanonicalPositions = new Float32Array(position.count * 3);
+      for (let vertex = 0; vertex < position.count; vertex++) {
+        const offset = vertex * 3;
+        baseCanonicalPositions[offset] = position.getX(vertex);
+        baseCanonicalPositions[offset + 1] = position.getY(vertex);
+        baseCanonicalPositions[offset + 2] = position.getZ(vertex);
+      }
+      hairSurfaces.push({
+        baseCanonicalPositions,
+        localFromCanonical: new THREE.Matrix4(),
+        mesh: hairMesh,
+      });
+    }
+  }
+
+  importedGeometries.forEach((geometry) => geometry.dispose());
   importedMaterials.forEach((material) => material.dispose());
-  if (!meshes.length) {
+  if (!skinMeshes.length && !hairMeshes.length) {
     skinMaterial.dispose();
     hairMaterial.dispose();
     throw new Error('Reconstructed head GLB contained no mesh');
@@ -378,6 +550,7 @@ export const prepareReconstructedHead = (
 
   root.name = 'reconstructed_head';
   root.userData.zoneId = 'face';
+  root.add(hairGroup);
   const bounds = visibleBounds;
   if (bounds.isEmpty()) {
     skinMaterial.dispose();
@@ -386,9 +559,23 @@ export const prepareReconstructedHead = (
   }
 
   const eyeFaceBounds = faceBounds.isEmpty() ? bounds : faceBounds;
-  const eyes = buildReconstructedEyes(root, eyeFaceBounds, meshes);
+  const eyes = buildReconstructedEyes(root, eyeFaceBounds, skinMeshes);
 
-  return {bounds, eyes, hairMaterial, meshes, root, skinMaterial};
+  return {
+    bounds,
+    eyes,
+    faceBounds: eyeFaceBounds.clone(),
+    faceSurfaces,
+    hairBounds,
+    hairGroup,
+    hairMaterial,
+    hairMeshes,
+    hairSurfaces,
+    meshes,
+    root,
+    skinMeshes,
+    skinMaterial,
+  };
 };
 
 export const disposeReconstructedHead = (head: PreparedReconstructedHead): void => {
