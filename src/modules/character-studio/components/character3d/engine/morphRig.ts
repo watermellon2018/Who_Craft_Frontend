@@ -1108,6 +1108,27 @@ export class MorphRig implements Rig {
 
   // ─────────── Public API (mirrors CharacterRig) ───────────
 
+  /** Apply reference-derived eye proportions to the reconstructed eye assets. */
+  private updateReconstructedEyes(params: ZoneParams): void {
+    const eyes = this.reconstructedHead?.eyes;
+    if (!eyes) return;
+    const numberParam = (id: string): number => {
+      const value = params.eyes?.[id];
+      return typeof value === 'number' && Number.isFinite(value) ? clamp(value) : 0;
+    };
+    const eyeDistance = numberParam('eyeDistance');
+    const eyeSize = numberParam('eyeSize');
+    const eyeTilt = numberParam('eyeTilt');
+
+    eyes.roots.forEach((eyeRoot, index) => {
+      const side = index === 0 ? -1 : 1;
+      eyeRoot.position.copy(eyes.basePositions[index]);
+      eyeRoot.position.x += side * eyes.span * 0.13 * eyeDistance;
+      eyeRoot.rotation.set(0, 0, -side * eyeTilt * 0.18);
+      eyeRoot.scale.setScalar(1 + eyeSize * 0.22);
+    });
+  }
+
   /** Replace the rendered SMPL head with the normalized reconstruction. */
   attachReconstructedHead(root: THREE.Object3D): void {
     if (this.reconstructedHead) {
@@ -1172,6 +1193,11 @@ export class MorphRig implements Rig {
    */
   zoneBounds(zoneId: string): THREE.Box3 | null {
     if (!this.mesh.visible) return null;
+    if (this.reconstructedHead && zoneId === 'eyes') {
+      this.reconstructedHead.eyes.group.updateMatrixWorld(true);
+      const eyeBox = new THREE.Box3().setFromObject(this.reconstructedHead.eyes.group);
+      if (!eyeBox.isEmpty()) return eyeBox;
+    }
     if (this.reconstructedHead && this.isReconstructedHeadZone(zoneId)) {
       this.reconstructedHead.root.updateMatrixWorld(true);
       const headBox = this.reconstructedHead.bounds.clone().applyMatrix4(this.reconstructedHead.root.matrixWorld);
@@ -1246,6 +1272,14 @@ export class MorphRig implements Rig {
       });
       return out;
     };
+    const reconstructedEyeMeshes = (): THREE.Mesh[] =>
+      this.reconstructedHead?.eyes.meshes.filter((mesh) => mesh.visible) ?? [];
+    if (selected === 'eyes' && this.reconstructedHead) {
+      return {selected: reconstructedEyeMeshes(), hovered: []};
+    }
+    if (hovered === 'eyes' && this.reconstructedHead) {
+      return {selected: [], hovered: reconstructedEyeMeshes()};
+    }
     if (selected === 'hair') return {selected: hairMeshes(), hovered: []};
     if (hovered === 'hair') return {selected: [], hovered: hairMeshes()};
     if (selected && this.isReconstructedHeadZone(selected)) {
@@ -1327,6 +1361,8 @@ export class MorphRig implements Rig {
     // Live face-overlay colors from the same palette the procedural engine uses.
     const eyeHex = typeof params.eyes?.eyeColor === 'string' ? params.eyes.eyeColor : '#3a6ca8';
     this.irisMats.forEach((m) => m.color.set(eyeHex));
+    this.reconstructedHead?.eyes.irisMaterial.color.set(eyeHex);
+    this.updateReconstructedEyes(params);
     if (this.lipMat) this.lipMat.color.copy(skin.clone().lerp(new THREE.Color('#b0524f'), 0.6));
 
     const mb = this.computeMorphedBodyPositions();
@@ -1361,6 +1397,9 @@ export class MorphRig implements Rig {
   nodeByName(name: string): THREE.Object3D | undefined {
     if (name === 'body' || name === 'smpl_body') return this.mesh;
     if (name === 'reconstructed_head') return this.reconstructedHead?.root;
+    if (name === 'reconstructed_eyes' || name === 'eyes') {
+      return this.reconstructedHead?.eyes.group;
+    }
     if (name === 'hair' && this.reconstructedHead) return this.reconstructedHead.root;
     if (name === 'hair' || name === 'smpl_hair_anchor') return this.hairGroup ?? undefined;
     const h = this.hairSlots.find((s) => s.id === name || s.mesh.name === name);

@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {CloseOutlined} from '@ant-design/icons';
 import * as THREE from 'three';
 import {Canvas, ThreeEvent, useFrame, useThree} from '@react-three/fiber';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
@@ -80,6 +81,7 @@ const CharacterViewport: React.FC<Props> = ({
 }) => {
   const [rig, setRig] = useState<MorphRig | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [hintDismissed, setHintDismissed] = useState(false);
   const reconstructionInProgress =
     reconstructionStatus === 'queued' || reconstructionStatus === 'processing';
   const boundedReconstructionProgress = Math.max(
@@ -253,6 +255,17 @@ const CharacterViewport: React.FC<Props> = ({
       : hoveredZoneId
         ? 'pointer'
         : 'default';
+  const dismissHintButton = (
+    <button
+      type="button"
+      className="c3d-empty-hint__close"
+      aria-label="Закрыть"
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={() => setHintDismissed(true)}
+    >
+      <CloseOutlined />
+    </button>
+  );
 
   return (
     <div
@@ -353,7 +366,7 @@ const CharacterViewport: React.FC<Props> = ({
           panel already communicates selection and zoom state. */}
 
       {/* Hints. */}
-      {!rig ? (
+      {!hintDismissed && !rig ? (
         <div className="c3d-empty-hint c3d-empty-hint--model-status">
           <div className="c3d-empty-hint__copy">
             <span>
@@ -394,14 +407,17 @@ const CharacterViewport: React.FC<Props> = ({
               {reconstructionRetryBusy ? 'Перезапускаем…' : 'Повторить'}
             </button>
           ) : null}
+          {dismissHintButton}
         </div>
-      ) : !selectedZoneId ? (
+      ) : !hintDismissed && rig && !selectedZoneId ? (
         <div className="c3d-empty-hint">
           <span>Кликните на часть персонажа, чтобы редактировать её · Вращайте сцену мышью</span>
+          {dismissHintButton}
         </div>
-      ) : selectedBinding ? (
+      ) : !hintDismissed && rig && selectedBinding ? (
         <div className="c3d-empty-hint">
           <span>Тяните выбранную зону мышью прямо на модели</span>
+          {dismissHintButton}
         </div>
       ) : null}
     </div>

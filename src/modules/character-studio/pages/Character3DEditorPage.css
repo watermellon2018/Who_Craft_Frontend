@@ -383,7 +383,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 420px;
+  min-height: 0;
   border: 1px solid var(--c3d-line);
   border-radius: 28px;
   overflow: hidden;
@@ -685,14 +685,15 @@
    selection and zoom state. */
 
 @keyframes c3d-hint-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .c3d-empty-hint {
   position: absolute;
+  z-index: 3;
   left: 50%;
-  bottom: 32px;
+  bottom: 128px;
   transform: translateX(-50%);
   padding: 8px 16px;
   border: 1px solid rgba(245, 180, 0, 0.3);
@@ -707,7 +708,6 @@
 }
 
 .c3d-empty-hint--model-status {
-  bottom: 40px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -777,6 +777,28 @@
 .c3d-empty-hint__retry:disabled {
   cursor: wait;
   opacity: 0.6;
+}
+
+.c3d-empty-hint__close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c3d-muted);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.c3d-empty-hint__close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--c3d-text);
 }
 
 /* ───── Contextual inspector (right) ─────────────────────────────── */

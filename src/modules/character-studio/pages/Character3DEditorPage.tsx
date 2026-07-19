@@ -43,7 +43,7 @@ import './Character3DEditorPage.css';
 // raycasting, drag-to-edit and camera focus are real; zoneParams is the
 // single source of truth shared with the panel and persisted via
 // characterApi.getModel3D / saveModel3D.
-const MODEL3D_AUTOFIT_VERSION = 5;
+const MODEL3D_AUTOFIT_VERSION = 6;
 
 const Character3DEditorPage: React.FC = () => {
   const navigate = useNavigate();
