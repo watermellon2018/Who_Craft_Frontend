@@ -145,6 +145,7 @@ export default function ScriptPage() {
             onClick={() => void workspace.changeMode(item.mode)}
           >
             {item.icon}
+            <span>{item.label}</span>
           </button>
         ))}
       </div>
