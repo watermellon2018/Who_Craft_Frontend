@@ -1,0 +1,68 @@
+.wcraft-brand {
+  align-items: center;
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 14px;
+  padding: 4px 6px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.wcraft-brand:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.wcraft-brand:hover .wcraft-brand__text {
+  color: #f8fafc;
+}
+
+.wcraft-brand:focus-visible {
+  border-radius: 12px;
+  outline: 2px solid rgba(214, 162, 97, 0.7);
+  outline-offset: 4px;
+}
+
+.wcraft-brand__mark {
+  align-items: center;
+  background: linear-gradient(135deg, #e0b16f 0%, #d6a261 50%, #a87841 100%);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 14px rgba(214, 162, 97, 0.25);
+  color: #1b1208;
+  display: inline-flex;
+  font-size: 22px;
+  font-weight: 700;
+  height: 42px;
+  justify-content: center;
+  letter-spacing: -0.5px;
+  width: 42px;
+}
+
+.wcraft-brand__text {
+  color: #f8fafc;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+@media (max-width: 768px) {
+  .wcraft-brand {
+    gap: 10px;
+  }
+
+  .wcraft-brand__mark {
+    border-radius: 10px;
+    font-size: 18px;
+    height: 36px;
+    width: 36px;
+  }
+
+  .wcraft-brand__text {
+    font-size: 22px;
+  }
+}

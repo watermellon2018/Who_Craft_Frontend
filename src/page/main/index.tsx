@@ -275,7 +275,7 @@ export const MainPage: React.FC = () => {
             description="Откройте существующие проекты и продолжите работу."
           />
           <ActionCard
-            to={PathConstants.SCRIPT_PAGE}
+            to={PathConstants.SCRIPT_PAGE_LEGACY}
             icon={<IconClapperboard />}
             title="Сценарии"
             description="Пишите истории, сцены и структуру будущих фильмов."
