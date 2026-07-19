@@ -154,6 +154,47 @@ describe('MorphRig', () => {
     expect(w[1]).toBeGreaterThan(0); // β1 slightly up (broad-shouldered bulk)
   });
 
+  it('applies full-body leg lengths to geometry without moving the feet', () => {
+    const mesh = rig.nodeByName('body') as THREE.Mesh;
+    const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const footVertex = 0;
+    const crownVertex = position.count - 1;
+    const baseFootY = position.getY(footVertex);
+    const baseCrownY = position.getY(crownVertex);
+
+    rig.applyParams(withParams({
+      calf: {calfLength: 1},
+      thigh: {thighLength: 1},
+    }));
+    expect(position.getY(footVertex)).toBeCloseTo(baseFootY, 7);
+    expect(position.getY(crownVertex)).toBeGreaterThan(baseCrownY + 0.1);
+
+    rig.applyParams(buildInitialZoneParams());
+    expect(position.getY(crownVertex)).toBeCloseTo(baseCrownY, 7);
+  });
+
+  it('applies full-body arm lengths symmetrically and resets deterministically', () => {
+    const mesh = makeMorphMesh();
+    const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const rightHandVertex = 14 * 4;
+    const leftHandVertex = rightHandVertex + 1;
+    position.setX(rightHandVertex, 0.8);
+    position.setX(leftHandVertex, -0.8);
+    const bodyRig = MorphRig.fromMesh(mesh);
+
+    bodyRig.applyParams(withParams({
+      forearm: {length: 1},
+      upper_arm: {length: 1},
+    }));
+    expect(position.getX(rightHandVertex)).toBeGreaterThan(0.88);
+    expect(position.getX(leftHandVertex)).toBeLessThan(-0.88);
+
+    bodyRig.applyParams(buildInitialZoneParams());
+    expect(position.getX(rightHandVertex)).toBeCloseTo(0.8, 7);
+    expect(position.getX(leftHandVertex)).toBeCloseTo(-0.8, 7);
+    bodyRig.dispose();
+  });
+
   it('sums contributions from several sliders into the same β', () => {
     const mesh = rig.nodeByName('body') as THREE.Mesh;
     // chestWidth (β1 +0.7) and chestDepth (β1 +1.2) both push β1 (weight) up.
@@ -446,8 +487,8 @@ describe('MorphRig', () => {
 // preview here). Concavity poke-through is a documented v1 limit, not asserted.
 
 // The band fractions the rig cuts each garment from (must mirror morphRig.ts).
-const TOP_BAND = {yLo: 0.55, yHi: 0.88};
-const BOTTOM_BAND = {yLo: 0.34, yHi: 0.56};
+const TOP_BAND = {yLo: 0.55, yHi: 0.847};
+const BOTTOM_BAND = {yLo: 0.04, yHi: 0.56};
 
 // Live morphed body position for a vertex: base + Σ influenceᵢ·deltaᵢ — the same
 // reconstruction the rig does, so we can assert the shell sits ~thick off it.
@@ -555,6 +596,28 @@ describe('MorphRig clothing (A5)', () => {
     expect(meanR).toBeLessThan(TUBE_RADIUS + 0.03);
   });
 
+  it('tracks full-body leg proportions as a separate asset', () => {
+    const top = rig.nodeByName('clothing_top') as THREE.Mesh;
+    const topPosition = top.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const minimumY = (): number => {
+      let value = Infinity;
+      for (let vertex = 0; vertex < topPosition.count; vertex++) {
+        value = Math.min(value, topPosition.getY(vertex));
+      }
+      return value;
+    };
+    const neutralMinY = minimumY();
+
+    rig.applyParams(withParams({
+      calf: {calfLength: 1},
+      thigh: {thighLength: 1},
+    }));
+    expect(minimumY()).toBeGreaterThan(neutralMinY + 0.1);
+
+    rig.applyParams(buildInitialZoneParams());
+    expect(minimumY()).toBeCloseTo(neutralMinY, 6);
+  });
+
   it('tracks the body shape morphs: garment re-derives from the LIVE morphed surface', () => {
     const slot = garmentSlot(rig, 'clothing_bottom');
 
@@ -607,6 +670,20 @@ describe('MorphRig clothing (A5)', () => {
     // Toggle back on → visible again.
     rig.applyParams(withParams({clothing_top: {enabled: true}}));
     expect(top.visible).toBe(true);
+  });
+
+  it('switches between separate garment silhouettes and falls back safely', () => {
+    const bottom = rig.nodeByName('clothing_bottom') as THREE.Mesh;
+
+    rig.applyParams(withParams({clothing_bottom: {style: 'shorts'}}));
+    const shortsCount = bottom.geometry.drawRange.count;
+    expect(shortsCount).toBeGreaterThan(0);
+
+    rig.applyParams(withParams({clothing_bottom: {style: 'trousers'}}));
+    expect(bottom.geometry.drawRange.count).toBeGreaterThan(shortsCount);
+
+    rig.applyParams(withParams({clothing_bottom: {style: 'unknown'}}));
+    expect(bottom.geometry.drawRange.count).toBe(shortsCount);
   });
 
   it('garments default to ENABLED (a fresh character is dressed)', () => {

@@ -109,6 +109,8 @@ describe('reconstructed head integration', () => {
     expect(Array.from(prepared.faceSurfaces[0].faceWeights).every((weight) => weight > 0)).toBe(true);
     expect(prepared.hairSurfaces).toHaveLength(1);
     expect(prepared.hairSurfaces[0].baseCanonicalPositions).toHaveLength(9);
+    expect(prepared.neckBounds.isEmpty()).toBe(false);
+    expect(prepared.neckBounds.min.y).toBeCloseTo(prepared.bounds.min.y, 6);
 
     disposeReconstructedHead(prepared);
   });
@@ -147,14 +149,38 @@ describe('reconstructed head integration', () => {
       mouth: [0, 1.55, 0.08],
       eyeR_size: 0.02,
     });
+    const longLegs = buildInitialZoneParams();
+    longLegs.calf = {...longLegs.calf, calfLength: 1};
+    longLegs.thigh = {...longLegs.thigh, thighLength: 1};
+    rig.applyParams(longLegs);
     rig.attachReconstructedHead(makeReconstructedHead());
 
     const head = rig.nodeByName('reconstructed_head') as THREE.Object3D;
+    const shiftedHeadY = head.position.y;
+    rig.applyParams(buildInitialZoneParams());
+    const initialHeadY = head.position.y;
+    expect(shiftedHeadY).toBeGreaterThan(initialHeadY + 0.1);
+    rig.applyParams(longLegs);
+    expect(head.position.y).toBeGreaterThan(initialHeadY + 0.1);
+    rig.applyParams(buildInitialZoneParams());
+    expect(head.position.y).toBeCloseTo(initialHeadY, 7);
+
     const headBounds = new THREE.Box3().setFromObject(head);
     expect(headBounds.max.y).toBeCloseTo(1.7, 5);
+    const seam = rig.nodeByName('neck_seam') as THREE.Mesh;
+    const seamBounds = new THREE.Box3().setFromObject(seam);
+    const bodyMesh = rig.nodeByName('body') as THREE.Mesh;
+    const initialSeamPositions = Float32Array.from(
+      (seam.geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array,
+    );
+    expect(seam?.isMesh).toBe(true);
+    expect(seam.userData.zoneId).toBe('head_neck');
+    expect(seam.material).toBe(bodyMesh.material);
+    expect(seamBounds.min.y).toBeLessThan(headBounds.min.y);
+    expect(seamBounds.max.y).toBeGreaterThan(headBounds.min.y);
     expect((rig.nodeByName('smpl_hair_anchor') as THREE.Object3D).visible).toBe(false);
     expect(rig.root.getObjectByName('smpl_face_overlay')?.visible).toBe(false);
-    expect((rig.nodeByName('body') as THREE.Mesh).geometry.getIndex()?.count).toBe(3);
+    expect(bodyMesh.geometry.getIndex()?.count).toBe(3);
     const reconstructedEyes = rig.nodeByName('reconstructed_eyes') as THREE.Group;
     expect(reconstructedEyes.children).toHaveLength(2);
     const eyeBounds = rig.zoneBounds('eyes') as THREE.Box3;
@@ -203,6 +229,22 @@ describe('reconstructed head integration', () => {
     rig.applyParams(params);
     expect(hairPositions.getX(0)).toBeCloseTo(initialHairX, 7);
     expect(hairPositions.getY(0)).toBeCloseTo(initialHairY, 7);
+
+    const initialHairBounds = new THREE.Box3().setFromBufferAttribute(hairPositions);
+    const initialHairCenter = initialHairBounds.getCenter(new THREE.Vector3());
+    const initialHairRadius = Math.hypot(
+      initialHairX - initialHairCenter.x,
+      initialHairDepth - initialHairCenter.z,
+    );
+    params.hair = {...params.hair, hairStyle: 'bun', hairVolume: -1};
+    rig.applyParams(params);
+    const compactHairRadius = Math.hypot(
+      hairPositions.getX(0) - initialHairCenter.x,
+      hairPositions.getZ(0) - initialHairCenter.z,
+    );
+    expect(compactHairRadius).toBeGreaterThanOrEqual(initialHairRadius * 0.97);
+    params.hair = {...params.hair, hairStyle: 'default', hairVolume: 0};
+    rig.applyParams(params);
     params.hair = {...params.hair, hairStyle: 'afro'};
     rig.applyParams(params);
     expect(hairPositions.getX(0)).toBeLessThan(initialHairX);
@@ -224,9 +266,16 @@ describe('reconstructed head integration', () => {
     expect(rig.highlightedMeshes().selected).toEqual([hairMesh]);
     rig.setHighlight(null, 'face');
     expect(rig.highlightedMeshes().selected).toEqual([headMesh]);
+    rig.setHighlight(null, 'head_neck');
+    expect(rig.highlightedMeshes().selected).toEqual([headMesh, seam]);
     rig.setHighlight(null, 'eyes');
     expect(rig.highlightedMeshes().selected).toHaveLength(6);
+    expect(Array.from(
+      (seam.geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array,
+    )).toEqual(Array.from(initialSeamPositions));
 
+    const seamDispose = jest.spyOn(seam.geometry, 'dispose');
     rig.dispose();
+    expect(seamDispose).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,7 @@ export const RECONSTRUCTED_HEAD_GLB_URL = '/models/reconstructed-head.glb';
 // Everything below this plane is the generated shoulder plinth rather than the
 // character's neck, so those triangles must not enter Character Studio.
 export const RECONSTRUCTED_HEAD_CUT_Y = 0.045;
+const RECONSTRUCTED_NECK_BAND_MAX_Y = RECONSTRUCTED_HEAD_CUT_Y + 0.03;
 
 export interface PreparedReconstructedEyes {
   basePositions: [THREE.Vector3, THREE.Vector3];
@@ -45,6 +46,7 @@ export interface PreparedReconstructedHead {
   hairMeshes: THREE.Mesh[];
   hairSurfaces: PreparedReconstructedHairSurface[];
   meshes: THREE.Mesh[];
+  neckBounds: THREE.Box3;
   root: THREE.Object3D;
   skinMeshes: THREE.Mesh[];
   skinMaterial: THREE.MeshStandardMaterial;
@@ -84,6 +86,9 @@ const reconstructedFaceWeight = (x: number, y: number, z: number): number => {
   return horizontalFade * lowerFade * upperFade * depthFade;
 };
 
+const isNeckPoint = (x: number, y: number): boolean =>
+  y < 0.125 && Math.abs(x) < 0.064;
+
 const isSkinPoint = (x: number, y: number, z: number): boolean => {
   const ear =
     y >= 0.13
@@ -91,8 +96,7 @@ const isSkinPoint = (x: number, y: number, z: number): boolean => {
     && Math.abs(x) >= 0.072
     && Math.abs(x) <= 0.092
     && z > 0.012;
-  const neck = y < 0.125 && Math.abs(x) < 0.064;
-  return isFacePoint(x, y, z) || ear || neck;
+  return isFacePoint(x, y, z) || ear || isNeckPoint(x, y);
 };
 
 const sourceIndices = (geometry: THREE.BufferGeometry): ArrayLike<number> => {
@@ -411,6 +415,7 @@ export const prepareReconstructedHead = (
   const visibleBounds = new THREE.Box3();
   const faceBounds = new THREE.Box3();
   const hairBounds = new THREE.Box3();
+  const neckBounds = new THREE.Box3();
   const hairGroup = new THREE.Group();
   hairGroup.name = 'reconstructed_hair';
   hairGroup.userData.zoneId = 'hair';
@@ -454,6 +459,10 @@ export const prepareReconstructedHead = (
       const target = isSkinPoint(centroid.x, centroid.y, centroid.z)
         ? skinIndices
         : hairIndices;
+      const isLowerNeck =
+        target === skinIndices
+        && centroid.y <= RECONSTRUCTED_NECK_BAND_MAX_Y
+        && isNeckPoint(centroid.x, centroid.y);
       pushTriangle(target, a, b, c);
       for (const vertex of [a, b, c]) {
         point
@@ -465,6 +474,7 @@ export const prepareReconstructedHead = (
           .applyMatrix4(mesh.matrixWorld);
         visibleBounds.expandByPoint(point);
         if (target === hairIndices) hairBounds.expandByPoint(point);
+        if (isLowerNeck) neckBounds.expandByPoint(point);
         if (isFacePoint(centroid.x, centroid.y, centroid.z)) faceBounds.expandByPoint(point);
       }
     }
@@ -559,6 +569,20 @@ export const prepareReconstructedHead = (
   }
 
   const eyeFaceBounds = faceBounds.isEmpty() ? bounds : faceBounds;
+  let measuredNeckBounds = neckBounds;
+  if (measuredNeckBounds.isEmpty()) {
+    const headSize = bounds.getSize(new THREE.Vector3());
+    const faceSize = eyeFaceBounds.getSize(new THREE.Vector3());
+    const faceCenter = eyeFaceBounds.getCenter(new THREE.Vector3());
+    const halfWidth = Math.max(faceSize.x * 0.28, headSize.x * 0.16, 0.005);
+    const halfDepth = Math.max(faceSize.z * 0.3, headSize.z * 0.16, 0.005);
+    const centerZ = faceCenter.z - faceSize.z * 0.18;
+    const neckHeight = Math.max(headSize.y * 0.08, 0.005);
+    measuredNeckBounds = new THREE.Box3(
+      new THREE.Vector3(faceCenter.x - halfWidth, bounds.min.y, centerZ - halfDepth),
+      new THREE.Vector3(faceCenter.x + halfWidth, bounds.min.y + neckHeight, centerZ + halfDepth),
+    );
+  }
   const eyes = buildReconstructedEyes(root, eyeFaceBounds, skinMeshes);
 
   return {
@@ -572,6 +596,7 @@ export const prepareReconstructedHead = (
     hairMeshes,
     hairSurfaces,
     meshes,
+    neckBounds: measuredNeckBounds,
     root,
     skinMeshes,
     skinMaterial,

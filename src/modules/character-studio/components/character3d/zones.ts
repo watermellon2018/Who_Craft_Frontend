@@ -83,6 +83,17 @@ const CLOTHING_COLORS = [
   {value: '#c9b99b', label: 'Бежевый'},
 ];
 
+const CLOTHING_TOP_STYLES = [
+  {value: 'tshirt', label: 'Футболка'},
+  {value: 'sleeveless', label: 'Без рукавов'},
+  {value: 'long_sleeve', label: 'Длинный рукав'},
+];
+
+const CLOTHING_BOTTOM_STYLES = [
+  {value: 'shorts', label: 'Шорты'},
+  {value: 'trousers', label: 'Брюки'},
+];
+
 // hairStyle picks the SILHOUETTE (built as distinct geometry in rig.ts);
 // hairShape below is the strand TEXTURE (straight/wavy/curly) layered on top.
 // 'none' is a bald head — rig.ts builds no hair meshes and length/volume are
@@ -544,6 +555,7 @@ export const ZONE_TREE: EditableZone[] = [
         parentId: 'clothing',
         parameters: [
           toggle('enabled', 'Надеть верх', 'asset', true),
+          preset('style', 'Форма', CLOTHING_TOP_STYLES, 'tshirt'),
           swatch('color', 'Цвет', CLOTHING_COLORS, '#3b5266'),
         ],
       },
@@ -555,6 +567,7 @@ export const ZONE_TREE: EditableZone[] = [
         parentId: 'clothing',
         parameters: [
           toggle('enabled', 'Надеть низ', 'asset', true),
+          preset('style', 'Форма', CLOTHING_BOTTOM_STYLES, 'shorts'),
           swatch('color', 'Цвет', CLOTHING_COLORS, '#2d2d33'),
         ],
       },
