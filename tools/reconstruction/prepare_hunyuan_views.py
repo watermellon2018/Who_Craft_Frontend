@@ -44,6 +44,7 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument("--metrics", type=Path)
     parser.add_argument("--front", required=True, type=Path)
     parser.add_argument("--left", type=Path)
+    parser.add_argument("--back", type=Path)
     parser.add_argument("--right", type=Path)
     parser.add_argument(
         "--left-reference-type",
@@ -124,6 +125,7 @@ def _ordered_unique_sources(
             getattr(args, "left", None),
             getattr(args, "left_reference_type", "profile"),
         ),
+        ("back", getattr(args, "back", None), "back_view"),
         (
             "right",
             getattr(args, "right", None),

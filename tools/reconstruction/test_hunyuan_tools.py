@@ -111,26 +111,29 @@ class BenchmarkValidationTests(unittest.TestCase):
             root = Path(directory)
             front = root / "front.png"
             left = root / "left.png"
+            back = root / "back.png"
             right = root / "right.png"
             front.write_bytes(b"front")
             left.write_bytes(b"profile")
+            back.write_bytes(b"back")
             right.write_bytes(b"three-quarter")
             args = argparse.Namespace(
                 front=front,
                 left=left,
+                back=back,
                 right=right,
             )
 
             inputs = benchmark._unique_input_paths(args)
-            self.assertEqual(list(inputs), ["front", "left", "right"])
+            self.assertEqual(list(inputs), ["front", "left", "back", "right"])
 
             right.write_bytes(b"profile")
             inputs = benchmark._unique_input_paths(args)
-            self.assertEqual(list(inputs), ["front", "left"])
+            self.assertEqual(list(inputs), ["front", "left", "back"])
 
             args.left = None
             inputs = benchmark._unique_input_paths(args)
-            self.assertEqual(list(inputs), ["front", "right"])
+            self.assertEqual(list(inputs), ["front", "back", "right"])
 
     def test_model_paths_accept_only_expected_safe_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -196,6 +199,72 @@ class PostprocessTests(unittest.TestCase):
         self.assertEqual(len(filtered.faces), len(main.faces))
         self.assertEqual(dropped, [len(fragment.faces)])
 
+    def test_generated_surface_is_split_into_distinct_head_and_hair_assets(
+        self,
+    ) -> None:
+        vertices = np.asarray(
+            (
+                (-0.02, 0.14, 0.08),
+                (0.02, 0.14, 0.08),
+                (0.0, 0.18, 0.09),
+                (-0.04, 0.27, 0.0),
+                (0.04, 0.27, 0.0),
+                (0.0, 0.29, -0.02),
+                (-0.1, 0.02, 0.0),
+                (0.1, 0.02, 0.0),
+                (0.0, 0.03, 0.05),
+            )
+        )
+        mesh = trimesh.Trimesh(
+            vertices=vertices,
+            faces=np.asarray(((0, 1, 2), (3, 4, 5), (6, 7, 8))),
+            process=False,
+        )
+
+        head, hair = postprocess._split_head_and_hair(mesh)
+
+        self.assertEqual(len(head.faces), 2)
+        self.assertGreater(len(hair.faces), 1)
+        self.assertTrue(hair.is_watertight)
+        self.assertGreater(float(head.bounds[0, 1]), postprocess.HEAD_CUT_Y)
+        self.assertGreater(
+            float(hair.bounds[0, 1]),
+            postprocess.HEAD_CUT_Y - postprocess.HAIR_VOXEL_PITCH,
+        )
+
+    def test_front_reference_removes_connected_hair_from_skin_head(self) -> None:
+        vertices = np.asarray(
+            (
+                (-0.04, 0.12, 0.08),
+                (0.04, 0.12, 0.08),
+                (0.0, 0.16, 0.09),
+                (-0.04, 0.23, 0.08),
+                (0.04, 0.23, 0.08),
+                (0.0, 0.28, 0.09),
+            )
+        )
+        mesh = trimesh.Trimesh(
+            vertices=vertices,
+            faces=np.asarray(((0, 1, 2), (3, 4, 5))),
+            process=False,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            reference = Path(directory) / "front.png"
+            image = np.full((128, 128, 4), (226, 175, 145, 255), dtype=np.uint8)
+            image[:72, :, :3] = (31, 32, 34)
+            Image.fromarray(image, mode="RGBA").save(reference)
+            head, hair = postprocess._split_head_and_hair(
+                mesh,
+                front_reference=reference,
+                hair_color="#1f2022",
+                skin_color="#e2af91",
+            )
+
+        self.assertEqual(head.metadata["name"], "reconstructed_skin_v2")
+        self.assertEqual(len(head.faces), 1)
+        self.assertGreater(len(hair.faces), 1)
+        self.assertEqual(hair.metadata["name"], "generated_hair_v2")
 
 if __name__ == "__main__":
     unittest.main()

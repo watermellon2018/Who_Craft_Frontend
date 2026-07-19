@@ -48,6 +48,7 @@ interface Props {
   onApiReady?: (api: ViewportApi | null) => void;
   zoneParams: ZoneParams;
   reconstructedHeadUrl: string | null;
+  reconstructedHairUrl?: string | null;
   reconstructionStatus?: 'missing' | 'queued' | 'processing' | 'ready' | 'failed';
   reconstructionProgress?: number;
   reconstructionError?: string;
@@ -73,6 +74,7 @@ const CharacterViewport: React.FC<Props> = ({
   onApiReady,
   zoneParams,
   reconstructedHeadUrl,
+  reconstructedHairUrl = null,
   reconstructionStatus,
   reconstructionProgress = 0,
   reconstructionError,
@@ -101,7 +103,7 @@ const CharacterViewport: React.FC<Props> = ({
     // A null URL means the personalized reconstruction is still pending (or
     // failed). Never show the old shared demo head for a different character.
     if (!reconstructedHeadUrl) return undefined;
-    MorphRig.create(undefined, reconstructedHeadUrl)
+    MorphRig.create(undefined, reconstructedHeadUrl, reconstructedHairUrl)
       .then((morph) => {
         if (!alive) {
           morph.dispose();
@@ -117,7 +119,7 @@ const CharacterViewport: React.FC<Props> = ({
       alive = false;
       if (loaded) loaded.dispose();
     };
-  }, [reconstructedHeadUrl]);
+  }, [reconstructedHairUrl, reconstructedHeadUrl]);
 
   const controlsRef = useRef<OrbitControls | null>(null);
   const draggingRef = useRef(false);

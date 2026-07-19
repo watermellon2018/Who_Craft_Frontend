@@ -213,12 +213,25 @@ export type Model3DReconstructionStatus =
   | 'ready'
   | 'failed';
 
+export interface Model3DAssetDescriptor {
+  asset_id?: string | null;
+  model_url: string;
+  source: 'generated' | 'library' | 'legacy';
+  [key: string]: unknown;
+}
+
 export interface Model3DReconstruction {
   status: Model3DReconstructionStatus;
   progress: number;
   job_id: string | null;
   asset_id: string | null;
   model_url: string | null;
+  hair_url?: string | null;
+  assets?: {
+    head: Model3DAssetDescriptor | null;
+    hair: Model3DAssetDescriptor | null;
+  };
+  pipeline_version?: number;
   error_message: string;
 }
 

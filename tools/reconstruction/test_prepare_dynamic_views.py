@@ -29,16 +29,21 @@ class DynamicViewPreparationTests(unittest.TestCase):
             left_source[0, 0] = (209, 209, 209)
             right_source = source.copy()
             right_source[0, 0] = (208, 208, 208)
+            back_source = source.copy()
+            back_source[0, 0] = (207, 207, 207)
             front = root / "front.png"
             left = root / "left.png"
+            back = root / "back.png"
             right = root / "right.png"
             cv2.imwrite(str(front), source)
             cv2.imwrite(str(left), left_source)
+            cv2.imwrite(str(back), back_source)
             cv2.imwrite(str(right), right_source)
             args = argparse.Namespace(
                 metrics=None,
                 front=front,
                 left=left,
+                back=back,
                 right=right,
                 out_dir=root / "prepared",
                 size=128,
@@ -52,10 +57,11 @@ class DynamicViewPreparationTests(unittest.TestCase):
             ) as detector:
                 report = preparation.run(args)
 
-            self.assertEqual(detector.call_count, 3)
+            self.assertEqual(detector.call_count, 4)
             self.assertIn("heuristic", report["method"])
             self.assertTrue((root / "prepared" / "inputs" / "front.png").is_file())
             self.assertTrue((root / "prepared" / "inputs" / "left.png").is_file())
+            self.assertTrue((root / "prepared" / "inputs" / "back.png").is_file())
             self.assertTrue((root / "prepared" / "inputs" / "right.png").is_file())
 
     def test_source_order_skips_equal_optional_views(self) -> None:
@@ -70,6 +76,7 @@ class DynamicViewPreparationTests(unittest.TestCase):
             args = argparse.Namespace(
                 front=front,
                 left=left,
+                back=None,
                 right=right,
             )
 
@@ -96,6 +103,7 @@ class DynamicViewPreparationTests(unittest.TestCase):
             args = argparse.Namespace(
                 front=front,
                 left=three_quarter,
+                back=None,
                 right=None,
                 left_reference_type="three_quarter",
             )

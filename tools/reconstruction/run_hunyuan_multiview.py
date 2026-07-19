@@ -42,6 +42,7 @@ def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--front", required=True, type=Path)
     parser.add_argument("--left", type=Path)
+    parser.add_argument("--back", type=Path)
     parser.add_argument("--right", type=Path)
     parser.add_argument("--model-root", required=True, type=Path)
     parser.add_argument("--hunyuan-root", required=True, type=Path)
@@ -96,6 +97,7 @@ def _unique_input_paths(args: argparse.Namespace) -> dict[str, Path]:
     candidates = (
         ("front", args.front),
         ("left", getattr(args, "left", None)),
+        ("back", getattr(args, "back", None)),
         ("right", getattr(args, "right", None)),
     )
     inputs: dict[str, Path] = {}

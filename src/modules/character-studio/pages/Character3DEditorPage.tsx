@@ -43,8 +43,14 @@ import './Character3DEditorPage.css';
 // raycasting, drag-to-edit and camera focus are real; zoneParams is the
 // single source of truth shared with the panel and persisted via
 // characterApi.getModel3D / saveModel3D.
-const MODEL3D_AUTOFIT_VERSION = 6;
+const MODEL3D_AUTOFIT_VERSION = 7;
 
+const versionedAssetUrl = (url: string, assetId?: string | null): string => {
+  const resolved = backendAssetUrl(url);
+  if (!assetId) return resolved;
+  const separator = resolved.includes('?') ? '&' : '?';
+  return `${resolved}${separator}asset=${encodeURIComponent(assetId)}`;
+};
 const Character3DEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
@@ -414,7 +420,14 @@ const Character3DEditorPage: React.FC = () => {
   const characterName = character?.name || MOCK_CHARACTER_NAME;
   const reconstructedHeadUrl =
     reconstruction?.status === 'ready' && reconstruction.model_url
-      ? backendAssetUrl(reconstruction.model_url)
+      ? versionedAssetUrl(reconstruction.model_url, reconstruction.asset_id)
+      : null;
+  const reconstructedHairUrl =
+    reconstruction?.status === 'ready' && reconstruction.hair_url
+      ? versionedAssetUrl(
+        reconstruction.hair_url,
+        reconstruction.assets?.hair?.asset_id,
+      )
       : null;
 
   const handleBack = () => {
@@ -460,6 +473,7 @@ const Character3DEditorPage: React.FC = () => {
             onApiReady={setViewportApi}
             zoneParams={zoneParams}
             reconstructedHeadUrl={reconstructedHeadUrl}
+            reconstructedHairUrl={reconstructedHairUrl}
             reconstructionStatus={reconstruction?.status}
             reconstructionProgress={reconstruction?.progress ?? 0}
             reconstructionError={reconstruction?.error_message}

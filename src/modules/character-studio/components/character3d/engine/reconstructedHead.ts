@@ -7,6 +7,13 @@ export const RECONSTRUCTED_HEAD_GLB_URL = '/models/reconstructed-head.glb';
 // character's neck, so those triangles must not enter Character Studio.
 export const RECONSTRUCTED_HEAD_CUT_Y = 0.045;
 const RECONSTRUCTED_NECK_BAND_MAX_Y = RECONSTRUCTED_HEAD_CUT_Y + 0.03;
+const RECONSTRUCTED_EYE_RADIUS_TO_FACE_WIDTH = 0.08;
+const RECONSTRUCTED_EYE_RADIUS_TO_FACE_HEIGHT = 0.075;
+const RECONSTRUCTED_EYE_HORIZONTAL_OFFSET = 0.235;
+const RECONSTRUCTED_EYE_SOCKET_SEATING = 0.9;
+const RECONSTRUCTED_IRIS_RADIUS_RATIO = 0.43;
+const RECONSTRUCTED_PUPIL_RADIUS_RATIO = 0.18;
+const RECONSTRUCTED_HIGHLIGHT_RADIUS_RATIO = 0.065;
 
 export interface PreparedReconstructedEyes {
   basePositions: [THREE.Vector3, THREE.Vector3];
@@ -86,17 +93,27 @@ const reconstructedFaceWeight = (x: number, y: number, z: number): number => {
   return horizontalFade * lowerFade * upperFade * depthFade;
 };
 
-const isNeckPoint = (x: number, y: number): boolean =>
-  y < 0.125 && Math.abs(x) < 0.064;
+const isNeckPoint = (x: number, y: number, z: number): boolean =>
+  y < 0.115
+  && Math.abs(x) < 0.067
+  && z > -0.075
+  && z < 0.065;
 
 const isSkinPoint = (x: number, y: number, z: number): boolean => {
+  const jawProgress = THREE.MathUtils.clamp((y - 0.072) / 0.095, 0, 1);
+  const jawHalfWidth = 0.07 + 0.025 * Math.sin(jawProgress * Math.PI * 0.5);
+  const lowerFace =
+    y >= 0.072
+    && y <= 0.19
+    && Math.abs(x) <= jawHalfWidth
+    && z > -0.13;
   const ear =
     y >= 0.13
     && y <= 0.22
     && Math.abs(x) >= 0.072
     && Math.abs(x) <= 0.092
     && z > 0.012;
-  return isFacePoint(x, y, z) || ear || isNeckPoint(x, y);
+  return isFacePoint(x, y, z) || lowerFace || ear || isNeckPoint(x, y, z);
 };
 
 const sourceIndices = (geometry: THREE.BufferGeometry): ArrayLike<number> => {
@@ -191,7 +208,7 @@ const frontSurfaceDepth = (
       }
     }
   }
-  return depths.length ? percentile(depths, 0.65) : fallback;
+  return depths.length ? percentile(depths, 0.8) : fallback;
 };
 
 const estimateEyeLineY = (
@@ -269,35 +286,73 @@ const buildReconstructedEyes = (
 ): PreparedReconstructedEyes => {
   const faceSize = faceBounds.getSize(new THREE.Vector3());
   const faceCenter = faceBounds.getCenter(new THREE.Vector3());
-  const radius = Math.max(0.003, Math.min(faceSize.x * 0.095, faceSize.y * 0.09));
-  const offsetX = faceSize.x * 0.24;
+  const radius = Math.max(
+    0.003,
+    Math.min(
+      faceSize.x * RECONSTRUCTED_EYE_RADIUS_TO_FACE_WIDTH,
+      faceSize.y * RECONSTRUCTED_EYE_RADIUS_TO_FACE_HEIGHT,
+    ),
+  );
+  const offsetX = faceSize.x * RECONSTRUCTED_EYE_HORIZONTAL_OFFSET;
   const centerY = estimateEyeLineY(meshes, faceBounds, faceCenter.x, offsetX, radius);
   const fallbackZ = faceBounds.max.z - radius * 0.5;
 
   const scleraMaterial = new THREE.MeshStandardMaterial({
-    color: '#eeeae2',
+    color: '#f2eee7',
     metalness: 0,
-    roughness: 0.28,
+    roughness: 0.24,
   });
   const irisMaterial = new THREE.MeshStandardMaterial({
     color: '#3a6ca8',
     metalness: 0.02,
-    roughness: 0.22,
+    roughness: 0.18,
   });
   const pupilMaterial = new THREE.MeshStandardMaterial({
     color: '#100d0c',
     metalness: 0,
-    roughness: 0.12,
+    roughness: 0.08,
   });
+  const highlightMaterial = new THREE.MeshStandardMaterial({
+    color: '#fffdf7',
+    emissive: '#ffffff',
+    emissiveIntensity: 0.65,
+    metalness: 0,
+    roughness: 0.06,
+  });
+  highlightMaterial.toneMapped = false;
   scleraMaterial.envMapIntensity = 0.62;
-  irisMaterial.envMapIntensity = 0.68;
-  pupilMaterial.envMapIntensity = 0.45;
+  irisMaterial.envMapIntensity = 0.72;
+  pupilMaterial.envMapIntensity = 0.38;
+  highlightMaterial.envMapIntensity = 0.2;
 
   const scleraGeometry = new THREE.SphereGeometry(radius, 24, 16);
-  const irisGeometry = new THREE.SphereGeometry(radius * 0.46, 20, 14);
-  const pupilGeometry = new THREE.SphereGeometry(radius * 0.19, 16, 10);
-  const geometries = [scleraGeometry, irisGeometry, pupilGeometry];
-  const materials = [scleraMaterial, irisMaterial, pupilMaterial];
+  const irisGeometry = new THREE.SphereGeometry(
+    radius * RECONSTRUCTED_IRIS_RADIUS_RATIO,
+    20,
+    14,
+  );
+  const pupilGeometry = new THREE.SphereGeometry(
+    radius * RECONSTRUCTED_PUPIL_RADIUS_RATIO,
+    16,
+    10,
+  );
+  const highlightGeometry = new THREE.SphereGeometry(
+    radius * RECONSTRUCTED_HIGHLIGHT_RADIUS_RATIO,
+    12,
+    8,
+  );
+  const geometries = [
+    scleraGeometry,
+    irisGeometry,
+    pupilGeometry,
+    highlightGeometry,
+  ];
+  const materials = [
+    scleraMaterial,
+    irisMaterial,
+    pupilMaterial,
+    highlightMaterial,
+  ];
   const group = new THREE.Group();
   group.name = 'reconstructed_eyes';
   group.userData.zoneId = 'eyes';
@@ -309,7 +364,11 @@ const buildReconstructedEyes = (
   for (const side of [-1, 1] as const) {
     const centerX = faceCenter.x + side * offsetX;
     const surfaceZ = frontSurfaceDepth(meshes, centerX, centerY, radius, fallbackZ);
-    const worldPosition = new THREE.Vector3(centerX, centerY, surfaceZ - radius * 0.38);
+    const worldPosition = new THREE.Vector3(
+      centerX,
+      centerY,
+      surfaceZ - radius * RECONSTRUCTED_EYE_SOCKET_SEATING,
+    );
     const localPosition = root.worldToLocal(worldPosition.clone());
     const eyeRoot = new THREE.Group();
     eyeRoot.name = side < 0 ? 'reconstructed_eye_left' : 'reconstructed_eye_right';
@@ -318,31 +377,37 @@ const buildReconstructedEyes = (
 
     const sclera = new THREE.Mesh(scleraGeometry, scleraMaterial);
     sclera.name = `${eyeRoot.name}_sclera`;
-    sclera.scale.set(1.24, 0.72, 0.9);
+    sclera.scale.set(1.18, 0.7, 0.86);
     sclera.castShadow = true;
     sclera.receiveShadow = true;
     sclera.userData.zoneId = 'eyes';
 
     const iris = new THREE.Mesh(irisGeometry, irisMaterial);
     iris.name = `${eyeRoot.name}_iris`;
-    iris.position.z = radius * 0.78;
-    iris.scale.z = 0.28;
+    iris.position.z = radius * 0.81;
+    iris.scale.z = 0.18;
     iris.castShadow = true;
     iris.userData.zoneId = 'eyes';
 
     const pupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
     pupil.name = `${eyeRoot.name}_pupil`;
-    pupil.position.z = radius * 0.89;
-    pupil.scale.z = 0.24;
+    pupil.position.z = radius * 0.86;
+    pupil.scale.z = 0.14;
     pupil.castShadow = true;
     pupil.userData.zoneId = 'eyes';
 
-    eyeRoot.add(sclera, iris, pupil);
+    const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    highlight.name = eyeRoot.name + '_highlight';
+    highlight.position.set(-radius * 0.11, radius * 0.13, radius * 0.9);
+    highlight.scale.set(1, 0.78, 0.12);
+    highlight.userData.zoneId = 'eyes';
+
+    eyeRoot.add(sclera, iris, pupil, highlight);
     group.add(eyeRoot);
     roots.push(eyeRoot);
     basePositions.push(localPosition.clone());
     canonicalPositions.push(worldPosition);
-    eyeMeshes.push(sclera, iris, pupil);
+    eyeMeshes.push(sclera, iris, pupil, highlight);
   }
 
   root.add(group);
@@ -389,6 +454,7 @@ export const keepGeometryBelowY = (
  */
 export const prepareReconstructedHead = (
   root: THREE.Object3D,
+  separateHairRoot?: THREE.Object3D | null,
 ): PreparedReconstructedHead => {
   const skinMaterial = new THREE.MeshStandardMaterial({
     color: new THREE.Color('#dac0a3'),
@@ -427,6 +493,10 @@ export const prepareReconstructedHead = (
     const mesh = object as THREE.Mesh;
     if (mesh.isMesh) sourceMeshes.push(mesh);
   });
+  const semanticSkinOnly =
+    !!separateHairRoot
+    && sourceMeshes.length > 0
+    && sourceMeshes.every((mesh) => mesh.name.startsWith('reconstructed_skin_'));
 
   for (let meshIndex = 0; meshIndex < sourceMeshes.length; meshIndex++) {
     const mesh = sourceMeshes[meshIndex];
@@ -456,13 +526,15 @@ export const prepareReconstructedHead = (
         .applyMatrix4(mesh.matrixWorld);
       if (centroid.y < RECONSTRUCTED_HEAD_CUT_Y) continue;
 
-      const target = isSkinPoint(centroid.x, centroid.y, centroid.z)
+      const skinPoint = semanticSkinOnly || isSkinPoint(centroid.x, centroid.y, centroid.z);
+      if (!skinPoint && separateHairRoot) continue;
+      const target = skinPoint
         ? skinIndices
         : hairIndices;
       const isLowerNeck =
         target === skinIndices
         && centroid.y <= RECONSTRUCTED_NECK_BAND_MAX_Y
-        && isNeckPoint(centroid.x, centroid.y);
+        && isNeckPoint(centroid.x, centroid.y, centroid.z);
       pushTriangle(target, a, b, c);
       for (const vertex of [a, b, c]) {
         point
@@ -550,6 +622,60 @@ export const prepareReconstructedHead = (
     }
   }
 
+  if (separateHairRoot) {
+    separateHairRoot.updateMatrixWorld(true);
+    const separateHairMeshes: THREE.Mesh[] = [];
+    separateHairRoot.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (mesh.isMesh) separateHairMeshes.push(mesh);
+    });
+    for (let meshIndex = 0; meshIndex < separateHairMeshes.length; meshIndex++) {
+      const sourceMesh = separateHairMeshes[meshIndex];
+      const sourceGeometry = sourceMesh.geometry;
+      const sourcePosition = sourceGeometry.getAttribute('position') as
+        | THREE.BufferAttribute
+        | undefined;
+      if (!sourcePosition) continue;
+
+      importedGeometries.add(sourceGeometry);
+      const oldMaterials = Array.isArray(sourceMesh.material)
+        ? sourceMesh.material
+        : [sourceMesh.material];
+      oldMaterials.forEach((material) => importedMaterials.add(material));
+      const hairGeometry = extractGeometry(
+        sourceGeometry,
+        Array.from(sourceIndices(sourceGeometry)),
+      );
+      const sourceToRoot = rootWorldInverse.clone().multiply(sourceMesh.matrixWorld);
+      hairGeometry.applyMatrix4(sourceToRoot);
+      const hairMesh = new THREE.Mesh(hairGeometry, hairMaterial);
+      hairMesh.name = `generated_hair_asset_${meshIndex}`;
+      hairMesh.castShadow = true;
+      hairMesh.receiveShadow = true;
+      hairMesh.userData.zoneId = 'hair';
+      hairGroup.add(hairMesh);
+      meshes.push(hairMesh);
+      hairMeshes.push(hairMesh);
+
+      const position = hairGeometry.getAttribute('position') as THREE.BufferAttribute;
+      const baseCanonicalPositions = new Float32Array(position.count * 3);
+      for (let vertex = 0; vertex < position.count; vertex++) {
+        const offset = vertex * 3;
+        point.set(position.getX(vertex), position.getY(vertex), position.getZ(vertex));
+        hairBounds.expandByPoint(point);
+        visibleBounds.expandByPoint(point);
+        baseCanonicalPositions[offset] = point.x;
+        baseCanonicalPositions[offset + 1] = point.y;
+        baseCanonicalPositions[offset + 2] = point.z;
+      }
+      hairSurfaces.push({
+        baseCanonicalPositions,
+        localFromCanonical: new THREE.Matrix4(),
+        mesh: hairMesh,
+      });
+    }
+  }
+
   importedGeometries.forEach((geometry) => geometry.dispose());
   importedMaterials.forEach((material) => material.dispose());
   if (!skinMeshes.length && !hairMeshes.length) {
@@ -583,7 +709,14 @@ export const prepareReconstructedHead = (
       new THREE.Vector3(faceCenter.x + halfWidth, bounds.min.y + neckHeight, centerZ + halfDepth),
     );
   }
-  const eyes = buildReconstructedEyes(root, eyeFaceBounds, skinMeshes);
+  const facialEyeSurfaces = skinMeshes.filter(
+    (mesh) => !mesh.name.includes('_backing_'),
+  );
+  const eyes = buildReconstructedEyes(
+    root,
+    eyeFaceBounds,
+    facialEyeSurfaces.length ? facialEyeSurfaces : skinMeshes,
+  );
 
   return {
     bounds,

@@ -26,6 +26,21 @@ const makeReconstructedHead = (): THREE.Group => {
   return root;
 };
 
+const makeSeparateHair = (): THREE.Group => {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute([
+      -0.07, 0.25, -0.03,
+      0.07, 0.25, -0.03,
+      0, 0.31, -0.06,
+    ], 3),
+  );
+  geometry.setIndex([0, 1, 2]);
+  const root = new THREE.Group();
+  root.add(new THREE.Mesh(geometry, new THREE.MeshStandardMaterial()));
+  return root;
+};
 const makeEyeSocketHead = (eyeY: number): THREE.Group => {
   const points: number[] = [];
   const addTriangle = (x: number, y: number, z: number): void => {
@@ -93,17 +108,35 @@ describe('reconstructed head integration', () => {
     expect(prepared.root.userData.zoneId).toBe('face');
     expect(prepared.eyes.group.name).toBe('reconstructed_eyes');
     expect(prepared.eyes.roots).toHaveLength(2);
-    expect(prepared.eyes.meshes).toHaveLength(6);
+    expect(prepared.eyes.meshes).toHaveLength(8);
     prepared.eyes.roots.forEach((eye) => {
       expect(eye.children.map((child) => child.name)).toEqual([
         `${eye.name}_sclera`,
         `${eye.name}_iris`,
         `${eye.name}_pupil`,
+        `${eye.name}_highlight`,
       ]);
       expect(eye.userData.zoneId).toBe('eyes');
     });
     expect(prepared.eyes.basePositions[0].x).toBeLessThan(prepared.eyes.basePositions[1].x);
     expect(prepared.eyes.basePositions[0].y).toBeCloseTo(prepared.eyes.basePositions[1].y, 6);
+    const leftEyeLayers = prepared.eyes.roots[0].children as THREE.Mesh[];
+    const iris = leftEyeLayers[1];
+    const pupil = leftEyeLayers[2];
+    const highlight = leftEyeLayers[3];
+    expect((iris.geometry as THREE.SphereGeometry).parameters.radius).toBeCloseTo(
+      prepared.eyes.radius * 0.43,
+      6,
+    );
+    expect((pupil.geometry as THREE.SphereGeometry).parameters.radius).toBeCloseTo(
+      prepared.eyes.radius * 0.18,
+      6,
+    );
+    expect(highlight.position.y).toBeGreaterThan(0);
+    expect(highlight.position.z).toBeGreaterThan(pupil.position.z);
+    expect(
+      (highlight.material as THREE.MeshStandardMaterial).emissiveIntensity,
+    ).toBeCloseTo(0.65, 6);
     expect(prepared.faceSurfaces).toHaveLength(1);
     expect(Array.from(prepared.faceSurfaces[0].faceVertexIndices)).toEqual([0, 1, 2]);
     expect(Array.from(prepared.faceSurfaces[0].faceWeights).every((weight) => weight > 0)).toBe(true);
@@ -115,6 +148,33 @@ describe('reconstructed head integration', () => {
     disposeReconstructedHead(prepared);
   });
 
+  it('uses an independent generated hair GLB instead of the legacy fused split', () => {
+    const prepared = prepareReconstructedHead(
+      makeReconstructedHead(),
+      makeSeparateHair(),
+    );
+
+    expect(prepared.skinMeshes).toHaveLength(1);
+    expect(prepared.hairMeshes).toHaveLength(1);
+    expect(prepared.hairMeshes[0].name).toBe('generated_hair_asset_0');
+    expect(prepared.hairMeshes[0].geometry.getIndex()?.count).toBe(3);
+    expect(prepared.hairBounds.max.y).toBeCloseTo(0.31, 6);
+    expect(prepared.hairSurfaces[0].baseCanonicalPositions).toHaveLength(9);
+
+    disposeReconstructedHead(prepared);
+  });
+  it('trusts a named skin-only head when an independent hair asset is present', () => {
+    const head = makeReconstructedHead();
+    const mesh = head.children[0] as THREE.Mesh;
+    mesh.name = 'reconstructed_skin_v2';
+    const prepared = prepareReconstructedHead(head, makeSeparateHair());
+
+    expect(prepared.skinMeshes).toHaveLength(1);
+    expect(prepared.skinMeshes[0].geometry.getIndex()?.count).toBe(6);
+    expect(prepared.hairMeshes).toHaveLength(1);
+
+    disposeReconstructedHead(prepared);
+  });
   it('seats the eyes on the recessed eye line measured from the reconstructed face', () => {
     const lowerSocket = prepareReconstructedHead(makeEyeSocketHead(0.125));
     const higherSocket = prepareReconstructedHead(makeEyeSocketHead(0.155));
@@ -126,6 +186,7 @@ describe('reconstructed head integration', () => {
       lowerSocket.eyes.basePositions[1].y,
       6,
     );
+    expect(lowerSocket.eyes.canonicalPositions[0].z).toBeLessThan(0.1);
 
     disposeReconstructedHead(lowerSocket);
     disposeReconstructedHead(higherSocket);
@@ -138,6 +199,27 @@ describe('reconstructed head integration', () => {
     expect(keptTriangles).toBe(1);
     expect(Array.from(geometry.getIndex()?.array ?? [])).toEqual([0, 1, 2]);
     geometry.dispose();
+  });
+
+  it('keeps the SMPL hair fallback when a separate generated hair asset is unavailable', () => {
+    const rig = MorphRig.fromMesh(makeBody(), {
+      browL: [-0.03, 1.65, 0.07],
+      browR: [0.03, 1.65, 0.07],
+      eyeL: [-0.03, 1.62, 0.08],
+      eyeR: [0.03, 1.62, 0.08],
+      mouth: [0, 1.55, 0.08],
+      eyeR_size: 0.02,
+    });
+    const headOnly = makeReconstructedHead();
+    const mesh = headOnly.children[0] as THREE.Mesh;
+    mesh.geometry.setIndex([0, 1, 2, 3, 4, 5]);
+
+    rig.attachReconstructedHead(headOnly);
+
+    expect((rig.nodeByName('smpl_hair_anchor') as THREE.Object3D).visible).toBe(true);
+    expect((rig.nodeByName('reconstructed_hair') as THREE.Group).children).toHaveLength(0);
+
+    rig.dispose();
   });
 
   it('attaches the new head at the crown and routes head editing to it', () => {
@@ -191,6 +273,7 @@ describe('reconstructed head integration', () => {
     const rightEye = reconstructedEyes.children[1] as THREE.Group;
     const initialLeftX = leftEye.position.x;
     const initialRightX = rightEye.position.x;
+    const initialLeftZ = leftEye.position.z;
     const headMesh = head.children[0] as THREE.Mesh;
     const hairGroup = rig.nodeByName('reconstructed_hair') as THREE.Group;
     const hairMesh = hairGroup.children[0] as THREE.Mesh;
@@ -259,6 +342,7 @@ describe('reconstructed head integration', () => {
     expect((iris.material as THREE.MeshStandardMaterial).color.getHexString()).toBe('244a2a');
     expect(leftEye.position.x).toBeLessThan(initialLeftX);
     expect(rightEye.position.x).toBeGreaterThan(initialRightX);
+    expect(leftEye.position.z).toBeLessThan(initialLeftZ);
     expect(leftEye.scale.x).toBeGreaterThan(1);
     expect(leftEye.rotation.z).toBeGreaterThan(0);
     expect(rightEye.rotation.z).toBeLessThan(0);
@@ -269,7 +353,7 @@ describe('reconstructed head integration', () => {
     rig.setHighlight(null, 'head_neck');
     expect(rig.highlightedMeshes().selected).toEqual([headMesh, seam]);
     rig.setHighlight(null, 'eyes');
-    expect(rig.highlightedMeshes().selected).toHaveLength(6);
+    expect(rig.highlightedMeshes().selected).toHaveLength(8);
     expect(Array.from(
       (seam.geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array,
     )).toEqual(Array.from(initialSeamPositions));

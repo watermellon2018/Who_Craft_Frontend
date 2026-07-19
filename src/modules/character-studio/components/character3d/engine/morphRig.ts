@@ -367,11 +367,18 @@ export class MorphRig implements Rig {
   static async create(
     url: string = MORPH_GLB_URL,
     reconstructedHeadUrl: string = RECONSTRUCTED_HEAD_GLB_URL,
+    reconstructedHairUrl?: string | null,
   ): Promise<MorphRig> {
     const loader = new GLTFLoader();
-    const [gltf, reconstructedHeadGltf] = await Promise.all([
+    // Hair is optional: if its independent asset is unavailable, keep the
+    // reconstructed head and fall back to the existing SMPL hair shells.
+    const hairPromise = reconstructedHairUrl
+      ? loader.loadAsync(reconstructedHairUrl).catch(() => null)
+      : Promise.resolve(null);
+    const [gltf, reconstructedHeadGltf, reconstructedHairGltf] = await Promise.all([
       loader.loadAsync(url),
       loader.loadAsync(reconstructedHeadUrl),
+      hairPromise,
     ]);
     let mesh: THREE.Mesh | null = null;
     gltf.scene.traverse((obj) => {
@@ -381,7 +388,10 @@ export class MorphRig implements Rig {
     const anchors = (mesh as THREE.Mesh).userData?.faceAnchors as FaceAnchors | undefined;
     const rig = MorphRig.fromMesh(mesh as THREE.Mesh, anchors);
     try {
-      rig.attachReconstructedHead(reconstructedHeadGltf.scene);
+      rig.attachReconstructedHead(
+        reconstructedHeadGltf.scene,
+        reconstructedHairGltf?.scene,
+      );
       return rig;
     } catch (error) {
       rig.dispose();
@@ -1025,10 +1035,13 @@ export class MorphRig implements Rig {
 
   /** Apply hair style/color/length/volume to the active hair asset. */
   private updateHair(params: ZoneParams, mb: Float32Array): void {
-    if (this.reconstructedHead) {
+    if (this.reconstructedHead?.hairMeshes.length) {
+      if (this.hairGroup) this.hairGroup.visible = false;
       this.updateReconstructedHair(params);
       return;
     }
+    if (this.reconstructedHead) this.reconstructedHead.hairGroup.visible = false;
+    if (this.hairGroup) this.hairGroup.visible = true;
     if (!this.hairSlots.length) return;
     const hair = params.hair ?? {};
     const style = typeof hair.hairStyle === 'string' ? hair.hairStyle : 'default';
@@ -1699,13 +1712,14 @@ export class MorphRig implements Rig {
       const side = index === 0 ? -1 : 1;
       eyeRoot.position.copy(eyes.basePositions[index]);
       eyeRoot.position.x += side * eyes.span * 0.13 * eyeDistance;
+      eyeRoot.position.z -= eyes.radius * 0.15 * eyeSize;
       eyeRoot.rotation.set(0, 0, -side * eyeTilt * 0.18);
       eyeRoot.scale.setScalar(1 + eyeSize * 0.22);
     });
   }
 
   /** Replace the rendered SMPL head and join its measured neck to the live body. */
-  attachReconstructedHead(root: THREE.Object3D): void {
+  attachReconstructedHead(root: THREE.Object3D, hairRoot?: THREE.Object3D | null): void {
     this.disposeNeckSeam();
     if (this.reconstructedHead) {
       this.root.remove(this.reconstructedHead.root);
@@ -1714,7 +1728,7 @@ export class MorphRig implements Rig {
       this.reconstructedHeadBasePosition = null;
     }
 
-    const head = prepareReconstructedHead(root);
+    const head = prepareReconstructedHead(root, hairRoot);
     const sourceSize = head.bounds.getSize(new THREE.Vector3());
     const sourceCenter = head.bounds.getCenter(new THREE.Vector3());
     const figureHeight = Math.max(1e-6, this.baseMaxY - this.baseMinY);
@@ -1755,7 +1769,9 @@ export class MorphRig implements Rig {
     this.mesh.geometry.computeVertexNormals();
     this.mesh.geometry.computeBoundingSphere();
 
-    if (this.hairGroup) this.hairGroup.visible = false;
+    if (this.hairGroup) {
+      this.hairGroup.visible = head.hairMeshes.length === 0;
+    }
     const legacyFaceOverlay = this.root.getObjectByName('smpl_face_overlay');
     if (legacyFaceOverlay) legacyFaceOverlay.visible = false;
   }

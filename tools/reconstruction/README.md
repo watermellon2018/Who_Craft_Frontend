@@ -1,4 +1,20 @@
-# Local multi-view head reconstruction spike
+# Character Studio reconstruction tools
+
+## Current Hunyuan multi-view pipeline
+
+The production path requires four unique, identity-consistent head views in
+stable Hunyuan order: portrait/front, profile/left, back, and
+three-quarter/right. The tools prepare transparent crops, generate the
+character-specific multi-view surface, and publish two URLs:
+
+- head.glb retains fused-hair compatibility for older clients;
+- hair.glb is an independent, smoothed voxel-remesh with newly generated
+  topology derived from the reconstructed multi-view hair volume.
+
+New clients load hair.glb separately and keep the standard editor hair as a
+fallback if that optional asset cannot be loaded.
+
+## Legacy FaceMesh and SMPL-X spike
 
 This tool produces a **static triangle-mesh `head.glb` baseline** from the
 portrait, three-quarter and profile references already collected by Character
@@ -63,6 +79,6 @@ identity-likeness gate: the face still reads as a generic SMPL-X-derived head.
 There is no 2D output-to-reference reprojection metric yet. FaceMesh estimates
 depth from stylized 2D art; it cannot observe hidden detail.
 The original SMPL-X topology, cranium and neck are deliberately retained for a
-stable later body integration. Hair is intentionally absent and belongs to the
-next `hair asset` task. The GLB is static: rigging, expression blend shapes,
-neck seam integration and editor persistence remain follow-up work.
+stable later body integration. Hair is absent only from this legacy spike; the
+current Hunyuan path generates a separate asset. This older GLB is static and
+has no facial rig or expression blend shapes.
