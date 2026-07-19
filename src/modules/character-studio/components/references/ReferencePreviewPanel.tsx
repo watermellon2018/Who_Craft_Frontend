@@ -7,8 +7,9 @@ import {
   ReloadOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
-import {CharacterReference, REFERENCE_TYPE_ORDER, ReferenceType} from '../../types/character.types';
+import {CharacterReference, REFERENCE_TYPE_ORDER} from '../../types/character.types';
 import {REFERENCE_LABELS, STATUS_LABELS} from './referenceLabels';
+import {isRequiredReferenceType} from './referenceReadiness';
 
 interface Props {
   reference: CharacterReference;
@@ -24,16 +25,6 @@ interface Props {
   onRetry: () => void;
 }
 
-// Required reference views auto-generated on first page open. Mirrors
-// AUTO_GENERATE_REFERENCE_TYPES on the hook side; kept duplicated here to
-// avoid a circular import between the component and the hook module.
-const REQUIRED_TYPES: ReferenceType[] = [
-  'portrait',
-  'full_body',
-  'three_quarter',
-  'profile',
-  'back_view',
-];
 
 const ReferencePreviewPanel: React.FC<Props> = ({
   reference,
@@ -52,7 +43,7 @@ const ReferencePreviewPanel: React.FC<Props> = ({
   const index = REFERENCE_TYPE_ORDER.indexOf(reference.reference_type) + 1;
   const total = REFERENCE_TYPE_ORDER.length;
   const isReady = reference.status === 'ready' && Boolean(reference.image_url);
-  const isRequiredType = REQUIRED_TYPES.includes(reference.reference_type);
+  const isRequiredType = isRequiredReferenceType(reference.reference_type);
   // While the batch trigger is in flight, a required-but-still-`missing`
   // reference is conceptually about to become `generating` — render the
   // generating state immediately so the UI doesn't flash an empty CTA.

@@ -2,6 +2,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {message} from 'antd';
 import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
+import {REQUIRED_REFERENCE_TYPES_FOR_3D} from '../components/references/referenceReadiness';
 
 const tx = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts) as string;
 import {
@@ -14,17 +15,8 @@ import {
 
 const POLL_INTERVAL_MS = 3000;
 
-// Required reference views auto-generated on first page open. The
-// "side" requirement is satisfied by EITHER profile OR three_quarter, but
-// we trigger both so the user gets the richer set automatically. Optional
-// types (emotions / poses / outfit_details / character_sheet) stay manual.
-export const AUTO_GENERATE_REFERENCE_TYPES: ReferenceType[] = [
-  'portrait',
-  'full_body',
-  'three_quarter',
-  'profile',
-  'back_view',
-];
+// Optional types (emotions / poses / outfit_details / character_sheet) stay manual.
+export const AUTO_GENERATE_REFERENCE_TYPES: readonly ReferenceType[] = REQUIRED_REFERENCE_TYPES_FOR_3D;
 
 // Pull a user-friendly message off whatever shape axios/server gave us.
 // `unknown` instead of `any` keeps eslint happy without losing the

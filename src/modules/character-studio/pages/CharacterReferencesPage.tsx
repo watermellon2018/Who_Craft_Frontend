@@ -7,6 +7,10 @@ import ReferencePreviewPanel from '../components/references/ReferencePreviewPane
 import ReferenceCardGrid from '../components/references/ReferenceCardGrid';
 import ReferenceRightPanel from '../components/references/ReferenceChecklistPanel';
 import {
+  canProceedTo3DFromReferences,
+  getRequiredReferencesProgress,
+} from '../components/references/referenceReadiness';
+import {
   CompareReferenceModal,
   FullscreenReferenceModal,
   ReferenceCorrectionModal,
@@ -180,20 +184,10 @@ const CharacterReferencesPage: React.FC = () => {
 
   const isSelectedGenerating = selected.status === 'generating' || Boolean(refs.activeJobs[selectedType]);
 
-  // Required progress (shared between the preview's progress bar and the
-  // right panel's "0 / 4 готово" counter). The four logical required slots
-  // are: portrait, full_body, (profile OR three_quarter), back_view.
-  const requiredTotal = 4;
-  const requiredReadyCount = useMemo(() => {
-    let count = 0;
-    const byType = (type: ReferenceType) =>
-      referencesList.find((r) => r.reference_type === type)?.status === 'ready';
-    if (byType('portrait')) count += 1;
-    if (byType('full_body')) count += 1;
-    if (byType('profile') || byType('three_quarter')) count += 1;
-    if (byType('back_view')) count += 1;
-    return count;
-  }, [referencesList]);
+  const requiredProgress = useMemo(
+    () => getRequiredReferencesProgress(referencesList),
+    [referencesList],
+  );
 
   if (!characterId) {
     return <div className="references-empty">{t('characterStudio.references.cannotDetermine')}</div>;
@@ -201,7 +195,12 @@ const CharacterReferencesPage: React.FC = () => {
 
   const characterName = refs.state?.character.name || 'Персонаж';
   const identityLocked = Boolean(refs.state?.character.identity_locked);
-  const canProceed = Boolean(refs.state?.can_proceed_to_3d);
+  const canProceed = canProceedTo3DFromReferences({
+    references: referencesList,
+    activeJobs: refs.activeJobs,
+    autoGenerationActive: refs.autoGenerationActive,
+    serverAllowsProceed: Boolean(refs.state?.can_proceed_to_3d),
+  });
   const blockers = refs.state?.proceed_blockers || [];
 
   return (
@@ -213,7 +212,7 @@ const CharacterReferencesPage: React.FC = () => {
           onSave={() => message.info(t('characterStudio.references.autoSave'))}
           saving={false}
           onProceed={handleProceed}
-          proceedDisabled={!canProceed || isSelectedGenerating}
+          proceedDisabled={!canProceed || proceedLoading}
           proceedLoading={proceedLoading}
           onMenuAction={(key) => {
             if (key === 'back-to-editor') {
@@ -239,8 +238,8 @@ const CharacterReferencesPage: React.FC = () => {
               reference={selected}
               identityLocked={identityLocked}
               autoGenerationActive={refs.autoGenerationActive}
-              requiredReadyCount={requiredReadyCount}
-              requiredTotal={requiredTotal}
+              requiredReadyCount={requiredProgress.ready}
+              requiredTotal={requiredProgress.total}
               onDownload={handleDownload}
               onOpen={() => setFullscreenOpen(true)}
               onCompare={() => setCompareOpen(true)}
