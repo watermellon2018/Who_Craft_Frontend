@@ -37,7 +37,7 @@ const RightProjectPanel: React.FC<Props> = ({
 }) => {
   return (
     <aside className="flex flex-col gap-4">
-      {/* Team block sits above progress / quick actions (task §7 ordering). */}
+      <ProjectProgressCard overall={progressOverall} legend={progressLegend} />
       <ProjectTeamCard
         members={project.teamMembers || []}
         memberCount={project.memberCount ?? 1}
@@ -47,7 +47,6 @@ const RightProjectPanel: React.FC<Props> = ({
         onOpenTeam={onOpenTeam}
         onInvite={onInvite}
       />
-      <ProjectProgressCard overall={progressOverall} legend={progressLegend} />
       <QuickActionsCard actions={quickActions} onAction={onQuickAction} />
       <RecentActivityCard activity={activity} loading={loading} />
     </aside>
