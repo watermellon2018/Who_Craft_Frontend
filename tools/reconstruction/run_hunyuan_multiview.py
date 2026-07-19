@@ -41,7 +41,8 @@ def _parse_arguments() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--front", required=True, type=Path)
-    parser.add_argument("--left", required=True, type=Path)
+    parser.add_argument("--left", type=Path)
+    parser.add_argument("--right", type=Path)
     parser.add_argument("--model-root", required=True, type=Path)
     parser.add_argument("--hunyuan-root", required=True, type=Path)
     parser.add_argument("--out-dir", required=True, type=Path)
@@ -88,6 +89,27 @@ def _validate_rgba(path: Path, view_name: str) -> Image.Image:
             f"{view_name} image must have a non-uniform alpha mask"
         )
     return image
+
+
+def _unique_input_paths(args: argparse.Namespace) -> dict[str, Path]:
+    """Return available inputs in stable order without duplicate content."""
+    candidates = (
+        ("front", args.front),
+        ("left", getattr(args, "left", None)),
+        ("right", getattr(args, "right", None)),
+    )
+    inputs: dict[str, Path] = {}
+    seen_digests: set[str] = set()
+    for view_name, path in candidates:
+        if path is None:
+            continue
+        resolved = path.resolve()
+        digest = _sha256(resolved)
+        if digest in seen_digests:
+            continue
+        seen_digests.add(digest)
+        inputs[view_name] = resolved
+    return inputs
 
 
 def _model_paths(model_root: Path) -> tuple[Path, Path]:
@@ -179,9 +201,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             f"official Hunyuan source is missing: {hunyuan_root}"
         )
     config_path, weight_path = _model_paths(args.model_root.resolve())
+    input_paths = _unique_input_paths(args)
     images = {
-        "front": _validate_rgba(args.front, "front"),
-        "left": _validate_rgba(args.left, "left"),
+        view_name: _validate_rgba(path, view_name)
+        for view_name, path in input_paths.items()
     }
 
     sys.path.insert(0, str(hunyuan_root))
@@ -197,10 +220,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     raw_path = output_dir / "raw" / "model.glb"
     metadata_path = output_dir / "metadata.json"
     raw_path.parent.mkdir(parents=True, exist_ok=True)
-    input_paths = {
-        "front": args.front.resolve(),
-        "left": args.left.resolve(),
-    }
     metadata: dict[str, Any] = {
         "status": "running",
         "model": {
