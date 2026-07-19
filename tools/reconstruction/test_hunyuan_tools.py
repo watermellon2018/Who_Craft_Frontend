@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import tempfile
 import unittest
 from pathlib import Path
@@ -104,6 +105,32 @@ class BenchmarkValidationTests(unittest.TestCase):
             Image.new("RGBA", (16, 16), (255, 0, 0, 255)).save(path)
             with self.assertRaisesRegex(ValueError, "alpha"):
                 benchmark._validate_rgba(path, "front")
+
+    def test_input_paths_are_ordered_optional_and_unique(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            front = root / "front.png"
+            left = root / "left.png"
+            right = root / "right.png"
+            front.write_bytes(b"front")
+            left.write_bytes(b"profile")
+            right.write_bytes(b"three-quarter")
+            args = argparse.Namespace(
+                front=front,
+                left=left,
+                right=right,
+            )
+
+            inputs = benchmark._unique_input_paths(args)
+            self.assertEqual(list(inputs), ["front", "left", "right"])
+
+            right.write_bytes(b"profile")
+            inputs = benchmark._unique_input_paths(args)
+            self.assertEqual(list(inputs), ["front", "left"])
+
+            args.left = None
+            inputs = benchmark._unique_input_paths(args)
+            self.assertEqual(list(inputs), ["front", "right"])
 
     def test_model_paths_accept_only_expected_safe_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

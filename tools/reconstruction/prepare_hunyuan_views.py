@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,7 +43,18 @@ def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--metrics", type=Path)
     parser.add_argument("--front", required=True, type=Path)
-    parser.add_argument("--left", required=True, type=Path)
+    parser.add_argument("--left", type=Path)
+    parser.add_argument("--right", type=Path)
+    parser.add_argument(
+        "--left-reference-type",
+        choices=("profile", "three_quarter"),
+        default="profile",
+    )
+    parser.add_argument(
+        "--right-reference-type",
+        choices=("profile", "three_quarter"),
+        default="three_quarter",
+    )
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument("--size", type=int, default=512)
     parser.add_argument("--background-threshold", type=float, default=12.0)
@@ -88,6 +100,49 @@ def _read_image(path: Path) -> np.ndarray:
     if image is None:
         raise ValueError(f"OpenCV could not decode image: {path}")
     return image
+
+
+def _source_digest(path: Path) -> str:
+    """Return a content digest used to avoid preparing duplicate views."""
+    if not path.is_file():
+        raise FileNotFoundError(f"reference image does not exist: {path}")
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _ordered_unique_sources(
+    args: argparse.Namespace,
+) -> tuple[dict[str, tuple[Path, str]], list[str]]:
+    """Return available sources in Hunyuan order, skipping equal files."""
+    candidates = (
+        ("front", args.front, "portrait"),
+        (
+            "left",
+            getattr(args, "left", None),
+            getattr(args, "left_reference_type", "profile"),
+        ),
+        (
+            "right",
+            getattr(args, "right", None),
+            getattr(args, "right_reference_type", "three_quarter"),
+        ),
+    )
+    sources: dict[str, tuple[Path, str]] = {}
+    skipped_duplicates: list[str] = []
+    seen_digests: set[str] = set()
+    for output_name, source_path, metrics_name in candidates:
+        if source_path is None:
+            continue
+        digest = _source_digest(source_path)
+        if digest in seen_digests:
+            skipped_duplicates.append(output_name)
+            continue
+        seen_digests.add(digest)
+        sources[output_name] = (source_path, metrics_name)
+    return sources, skipped_duplicates
 
 
 def _heuristic_face_box(image_shape: tuple[int, ...]) -> FaceBox:
@@ -328,15 +383,12 @@ def _save_prepared_view(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    """Prepare front and left views and write their metadata."""
+    """Prepare every available unique view and write its metadata."""
     metrics = _read_metrics(args.metrics) if args.metrics else None
     output_dir = args.out_dir.resolve()
     prepared_dir = output_dir / "inputs"
     preview_dir = output_dir / "mask-previews"
-    sources = {
-        "front": (args.front, "portrait"),
-        "left": (args.left, "profile"),
-    }
+    sources, skipped_duplicates = _ordered_unique_sources(args)
 
     def box_for(source_path: Path, metrics_name: str) -> FaceBox:
         if metrics is not None:
@@ -361,12 +413,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             else "live_facemesh_or_heuristic_background_distance_grabcut_v3"
         ),
         "views": views,
+        "skipped_duplicate_views": skipped_duplicates,
         "known_limitations": [
             (
                 "Fine hair close to the neutral background may become "
                 "transparent."
             ),
-            "Only front and left cardinal views are prepared in this pass.",
+            (
+                "Saved profile and three-quarter references do not record "
+                "their physical facing direction; left/right are Hunyuan "
+                "conditioning slots."
+            ),
         ],
     }
     report_path = output_dir / "input-metadata.json"
