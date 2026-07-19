@@ -224,7 +224,9 @@ const ProjectDashboardPage: React.FC = () => {
 
   const handleContinue = () => undefined;
   const handleOpenScript = () => {
-    navigate(PathConstants.SCRIPT_PAGE, { state: { project_id: stateProjectId } });
+    if (!stateProjectId) return;
+    const url = PathConstants.SCRIPT_PAGE.replace(':projectId', String(stateProjectId));
+    navigate(url, { state: { project_id: stateProjectId } });
   };
   const handleGenerateScene = () => undefined;
   const handleCreateCharacter = () => {

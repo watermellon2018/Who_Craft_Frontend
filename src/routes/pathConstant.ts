@@ -16,7 +16,8 @@ const PathConstants = {
     PROJECT_TEAM: '/project-list/project/:projectId/team',
     INVITE_ACCEPT: '/invite/:token',
 
-    SCRIPT_PAGE: '/project/script',
+    SCRIPT_PAGE: '/project/:projectId/script',
+    SCRIPT_PAGE_LEGACY: '/project/script',
 
     CHARACTER_STUDIO: '/project/:projectId/characters',
     CHARACTER_STUDIO_CREATE: '/project/:projectId/characters/create',
@@ -27,5 +28,10 @@ const PathConstants = {
     CHARACTER_STUDIO_REFERENCES: '/project/:projectId/characters/:characterId/references',
     CHARACTER_STUDIO_3D: '/project/:projectId/characters/:characterId/3d-model',
 
+}
+
+export function isScriptWorkspacePath(pathname: string) {
+    return pathname === PathConstants.SCRIPT_PAGE_LEGACY
+        || /^\/project\/[^/]+\/script\/?$/.test(pathname);
 }
 export default PathConstants

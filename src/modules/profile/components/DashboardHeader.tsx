@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import WCraftBrand from '../../../components/WCraftBrand';
 import { ProfileUser } from '../types';
 import { fetchProfileMe } from '../api/profileApi';
-import PathConstants from '../../../routes/pathConstant';
+import PathConstants, { isScriptWorkspacePath } from '../../../routes/pathConstant';
 import { clearStoredUserToken } from '../../../api/http';
 import { safeImageUrl } from '../../../utils/safeUrl';
 import i18n from '../../../i18n';
@@ -33,7 +34,7 @@ function resolveSectionTitle(pathname: string): string {
   if (pathname.startsWith(PathConstants.CREATE_PROJECT)) return t('navigation.sections.createProject');
   if (pathname.startsWith(PathConstants.EDIT_PROJECT)) return t('navigation.sections.editProject');
   if (pathname.startsWith('/project/') && pathname.includes('/characters')) return t('navigation.sections.characters');
-  if (pathname.startsWith(PathConstants.SCRIPT_PAGE)) return t('navigation.sections.script');
+  if (isScriptWorkspacePath(pathname)) return t('navigation.sections.script');
   if (pathname === PathConstants.HOME) return t('navigation.sections.home');
   return '';
 }
@@ -109,14 +110,7 @@ const DashboardHeader: React.FC<Props> = ({
               ☰
             </button>
           )}
-          <Link
-            to={PathConstants.HOME}
-            className="app-header__brand"
-            aria-label="Перейти на главную страницу"
-          >
-            <span className="app-header__logo-mark" aria-hidden="true">W</span>
-            <span className="app-header__logo-text">WCraft</span>
-          </Link>
+          <WCraftBrand />
           {subtitle && (
             <span className="app-header__subtitle hidden md:inline">{subtitle}</span>
           )}

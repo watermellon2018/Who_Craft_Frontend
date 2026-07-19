@@ -157,6 +157,7 @@ function App() {
         { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
+        { key: 'scriptPageLegacy', path: PathConstants.SCRIPT_PAGE_LEGACY, component: <ProtectedScriptPage /> },
         { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><ProtectedCharacterGalleryPage /></CharacterStudioShell> },
         { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <CharacterStudioShell><ProtectedCharacterCreatePage /></CharacterStudioShell> },
         { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <GatedCharacterCreateReferenceRoute /> },

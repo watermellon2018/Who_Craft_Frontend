@@ -1,180 +1,216 @@
-import React, {FC, useEffect, useMemo, useRef, useState} from 'react';
-import {useLocation, useNavigate} from "react-router-dom";
-import {Button, Col, Row, Tooltip} from "antd";
-import DashboardHeader from "../../modules/profile/components/DashboardHeader";
-import withAuth from "../../utils/auth/check_auth";
-import {CRAFT_ACCENT} from "../../constants/theme";
-import 'ckeditor5/ckeditor5.css';
-import { CKEditor, CKEditorContext } from '@ckeditor/ckeditor5-react';
-import { BalloonEditor, DecoupledEditor, ClassicEditor, Bold, Essentials, Italic, Mention, Paragraph, Undo } from 'ckeditor5';
-// import DocumentEditor from '@ckeditor/ckeditor5-build-document';
-import {$getRoot, $createTextNode, LexicalEditor, $getSelection, EditorState} from 'lexical';
-
-import {LexicalComposer} from '@lexical/react/LexicalComposer';
-import {PlainTextPlugin} from '@lexical/react/LexicalPlainTextPlugin';
-import {ContentEditable} from '@lexical/react/LexicalContentEditable';
-import {OnChangePlugin} from '@lexical/react/LexicalOnChangePlugin';
-import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
-import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
-import './style.css'
-import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
-import { CodeHighlightNode, CodeNode } from "@lexical/code";
-import { AutoLinkNode, LinkNode } from "@lexical/link";
-import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
 import {
-    CODE,
-    INLINE_CODE,
-    LINK,
-    BOLD_STAR,
-    BOLD_ITALIC_UNDERSCORE,
-    ITALIC_UNDERSCORE,
-} from "@lexical/markdown";
-import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
-import ScenarioToolbar from "./toolbar";
+  AppstoreOutlined,
+  CheckOutlined,
+  DownloadOutlined,
+  EnvironmentOutlined,
+  FileTextOutlined,
+  PlusOutlined,
+  QuestionCircleOutlined,
+  ReloadOutlined,
+  SaveOutlined,
+  SettingOutlined,
+  TeamOutlined,
+} from '@ant-design/icons';
+import React from 'react';
+import {useNavigate} from 'react-router-dom';
+import WCraftBrand from '../../components/WCraftBrand';
 
+import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
+import PathConstants from '../../routes/pathConstant';
+import {sceneToPlainText} from './api';
+import CardsView from './CardsView';
+import CharactersView from './CharactersView';
+import LocationsPlaceholder from './LocationsPlaceholder';
+import ScreenplayView from './ScreenplayView';
+import './style.css';
+import type {WorkspaceMode} from './types';
+import {useScriptWorkspace} from './useScriptWorkspace';
 
-const TRANSFORMERS = [
-    BOLD_STAR,
-    ITALIC_UNDERSCORE,
-    BOLD_ITALIC_UNDERSCORE,
-    CODE,
-    INLINE_CODE,
-    LINK,
+const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNode}> = [
+  {mode: 'screenplay', label: 'Сценарий', icon: <FileTextOutlined />},
+  {mode: 'cards', label: 'Карточки', icon: <AppstoreOutlined />},
+  {mode: 'characters', label: 'Персонажи', icon: <TeamOutlined />},
+  {mode: 'locations', label: 'Локации', icon: <EnvironmentOutlined />},
 ];
 
-
-const theme = {
-    paragraph: "paragraph",
-    text: {
-        bold: "textBold",
-        italic: "textItalic",
-        underline: "textUnderline",
-    },
+const formatDuration = (seconds: number) => {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `${hours} ч ${rest ? `${rest} мин` : ''}`.trim();
 };
 
+export default function ScriptPage() {
+  const projectId = useProjectIdFromRoute();
+  const navigate = useNavigate();
+  const workspace = useScriptWorkspace(projectId);
 
+  const exportScript = () => {
+    const content = workspace.scenes.map(sceneToPlainText).join('\n\n\n');
+    const blob = new Blob([content], {type: 'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${workspace.project?.title || 'script'}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
-const MyOnChangePlugin: FC = () => {
-    function onChange(editorState: EditorState) {
-        editorState.read(() => {
-            $getRoot();
-            $getSelection();
-        });
+  const finish = async () => {
+    const saved = await workspace.saveSelectedScene();
+    if (!saved) return;
+    navigate(PathConstants.PROJECT_PAGE, {state: {project_id: projectId}});
+  };
+
+  const deleteScene = (sceneId: number) => {
+    if (window.confirm('Удалить эту сцену? Это действие нельзя отменить.')) {
+      void workspace.removeScene(sceneId);
     }
-
-    return <OnChangePlugin onChange={onChange} />;
-};
+  };
 
 
-// Lexical React plugins are React components, which makes them
-// highly composable. Furthermore, you can lazy load plugins if
-// desired, so you don't pay the cost for plugins until you
-// actually use them.
-function MyAutoFocusPlugin() {
-    const [editor] = useLexicalComposerContext();
+  if (!projectId) {
+    return <div className="script-state-page">
+      <FileTextOutlined />
+      <h1>Не выбран проект</h1>
+      <p>Откройте сценарий из панели нужного проекта.</p>
+      <button className="script-button script-button--primary" onClick={() => navigate(PathConstants.PROJECTS)}>
+        Все проекты
+      </button>
+    </div>;
+  }
 
-    useEffect(() => {
-        editor.focus();
-    }, [editor]);
+  if (workspace.loading && !workspace.project) {
+    return <div className="script-state-page">
+      <span className="script-loader" />
+      <h1>Открываем сценарий</h1>
+      <p>Загружаем сцены и персонажей проекта.</p>
+    </div>;
+  }
 
-    return null;
+  if (workspace.error || !workspace.project) {
+    return <div className="script-state-page script-state-page--error">
+      <FileTextOutlined />
+      <h1>Сценарий недоступен</h1>
+      <p>{workspace.error || 'Данные проекта не получены.'}</p>
+      <button className="script-button script-button--primary" onClick={() => void workspace.reload()}>
+        <ReloadOutlined /> Повторить
+      </button>
+    </div>;
+  }
+
+  const selectedDirty = Boolean(
+    workspace.selectedScene && workspace.dirtySceneIds.includes(workspace.selectedScene.id),
+  );
+  const selectedSaving = Boolean(
+    workspace.selectedScene && workspace.savingSceneIds.includes(workspace.selectedScene.id),
+  );
+
+  return <div className="script-workspace">
+    <header className="script-topbar">
+      <WCraftBrand className="script-topbar__brand" />
+      <div className="script-project-heading">
+        <div><button onClick={() => navigate(PathConstants.PROJECTS)}>Все проекты</button><span>/</span><span>Сценарий</span></div>
+        <h1>{workspace.project.title}</h1>
+        <small className={workspace.canEdit ? 'is-saved' : ''}>
+          {workspace.canEdit
+            ? selectedSaving ? 'Сохраняем…' : selectedDirty ? 'Есть изменения' : 'Сохранено'
+            : 'Только просмотр'}
+        </small>
+      </div>
+      <div className="script-topbar__actions">
+        {workspace.canEdit && <button
+          className="script-button"
+          disabled={!selectedDirty || selectedSaving}
+          onClick={() => void workspace.saveSelectedScene()}
+        ><SaveOutlined /> Сохранить</button>}
+        <button className="script-button" disabled={workspace.scenes.length === 0} onClick={exportScript}>
+          <DownloadOutlined /> Экспорт
+        </button>
+        <button className="script-button script-button--primary" onClick={() => void finish()}>
+          <CheckOutlined /> Готово
+        </button>
+      </div>
+    </header>
+
+    <aside className="script-rail">
+      <div className="script-rail__modes">
+        {MODE_ITEMS.map((item) => (
+          <button
+            key={item.mode}
+            aria-label={item.label}
+            className={workspace.mode === item.mode ? 'is-active' : ''}
+            title={item.label}
+            onClick={() => void workspace.changeMode(item.mode)}
+          >
+            {item.icon}
+          </button>
+        ))}
+      </div>
+      <div className="script-rail__support">
+        <button aria-label="Настройки"><SettingOutlined /></button>
+        <button aria-label="Помощь"><QuestionCircleOutlined /></button>
+      </div>
+    </aside>
+
+    <section className="script-stats">
+      <div><strong>{workspace.stats.sceneCount}</strong><span>сцен</span></div>
+      <div><strong>{formatDuration(workspace.stats.totalDurationSeconds)}</strong><span>хронометраж</span></div>
+      {workspace.stats.acts.map((act) => {
+        const percent = workspace.stats.totalDurationSeconds
+          ? Math.round(act.durationSeconds / workspace.stats.totalDurationSeconds * 100)
+          : 0;
+        return <div key={act.act} className={`script-act-stat script-act-stat--${act.act}`}>
+          <span>АКТ {act.act}</span>
+          <i><b style={{width: `${percent}%`}} /></i>
+          <small>{percent}% · {formatDuration(act.durationSeconds)}</small>
+        </div>;
+      })}
+      {workspace.canEdit && <button className="script-add-scene" onClick={() => void workspace.addScene()}>
+        <PlusOutlined /> Добавить сцену
+      </button>}
+    </section>
+
+    {(workspace.conflict || workspace.saveError) && <div className="script-alert" role="alert">
+      <span>{workspace.conflict?.message || workspace.saveError}</span>
+      {workspace.conflict
+        ? <button onClick={() => void workspace.reload()}><ReloadOutlined /> Перезагрузить</button>
+        : <button onClick={workspace.dismissSaveError}>Закрыть</button>}
+    </div>}
+
+    <section className="script-workspace__content">
+      {workspace.mode === 'cards' && <CardsView
+        scenes={workspace.scenes}
+        characters={workspace.characters}
+        selectedScene={workspace.selectedScene}
+        characterFilter={workspace.characterSceneFilter}
+        canEdit={workspace.canEdit}
+        dirtySceneIds={workspace.dirtySceneIds}
+        savingSceneIds={workspace.savingSceneIds}
+        onAdd={() => void workspace.addScene()}
+        onChange={workspace.updateScene}
+        onClearFilter={() => workspace.setCharacterSceneFilter(null)}
+        onDelete={deleteScene}
+        onOpenScreenplay={() => void workspace.changeMode('screenplay')}
+        onSave={() => void workspace.saveSelectedScene()}
+        onSelect={(sceneId) => void workspace.selectScene(sceneId)}
+      />}
+      {workspace.mode === 'screenplay' && <ScreenplayView
+        scenes={workspace.scenes}
+        characters={workspace.characters}
+        selectedScene={workspace.selectedScene}
+        canEdit={workspace.canEdit}
+        dirtySceneIds={workspace.dirtySceneIds}
+        savingSceneIds={workspace.savingSceneIds}
+        onAddScene={() => void workspace.addScene()}
+        onChange={workspace.updateScene}
+        onDeleteScene={deleteScene}
+        onSave={() => void workspace.saveSelectedScene()}
+        onSelect={(sceneId) => void workspace.selectScene(sceneId)}
+      />}
+      {workspace.mode === 'characters' && <CharactersView characters={workspace.characters} />}
+      {workspace.mode === 'locations' && <LocationsPlaceholder />}
+    </section>
+  </div>;
 }
-
-// Catch any errors that occur during Lexical updates and log them
-// or throw them as needed. If you don't throw them, Lexical will
-// try to recover gracefully without losing user data.
-function onError(_error: any) {}
-
-/**
- * https://ckeditor.com/docs/ckeditor5/latest/getting-started/installation/react/react.html
- **/
-const ScriptPage = () => {
-
-    const initialConfig = {
-        namespace: "MyEditor",
-        theme,
-        onError(_error: Error) {},
-        nodes: [CodeNode, CodeHighlightNode, AutoLinkNode, LinkNode],
-    };
-
-    const [editorData, setEditorData] = useState('Hello from CKEditor 5 in React!');
-    const editorRef = useRef(null);
-
-
-    const handleSave = (event: any, editor:any) => {
-        const data = editor.getData();
-        setEditorData(data);
-    };
-
-    return (
-
-        <>
-            <DashboardHeader title="" />
-            <div className="project-page p-4 bg-gray-800 min-h-screen text-white">
-                <div className='flex justify-between'>
-                    <div className="mb-4 ml-5">
-                        <h1 className="text-3xl font-bold mb-4">Сценарий</h1>
-                    </div>
-                    <div>
-                        <Button type='primary' className='mr-5' >Сохранить</Button>
-                        <Button>Готово</Button>
-                    </div>
-                </div>
-
-
-                <Row className='container'>
-                    <Col span={20} className='component'>
-
-                        <div className="editorWrapper">
-                            <LexicalComposer initialConfig={initialConfig}>
-                                <RichTextPlugin
-                                    contentEditable={<ContentEditable className={"editor"} />}
-                                    placeholder={<div className={"placeholder"}>Введите текст</div>}
-                                    ErrorBoundary={LexicalErrorBoundary}
-                                />
-                                <MyOnChangePlugin />
-                                <MyAutoFocusPlugin />
-                                <HistoryPlugin />
-                                <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-                                <LinkPlugin />
-                            </LexicalComposer>
-                        </div>
-                    </Col>
-                    <Col style={{display: 'flex', flexDirection: 'column', gap: '10px', }}>
-
-                            <Tooltip color={CRAFT_ACCENT} title='Описание действий, происходящих на сцене.'>
-                                <Button>Действие</Button>
-                            </Tooltip>
-                            <Tooltip color={CRAFT_ACCENT} title='Текст, произносимый персонажем.'>
-                                <Button>Диалог</Button>
-                            </Tooltip>
-                            <Tooltip color={CRAFT_ACCENT} title='Заголовок сцены, место и время действия.'>
-                                <Button>Сцена</Button>
-                            </Tooltip>
-                            <Tooltip color={CRAFT_ACCENT} title='Инструкции для оператора по съёмке.'>
-                                <Button>Камера</Button>
-                            </Tooltip>
-                            <Tooltip color={CRAFT_ACCENT} title='Переходы между сценами (например, "CUT TO:").'>
-                                <Button>Переход</Button>
-                            </Tooltip>
-                            <Tooltip color={CRAFT_ACCENT} title='Описание звуковых эффектов.'>
-                                <Button>Звук</Button>
-                            </Tooltip>
-                            <Tooltip color={CRAFT_ACCENT} title='Дополнительные примечания или комментарии.'>
-                                <Button>Замечание</Button>
-                            </Tooltip>
-
-                    </Col>
-                    <Col style={{display: 'flex', flexDirection: 'column', gap: '10px', }}>
-                        Персонаж
-                    </Col>
-
-
-                </Row>
-            </div>
-        </>
-    );
-}
-
-export default withAuth(ScriptPage);
