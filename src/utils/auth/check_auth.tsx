@@ -7,7 +7,7 @@ import { getStoredUserToken } from '../../api/http';
 /**
  * HOC that gates a page on the presence of an auth token.
  *
- * Source of truth is ``localStorage[userId]`` via ``getStoredUserToken``.
+ * Source of truth is the access token returned by ``getStoredUserToken``.
  * The legacy ``Cookies.get('id')`` check is gone — login/register only write
  * to localStorage now, and keeping both stores caused desync when one was
  * cleared by hand.

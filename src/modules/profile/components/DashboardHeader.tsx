@@ -4,7 +4,7 @@ import WCraftBrand from '../../../components/WCraftBrand';
 import { ProfileUser } from '../types';
 import { fetchProfileMe } from '../api/profileApi';
 import PathConstants, { isScriptWorkspacePath } from '../../../routes/pathConstant';
-import { clearStoredUserToken } from '../../../api/http';
+import { logout } from '../../../api/http';
 import { safeImageUrl } from '../../../utils/safeUrl';
 import i18n from '../../../i18n';
 import './dashboardHeader.css';
@@ -82,8 +82,8 @@ const DashboardHeader: React.FC<Props> = ({
     return resolveSectionTitle(location.pathname);
   }, [sectionTitle, title, location.pathname]);
 
-  const handleLogout = () => {
-    clearStoredUserToken();
+  const handleLogout = async () => {
+    await logout();
     setDropdownOpen(false);
     navigate(PathConstants.AUTH);
   };

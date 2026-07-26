@@ -1,27 +1,23 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios from 'axios';
 
-/**
- * Shared axios client.
- *
- * All callers should import this default instance instead of using `axios`
- * directly so that:
- *   - the user token is attached as an ``X-User-Token`` header (NOT as a
- *     query-string param, which would leak into logs / browser history /
- *     Referer headers sent to image CDNs);
- *   - the backend base URL is set once;
- *   - error handling can be evolved in one place.
- */
+/** Shared API client with X-User-Token access-token authentication. */
 
 const rawBackend = process.env.REACT_APP_BACKEND_URL || '';
-// Normalize: strip a single trailing slash so callers can write
-// `api.get('api/foo/')` regardless of how the env var ends.
 const baseURL = rawBackend.endsWith('/') ? rawBackend.slice(0, -1) : rawBackend;
 
 const TOKEN_STORAGE_KEY = 'authToken';
-// Older builds stored the token under "userId" (misleading: the value is the
-// UUID auth token, not the user id). On first read we migrate any legacy value
-// to the new key so existing sessions keep working without a re-login.
+const REFRESH_TOKEN_STORAGE_KEY = 'authRefreshToken';
 const LEGACY_TOKEN_STORAGE_KEY = 'userId';
+
+interface TokenPairResponse {
+    access: string;
+    refresh: string;
+}
+
+interface RetriableRequestConfig extends InternalAxiosRequestConfig {
+    _authRetry?: boolean;
+}
 
 function migrateLegacyTokenKey(): string | null {
     try {
@@ -29,6 +25,7 @@ function migrateLegacyTokenKey(): string | null {
         if (legacy && legacy.trim()) {
             localStorage.setItem(TOKEN_STORAGE_KEY, legacy);
             localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
             return legacy.trim();
         }
         return null;
@@ -39,31 +36,48 @@ function migrateLegacyTokenKey(): string | null {
 
 export function getStoredUserToken(): string | null {
     try {
-        const v = localStorage.getItem(TOKEN_STORAGE_KEY);
-        if (v && v.trim()) return v.trim();
+        const value = localStorage.getItem(TOKEN_STORAGE_KEY);
+        if (value && value.trim()) return value.trim();
         return migrateLegacyTokenKey();
     } catch {
         return null;
     }
 }
 
-export function setStoredUserToken(token: string): void {
+export function getStoredRefreshToken(): string | null {
     try {
-        localStorage.setItem(TOKEN_STORAGE_KEY, token);
-        // Best-effort cleanup of the legacy key so stale values can't resurrect.
-        localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+        const value = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+        return value && value.trim() ? value.trim() : null;
     } catch {
-        // localStorage may be unavailable (private mode quota, disabled).
-        // We deliberately swallow — caller will see auth failures downstream.
+        return null;
     }
 }
 
-export function clearStoredUserToken(): void {
+let authGeneration = 0;
+
+function writeStoredUserTokens(access: string, refresh: string): void {
     try {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.setItem(TOKEN_STORAGE_KEY, access);
+        localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refresh);
         localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
     } catch {
-        // ignore
+        // A protected request will surface unavailable storage as an auth error.
+    }
+}
+
+export function setStoredUserTokens(access: string, refresh: string): void {
+    authGeneration += 1;
+    writeStoredUserTokens(access, refresh);
+}
+
+export function clearStoredUserToken(): void {
+    authGeneration += 1;
+    try {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    } catch {
+        // ignore unavailable localStorage
     }
 }
 
@@ -74,19 +88,96 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const token = getStoredUserToken();
     if (token) {
-        config.headers = config.headers ?? {};
-        // X-User-Token is read by the backend's auth.utils.extract_user_token.
-        (config.headers as Record<string, string>)['X-User-Token'] = token;
+        config.headers.set('X-User-Token', token);
     }
     return config;
 });
 
+let refreshPromise: Promise<string | null> | null = null;
+
+function isPublicAuthRequest(url = ''): boolean {
+    return /api\/auth\/(?:login|register|refresh)\/?$/.test(url);
+}
+
+async function requestFreshAccessToken(): Promise<string | null> {
+    const refresh = getStoredRefreshToken();
+    if (!refresh) return null;
+    const generation = authGeneration;
+
+    try {
+        const refreshUrl = baseURL
+            ? `${baseURL}/api/auth/refresh/`
+            : '/api/auth/refresh/';
+        const response = await axios.post<TokenPairResponse>(refreshUrl, { refresh });
+        if (
+            generation !== authGeneration ||
+            getStoredRefreshToken() !== refresh
+        ) {
+            return null;
+        }
+        writeStoredUserTokens(response.data.access, response.data.refresh);
+        return response.data.access;
+    } catch {
+        if (
+            generation === authGeneration &&
+            getStoredRefreshToken() === refresh
+        ) {
+            clearStoredUserToken();
+        }
+        return null;
+    }
+}
+
+async function getFreshAccessToken(): Promise<string | null> {
+    if (!refreshPromise) {
+        const pendingRefresh = requestFreshAccessToken();
+        refreshPromise = pendingRefresh;
+        void pendingRefresh.finally(() => {
+            if (refreshPromise === pendingRefresh) refreshPromise = null;
+        });
+    }
+    return refreshPromise;
+}
+
+api.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError) => {
+        const config = error.config as RetriableRequestConfig | undefined;
+        if (
+            error.response?.status !== 401 ||
+            !config ||
+            config._authRetry ||
+            isPublicAuthRequest(config.url)
+        ) {
+            throw error;
+        }
+
+        config._authRetry = true;
+        const access = await getFreshAccessToken();
+        if (!access) throw error;
+
+        config.headers.set('X-User-Token', access);
+        return api.request(config);
+    },
+);
+
+export async function logout(): Promise<void> {
+    authGeneration += 1;
+    refreshPromise = null;
+    try {
+        if (getStoredUserToken()) {
+            await api.post('api/auth/logout/');
+        }
+    } catch {
+        // Local credentials still need to be removed when the server is unavailable.
+    } finally {
+        clearStoredUserToken();
+    }
+}
+
 export default api;
 
-/**
- * Build a full backend URL for media / static asset paths returned by the
- * API. Callers should NOT manually concatenate `process.env.REACT_APP_BACKEND_URL`.
- */
+/** Build a full backend URL for media/static asset paths returned by the API. */
 export function backendAssetUrl(path: string): string {
     if (!path) return '';
     if (/^https?:\/\//i.test(path) || path.startsWith('data:')) return path;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Form, Input, Button, Checkbox } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { setStoredUserToken } from '../../api/http';
+import { setStoredUserTokens } from '../../api/http';
 import {
     CaretRightOutlined,
     UserOutlined,
@@ -71,8 +71,13 @@ const LoginPage: React.FC = () => {
                 username: values.username,
                 password: values.password,
             });
-            if (data && (data.status === 200 || String(data.status) === '200') && data.refresh) {
-                setStoredUserToken(data.refresh);
+            if (
+                data &&
+                (data.status === 200 || String(data.status) === '200') &&
+                data.access &&
+                data.refresh
+            ) {
+                setStoredUserTokens(data.access, data.refresh);
                 navigate(PathConstants.HOME);
             } else {
                 setErrorMessage(t('auth.login.invalidCredentials'));

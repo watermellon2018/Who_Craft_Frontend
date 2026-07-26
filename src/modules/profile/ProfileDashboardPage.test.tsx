@@ -12,9 +12,10 @@ jest.mock('../../api/http', () => ({
   __esModule: true,
   default: {get: jest.fn(), post: jest.fn(), put: jest.fn(), patch: jest.fn(), delete: jest.fn()},
   getStoredUserToken: jest.fn(() => null),
-  setStoredUserToken: jest.fn(),
+  setStoredUserTokens: jest.fn(),
   clearStoredUserToken: jest.fn(),
   backendAssetUrl: (p: string) => p,
+  logout: jest.fn(async () => undefined),
 }));
 
 const mockFetchDashboard = jest.fn();

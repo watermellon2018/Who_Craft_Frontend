@@ -1,4 +1,4 @@
-import api, { setStoredUserToken } from '../http';
+import api, { setStoredUserTokens } from '../http';
 
 interface RegisterRequest {
     username: string;
@@ -6,14 +6,16 @@ interface RegisterRequest {
 }
 
 interface RegisterResponse {
+    access: string;
+    refresh: string;
     token: string;
 }
 
 async function register(values: RegisterRequest) {
     try {
         const res = await api.post<RegisterResponse>('api/auth/register/', values);
-        if (res.data && res.data.token) {
-            setStoredUserToken(res.data.token);
+        if (res.data?.access && res.data.refresh) {
+            setStoredUserTokens(res.data.access, res.data.refresh);
         }
         return res;
     } catch (err: any) {
