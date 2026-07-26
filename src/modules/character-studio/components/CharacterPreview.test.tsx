@@ -10,7 +10,6 @@ jest.mock('antd', () => {
   return {
     ...actual,
     Image: ({src, alt, onError}: {src: string; alt: string; onError?: () => void}) => (
-      // eslint-disable-next-line jsx-a11y/img-redundant-alt
       <img src={src} alt={alt} onError={onError} />
     ),
   };

@@ -26,7 +26,9 @@ import * as profileApi from '../profile/api/profileApi';
 
 // ProfileSidebar pulls profile.css and other assets; keep it as a no-op so we
 // don't fight with CSS modules / asset transformers.
-jest.mock('../profile/components/ProfileSidebar', () => () => <div data-testid="profile-sidebar" />);
+jest.mock('../profile/components/ProfileSidebar', () => function MockProfileSidebar() {
+  return <div data-testid="profile-sidebar" />;
+});
 
 const mockedSubs = subsApi as jest.Mocked<typeof subsApi>;
 const mockedProfile = profileApi as jest.Mocked<typeof profileApi>;

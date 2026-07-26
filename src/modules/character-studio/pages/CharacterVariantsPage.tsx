@@ -121,6 +121,7 @@ export default function CharacterVariantsPage() {
             }
             const newJobId = jobResponse.data?.job_id;
             if (newJobId) {
+                setRegenerating(true);
                 setCurrentJobId(newJobId);
             } else {
                 setRegenError(t('characterStudio.variants.noJobId'));

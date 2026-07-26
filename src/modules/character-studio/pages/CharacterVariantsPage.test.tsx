@@ -86,8 +86,8 @@ describe('CharacterVariantsPage – initial state', () => {
       job: {job_id: 'job-1', status: 'completed', progress: 100, variants: VARIANTS},
     } as never);
     renderPage();
-    expect(screen.getByText('Вариант 1')).toBeInTheDocument();
-    expect(screen.getByText('Вариант 2')).toBeInTheDocument();
+    expect(screen.getByRole('img', {name: 'Вариант 1'})).toBeInTheDocument();
+    expect(screen.getByRole('img', {name: 'Вариант 2'})).toBeInTheDocument();
   });
 
   it('shows error state on job failure', () => {
@@ -140,7 +140,8 @@ describe('CharacterVariantsPage – Regenerate button', () => {
     expect((payload as Record<string, unknown>).variant_count).toBe(2);
   });
 
-  it('disables the Regenerate button while generating', async () => {
+  it('disables the Regenerate button while generating', () => {
+    mockedApi.generateInitial.mockImplementation(() => new Promise(() => {}) as never);
     renderPage();
     fireEvent.click(screen.getByRole('button', {name: /перегенерировать/i}));
     // Before the API promise resolves the button should be disabled
@@ -150,7 +151,6 @@ describe('CharacterVariantsPage – Regenerate button', () => {
 
   it('shows skeleton cards during regeneration', async () => {
     // First call: job for the new regen is still queued
-    let jobCallCount = 0;
     mockedUseGenerationJob.mockImplementation((jobId) => {
       if (jobId === 'job-regen') {
         return {job: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []}} as never;
@@ -158,13 +158,13 @@ describe('CharacterVariantsPage – Regenerate button', () => {
       return {job: {job_id: 'job-1', status: 'completed', progress: 100, variants: VARIANTS}} as never;
     });
 
-    renderPage();
+    const {container} = renderPage();
     fireEvent.click(screen.getByRole('button', {name: /перегенерировать/i}));
-    await act(async () => { await Promise.resolve(); });
 
-    // Old variants hidden, skeleton cards shown
-    expect(screen.queryByText('Вариант 1')).not.toBeInTheDocument();
-    expect(screen.getAllByText(/вариант/i).length).toBe(PAGE_STATE.generationOptions.count);
+    await waitFor(() => {
+      expect(container.querySelectorAll('.cvp-card--skeleton')).toHaveLength(PAGE_STATE.generationOptions.count);
+    });
+    expect(container.querySelectorAll('.cvp-grid img')).toHaveLength(0);
   });
 
   it('replaces old variants with new ones after regen completes', async () => {
@@ -174,7 +174,7 @@ describe('CharacterVariantsPage – Regenerate button', () => {
 
     renderPage();
     // Initial variants visible
-    expect(screen.getByText('Вариант 1')).toBeInTheDocument();
+    expect(screen.getByRole('img', {name: 'Вариант 1'})).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', {name: /перегенерировать/i}));
     await act(async () => {
@@ -184,8 +184,8 @@ describe('CharacterVariantsPage – Regenerate button', () => {
 
     // New variants should now be visible
     await waitFor(() => {
-      expect(screen.getByText('Вариант 1')).toBeInTheDocument(); // count resets to 1, 2
-      expect(screen.getByText('Вариант 2')).toBeInTheDocument();
+      expect(screen.getByRole('img', {name: 'Вариант 1'})).toBeInTheDocument();
+      expect(screen.getByRole('img', {name: 'Вариант 2'})).toBeInTheDocument();
     });
     // Old image URLs replaced with new ones
     const imgs = screen.getAllByRole('img') as HTMLImageElement[];
