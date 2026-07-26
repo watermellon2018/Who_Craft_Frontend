@@ -1,4 +1,6 @@
-import React, { ReactNode, useRef, useState } from 'react';
+import type {AxiosError} from 'axios';
+import React, { useRef, useState } from 'react';
+import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -18,7 +20,8 @@ import {
 } from '@ant-design/icons';
 
 import EditGenComponent from "../edit_generation";
-import {editGenerateImage, generatePosterApi} from "../../../api/posters";
+import {editPoster, generatePoster, selectPosterVariant} from "../../../api/posters";
+import type {PosterVariant} from "../../../api/posters";
 import PathConstants from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
 
@@ -82,6 +85,18 @@ const FORMATS: FormatOption[] = [
 interface RecentPoster {
     id: string;
     url: string;
+}
+
+interface PosterLocationState {
+    is_edit?: boolean;
+    project_id?: number | string;
+}
+
+interface ApiErrorPayload {
+    detail?: string;
+    error?: {
+        message?: string;
+    };
 }
 
 // ============== Card ==============
@@ -586,6 +601,8 @@ const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
 const GenPosterPage: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const locationState = (location.state as PosterLocationState | null) ?? {};
+    const projectId = locationState.project_id ?? null;
 
     const [prompt, setPrompt] = useState<string>('');
     const [selectedStyle, setSelectedStyle] = useState<StyleId>('cinematic');
@@ -593,10 +610,38 @@ const GenPosterPage: React.FC = () => {
     const [referenceFile, setReferenceFile] = useState<File | null>(null);
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [imageGeneratedUrl, setImageGeneratedUrl] = useState<string>('');
+    const [sourceVariantId, setSourceVariantId] = useState<number | null>(null);
     const [recentPosters] = useState<RecentPoster[]>([]);
 
+    const requireProjectId = () => {
+        if (projectId) return projectId;
+        openNotificationWithIcon(
+            'Сначала сохраните проект, затем откройте генератор постера снова.',
+            'Нужен существующий проект',
+            'error',
+        );
+        return null;
+    };
+
+    const catchError = (
+        error: unknown,
+        resetImage = true,
+        fallbackMessage = 'Ошибка при генерации изображения. Что-то пошло не так',
+    ) => {
+        const data = (error as AxiosError<ApiErrorPayload>).response?.data;
+        const message =
+            data?.error?.message ||
+            data?.detail ||
+            (error instanceof Error ? error.message : fallbackMessage);
+        setIsGenerating(false);
+        if (resetImage) {
+            setImageGeneratedUrl('');
+            setSourceVariantId(null);
+        }
+        openNotificationWithIcon('Упс!', message, 'error');
+    };
+
     const handleBack = () => {
-        const projectId = location.state?.project_id;
         if (projectId) {
             navigate(PathConstants.CREATE_PROJECT, {
                 state: { is_edit: true, project_id: projectId },
@@ -606,77 +651,68 @@ const GenPosterPage: React.FC = () => {
         navigate(-1);
     };
 
-    const savePoster = () => {
-        const projectId = location.state?.project_id;
-        // Only forward edit-mode flags when we actually have a project_id —
-        // otherwise the project page would mount in edit mode with no id and
-        // get stuck on "Загружаем проект…" forever.
-        navigate(PathConstants.CREATE_PROJECT, {
-            state: {
-                imgUrl: imageGeneratedUrl,
-                ...(projectId
-                    ? { is_edit: !!location.state?.is_edit, project_id: projectId }
-                    : {}),
-                regenerated: true,
-            },
-        });
+    const savePoster = async () => {
+        const existingProjectId = requireProjectId();
+        if (!existingProjectId || sourceVariantId === null) return;
+        try {
+            await selectPosterVariant(existingProjectId, sourceVariantId);
+            navigate(PathConstants.CREATE_PROJECT, {
+                state: {
+                    imgUrl: imageGeneratedUrl,
+                    is_edit: !!locationState.is_edit,
+                    project_id: existingProjectId,
+                    regenerated: true,
+                },
+            });
+        } catch (error: unknown) {
+            catchError(
+                error,
+                false,
+                'Не удалось сохранить выбранный постер. Повторите попытку.',
+            );
+        }
     };
 
-    const catchError = () => {
-        setIsGenerating(false);
-        setImageGeneratedUrl('');
-        openNotificationWithIcon(
-            'Упс!',
-            'Ошибка при генерации изображения. Что-то пошло не так',
-            'error'
-        );
-    };
-
-    const displayGenImage = (response: any) => {
-        const byteArray = response.data;
-        const imageUrl = `data:image/png;base64,${byteArray}`;
-        setImageGeneratedUrl(imageUrl);
+    const displayGenImage = (variant: PosterVariant) => {
+        setImageGeneratedUrl(variant.imageUrl);
+        setSourceVariantId(variant.id);
         setIsGenerating(false);
     };
 
     const genHandle = async () => {
         if (!prompt.trim() || isGenerating) return;
+        const existingProjectId = requireProjectId();
+        if (!existingProjectId) return;
         try {
             setIsGenerating(true);
-            const response = await generatePosterApi(prompt, {
+            const variant = await generatePoster(existingProjectId, prompt, {
                 style: selectedStyle,
                 format: selectedFormat,
                 referenceFile,
             });
-            displayGenImage(response);
-        } catch (error: any) {
-            const data = error?.response?.data;
-            const message =
-                data?.error?.message ||
-                data?.detail ||
-                'Ошибка при генерации изображения. Что-то пошло не так';
-            setIsGenerating(false);
-            setImageGeneratedUrl('');
-            openNotificationWithIcon('Упс!', message, 'error');
+            displayGenImage(variant);
+        } catch (error: unknown) {
+            catchError(error);
         }
     };
 
     const editHandle = async (correctionText: string) => {
+        const existingProjectId = requireProjectId();
+        if (!existingProjectId || sourceVariantId === null) return;
         try {
             setIsGenerating(true);
-            const params = {
-                url: imageGeneratedUrl,
-                correction: correctionText,
-            };
-            const response = await editGenerateImage(params);
-            displayGenImage(response);
-        } catch (error) {
-            catchError();
+            const variant = await editPoster(existingProjectId, {
+                sourceVariantId,
+                instruction: correctionText,
+            });
+            displayGenImage(variant);
+        } catch (error: unknown) {
+            catchError(error);
         }
     };
 
 
-    const generateDisabled = !prompt.trim() || isGenerating;
+    const generateDisabled = !projectId || !prompt.trim() || isGenerating;
 
     return (
         <>
@@ -1125,6 +1161,11 @@ const GenPosterPage: React.FC = () => {
                                         paddingTop: 20,
                                     }}
                                 >
+                                    {!projectId && (
+                                        <div role="alert" style={{ color: COLORS.danger, fontSize: 13, lineHeight: 1.5 }}>
+                                            Сначала сохраните проект, затем откройте генератор постера снова.
+                                        </div>
+                                    )}
                                     <PrimaryButton
                                         onClick={genHandle}
                                         disabled={generateDisabled}
