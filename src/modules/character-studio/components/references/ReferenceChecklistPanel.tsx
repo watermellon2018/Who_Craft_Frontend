@@ -10,8 +10,9 @@ import {
   ReloadOutlined,
   StarOutlined,
 } from '@ant-design/icons';
-import {CharacterReference, ReferencesChecklist, ReferenceType} from '../../types/character.types';
+import {CharacterReference, ReferencesChecklist} from '../../types/character.types';
 import {REFERENCE_LABELS, describeBlockers} from './referenceLabels';
+import {REQUIRED_REFERENCE_TYPES_FOR_3D} from './referenceReadiness';
 
 interface Props {
   references: CharacterReference[];
@@ -29,7 +30,6 @@ interface Props {
   onBackToEditor: () => void;
 }
 
-const REQUIRED_TYPES: ReferenceType[] = ['portrait', 'full_body', 'profile', 'back_view'];
 
 function statusIcon(status: CharacterReference['status']) {
   if (status === 'ready') return <CheckCircleFilled className="references-required__icon references-required__icon--ok" />;
@@ -56,25 +56,7 @@ const ReferenceRightPanel: React.FC<Props> = ({
   const blockerText = describeBlockers(blockers);
   const hasReadyAsset = selected.status === 'ready' && Boolean(selected.asset_id);
 
-  // For the side requirement we surface either profile or three_quarter,
-  // whichever is the most advanced.
-  const profileRow = references.find((r) => r.reference_type === 'profile');
-  const tqRow = references.find((r) => r.reference_type === 'three_quarter');
-  const sideRow: CharacterReference = (() => {
-    if (profileRow?.status === 'ready') return profileRow;
-    if (tqRow?.status === 'ready') return tqRow;
-    if (profileRow?.status === 'generating') return profileRow;
-    if (tqRow?.status === 'generating') return tqRow;
-    return profileRow || tqRow || {
-      reference_type: 'profile', status: 'missing', asset_id: null, image_url: null,
-      is_primary: false, version: 0, source: null,
-    };
-  })();
-
-  const requiredRows: {label: string; row: CharacterReference}[] = REQUIRED_TYPES.map((type) => {
-    if (type === 'profile') {
-      return {label: 'Профиль или 3/4', row: sideRow};
-    }
+  const requiredRows: {label: string; row: CharacterReference}[] = REQUIRED_REFERENCE_TYPES_FOR_3D.map((type) => {
     return {
       label: REFERENCE_LABELS[type].title,
       row:

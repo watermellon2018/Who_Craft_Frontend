@@ -49,7 +49,7 @@
   --editor-line: rgba(255, 255, 255, 0.08);
   --editor-muted: #929aa8;
   --editor-text: #f7efe0;
-  --editor-accent: #fab005;
+  --editor-accent: var(--craft-accent);
   --editor-accent-soft: rgba(250, 176, 5, 0.15);
   display: grid;
   grid-template-rows: 74px minmax(0, 1fr);
@@ -104,8 +104,13 @@
 }
 
 .character-editor__canvas {
-  overflow: auto;
-  scrollbar-gutter: stable;
+  /* The center column must not scroll — the preview stage owns its size and
+     content fits via flex/grid. Side panels (categories, settings) keep their
+     own overflow-y: auto. */
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .character-editor-title {
@@ -258,6 +263,7 @@
 .character-editor-center {
   min-height: 0;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .character-category-card {
@@ -323,9 +329,13 @@
 
 .character-preview {
   display: grid;
+  /* Tabs on top take their intrinsic height; stage fills the rest. min-height: 0
+     on the auto track lets it shrink below content size when needed. */
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   min-height: 0;
   min-width: 0;
+  height: 100%;
 }
 
 .character-preview-tabs {
@@ -370,7 +380,12 @@
 .character-preview-stage {
   position: relative;
   display: grid;
-  min-height: clamp(420px, calc(100vh - 390px), 560px);
+  /* Honest "fill the row" instead of dictating viewport-derived height. The
+     grid row (.character-preview's 1fr) decides how much we get. min-height: 0
+     lets us shrink below content. A small floor avoids degenerate layouts on
+     ultra-short windows. */
+  height: 100%;
+  min-height: 360px;
   place-items: center;
   overflow: hidden;
   border: 1px solid rgba(250, 176, 5, 0.13);
@@ -517,7 +532,7 @@
   width: 48px;
   height: 48px;
   border: 3px solid rgba(250, 176, 5, 0.2);
-  border-top-color: #fab005;
+  border-top-color: var(--craft-accent);
   border-radius: 50%;
   animation: preview-spin 0.85s linear infinite;
 }
@@ -551,7 +566,7 @@
 
 .character-preview-generating__progress-bar {
   height: 100%;
-  background: #fab005;
+  background: var(--craft-accent);
   border-radius: 2px;
   transition: width 0.4s ease;
 }
@@ -595,7 +610,7 @@
 }
 
 .character-preview-tabs__status--generating {
-  background: #fab005;
+  background: var(--craft-accent);
   animation: tab-status-pulse 1.2s ease-in-out infinite;
 }
 
@@ -653,7 +668,7 @@
   border-radius: 8px;
   border: 1px solid rgba(250, 176, 5, 0.5);
   background: rgba(250, 176, 5, 0.12);
-  color: #fab005;
+  color: var(--craft-accent);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -662,7 +677,7 @@
 
 .character-preview-failed__retry:hover {
   background: rgba(250, 176, 5, 0.2);
-  border-color: #fab005;
+  border-color: var(--craft-accent);
 }
 
 .character-preview-generating__btn {
@@ -1113,7 +1128,7 @@
 }
 
 .character-preview-stage--fullBody {
-  min-height: clamp(520px, calc(100vh - 300px), 660px);
+  /* Height comes from the parent grid row; no viewport-derived clamp. */
   background:
     linear-gradient(90deg, rgba(250, 176, 5, 0.12) 1px, transparent 1px),
     linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
@@ -1123,7 +1138,6 @@
 }
 
 .character-preview-stage--scene {
-  min-height: clamp(500px, calc(100vh - 320px), 620px);
   background:
     radial-gradient(circle at 22% 18%, rgba(250, 176, 5, 0.28), transparent 14rem),
     linear-gradient(155deg, rgba(250, 176, 5, 0.13), transparent 36%),
@@ -1136,9 +1150,14 @@
 }
 
 .character-preview-subject--fullBody {
-  width: min(72%, 560px);
-  min-height: 560px;
-  height: clamp(520px, calc(100vh - 320px), 640px);
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+}
+
+.character-preview-subject--fullBody .full-body-canvas img {
+  max-height: 100%;
 }
 
 .character-preview-subject--fullBody .character-preview-empty__silhouette {
@@ -1148,8 +1167,28 @@
 }
 
 .character-preview-subject--scene {
-  width: min(54%, 460px);
-  min-height: 470px;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Scene is a cinematic frame — fill the canvas, allow slight crop to avoid
+   pillarboxes around 16:9 stills inside a near-square preview stage. */
+.character-preview-subject--scene .ant-image,
+.character-preview-subject--scene img {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 16px;
+}
+
+/* Hide the giant concentric-circles overlay in scene mode so it doesn't
+   peek through the rounded corners of the picture. */
+.character-preview-stage--scene::after {
+  display: none;
 }
 
 /* .height-scale (декоративная линейка) удалена — заменена на FullBodyCanvas. */
@@ -1440,7 +1479,7 @@
   border: 1px solid rgba(250, 176, 5, 0.24);
   border-radius: 999px;
   background:
-    radial-gradient(circle at 68% 28%, #fab005 0 8px, transparent 9px),
+    radial-gradient(circle at 68% 28%, var(--craft-accent) 0 8px, transparent 9px),
     radial-gradient(circle, rgba(250, 176, 5, 0.15), transparent 64%);
 }
 

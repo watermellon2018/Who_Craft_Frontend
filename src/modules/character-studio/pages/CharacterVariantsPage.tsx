@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { message } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { createCharacterFromTreeAPI } from '../../../api/generation/characters/tree_structure';
@@ -22,6 +23,7 @@ interface VariantsPageState {
 
 export default function CharacterVariantsPage() {
     const navigate = useNavigate();
+    const {t} = useTranslation();
     const { projectId = '', characterId = '' } = useParams<{ projectId: string; characterId: string }>();
     const location = useLocation();
     const state = (location.state as VariantsPageState | null) ?? {};
@@ -49,9 +51,9 @@ export default function CharacterVariantsPage() {
         }
         if (job?.status === 'failed') {
             setRegenerating(false);
-            setRegenError(job.error_message || 'Ошибка генерации. Попробуйте ещё раз.');
+            setRegenError(job.error_message || t('characterStudio.variants.generationFailedRetry'));
         }
-    }, [job]);
+    }, [job, t]);
 
     const effectiveSelectedId = selectedVariantId ?? displayVariants[0]?.variant_id ?? null;
 
@@ -89,7 +91,7 @@ export default function CharacterVariantsPage() {
         if (regenerating) return;
         const { formValues, generationOptions: opts } = state;
         if (!formValues) {
-            message.error('Параметры генерации недоступны. Используйте «Изменить параметры».');
+            message.error(t('characterStudio.variants.missingParams'));
             return;
         }
         setRegenerating(true);
@@ -113,19 +115,20 @@ export default function CharacterVariantsPage() {
                 appearance_description: formValues.appearance_description,
             });
             if (jobResponse.data?.status === 'failed') {
-                setRegenError(jobResponse.data?.error_message || 'Генерация не удалась');
+                setRegenError(jobResponse.data?.error_message || t('characterStudio.editor.saveGeneric'));
                 setRegenerating(false);
                 return;
             }
             const newJobId = jobResponse.data?.job_id;
             if (newJobId) {
+                setRegenerating(true);
                 setCurrentJobId(newJobId);
             } else {
-                setRegenError('Сервер не вернул идентификатор задачи');
+                setRegenError(t('characterStudio.variants.noJobId'));
                 setRegenerating(false);
             }
         } catch {
-            setRegenError('Ошибка при запуске генерации. Попробуйте ещё раз.');
+            setRegenError(t('characterStudio.variants.generationLaunchError'));
             setRegenerating(false);
         }
     };
@@ -135,7 +138,7 @@ export default function CharacterVariantsPage() {
         if (!variantId) return;
         setApplying(true);
         try {
-            await characterApi.applyVariant(projectId, characterId, variantId, 'Портрет выбран при создании', 'portrait');
+            await characterApi.applyVariant(projectId, characterId, variantId, t('characterStudio.variants.portaitSelected'), 'portrait');
 
             // Tree node creation and list notifications are deferred here so that
             // draft characters never appear in UI lists before the user confirms a variant.
@@ -149,7 +152,7 @@ export default function CharacterVariantsPage() {
 
             navigate(`/project/${projectId}/characters/${characterId}/edit`);
         } catch {
-            message.error('Ошибка при выборе варианта. Попробуйте ещё раз.');
+            message.error(t('characterStudio.variants.selectError'));
         } finally {
             setApplying(false);
         }
@@ -159,10 +162,10 @@ export default function CharacterVariantsPage() {
         return (
             <div className="cvp-page">
                 <div className="cvp-error">
-                    <p className="cvp-error__title">Сессия не найдена</p>
-                    <p className="cvp-error__text">Вернитесь к форме создания персонажа.</p>
+                    <p className="cvp-error__title">{t('characterStudio.variants.noSession')}</p>
+                    <p className="cvp-error__text">{t('characterStudio.variants.backToForm')}</p>
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
-                        ← Вернуться к форме создания
+                        {t('characterStudio.variants.backToForm')}
                     </button>
                 </div>
             </div>
@@ -174,8 +177,8 @@ export default function CharacterVariantsPage() {
             <div className="cvp-page">
                 <div className="cvp-loading">
                     <div className="cvp-loading__spinner" />
-                    <p className="cvp-loading__title">Генерируем портретные варианты…</p>
-                    <p className="cvp-loading__sub">Обычно это занимает 10–30 секунд</p>
+                    <p className="cvp-loading__title">{t('characterStudio.variants.generatingPortraits')}</p>
+                    <p className="cvp-loading__sub">{t('characterStudio.variants.typicalTime')}</p>
                     {job && typeof job.progress === 'number' && job.progress > 0 && (
                         <div className="cvp-progress">
                             <div className="cvp-progress__bar" style={{ width: `${job.progress}%` }} />
@@ -190,10 +193,10 @@ export default function CharacterVariantsPage() {
         return (
             <div className="cvp-page">
                 <div className="cvp-error">
-                    <p className="cvp-error__title">Ошибка генерации</p>
-                    <p className="cvp-error__text">{job?.error_message || 'Попробуйте создать персонажа ещё раз.'}</p>
+                    <p className="cvp-error__title">{t('characterStudio.variants.generationError')}</p>
+                    <p className="cvp-error__text">{job?.error_message || t('characterStudio.variants.tryAgain')}</p>
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
-                        ← Вернуться к форме создания
+                        {t('characterStudio.variants.backToForm')}
                     </button>
                 </div>
             </div>
@@ -204,10 +207,10 @@ export default function CharacterVariantsPage() {
         return (
             <div className="cvp-page">
                 <div className="cvp-error">
-                    <p className="cvp-error__title">Варианты не были созданы</p>
-                    <p className="cvp-error__text">Возможно, параметры персонажа не прошли проверку безопасности.</p>
+                    <p className="cvp-error__title">{t('characterStudio.variants.noVariants')}</p>
+                    <p className="cvp-error__text">{t('characterStudio.variants.securityCheckFailed')}</p>
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
-                        ← Вернуться к форме создания
+                        {t('characterStudio.variants.backToForm')}
                     </button>
                 </div>
             </div>
@@ -223,18 +226,18 @@ export default function CharacterVariantsPage() {
             <div className="cvp-header">
                 <div className="cvp-header-left">
                     <button className="cvp-back-btn" onClick={handleBack}>
-                        ← Назад
+                        {t('characterStudio.variants.back')}
                     </button>
                     <div>
-                        <h1 className="cvp-title">Выберите вариант персонажа</h1>
+                        <h1 className="cvp-title">{t('characterStudio.variants.selectVariant')}</h1>
                         <p className="cvp-subtitle">
-                            Мы сгенерировали несколько вариантов на основе ваших параметров. Выберите понравившийся портрет.
+                            {t('characterStudio.variants.subtitle')}
                         </p>
                     </div>
                 </div>
                 <div className="cvp-header-actions">
                     <button className="cvp-btn-secondary" onClick={handleEditParams} disabled={regenerating}>
-                        Изменить параметры
+                        {t('characterStudio.variants.editParams')}
                     </button>
                     <button
                         className="cvp-btn-accent"
@@ -244,10 +247,10 @@ export default function CharacterVariantsPage() {
                         {regenerating ? (
                             <>
                                 <span className="cvp-btn-spinner" />
-                                Генерируем…
+                                {t('characterStudio.variants.regenerating')}
                             </>
                         ) : (
-                            'Перегенерировать'
+                            t('characterStudio.variants.regenerate')
                         )}
                     </button>
                 </div>
@@ -264,7 +267,7 @@ export default function CharacterVariantsPage() {
                     ? Array.from({ length: skeletonCount }, (_, i) => (
                         <div key={`skeleton-${i}`} className="cvp-card cvp-card--skeleton">
                             <div className="cvp-card-img-placeholder cvp-card-img-placeholder--loading" />
-                            <span className="cvp-card-label">Вариант {i + 1}</span>
+                            <span className="cvp-card-label">{t('characterStudio.variants.labelVariant', {index: i + 1})}</span>
                         </div>
                     ))
                     : displayVariants.map((variant, idx) => {
@@ -279,18 +282,18 @@ export default function CharacterVariantsPage() {
                                     <img
                                         className="cvp-card-img"
                                         src={variant.image_url}
-                                        alt={`Вариант ${idx + 1}`}
+                                        alt={t('characterStudio.variants.altVariant', {index: idx + 1})}
                                     />
                                 ) : (
                                     <div className="cvp-card-img-placeholder" />
                                 )}
-                                <span className="cvp-card-label">Вариант {idx + 1}</span>
+                                <span className="cvp-card-label">{t('characterStudio.variants.labelVariant', {index: idx + 1})}</span>
                                 <div className="cvp-card-footer">
                                     <div className="cvp-radio">
                                         <span className="cvp-radio-check">✓</span>
                                     </div>
                                     <span className="cvp-select-label">
-                                        {isSelected ? 'Выбрано' : 'Выбрать'}
+                                        {isSelected ? t('characterStudio.variants.selected') : t('characterStudio.variants.select')}
                                     </span>
                                 </div>
                             </div>
@@ -305,15 +308,15 @@ export default function CharacterVariantsPage() {
                         <img
                             className="cvp-thumb"
                             src={displaySelectedVariant.image_url}
-                            alt="Выбранный вариант"
+                            alt={t('characterStudio.variants.altSelectedVariant')}
                         />
                     ) : (
                         <div className="cvp-thumb-placeholder" />
                     )}
                     <span className="cvp-selected-label">
-                        Выбрано:{' '}
+                        {t('characterStudio.variants.selectedPrefix')}{' '}
                         <span>
-                            Вариант {(displayVariants.findIndex(v => v.variant_id === effectiveSelectedId) + 1) || 1}
+                            {t('characterStudio.variants.labelVariant', {index: (displayVariants.findIndex(v => v.variant_id === effectiveSelectedId) + 1) || 1})}
                         </span>
                     </span>
                 </div>
@@ -323,9 +326,9 @@ export default function CharacterVariantsPage() {
                         disabled={!effectiveSelectedId || applying || regenerating}
                         onClick={handleContinue}
                     >
-                        {applying ? 'Сохраняем…' : 'Продолжить'}
+                        {applying ? t('characterStudio.variants.applying') : t('characterStudio.variants.continue')}
                     </button>
-                    <span className="cvp-continue-hint">Вы перейдёте к редактору персонажа</span>
+                    <span className="cvp-continue-hint">{t('characterStudio.variants.continueHint')}</span>
                 </div>
             </div>
         </div>

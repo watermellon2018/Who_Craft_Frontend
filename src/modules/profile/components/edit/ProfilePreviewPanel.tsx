@@ -1,5 +1,7 @@
 import React from 'react';
 import { ProfileEditFormState } from '../../types';
+import { cssUrl, safeImageUrl } from '../../../../utils/safeUrl';
+import { CRAFT_ACCENT } from '../../../../constants/theme';
 
 interface Props {
   state: ProfileEditFormState;
@@ -51,7 +53,7 @@ const ProgressRing: React.FC<{ percent: number }> = ({ percent }) => {
         cx={size / 2}
         cy={size / 2}
         r={radius}
-        stroke="#fab005"
+        stroke={CRAFT_ACCENT}
         strokeWidth={stroke}
         fill="none"
         strokeLinecap="round"
@@ -67,7 +69,7 @@ const ProgressRing: React.FC<{ percent: number }> = ({ percent }) => {
         textAnchor="middle"
         fontSize="13"
         fontWeight="700"
-        fill="#fab005"
+        fill={CRAFT_ACCENT}
       >
         {percent}%
       </text>
@@ -100,15 +102,15 @@ const ProfilePreviewPanel: React.FC<Props> = ({ state }) => {
           <div
             className="h-20 w-full"
             style={{
-              background: state.cover_url
-                ? `url(${state.cover_url}) center/cover no-repeat`
+              background: cssUrl(state.cover_url)
+                ? `${cssUrl(state.cover_url)} center/cover no-repeat`
                 : 'linear-gradient(135deg, #1a1408 0%, #0d1117 50%, #2d1f00 100%)',
             }}
           />
           <div className="px-4 pb-4">
-            <div className="w-16 h-16 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] -mt-8 flex items-center justify-center text-[#fab005] font-bold text-2xl overflow-hidden">
-              {state.avatar_url ? (
-                <img src={state.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+            <div className="w-16 h-16 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] -mt-8 flex items-center justify-center text-accent font-bold text-2xl overflow-hidden">
+              {safeImageUrl(state.avatar_url) ? (
+                <img src={safeImageUrl(state.avatar_url)!} alt="avatar" className="w-full h-full object-cover" />
               ) : (
                 initial(state.display_name || state.username)
               )}
@@ -186,7 +188,7 @@ const ProfilePreviewPanel: React.FC<Props> = ({ state }) => {
                   ✓
                 </span>
               ) : (
-                <span className="w-5 h-5 inline-flex items-center justify-center rounded-full bg-[#fab005]/15 text-[#fab005] text-xs">
+                <span className="w-5 h-5 inline-flex items-center justify-center rounded-full bg-accent/15 text-accent text-xs">
                   ✎
                 </span>
               )}

@@ -1,25 +1,25 @@
-import axios from 'axios';
+import api, { setStoredUserToken } from '../http';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+interface RegisterRequest {
+    username: string;
+    password: string;
+}
 
-async function register(values: any): Promise<any> {
-    const config = {
-        headers: {
-            "Content-Type": "application/json",
-        },
-    };
-    const body = JSON.stringify(values);
+interface RegisterResponse {
+    token: string;
+}
 
+async function register(values: RegisterRequest) {
     try {
-        const res = await axios.post(`${backendUrl}api/auth/register/`, body, config);
-        const userId = res.data.token;
-        localStorage.setItem('userId', userId);
-
+        const res = await api.post<RegisterResponse>('api/auth/register/', values);
+        if (res.data && res.data.token) {
+            setStoredUserToken(res.data.token);
+        }
         return res;
     } catch (err: any) {
-        throw err.response.data;
+        const payload = err?.response?.data ?? { detail: 'registration_failed' };
+        throw payload;
     }
 }
 
-export {register}
-
+export { register };

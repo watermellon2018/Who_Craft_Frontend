@@ -3,7 +3,7 @@
    bits that the editor doesn't already provide: the stepper, the inline
    status dot in sidebar rows, the preview overlay buttons, the right-panel
    required-list rows, the blocker box, the upload drop zone and the compare
-   modal. The accent stays the project's golden #fab005. */
+   modal. The accent stays the project's golden var(--craft-accent). */
 
 .character-references-shell {
   /* The editor's grid-template-rows is a fixed 74px header. The references
@@ -318,8 +318,8 @@
   min-height: 36px;
   padding: 0 18px;
   border-radius: 10px;
-  border: 1px solid var(--editor-accent, #fab005);
-  background: var(--editor-accent, #fab005);
+  border: 1px solid var(--editor-accent, var(--craft-accent));
+  background: var(--editor-accent, var(--craft-accent));
   color: #171a20;
   font-size: 13px;
   font-weight: 800;
@@ -376,7 +376,7 @@
 
 .references-stage .character-preview-failed__retry:hover {
   background: rgba(250, 176, 5, 0.18);
-  border-color: var(--editor-accent, #fab005);
+  border-color: var(--editor-accent, var(--craft-accent));
   color: #ffd15f;
 }
 

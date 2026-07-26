@@ -76,7 +76,7 @@
   border: 1px solid rgba(250, 176, 5, 0.22);
   border-radius: 11px;
   background: rgba(250, 176, 5, 0.14);
-  color: #fab005;
+  color: var(--craft-accent);
   font-size: 18px;
 }
 
@@ -115,7 +115,7 @@
 
 .reference-form-field__label span {
   margin-left: 3px;
-  color: #fab005;
+  color: var(--craft-accent);
 }
 
 .reference-form-field__error {
@@ -140,7 +140,7 @@
 }
 
 .reference-text-counter-input--error .ant-input:focus {
-  border-color: #fab005 !important;
+  border-color: var(--craft-accent) !important;
   box-shadow: 0 0 0 3px rgba(250, 176, 5, 0.14) !important;
 }
 
@@ -192,7 +192,7 @@
 .reference-form-control.ant-input:focus,
 .reference-form-control.ant-input-number-focused,
 .reference-form-control.ant-select-focused .ant-select-selector {
-  border-color: #fab005 !important;
+  border-color: var(--craft-accent) !important;
   box-shadow: 0 0 0 3px rgba(250, 176, 5, 0.14) !important;
 }
 
@@ -263,7 +263,7 @@
 }
 
 .reference-toggle-option--checked .reference-toggle-option__switch {
-  background: #fab005;
+  background: var(--craft-accent);
 }
 
 .reference-toggle-option--checked .reference-toggle-option__switch span {
@@ -312,7 +312,7 @@
 .reference-upload-dropzone:hover,
 .reference-upload-dropzone:focus-visible,
 .reference-upload-dropzone--dragging {
-  border-color: #fab005;
+  border-color: var(--craft-accent);
   box-shadow: 0 0 0 3px rgba(250, 176, 5, 0.14);
 }
 
@@ -349,8 +349,8 @@
 }
 
 .reference-upload-action:hover {
-  border-color: #fab005 !important;
-  color: #fab005 !important;
+  border-color: var(--craft-accent) !important;
+  color: var(--craft-accent) !important;
 }
 
 .reference-upload-empty {
@@ -372,7 +372,7 @@
   border: 1px solid rgba(250, 176, 5, 0.24);
   border-radius: 14px;
   background: rgba(250, 176, 5, 0.12);
-  color: #fab005;
+  color: var(--craft-accent);
   font-size: 26px;
 }
 
@@ -488,7 +488,7 @@
 }
 
 .reference-preview-empty .anticon {
-  color: #fab005;
+  color: var(--craft-accent);
   font-size: 34px;
 }
 
@@ -537,7 +537,7 @@
 
 .identity-info-copy .anticon {
   margin-top: 2px;
-  color: #fab005;
+  color: var(--craft-accent);
 }
 
 .identity-info-copy p {

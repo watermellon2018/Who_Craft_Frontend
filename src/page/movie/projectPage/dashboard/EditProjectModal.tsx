@@ -115,8 +115,8 @@ const EditProjectModal: React.FC<Props> = ({ open, project, onCancel, onSubmit }
       width={600}
       okButtonProps={{
         style: {
-          background: '#fab005',
-          borderColor: '#fab005',
+          background: 'var(--craft-accent)',
+          borderColor: 'var(--craft-accent)',
           color: '#111827',
           fontWeight: 700,
         },
@@ -195,7 +195,7 @@ const EditProjectModal: React.FC<Props> = ({ open, project, onCancel, onSubmit }
             checked={isFavorite}
             onChange={setIsFavorite}
             disabled={submitting}
-            style={{ background: isFavorite ? '#fab005' : 'rgba(255,255,255,0.16)' }}
+            style={{ background: isFavorite ? 'var(--craft-accent)' : 'rgba(255,255,255,0.16)' }}
           />
           <label style={{ ...labelStyle, marginBottom: 0 }}>В избранном</label>
         </div>

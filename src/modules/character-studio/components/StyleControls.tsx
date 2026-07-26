@@ -16,12 +16,9 @@ const VISUAL_STYLE_OPTIONS = [
 export default function StyleControls({value, onChange}: {value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void}) {
   return (
     <section className="character-settings-section character-settings-section--primary">
-      <h3>Основное</h3>
+      <h3>Визуальный стиль</h3>
       <Form layout="vertical">
-        <Form.Item
-          label="Визуальный стиль"
-          extra="Стиль влияет на визуальный язык персонажа при генерации портрета, полного роста и ракурсов."
-        >
+        <Form.Item>
           <Select
             value={value.visual_style as string}
             options={VISUAL_STYLE_OPTIONS}

@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens. Components should reference these vars instead of repeating
+   hardcoded color literals — that makes a future palette swap a one-line
+   change. The accent matches the Ant Design ConfigProvider `colorPrimary`. */
+:root {
+  --craft-accent: #fab005;
+  --craft-accent-hover: #fcc419;
+  --craft-accent-soft: rgba(250, 176, 5, 0.12);
+  --craft-accent-border: rgba(250, 176, 5, 0.4);
+}
+
 html,
 body,
 #root {

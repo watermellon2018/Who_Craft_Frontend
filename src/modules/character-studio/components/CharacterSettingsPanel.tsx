@@ -49,7 +49,7 @@ function regionLabel(region: CharacterRegion) {
     hair: 'Волосы',
     body: 'Тело',
     outfit: 'Одежда',
-    style: 'Общие параметры',
+    style: 'Визуальный стиль',
     full_character: 'Характер',
   };
   return labels[region];

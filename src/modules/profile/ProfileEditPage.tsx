@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PathConstants from '../../routes/pathConstant';
 import ProfileSidebar from './components/ProfileSidebar';
-import DashboardHeader from './components/DashboardHeader';
 import ProfileHeroEditor from './components/edit/ProfileHeroEditor';
 import BasicInfoCard from './components/edit/BasicInfoCard';
 import InterestsCard from './components/edit/InterestsCard';
@@ -352,33 +351,24 @@ const ProfileEditPage: React.FC = () => {
     ? { ...draft, avatar_url: media.avatarUrl, cover_url: media.coverUrl }
     : null;
 
-  const previewUser = viewState
-    ? {
-        id: 0,
-        username: viewState.username,
-        display_name: viewState.display_name,
-        avatar_url: viewState.avatar_url,
-        cover_url: viewState.cover_url,
-        tagline: '',
-        bio: viewState.bio,
-        location: '',
-        joined_at: null,
-      }
-    : null;
-
   return (
     <div className="flex h-screen bg-[#0f1117] overflow-hidden">
       <ProfileSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <DashboardHeader
-          user={previewUser ?? { id: 0, username: '', display_name: '', avatar_url: null, cover_url: null, tagline: '', bio: '', location: '', joined_at: null }}
-          onMenuToggle={() => setSidebarOpen((o) => !o)}
-          title="Редактирование профиля"
-        />
-
         <main className="flex-1 overflow-y-auto profile-scroll">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen((o) => !o)}
+              className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors mb-2"
+              style={{ background: 'transparent', border: 'none' }}
+              aria-label="Открыть меню"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
+                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
             <div className="mb-6">
               <h2 className="text-white font-bold text-2xl">Редактирование профиля</h2>
               <nav className="text-sm mt-1.5 flex items-center gap-2">
@@ -390,7 +380,7 @@ const ProfileEditPage: React.FC = () => {
                   Личный кабинет
                 </button>
                 <span className="text-white/30">›</span>
-                <span className="text-[#fab005]">Редактирование профиля</span>
+                <span className="text-accent">Редактирование профиля</span>
               </nav>
             </div>
 
@@ -465,7 +455,7 @@ const ProfileEditPage: React.FC = () => {
               type="button"
               onClick={handleSave}
               disabled={isSaving || isLoading || !draft}
-              className="inline-flex items-center gap-2 bg-[#fab005] text-[#13151a] text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-[#fcc419] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 bg-accent text-[#13151a] text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-[#fcc419] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? '⏳ Сохранение…' : '💾 Сохранить изменения'}
             </button>
@@ -473,7 +463,7 @@ const ProfileEditPage: React.FC = () => {
               type="button"
               onClick={handleCancel}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 bg-[#262a32] hover:bg-[#2f343d] text-sm font-medium px-4 py-2.5 rounded-xl border border-white/15 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-[#fab005]/40 focus:border-[#fab005]/50 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-[#262a32] hover:bg-[#2f343d] text-sm font-medium px-4 py-2.5 rounded-xl border border-white/15 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-colors disabled:opacity-50"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             >
               <span style={{ color: 'rgba(255,255,255,0.92)' }}>✕</span> Отмена
@@ -482,7 +472,7 @@ const ProfileEditPage: React.FC = () => {
               type="button"
               onClick={handleGoToCabinet}
               disabled={isSaving}
-              className="inline-flex items-center gap-2 bg-[#262a32] hover:bg-[#2f343d] text-sm font-medium px-4 py-2.5 rounded-xl border border-white/15 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-[#fab005]/40 focus:border-[#fab005]/50 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 bg-[#262a32] hover:bg-[#2f343d] text-sm font-medium px-4 py-2.5 rounded-xl border border-white/15 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-colors disabled:opacity-50"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             >
               ← В кабинет

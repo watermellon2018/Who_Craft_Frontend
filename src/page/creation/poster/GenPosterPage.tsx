@@ -18,10 +18,7 @@ import {
 } from '@ant-design/icons';
 
 import EditGenComponent from "../edit_generation";
-import {
-    editGenerateImage,
-    generatePosterApi,
-} from "../../../api/characters";
+import {editGenerateImage, generatePosterApi} from "../../../api/posters";
 import PathConstants from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
 

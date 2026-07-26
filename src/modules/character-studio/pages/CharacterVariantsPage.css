@@ -85,7 +85,7 @@
 .cvp-btn-accent {
     background: rgba(250, 176, 5, 0.12);
     border: 1px solid rgba(250, 176, 5, 0.4);
-    color: #fab005;
+    color: var(--craft-accent);
     padding: 8px 16px;
     border-radius: 8px;
     font-size: 14px;
@@ -95,7 +95,7 @@
 }
 .cvp-btn-accent:hover:not(:disabled) {
     background: rgba(250, 176, 5, 0.2);
-    border-color: #fab005;
+    border-color: var(--craft-accent);
 }
 .cvp-btn-accent:disabled,
 .cvp-btn-secondary:disabled {
@@ -109,7 +109,7 @@
     width: 12px;
     height: 12px;
     border: 2px solid rgba(250, 176, 5, 0.35);
-    border-top-color: #fab005;
+    border-top-color: var(--craft-accent);
     border-radius: 50%;
     animation: cvp-spin 0.7s linear infinite;
     margin-right: 6px;
@@ -181,7 +181,7 @@
 }
 
 .cvp-card--selected {
-    border-color: #fab005;
+    border-color: var(--craft-accent);
     box-shadow: 0 0 0 1px rgba(250, 176, 5, 0.3), 0 0 28px rgba(250, 176, 5, 0.25);
 }
 
@@ -239,8 +239,8 @@
 }
 
 .cvp-card--selected .cvp-radio {
-    border-color: #fab005;
-    background: #fab005;
+    border-color: var(--craft-accent);
+    background: var(--craft-accent);
 }
 
 .cvp-radio-check {
@@ -258,7 +258,7 @@
     transition: color 0.2s;
 }
 .cvp-card--selected .cvp-select-label {
-    color: #fab005;
+    color: var(--craft-accent);
     font-weight: 600;
 }
 
@@ -307,7 +307,7 @@
     color: #f7efe0;
 }
 .cvp-selected-label span {
-    color: #fab005;
+    color: var(--craft-accent);
 }
 
 .cvp-panel-right {
@@ -318,7 +318,7 @@
 }
 
 .cvp-btn-continue {
-    background: #fab005;
+    background: var(--craft-accent);
     border: none;
     color: #1b1d22;
     padding: 10px 32px;
@@ -357,7 +357,7 @@
     width: 48px;
     height: 48px;
     border: 3px solid rgba(250, 176, 5, 0.2);
-    border-top-color: #fab005;
+    border-top-color: var(--craft-accent);
     border-radius: 50%;
     animation: cvp-spin 0.8s linear infinite;
 }
@@ -390,7 +390,7 @@
 
 .cvp-progress__bar {
     height: 100%;
-    background: #fab005;
+    background: var(--craft-accent);
     border-radius: 2px;
     transition: width 0.4s ease;
 }

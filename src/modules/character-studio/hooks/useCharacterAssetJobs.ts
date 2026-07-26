@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
+import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
 import {CharacterImageType, GenerationJob, StudioCharacter} from '../types/character.types';
 
@@ -13,7 +14,6 @@ export interface AssetJobState {
 
 export type AssetJobsMap = Partial<Record<CharacterImageType, AssetJobState>>;
 
-const SECONDARY_TYPES: CharacterImageType[] = ['full_body', 'scene'];
 const POLL_INTERVAL_MS = 2500;
 
 const REGION_BY_TYPE: Record<CharacterImageType, string> = {
@@ -47,12 +47,6 @@ function mapBackendStatus(status: GenerationJob['status']): AssetJobStatus {
   return 'idle';
 }
 
-function debug(...args: unknown[]) {
-  if (process.env.NODE_ENV === 'development') {
-    console.debug('[useCharacterAssetJobs]', ...args);
-  }
-}
-
 /**
  * Manages background generation of secondary assets (full_body, scene)
  * for the character editor. Auto-launches missing jobs once and polls active ones.
@@ -69,7 +63,6 @@ export function useCharacterAssetJobs(
   disabled = false,
 ) {
   const [jobs, setJobs] = useState<AssetJobsMap>({});
-  const autostartedRef = useRef<Set<string>>(new Set());
   const completionNotifiedRef = useRef<Set<string>>(new Set());
 
   const updateJob = useCallback((type: CharacterImageType, patch: Partial<AssetJobState>) => {
@@ -86,8 +79,6 @@ export function useCharacterAssetJobs(
       if (completionNotifiedRef.current.has(completionKey)) return;
       completionNotifiedRef.current.add(completionKey);
 
-      debug('job completed', {type, jobId, variantCount: variants?.length ?? 0});
-
       if (variants?.length) {
         try {
           await characterApi.applyVariant(
@@ -97,15 +88,11 @@ export function useCharacterAssetJobs(
             `Автогенерация ${type}`,
             type,
           );
-          debug('auto-applied variant', {type, variantId: variants[0].variant_id});
-        } catch (e) {
-          debug('auto-apply failed', {type, error: e});
-        }
+        } catch (_) {}
       }
 
       // Always refresh: the backend activates the image during job processing, so the
       // character payload contains the URL even if applyVariant above failed.
-      debug('refreshing character after job completion', {type});
       onCompleted?.();
     },
     [characterId, projectId, onCompleted],
@@ -115,7 +102,6 @@ export function useCharacterAssetJobs(
     async (type: CharacterImageType): Promise<string | undefined> => {
       if (!character) return undefined;
       const region = REGION_BY_TYPE[type];
-      debug('launching job', {characterId, type, region});
       updateJob(type, {status: 'queued', errorMessage: undefined});
       try {
         const response = await characterApi.generateEdit(projectId, character.character_id, {
@@ -131,7 +117,6 @@ export function useCharacterAssetJobs(
         const backendStatus = response.data?.status;
         const frontendStatus: AssetJobStatus =
           backendStatus === 'failed' ? 'failed' : mapBackendStatus(backendStatus) || 'queued';
-        debug('job created', {type, jobId, backendStatus, frontendStatus});
         updateJob(type, {jobId, status: frontendStatus, errorMessage: response.data?.error_message});
 
         // The backend processes jobs synchronously: the response often arrives with
@@ -142,35 +127,13 @@ export function useCharacterAssetJobs(
         }
 
         return jobId;
-      } catch (e) {
-        debug('job launch failed', {type, error: e});
-        updateJob(type, {status: 'failed', errorMessage: 'Не удалось запустить генерацию'});
+      } catch (_) {
+        updateJob(type, {status: 'failed', errorMessage: i18n.t('characterStudio.errors.assetGenerationFailed') as string});
         return undefined;
       }
     },
-    [character, characterId, projectId, updateJob, handleJobCompleted],
+    [character, projectId, updateJob, handleJobCompleted],
   );
-
-  // Auto-launch secondary jobs once, when character is loaded and asset is missing.
-  useEffect(() => {
-    if (disabled) return;
-    if (!character || !character.character_id) return;
-    SECONDARY_TYPES.forEach((type) => {
-      const key = `${character.character_id}:${type}`;
-      if (autostartedRef.current.has(key)) return;
-      const hasAsset = !!character.images?.[type]?.image_url;
-      const currentJob = jobs[type];
-      const hasActive = currentJob?.status === 'queued' || currentJob?.status === 'processing';
-      if (hasAsset) {
-        autostartedRef.current.add(key);
-        updateJob(type, {status: 'completed'});
-        return;
-      }
-      if (hasActive) return;
-      autostartedRef.current.add(key);
-      launchJob(type);
-    });
-  }, [disabled, character, jobs, launchJob, updateJob]);
 
   // Poll jobs that are still queued or processing (covers async/queued backends).
   useEffect(() => {
@@ -190,7 +153,6 @@ export function useCharacterAssetJobs(
             const job = response.data as GenerationJob;
             if (cancelled) return;
             const nextStatus = mapBackendStatus(job.status);
-            debug('poll response', {type, jobId: state.jobId, nextStatus, progress: job.progress});
             updateJob(type, {
               status: nextStatus,
               progress: job.progress,
@@ -199,12 +161,7 @@ export function useCharacterAssetJobs(
             if (nextStatus === 'completed' && state.jobId) {
               await handleJobCompleted(type, state.jobId, job.variants);
             }
-            if (nextStatus === 'failed') {
-              debug('job failed', {type, jobId: state.jobId, error: job.error_message});
-            }
-          } catch (e) {
-            debug('poll error', {type, error: e});
-          }
+          } catch (_) {}
         }),
       );
     };
@@ -219,11 +176,9 @@ export function useCharacterAssetJobs(
 
   const retry = useCallback(
     (type: CharacterImageType) => {
-      const key = `${characterId}:${type}`;
-      autostartedRef.current.delete(key);
       launchJob(type);
     },
-    [characterId, launchJob],
+    [launchJob],
   );
 
   const markPending = useCallback(

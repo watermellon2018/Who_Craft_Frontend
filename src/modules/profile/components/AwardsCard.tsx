@@ -17,7 +17,7 @@ const AwardsCard: React.FC<Props> = ({ awards }) => {
     <div className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-white font-semibold text-base">🏆 Награды</h3>
-        <button className="text-[#fab005] text-xs hover:underline">Смотреть все</button>
+        <button className="text-accent text-xs hover:underline">Смотреть все</button>
       </div>
 
       {awards.length === 0 ? (
@@ -29,7 +29,7 @@ const AwardsCard: React.FC<Props> = ({ awards }) => {
               key={award.code}
               className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                 award.unlocked
-                  ? 'bg-[#fab005]/8 border-[#fab005]/20'
+                  ? 'bg-accent/8 border-accent/20'
                   : 'bg-white/3 border-white/5 opacity-40'
               }`}
             >

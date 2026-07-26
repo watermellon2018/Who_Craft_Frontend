@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Collapse, Modal, message} from 'antd';
 import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, MoreOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {characterApi} from '../api/characterApi';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
@@ -28,8 +29,6 @@ const APPEARANCE_CONTROL_FIELDS = [
   'skin_tone',
   'hair_length',
   'hair_color',
-  'height_cm',
-  'body_type',
   'posture',
   'appearance_description',
 ];
@@ -42,8 +41,6 @@ function controlsFromCharacter(character: StudioCharacter) {
     skin_tone: appearance.skin_tone || undefined,
     hair_length: appearance.hair_length || undefined,
     hair_color: appearance.hair_color || undefined,
-    height_cm: typeof appearance.height_cm === 'number' ? appearance.height_cm : undefined,
-    body_type: appearance.body_type || undefined,
     posture: appearance.posture || undefined,
     appearance_description: appearance.appearance_prompt || undefined,
   };
@@ -163,6 +160,7 @@ export default function CharacterEditorPage() {
   const {projectId = '', characterId = ''} = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const {t} = useTranslation();
   const {character, refresh, setCharacter} = useCharacter(projectId, characterId);
   const [activeTab, setActiveTab] = useState<string>('face');
   const [activeViewMode, setActiveViewMode] = useState<CharacterViewMode>('portrait');
@@ -240,12 +238,9 @@ export default function CharacterEditorPage() {
   useEffect(() => {
     if (!job) return;
     if (job.status === 'failed' && notifiedFailedJobId !== job.job_id) {
-      message.error(job.error_message || 'Генерация не удалась (backend вернул FAILED)');
+      message.error(job.error_message || t('characterStudio.editor.generationFailed'));
       setNotifiedFailedJobId(job.job_id);
       setGeneratingImageType(null);
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[CharacterEditor] generation failed', {jobId: job.job_id, error: job.error_message});
-      }
     }
     if (job.status === 'completed' && previewedJobId !== job.job_id) {
       if (job.variants?.length) {
@@ -265,9 +260,6 @@ export default function CharacterEditorPage() {
         setZoneEditOpen(false);
       }
       persistControlsAndRefreshRef.current?.();
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[CharacterEditor] generation completed', {jobId: job.job_id, variants: job.variants?.length ?? 0});
-      }
     }
     if (job.status === 'cancelled') {
       setGeneratingImageType(null);
@@ -279,9 +271,6 @@ export default function CharacterEditorPage() {
     const imageType = viewModeToImageType(activeViewMode);
     const region = regionForImageType(imageType, activeTab);
     setGeneratingImageType(imageType);
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[CharacterEditor] starting generation', {imageType, region});
-    }
 
     // Save current controls to DB before generation so the backend prompt compiler
     // reads up-to-date appearance fields (skin_tone, eye_color, face_shape, etc.).
@@ -324,15 +313,12 @@ export default function CharacterEditorPage() {
         current_image_url: activeImage?.image_url || null,
         current_asset_id: activeImage?.asset_id || null,
       });
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[CharacterEditor] generation job created', {jobId: response.data?.job_id, status: response.data?.status});
-      }
       setSelectedVariant(null);
       setPreviewedJobId(undefined);
       setNotifiedFailedJobId(undefined);
       setJobId(response.data.job_id);
       if (response.data?.status === 'failed') {
-        message.error(response.data?.error_message || 'Генерация не удалась');
+        message.error(response.data?.error_message || t('characterStudio.editor.saveGeneric'));
         setNotifiedFailedJobId(response.data.job_id);
         setGeneratingImageType(null);
       } else {
@@ -349,7 +335,7 @@ export default function CharacterEditorPage() {
         });
       }
     } catch {
-      message.error('Ошибка при запуске генерации. Попробуйте ещё раз.');
+      message.error(t('characterStudio.editor.generationError'));
       setGeneratingImageType(null);
     }
   };
@@ -378,7 +364,7 @@ export default function CharacterEditorPage() {
       setNotifiedFailedJobId(undefined);
       setJobId(data.job_id);
       if (data.status === 'failed') {
-        message.error(data.error_message || 'Zone-edit не удался');
+        message.error(data.error_message || t('characterStudio.editor.zoneEditFailed'));
         setNotifiedFailedJobId(data.job_id);
         setGeneratingImageType(null);
       } else {
@@ -396,7 +382,7 @@ export default function CharacterEditorPage() {
         }
       }
     } catch {
-      message.error('Ошибка при запуске zone-edit. Попробуйте ещё раз.');
+      message.error(t('characterStudio.editor.zoneEditError'));
       setGeneratingImageType(null);
     } finally {
       setZoneEditSubmitting(false);
@@ -407,7 +393,7 @@ export default function CharacterEditorPage() {
     if (!character) return;
     const imageType = viewModeToImageType(activeViewMode);
     await characterApi.applyVariant(projectId, character.character_id, variant.variant_id, `Применен вариант ${variant.region}`, imageType);
-    message.success('Вариант применен');
+    message.success(t('characterStudio.editor.variantApplied'));
     setSelectedVariant(null);
     await refreshAndResync();
   };
@@ -421,7 +407,7 @@ export default function CharacterEditorPage() {
     notifyCharacterDeleted(character.character_id);
     notifyCharacterListUpdated();
     notifyCharacterTreeUpdated();
-    message.success('Персонаж удален');
+    message.success(t('characterStudio.editor.characterDeleted'));
     setCharacter(null);
     navigate(`/project/${projectId}/characters`, {replace: true});
   };
@@ -436,7 +422,7 @@ export default function CharacterEditorPage() {
     };
 
     if (Object.keys(payload).length === 0) {
-      message.info('Нет изменений, которые нужно отправить в карточку персонажа');
+      message.info(t('characterStudio.editor.changesUnsaved'));
       return;
     }
 
@@ -457,7 +443,7 @@ export default function CharacterEditorPage() {
       setHasUnsavedChanges(false);
       notifyCharacterListUpdated();
       notifyCharacterTreeUpdated();
-      message.success('Изменения сохранены');
+      message.success(t('characterStudio.editor.changesSaved'));
     } finally {
       setSaving(false);
     }
@@ -585,7 +571,7 @@ export default function CharacterEditorPage() {
     }
 
     message.destroy(msgKey);
-    message.success('Все изображения обновлены');
+    message.success(t('characterStudio.editor.allImagesUpdated'));
     setSequentialRunning(false);
     refresh();
   };
@@ -596,9 +582,8 @@ export default function CharacterEditorPage() {
       setActiveViewMode('portrait');
     } else if (key === 'body' || key === 'outfit') {
       setActiveViewMode('fullBody');
-    } else {
-      setActiveViewMode('portrait');
     }
+    // 'style' (Настройки) and 'personality' are visual-mode-agnostic — keep current mode.
     if (['face', 'hair', 'body', 'outfit', 'style'].includes(key)) {
       editor.setRegion(key as CharacterRegion);
     }
@@ -609,23 +594,28 @@ export default function CharacterEditorPage() {
 
   const selectViewMode = (mode: CharacterViewMode) => {
     setActiveViewMode(mode);
-    if (mode === 'portrait') {
-      setActiveTab('face');
-      editor.setRegion('face');
-    }
-    if (mode === 'fullBody') {
-      setActiveTab('body');
-      editor.setRegion('body');
-    }
+    // Scene is always paired with the settings category — the panel only makes
+    // sense in that slot. For portrait/full_body, we keep whatever category the
+    // user already had selected so toggling between portrait <-> full body
+    // doesn't yank them away from "Настройки" if that's what they were on.
     if (mode === 'scene') {
       setActiveTab('style');
       editor.setRegion('style');
+      return;
+    }
+    if (mode === 'portrait' && !['face', 'hair', 'style'].includes(activeTab)) {
+      setActiveTab('face');
+      editor.setRegion('face');
+    }
+    if (mode === 'fullBody' && !['body', 'outfit', 'style'].includes(activeTab)) {
+      setActiveTab('body');
+      editor.setRegion('body');
     }
   };
 
   const goToReferences = () => {
     if (!character?.character_id) {
-      message.warning('Сначала сохраните персонажа.');
+      message.warning(t('characterStudio.editor.saveBeforeReferences'));
       return;
     }
     navigate(`/project/${projectId}/characters/${character.character_id}/references`);
@@ -637,7 +627,22 @@ export default function CharacterEditorPage() {
 
   const effectiveCharacter = character ? {...character, ...personalityEdits} : character;
 
-  const right = activeViewMode === 'fullBody' && activeTab === 'outfit'
+  // "Настройки" (left category 'style') has a single render path regardless of
+  // the visual mode. Scene mode is also always rendered through this path,
+  // because selectViewMode('scene') pins activeTab='style' — keeping the two
+  // entry-points unified avoids the old desync where Scene tab and the
+  // sidebar 'Настройки' opened different panels.
+  const right = activeTab === 'style' || activeViewMode === 'scene'
+    ? <SettingsPanel
+        activeViewMode={activeViewMode}
+        sceneSettings={sceneSettings}
+        onSceneChange={setSceneSettings}
+        styleControls={editor.controls}
+        onStyleControlsChange={updateControls}
+        textRefinement={editor.textRefinement}
+        onTextRefinementChange={editor.setTextRefinement}
+      />
+    : activeViewMode === 'fullBody' && activeTab === 'outfit'
     ? <OutfitSettingsPanel
         projectId={projectId}
         characterId={characterId}
@@ -653,16 +658,14 @@ export default function CharacterEditorPage() {
       />
     : activeViewMode === 'fullBody'
     ? <FullBodySettingsPanel />
-    : activeViewMode === 'scene'
-      ? <SceneSettingsPanel settings={sceneSettings} onChange={setSceneSettings} />
-      : activeTab === 'personality'
-            ? effectiveCharacter
-              ? <PersonalityEditorPanel character={effectiveCharacter} onChange={updatePersonality} />
-              : null
-            : <CharacterSettingsPanel region={(['face', 'hair', 'body', 'style'].includes(activeTab) ? activeTab : 'face') as CharacterRegion} controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} />;
+    : activeTab === 'personality'
+      ? effectiveCharacter
+        ? <PersonalityEditorPanel character={effectiveCharacter} onChange={updatePersonality} />
+        : null
+      : <CharacterSettingsPanel region={(['face', 'hair', 'body'].includes(activeTab) ? activeTab : 'face') as CharacterRegion} controls={editor.controls} onControlsChange={updateControls} textRefinement={editor.textRefinement} onTextRefinementChange={editor.setTextRefinement} />;
 
   return <CharacterEditorLayout
-    topBar={<EditorTopBar characterName={character?.name || 'Персонаж'} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info('Переименование доступно через дерево персонажей слева')} onRefresh={generateSequential} sequentialRunning={sequentialRunning} generatingImageType={generatingImageType} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} onGoToReferences={goToReferences} />}
+    topBar={<EditorTopBar characterName={character?.name || t('characterStudio.editor.tipsCharacter')} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info(t('characterStudio.editor.renameHint'))} onRefresh={generateSequential} sequentialRunning={sequentialRunning} generatingImageType={generatingImageType} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} onGoToReferences={goToReferences} />}
     sidebar={<CharacterCategorySidebar active={activeTab} onSelect={selectCategory} />}
     center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} generatingImageType={generatingImageType} jobProgress={job?.progress} secondaryJobs={secondaryJobs} onRetrySecondary={retrySecondaryJob} zoneEditOpen={zoneEditOpen} onZoneEditToggle={setZoneEditOpen} onZoneEditApply={applyZoneEdit} zoneEditSubmitting={zoneEditSubmitting} savedZone={savedZones[currentImageTypeForZone] ?? null} onZoneSave={handleZoneSave} pendingZoneCount={Object.keys(savedZones).length} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && !zoneEditOpen && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
     right={right}
@@ -703,35 +706,9 @@ function EditorTopBar({characterName, onBack, onRename, onRefresh, sequentialRun
 function FullBodySettingsPanel() {
   return (
     <ModeSettingsPanel eyebrow="Контекстная панель" title="Настройки: Тело">
-      <SettingsSection title="Основное" primary>
-        <PresetGrid items={['Худощавое', 'Среднее', 'Атлетичное', 'Крупное']} activeIndex={2} />
-        <RangeControl label="Рост" value="178 см" />
-        <RangeControl label="Масса / объем" value="54%" />
-        <RangeControl label="Мышечная масса" value="62%" />
+      <SettingsSection title="Поза" primary>
+        <PresetGrid items={['Нейтральная', 'Уверенная', 'Расслабленная', 'Динамичная']} activeIndex={0} />
       </SettingsSection>
-      <Collapse
-        className="character-settings-collapse"
-        ghost
-        items={[
-          {
-            key: 'proportions',
-            label: 'Пропорции',
-            children: (
-              <div className="character-collapse-content">
-                <RangeControl label="Плечи" value="58%" />
-                <RangeControl label="Талия" value="44%" />
-                <RangeControl label="Ноги" value="66%" />
-                <RangeControl label="Руки" value="52%" />
-              </div>
-            ),
-          },
-          {
-            key: 'pose',
-            label: 'Поза',
-            children: <PresetGrid items={['Нейтральная', 'Уверенная', 'Расслабленная', 'Динамичная']} activeIndex={0} />,
-          },
-        ]}
-      />
     </ModeSettingsPanel>
   );
 }
@@ -754,6 +731,37 @@ const SCENE_WEATHERS = [
   {value: 'snow', label: 'Снег'},
   {value: 'fog', label: 'Туман'},
 ];
+
+function SettingsPanel({
+  activeViewMode,
+  sceneSettings,
+  onSceneChange,
+  styleControls,
+  onStyleControlsChange,
+  textRefinement,
+  onTextRefinementChange,
+}: {
+  activeViewMode: CharacterViewMode;
+  sceneSettings: {location: string; time: string; weather: string};
+  onSceneChange: (s: {location: string; time: string; weather: string}) => void;
+  styleControls: Record<string, unknown>;
+  onStyleControlsChange: (value: Record<string, unknown>) => void;
+  textRefinement: string;
+  onTextRefinementChange: (value: string) => void;
+}) {
+  if (activeViewMode === 'scene') {
+    return <SceneSettingsPanel settings={sceneSettings} onChange={onSceneChange} />;
+  }
+  return (
+    <CharacterSettingsPanel
+      region="style"
+      controls={styleControls}
+      onControlsChange={onStyleControlsChange}
+      textRefinement={textRefinement}
+      onTextRefinementChange={onTextRefinementChange}
+    />
+  );
+}
 
 function SceneSettingsPanel({settings, onChange}: {settings: {location: string; time: string; weather: string}; onChange: (s: {location: string; time: string; weather: string}) => void}) {
   return (
@@ -828,18 +836,6 @@ function PresetGrid({items, activeIndex = 0}: {items: string[]; activeIndex?: nu
           {item}
         </button>
       ))}
-    </div>
-  );
-}
-
-function RangeControl({label, value}: {label: string; value: string}) {
-  return (
-    <div className="mode-range-control">
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <input type="range" min="0" max="100" defaultValue="58" aria-label={label} />
     </div>
   );
 }

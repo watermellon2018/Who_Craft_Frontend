@@ -1,6 +1,10 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {message} from 'antd';
+import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
+import {REQUIRED_REFERENCE_TYPES_FOR_3D} from '../components/references/referenceReadiness';
+
+const tx = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts) as string;
 import {
   CharacterReference,
   GenerationJob,
@@ -11,17 +15,8 @@ import {
 
 const POLL_INTERVAL_MS = 3000;
 
-// Required reference views auto-generated on first page open. The
-// "side" requirement is satisfied by EITHER profile OR three_quarter, but
-// we trigger both so the user gets the richer set automatically. Optional
-// types (emotions / poses / outfit_details / character_sheet) stay manual.
-export const AUTO_GENERATE_REFERENCE_TYPES: ReferenceType[] = [
-  'portrait',
-  'full_body',
-  'three_quarter',
-  'profile',
-  'back_view',
-];
+// Optional types (emotions / poses / outfit_details / character_sheet) stay manual.
+export const AUTO_GENERATE_REFERENCE_TYPES: readonly ReferenceType[] = REQUIRED_REFERENCE_TYPES_FOR_3D;
 
 // Pull a user-friendly message off whatever shape axios/server gave us.
 // `unknown` instead of `any` keeps eslint happy without losing the
@@ -100,7 +95,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
       setError(null);
     } catch (err) {
       if (!isMountedRef.current) return;
-      setError(readApiError(err, 'Не удалось загрузить референсы.'));
+      setError(readApiError(err, tx('characterStudio.errors.loadReferences')));
     } finally {
       if (isMountedRef.current) setLoading(false);
     }
@@ -154,7 +149,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           return next;
         });
         for (const failed of failedJobs) {
-          message.error(`Не удалось обновить «${failed.referenceType}»: ${failed.reason}`);
+          message.error(tx('characterStudio.errors.referenceFailed', {type: failed.referenceType, reason: failed.reason}));
         }
         await refresh();
       }
@@ -213,17 +208,15 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           // a manual click on a card can retry; surface the situation so
           // the user isn't stuck staring at a frozen "0 / 4" board.
           autoTriggeredRef.current = false;
-          message.warning('Не удалось запустить автоматическую генерацию референсов. Попробуйте сгенерировать вручную.');
+          message.warning(tx('characterStudio.errors.autoGenerationBanner'));
         }
       } catch (err) {
         // Real failure (network, auth, validation). Reset the latch so a
         // page revisit retries; show the message regardless of whether the
         // backend included a body.
         autoTriggeredRef.current = false;
-        const apiError = readApiError(err, 'Не удалось автоматически запустить генерацию референсов.');
+        const apiError = readApiError(err, tx('characterStudio.errors.autoGenerationFailed'));
         message.error(apiError);
-        // eslint-disable-next-line no-console
-        console.error('[references] auto-generation failed', err);
       } finally {
         if (isMountedRef.current) setAutoGenerationActive(false);
       }
@@ -279,12 +272,12 @@ export function useCharacterReferences(projectId: string | number, characterId: 
             ...prev,
             references: prev.references.map((row) =>
               row.reference_type === referenceType && row.status === 'generating'
-                ? {...row, status: 'failed' as const, error_message: readApiError(err, 'Не удалось запустить генерацию.')}
+                ? {...row, status: 'failed' as const, error_message: readApiError(err, tx('characterStudio.errors.generationLaunchFailed'))}
                 : row,
             ),
           };
         });
-        message.error(readApiError(err, 'Не удалось запустить генерацию.'));
+        message.error(readApiError(err, tx('characterStudio.errors.generationLaunchFailed')));
       }
     },
     [projectId, characterId, startJob],
@@ -304,7 +297,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
         }
         startJob(referenceType, data.job_id, data.status);
       } catch (err) {
-        message.error(readApiError(err, 'Не удалось применить исправление.'));
+        message.error(readApiError(err, tx('characterStudio.errors.correctionFailed')));
       }
     },
     [projectId, characterId, startJob],
@@ -318,7 +311,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
         await refresh();
         return response.data as CharacterReference;
       } catch (err) {
-        message.error(readApiError(err, 'Не удалось загрузить файл.'));
+        message.error(readApiError(err, tx('characterStudio.errors.uploadFailed')));
         return null;
       }
     },
@@ -334,7 +327,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           setState(response.data as ReferencesState);
         }
       } catch (err) {
-        message.error(readApiError(err, 'Не удалось пометить как основной.'));
+        message.error(readApiError(err, tx('characterStudio.errors.primaryFailed')));
       }
     },
     [projectId, characterId],
@@ -347,7 +340,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
         await characterApi.updateReferencesChecklist(projectId, characterId, patch);
         await refresh();
       } catch (err) {
-        message.error(readApiError(err, 'Не удалось сохранить чеклист.'));
+        message.error(readApiError(err, tx('characterStudio.errors.checklistSaveFailed')));
       }
     },
     [projectId, characterId, refresh],
@@ -363,7 +356,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
       if (blockers) {
         return {can_proceed: false, blockers};
       }
-      message.error(readApiError(err, 'Не удалось перейти к 3D модели.'));
+      message.error(readApiError(err, tx('characterStudio.errors.proceedFailed')));
       return null;
     }
   }, [projectId, characterId]);

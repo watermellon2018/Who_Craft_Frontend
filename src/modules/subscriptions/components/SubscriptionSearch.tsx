@@ -1,11 +1,14 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   value: string;
   onChange: (v: string) => void;
 }
 
-const SubscriptionSearch: React.FC<Props> = ({ value, onChange }) => (
+const SubscriptionSearch: React.FC<Props> = ({ value, onChange }) => {
+  const { t } = useTranslation();
+  return (
   <div
     className="rounded-2xl p-5 mb-2"
     style={{
@@ -27,7 +30,7 @@ const SubscriptionSearch: React.FC<Props> = ({ value, onChange }) => (
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Поиск по имени пользователя или @username"
+        placeholder={t('subscriptions.search.placeholder')}
         className="w-full outline-none text-sm transition-all duration-200"
         style={{
           height: '50px',
@@ -49,7 +52,7 @@ const SubscriptionSearch: React.FC<Props> = ({ value, onChange }) => (
       {value && (
         <button
           onClick={() => onChange('')}
-          aria-label="Очистить поиск"
+          aria-label={t('subscriptions.search.clearAria')}
           className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors duration-150 flex items-center justify-center w-5 h-5 rounded-full"
           style={{ color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.08)' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.75)'; }}
@@ -62,10 +65,11 @@ const SubscriptionSearch: React.FC<Props> = ({ value, onChange }) => (
       )}
     </div>
     <p className="mt-3 text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.52)' }}>
-      Начните вводить имя или @username для поиска каналов.{' '}
-      <span style={{ color: 'rgba(255,255,255,0.35)' }}>Без запроса отображаются ваши подписки.</span>
+      {t('subscriptions.search.hint')}{' '}
+      <span style={{ color: 'rgba(255,255,255,0.35)' }}>{t('subscriptions.search.hintSecondary')}</span>
     </p>
   </div>
-);
+  );
+};
 
 export default SubscriptionSearch;

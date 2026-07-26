@@ -48,8 +48,10 @@ import {
   deleteProject as apiDeleteProject,
 } from './api';
 import EditProjectModal from './EditProjectModal';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import InviteMemberModal from '../team/InviteMemberModal';
+import { fetchTeamSummary, leaveProject, teamErrorCode } from '../../../../api/projects/team';
 import { Modal, message } from 'antd';
+import { safeHttpUrl } from '../../../../utils/safeUrl';
 
 import '../../../../modules/profile/profile.css';
 import './dashboard.css';
@@ -160,6 +162,8 @@ const ProjectDashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [teamRoleOptions, setTeamRoleOptions] = useState<{ value: string; label: string }[]>([]);
 
   // When we have a project_id we render an empty skeleton until the API
   // responds — never the demo mocks. Demo mocks only appear when the page is
@@ -220,21 +224,39 @@ const ProjectDashboardPage: React.FC = () => {
 
   const handleContinue = () => undefined;
   const handleOpenScript = () => {
-    navigate(PathConstants.SCRIPT_PAGE, { state: { project_id: stateProjectId } });
+    if (!stateProjectId) return;
+    const url = PathConstants.SCRIPT_PAGE.replace(':projectId', String(stateProjectId));
+    navigate(url, { state: { project_id: stateProjectId } });
   };
   const handleGenerateScene = () => undefined;
   const handleCreateCharacter = () => {
-    navigate(PathConstants.GENERATING, {
-      state: { is_edit: false, project_id: stateProjectId },
-    });
+    if (!stateProjectId) return;
+    // Route the "create character" CTA to the modern character studio gallery
+    // (the legacy ``/generating`` route was removed along with the legacy
+    // hero editor).
+    const url = PathConstants.CHARACTER_STUDIO.replace(':projectId', String(stateProjectId));
+    navigate(url);
   };
+  const handleCharacterClick = useCallback(
+    (characterId: string) => {
+      if (!stateProjectId) return;
+      const url = PathConstants.CHARACTER_STUDIO_EDITOR
+        .replace(':projectId', String(stateProjectId))
+        .replace(':characterId', String(characterId));
+      navigate(url);
+    },
+    [navigate, stateProjectId],
+  );
   const handleAddMusic = () => undefined;
   const handleQuickAction = useCallback(
     (key: string) => {
-      const url = view.quickActionUrls[key];
-      if (url) {
-        window.open(url, '_self');
-      }
+      const raw = view.quickActionUrls[key];
+      // Quick-action URLs come from the API. Reject anything that isn't a
+      // safe http(s) target or a same-origin relative path — otherwise an
+      // attacker-controlled value could redirect the user to phishing.
+      const safe = safeHttpUrl(raw);
+      if (!safe) return;
+      window.open(safe, '_self');
     },
     [view.quickActionUrls],
   );
@@ -332,6 +354,28 @@ const ProjectDashboardPage: React.FC = () => {
 
   const handleEdit = useCallback(() => setEditOpen(true), []);
 
+  const handleOpenTeam = useCallback(() => {
+    if (!stateProjectId) return;
+    const url = PathConstants.PROJECT_TEAM.replace(
+      ':projectId',
+      String(stateProjectId),
+    );
+    navigate(url, { state: { project_id: stateProjectId } });
+  }, [navigate, stateProjectId]);
+
+  const handleOpenInvite = useCallback(async () => {
+    // Lazily fetch the professional-role options for the invite form select.
+    if (teamRoleOptions.length === 0 && stateProjectId) {
+      try {
+        const summary = await fetchTeamSummary(stateProjectId);
+        setTeamRoleOptions(summary.teamRoleOptions || []);
+      } catch {
+        /* non-fatal — the modal still works without prof-role options */
+      }
+    }
+    setInviteOpen(true);
+  }, [teamRoleOptions.length, stateProjectId]);
+
   const handleEditSubmit = useCallback(
     async (values: {
       title: string;
@@ -365,7 +409,7 @@ const ProjectDashboardPage: React.FC = () => {
       okText: 'Архивировать',
       cancelText: 'Отмена',
       okButtonProps: {
-        style: { background: '#fab005', borderColor: '#fab005', color: '#111827', fontWeight: 700 },
+        style: { background: 'var(--craft-accent)', borderColor: 'var(--craft-accent)', color: '#111827', fontWeight: 700 },
       },
       onOk: async () => {
         try {
@@ -411,6 +455,33 @@ const ProjectDashboardPage: React.FC = () => {
     }
   }, [stateProjectId, applySummaryToView]);
 
+  const handleLeave = useCallback(() => {
+    if (!stateProjectId) return;
+    Modal.confirm({
+      title: 'Покинуть проект?',
+      content:
+        'Ваш доступ будет отозван немедленно. Созданные вами материалы останутся в проекте.',
+      okText: 'Покинуть',
+      okButtonProps: { danger: true },
+      cancelText: 'Отмена',
+      onOk: async () => {
+        try {
+          await leaveProject(stateProjectId);
+          message.success('Вы покинули проект');
+          navigate(PathConstants.PROJECTS);
+        } catch (e: any) {
+          const code = teamErrorCode(e);
+          if (code === 'OWNER_CANNOT_LEAVE') {
+            message.error('Владелец не может покинуть проект — сначала передайте владение');
+          } else {
+            message.error('Не удалось покинуть проект');
+          }
+          throw e;
+        }
+      },
+    });
+  }, [stateProjectId, navigate]);
+
   const handleDelete = useCallback(() => {
     if (!stateProjectId) return;
     Modal.confirm({
@@ -438,10 +509,6 @@ const ProjectDashboardPage: React.FC = () => {
     });
   }, [stateProjectId, navigate]);
 
-  const handleBackToList = useCallback(() => {
-    navigate(PathConstants.PROJECTS);
-  }, [navigate]);
-
   const sectionTitle = loading ? 'Проект' : (view.project.title || 'Проект');
 
   return (
@@ -458,16 +525,6 @@ const ProjectDashboardPage: React.FC = () => {
           style={{ opacity: loading ? 0.55 : 1 }}
           aria-busy={loading}
         >
-            <button
-              type="button"
-              onClick={handleBackToList}
-              className="inline-flex items-center gap-2 text-white/60 hover:text-white/90 text-sm mb-4 transition-colors"
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
-            >
-              <ArrowLeftOutlined />
-              Все проекты
-            </button>
-
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 sm:gap-6">
               <div className="flex flex-col gap-4 sm:gap-6 min-w-0">
                 <ProjectHero
@@ -480,21 +537,26 @@ const ProjectDashboardPage: React.FC = () => {
                   onArchive={handleArchive}
                   onUnarchive={handleUnarchive}
                   onDelete={handleDelete}
+                  onLeave={handleLeave}
                 />
                 <ProjectStats stats={view.stats} />
                 <CharactersSection
                   characters={view.characters}
                   onCreate={handleCreateCharacter}
+                  onCharacterClick={stateProjectId ? handleCharacterClick : undefined}
                 />
                 <ProjectPipeline pipeline={view.pipeline} />
                 <ProjectMusic tracks={view.music} onAdd={handleAddMusic} />
               </div>
               <RightProjectPanel
+                project={view.project}
                 progressOverall={view.progressOverall}
                 progressLegend={view.progressLegend}
                 quickActions={view.quickActions}
                 activity={view.activity}
                 onQuickAction={handleQuickAction}
+                onOpenTeam={handleOpenTeam}
+                onInvite={handleOpenInvite}
                 loading={loading}
               />
           </div>
@@ -507,6 +569,16 @@ const ProjectDashboardPage: React.FC = () => {
         onCancel={() => setEditOpen(false)}
         onSubmit={handleEditSubmit}
       />
+
+      {stateProjectId && (
+        <InviteMemberModal
+          open={inviteOpen}
+          projectId={stateProjectId}
+          teamRoleOptions={teamRoleOptions}
+          onClose={() => setInviteOpen(false)}
+          onInvited={() => message.success('Приглашение создано')}
+        />
+      )}
     </div>
   );
 };

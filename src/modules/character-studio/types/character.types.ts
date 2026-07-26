@@ -153,9 +153,11 @@ export interface StudioCharacter {
   gender?: string;
   species?: string;
   visual_style?: string;
+  status?: 'draft' | 'active' | 'references_locked';
   identity_locked: boolean;
   locked_at?: string | null;
   locked_by_id?: number | null;
+  model3d_params?: Record<string, Record<string, number | string | boolean>>;
   active_appearance_id?: string | null;
   active_outfit_id?: string | null;
   active_version_id?: string | null;
@@ -202,6 +204,43 @@ export interface GenerationJob {
   completed_at?: string | null;
   failed_at?: string | null;
   variants: CharacterVariant[];
+}
+
+export type Model3DReconstructionStatus =
+  | 'missing'
+  | 'queued'
+  | 'processing'
+  | 'ready'
+  | 'failed';
+
+export interface Model3DAssetDescriptor {
+  asset_id?: string | null;
+  model_url: string;
+  source: 'generated' | 'library' | 'legacy';
+  [key: string]: unknown;
+}
+
+export interface Model3DReconstruction {
+  status: Model3DReconstructionStatus;
+  progress: number;
+  job_id: string | null;
+  asset_id: string | null;
+  model_url: string | null;
+  hair_url?: string | null;
+  assets?: {
+    head: Model3DAssetDescriptor | null;
+    hair: Model3DAssetDescriptor | null;
+  };
+  pipeline_version?: number;
+  error_message: string;
+}
+
+export interface Model3DState {
+  params: Record<string, Record<string, number | string | boolean>>;
+  reconstruction: Model3DReconstruction;
+  autofit_done: boolean;
+  autofit_version: number;
+  updated_at: string;
 }
 
 export interface EditRequest {
@@ -324,6 +363,26 @@ export interface ProceedTo3DResponse {
   next_stage?: string;
   next_url?: string;
   locked_reference_ids?: string[];
+  reconstruction?: Model3DReconstruction;
   blockers?: string[];
   checklist?: ReferencesChecklist;
+}
+
+export interface CreateCharacterFromReferencePayload {
+  name: string;
+  entityType: string;
+  role?: string;
+  lifecycleStage?: string;
+  gender?: string;
+  visualStyle?: string;
+  refinement?: string;
+  variantsCount?: number;
+  preserveIdentity?: boolean;
+  referenceImage: File;
+}
+
+export interface CreateCharacterFromReferenceResponse {
+  character: StudioCharacter;
+  reference: CharacterAsset;
+  generation_job: GenerationJob;
 }

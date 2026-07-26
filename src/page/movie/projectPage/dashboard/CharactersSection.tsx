@@ -4,11 +4,30 @@ import { CharacterMock } from './mocks';
 
 interface CharacterCardProps {
   character: CharacterMock;
+  onClick?: (characterId: string) => void;
 }
 
-const CharacterCard: React.FC<CharacterCardProps> = ({ character }) => {
+const CharacterCard: React.FC<CharacterCardProps> = ({ character, onClick }) => {
+  const interactive = Boolean(onClick);
+  const handleActivate = () => onClick?.(character.id);
   return (
-    <div className="proj-card overflow-hidden flex flex-col">
+    <div
+      className={`proj-card overflow-hidden flex flex-col character-card${interactive ? ' character-card--interactive' : ''}`}
+      onClick={interactive ? handleActivate : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleActivate();
+              }
+            }
+          : undefined
+      }
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? `Открыть персонажа: ${character.name}` : undefined}
+    >
       <div
         className="relative w-full aspect-[3/4] flex items-center justify-center overflow-hidden"
         style={{ background: character.gradient }}
@@ -31,7 +50,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character }) => {
             className="absolute top-3 left-3 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-md"
             style={{
               background: 'rgba(250, 176, 5, 0.18)',
-              color: '#fab005',
+              color: 'var(--craft-accent)',
               border: '1px solid rgba(250, 176, 5, 0.35)',
             }}
           >
@@ -65,21 +84,22 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character }) => {
 interface Props {
   characters: CharacterMock[];
   onCreate: () => void;
+  onCharacterClick?: (characterId: string) => void;
 }
 
-const CharactersSection: React.FC<Props> = ({ characters, onCreate }) => {
+const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterClick }) => {
   return (
     <section className="proj-card p-5 sm:p-6">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         {characters.map((c) => (
-          <CharacterCard key={c.id} character={c} />
+          <CharacterCard key={c.id} character={c} onClick={onCharacterClick} />
         ))}
         <button type="button" className="proj-create-card" onClick={onCreate}>
           <span
             className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{
               background: 'rgba(250, 176, 5, 0.12)',
-              color: '#fab005',
+              color: 'var(--craft-accent)',
             }}
           >
             <PlusOutlined style={{ fontSize: 18 }} />

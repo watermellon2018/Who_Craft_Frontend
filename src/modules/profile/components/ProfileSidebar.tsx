@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import PathConstants from '../../../routes/pathConstant';
 import LogoButton from '../../../page/main/logo';
+import { clearStoredUserToken } from '../../../api/http';
 
 interface MenuItem {
   icon: string;
@@ -45,7 +46,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
 
   const handleLogout = () => {
     Cookies.remove('token');
-    localStorage.removeItem('userId');
+    clearStoredUserToken();
     navigate(PathConstants.AUTH);
   };
 
@@ -82,7 +83,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
                 ${item.disabled
                   ? 'text-white/30 cursor-not-allowed'
                   : active === item.label
-                  ? 'bg-[#fab005]/15 text-[#fab005] border border-[#fab005]/30'
+                  ? 'bg-accent/15 text-accent border border-accent/30'
                   : 'text-white/70 hover:bg-white/5 hover:text-white'
                 }
               `}

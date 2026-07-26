@@ -1,15 +1,21 @@
-import React, {useEffect} from 'react';
-import {useNavigate} from 'react-router-dom';
-import Cookies from 'js-cookie';
-import pathConstant from "../../routes/pathConstant";
-import PathConstants from "../../routes/pathConstant";
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import PathConstants from '../../routes/pathConstant';
+import { getStoredUserToken } from '../../api/http';
 
-
-const withAuth = (Component: any) => {
-    const WithAuth = (props: any) => {
+/**
+ * HOC that gates a page on the presence of an auth token.
+ *
+ * Source of truth is ``localStorage[userId]`` via ``getStoredUserToken``.
+ * The legacy ``Cookies.get('id')`` check is gone — login/register only write
+ * to localStorage now, and keeping both stores caused desync when one was
+ * cleared by hand.
+ */
+function withAuth<P extends object>(Component: React.ComponentType<P>) {
+    const WithAuth: React.FC<P> = (props) => {
         const navigate = useNavigate();
-        const isLoggedIn = !!Cookies.get('id');
+        const isLoggedIn = !!getStoredUserToken();
 
         useEffect(() => {
             if (!isLoggedIn) {
@@ -17,12 +23,10 @@ const withAuth = (Component: any) => {
             }
         }, [isLoggedIn, navigate]);
 
-        // Возвращаем переданный компонент, если пользователь авторизован
         return isLoggedIn ? <Component {...props} /> : null;
     };
-
+    WithAuth.displayName = `withAuth(${Component.displayName || Component.name || 'Component'})`;
     return WithAuth;
-};
-
+}
 
 export default withAuth;

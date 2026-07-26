@@ -1,10 +1,45 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Button, Empty, Modal, Spin, Tooltip, message} from 'antd';
+
+const TREE_SIDEBAR_ICON_BUTTON_CLASS =
+  'inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent ' +
+  'text-[#dce1e8] transition-colors duration-150 ' +
+  'hover:border-accent/40 hover:bg-accent/10 hover:text-accent ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40';
+
+function TreeSidebarIconButton({
+  ariaLabel,
+  icon,
+  onClick,
+}: {
+  ariaLabel: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className={TREE_SIDEBAR_ICON_BUTTON_CLASS}
+    >
+      {icon}
+    </button>
+  );
+}
+import i18nInstance from '../../../i18n';
 import {CloseOutlined, EditOutlined, FileImageOutlined, FolderAddOutlined, FolderOpenOutlined, FolderOutlined, MenuFoldOutlined, MenuUnfoldOutlined, PlusOutlined} from '@ant-design/icons';
 import {DeleteHandler, NodeApi, RenameHandler, RowRendererProps, Tree, TreeApi} from 'react-arborist';
 import {v4 as uuidv4} from 'uuid';
+
+// Inner helpers run outside React render scope (callbacks fired after async
+// work), so they read translations from the i18next instance directly rather
+// than via useTranslation.
+const tx = (key: string, opts?: Record<string, unknown>) => i18nInstance.t(key, opts) as string;
 import {createCharacterFromTreeAPI, deleteCharacterFromTree, get_all_character_for_project, renameCharacterFromTree} from '../../../api/generation/characters/tree_structure';
-import {CHARACTER_TREE_UPDATED_EVENT, notifyCharacterDeleted, notifyCharacterListUpdated, notifyCharacterRenamed, notifyCharacterTreeUpdated} from '../events';
+import {characterApi} from '../api/characterApi';
+import {StudioCharacter} from '../types/character.types';
+import {CHARACTER_LIST_UPDATED_EVENT, CHARACTER_TREE_UPDATED_EVENT, notifyCharacterDeleted, notifyCharacterListUpdated, notifyCharacterRenamed, notifyCharacterTreeUpdated} from '../events';
 import './CharacterTreeSidebar.css';
 
 const TREE_ROW_HEIGHT = 34;
@@ -18,6 +53,12 @@ export interface CharacterTreeNode {
   character_id?: string | null;
   legacy_hero_id?: string | number | null;
   children?: CharacterTreeNode[];
+  // Synthesized client-side from a StudioCharacter that has no
+  // MenuFolder/ItemFolder row. Such nodes must NOT be deleted through the
+  // tree API (there's no tree row to remove and the legacy view would
+  // crash on UUID-vs-int FK mismatches); we delete the studio character
+  // directly instead.
+  __synthetic?: boolean;
 }
 
 interface CharacterTreeSidebarProps {
@@ -162,15 +203,15 @@ function countTreeNodes(nodes: CharacterTreeNode[]) {
 function confirmDelete(nodes: CharacterTreeNode[]) {
   const firstCharacter = nodes.find((node) => !node.is_folder);
   const title = firstCharacter
-    ? `Вы точно уверены в удалении персонажа «${firstCharacter.name}»?`
-    : `Вы точно уверены в удалении «${nodes[0]?.name || 'элемента'}»?`;
+    ? tx('characterStudio.tree.confirmDeleteCharacter', {name: firstCharacter.name})
+    : tx('characterStudio.tree.confirmDeleteFolder', {name: nodes[0]?.name || ''});
 
   return new Promise<boolean>((resolve) => {
     Modal.confirm({
       title,
-      content: nodes.length > 1 ? 'Будут удалены выбранный элемент и вложенные персонажи.' : undefined,
-      okText: 'Удалить',
-      cancelText: 'Отмена',
+      content: nodes.length > 1 ? tx('characterStudio.tree.deletionWarning') : undefined,
+      okText: tx('common.delete'),
+      cancelText: tx('common.cancel'),
       okButtonProps: {danger: true},
       className: 'character-delete-confirm-modal',
       centered: true,
@@ -263,7 +304,7 @@ function InlineNameEditor({node}: {node: NodeApi<CharacterTreeNode>}) {
         flex: 1,
         color: '#ffffff',
         background: 'rgba(255, 255, 255, 0.08)',
-        caretColor: '#fab005',
+        caretColor: 'var(--craft-accent)',
         border: '1px solid rgba(250, 176, 5, 0.55)',
         outline: 'none',
       }}
@@ -346,7 +387,7 @@ function TreeNode({
     textAlign: 'left',
   };
   const icon = node.isLeaf
-    ? <FileImageOutlined style={{color: '#fab005'}} />
+    ? <FileImageOutlined style={{color: 'var(--craft-accent)'}} />
     : node.isOpen ? <FolderOpenOutlined /> : <FolderOutlined />;
 
   return (
@@ -359,7 +400,7 @@ function TreeNode({
         justifyContent: 'space-between',
         gap: 8,
         paddingRight: 8,
-        borderLeft: isSelectedCharacter ? '3px solid #fab005' : '3px solid transparent',
+        borderLeft: isSelectedCharacter ? '3px solid var(--craft-accent)' : '3px solid transparent',
         color: '#ffffff',
         background: isSelectedCharacter || node.state.isSelected ? 'linear-gradient(90deg, rgba(250, 176, 5, 0.2), rgba(250, 176, 5, 0.06))' : 'transparent',
         borderRadius: 4,
@@ -389,11 +430,11 @@ function TreeNode({
         </button>
       )}
       <span style={{display: 'inline-flex', gap: 4}} data-tree-action="true">
-        <Tooltip title="Переименовать">
-          <Button size="small" type="text" icon={<EditOutlined />} onClick={renameNode} />
+        <Tooltip title={tx('characterStudio.tree.renameAction')}>
+          <Button size="small" type="text" icon={<EditOutlined />} onClick={renameNode} aria-label={tx('characterStudio.tree.renameAction')} />
         </Tooltip>
-        <Tooltip title="Убрать из дерева">
-          <Button size="small" type="text" icon={<CloseOutlined />} onClick={deleteNode} />
+        <Tooltip title={tx('characterStudio.tree.removeFromTreeAction')}>
+          <Button size="small" type="text" icon={<CloseOutlined />} onClick={deleteNode} aria-label={tx('characterStudio.tree.removeFromTreeAction')} />
         </Tooltip>
       </span>
     </div>
@@ -419,8 +460,72 @@ export default function CharacterTreeSidebar({
     if (!projectId) return;
     setLoading(true);
     try {
-      const response = await get_all_character_for_project(projectId);
-      setTreeData(response?.data || []);
+      // The legacy MenuFolder-backed tree is the source of truth for folder
+      // hierarchy, but it gets out of sync with StudioCharacter rows (e.g.
+      // create flows that didn't persist a MenuFolder, fixtures, or older
+      // characters created before the tree-sync code existed). We fetch both
+      // and merge any visible studio characters that aren't yet present in
+      // the tree, so the sidebar reflects exactly the same set the gallery
+      // shows — no drafts, no dangling tree-only ghosts.
+      //
+      // No status filter on the list call: by default the gallery endpoint
+      // hides drafts on the server, which is exactly what we want here too.
+      const [treeResponse, charactersResponse] = await Promise.all([
+        get_all_character_for_project(projectId),
+        characterApi.list(projectId).catch(() => null),
+      ]);
+      const treeNodes: CharacterTreeNode[] = treeResponse?.data || [];
+      const studioCharacters: StudioCharacter[] = charactersResponse?.data || [];
+
+      // Build a lookup of which character_ids the gallery considers visible.
+      // Any tree leaf whose character_id is NOT in this set is either a draft
+      // or a dangling tree artifact — both should be hidden, even if the
+      // backend tree endpoint forgot to filter them (defence in depth).
+      const visibleCharacterIds = new Set(
+        studioCharacters
+          .filter((character) => character?.character_id)
+          .map((character) => String(character.character_id)),
+      );
+
+      const seenCharacterIds = new Set<string>();
+      const pruneTree = (nodes: CharacterTreeNode[]): CharacterTreeNode[] => {
+        const result: CharacterTreeNode[] = [];
+        nodes.forEach((node) => {
+          const children = node.children ? pruneTree(node.children) : undefined;
+          const isLeaf = !node.is_folder;
+          if (isLeaf) {
+            const characterId = node.character_id ? String(node.character_id) : null;
+            // Hide leaves without a real character link, leaves linked to a
+            // character that isn't visible (draft / deleted), and any
+            // repeat of a character we've already shown in the tree.
+            if (!characterId) return;
+            if (!visibleCharacterIds.has(characterId)) return;
+            if (seenCharacterIds.has(characterId)) return;
+            seenCharacterIds.add(characterId);
+          }
+          result.push(children !== undefined ? {...node, children} : node);
+        });
+        return result;
+      };
+
+      const prunedTree = pruneTree(treeNodes);
+
+      const orphans: CharacterTreeNode[] = studioCharacters
+        .filter((character) => character?.character_id && !seenCharacterIds.has(String(character.character_id)))
+        .map((character) => {
+          seenCharacterIds.add(String(character.character_id));
+          return {
+            id: String(character.character_id),
+            key: String(character.character_id),
+            name: character.name || '—',
+            is_folder: false,
+            character_id: String(character.character_id),
+            legacy_hero_id: null,
+            __synthetic: true,
+          };
+        });
+
+      setTreeData([...prunedTree, ...orphans]);
     } finally {
       setLoading(false);
     }
@@ -428,11 +533,17 @@ export default function CharacterTreeSidebar({
 
   useEffect(() => {
     loadTree();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   useEffect(() => {
     window.addEventListener(CHARACTER_TREE_UPDATED_EVENT, loadTree);
-    return () => window.removeEventListener(CHARACTER_TREE_UPDATED_EVENT, loadTree);
+    window.addEventListener(CHARACTER_LIST_UPDATED_EVENT, loadTree);
+    return () => {
+      window.removeEventListener(CHARACTER_TREE_UPDATED_EVENT, loadTree);
+      window.removeEventListener(CHARACTER_LIST_UPDATED_EVENT, loadTree);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const insertPendingNode = async (type: 'internal' | 'leaf') => {
@@ -468,7 +579,7 @@ export default function CharacterTreeSidebar({
 
     const response = await renameCharacterFromTree(id, name);
     if (!isSuccessfulResponse(response)) {
-      message.error('Не удалось переименовать элемент дерева');
+      message.error(tx('characterStudio.tree.renameError'));
       await loadTree();
       return;
     }
@@ -487,14 +598,36 @@ export default function CharacterTreeSidebar({
       return;
     }
 
-    const persistedIds = ids.filter((id) => !pendingNodeIdsRef.current.has(id));
-    if (persistedIds.length > 0) {
-      const responses = await Promise.all(persistedIds.map((id) => deleteCharacterFromTree(id)));
-      if (responses.some((response) => !isSuccessfulResponse(response))) {
-        message.error('Не удалось удалить элемент дерева');
+    // Two delete paths:
+    //   - Real MenuFolder/ItemFolder rows go through the legacy tree API,
+    //     which also cascades to the linked StudioCharacter.
+    //   - Synthetic orphan nodes (StudioCharacters with no tree row) have
+    //     nothing to delete on the tree side — calling the tree API would
+    //     either 404 or 500 on UUID-vs-int FK lookups. Delete the studio
+    //     character directly instead.
+    const persistedNodes = deletedNodes.filter((node) => !pendingNodeIdsRef.current.has(node.id));
+    const treeDeleteNodes = persistedNodes.filter((node) => !node.__synthetic);
+    const syntheticNodes = persistedNodes.filter((node) => node.__synthetic && node.character_id);
+
+    try {
+      const treeResponses = await Promise.all(
+        treeDeleteNodes.map((node) => deleteCharacterFromTree(node.id)),
+      );
+      if (treeResponses.some((response) => !isSuccessfulResponse(response))) {
+        message.error(tx('characterStudio.tree.deleteError'));
         await loadTree();
         return;
       }
+
+      await Promise.all(
+        syntheticNodes.map((node) =>
+          characterApi.delete(projectId, String(node.character_id)),
+        ),
+      );
+    } catch {
+      message.error(tx('characterStudio.tree.deleteError'));
+      await loadTree();
+      return;
     }
 
     ids.forEach((id) => pendingNodeIdsRef.current.delete(id));
@@ -542,11 +675,11 @@ export default function CharacterTreeSidebar({
       if (!persisted && nodeId) {
         await tree.delete(nodeId);
       }
-      message.error('Не удалось создать папку');
+      message.error(tx('characterStudio.tree.createFolderError'));
       return;
     }
 
-    await loadTree().catch(() => message.error('Не удалось обновить дерево персонажей'));
+    await loadTree().catch(() => message.error(tx('characterStudio.tree.reloadError')));
   };
 
   const createCharacter = async () => {
@@ -585,18 +718,22 @@ export default function CharacterTreeSidebar({
       if (!persisted && nodeId) {
         await tree.delete(nodeId);
       }
-      message.error('Не удалось создать персонажа');
+      message.error(tx('characterStudio.tree.createCharacterError'));
       return;
     }
 
-    await loadTree().catch(() => message.error('Не удалось обновить дерево персонажей'));
+    await loadTree().catch(() => message.error(tx('characterStudio.tree.reloadError')));
   };
 
   if (collapsed) {
     return (
       <aside className="character-tree-sidebar character-tree-sidebar--collapsed custom-scrollbar" style={{width: 58, height: '100%', minHeight: 0, background: '#111318', borderRight: '1px solid #30343d', padding: '12px 8px', overflow: 'hidden', scrollbarGutter: 'auto'}}>
-        <Tooltip title="Открыть дерево">
-          <Button size="small" type="text" icon={<MenuUnfoldOutlined />} onClick={onToggleCollapse} />
+        <Tooltip title={tx('characterStudio.tree.openTree')} overlayClassName="character-tree-sidebar__tooltip">
+          <TreeSidebarIconButton
+            ariaLabel={tx('characterStudio.tree.openTreeAria')}
+            icon={<MenuUnfoldOutlined />}
+            onClick={onToggleCollapse}
+          />
         </Tooltip>
       </aside>
     );
@@ -605,16 +742,28 @@ export default function CharacterTreeSidebar({
   return (
     <aside className="character-tree-sidebar custom-scrollbar" style={{width: 280, height: '100%', minHeight: 0, display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', background: '#111318', borderRight: '1px solid #30343d', padding: 12, overflow: 'hidden', scrollbarGutter: 'auto'}}>
       <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}}>
-        <div style={{color: '#ffffff', fontWeight: 600}}>Персонажи</div>
+        <div style={{color: '#ffffff', fontWeight: 600}}>{tx('characterStudio.tree.title')}</div>
         <div style={{display: 'flex', gap: 4}}>
-          <Tooltip title="Закрыть дерево">
-            <Button size="small" type="text" icon={<MenuFoldOutlined />} onClick={onToggleCollapse} />
+          <Tooltip title={tx('characterStudio.tree.closeTree')} overlayClassName="character-tree-sidebar__tooltip">
+            <TreeSidebarIconButton
+              ariaLabel={tx('characterStudio.tree.closeTreeAria')}
+              icon={<MenuFoldOutlined />}
+              onClick={onToggleCollapse}
+            />
           </Tooltip>
-          <Tooltip title="Создать папку">
-            <Button size="small" type="text" icon={<FolderAddOutlined />} onClick={createFolder} />
+          <Tooltip title={tx('characterStudio.tree.createFolder')} overlayClassName="character-tree-sidebar__tooltip">
+            <TreeSidebarIconButton
+              ariaLabel={tx('characterStudio.tree.createFolder')}
+              icon={<FolderAddOutlined />}
+              onClick={createFolder}
+            />
           </Tooltip>
-          <Tooltip title="Создать персонажа">
-            <Button size="small" type="text" icon={<PlusOutlined />} onClick={createCharacter} />
+          <Tooltip title={tx('characterStudio.tree.createCharacter')} overlayClassName="character-tree-sidebar__tooltip">
+            <TreeSidebarIconButton
+              ariaLabel={tx('characterStudio.tree.createCharacter')}
+              icon={<PlusOutlined />}
+              onClick={createCharacter}
+            />
           </Tooltip>
         </div>
       </div>
@@ -623,7 +772,7 @@ export default function CharacterTreeSidebar({
           ? <Spin />
           : (
             <>
-            {treeData.length === 0 && <Empty description="Нет персонажей" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+            {treeData.length === 0 && <Empty description={tx('characterStudio.tree.emptyState')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}
             {treeData.length > 0 && (
               <Tree<CharacterTreeNode>
                 ref={treeRef}

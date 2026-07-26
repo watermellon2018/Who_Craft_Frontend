@@ -1,7 +1,8 @@
 import React from 'react';
 import { ACCENT_HEX, ProgressLegendItem } from './mocks';
+import {CRAFT_ACCENT} from '../../../../constants/theme';
 
-const RING_COLOR = '#fab005';
+const RING_COLOR = CRAFT_ACCENT;
 const RING_TRACK = 'rgba(255, 255, 255, 0.08)';
 
 interface Props {

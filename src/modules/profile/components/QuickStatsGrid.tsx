@@ -31,7 +31,7 @@ const QuickStatsGrid: React.FC<Props> = ({ stats }) => {
       {cards.map((card) => (
         <div
           key={card.label}
-          className="bg-[#16191f] border border-white/5 rounded-2xl p-4 flex flex-col gap-2 hover:border-[#fab005]/20 transition-all duration-200 group shadow-md"
+          className="bg-[#16191f] border border-white/5 rounded-2xl p-4 flex flex-col gap-2 hover:border-accent/20 transition-all duration-200 group shadow-md"
         >
           <span className="text-2xl">{card.icon}</span>
           <span className="text-white font-bold text-xl">{formatNum(Number(card.value))}</span>

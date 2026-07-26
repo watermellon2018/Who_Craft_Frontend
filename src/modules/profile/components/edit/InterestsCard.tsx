@@ -44,7 +44,7 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
         </h3>
         <span
           className="text-xs tabular-nums"
-          style={{ color: atLimit ? '#fab005' : 'rgba(255,255,255,0.5)' }}
+          style={{ color: atLimit ? 'var(--craft-accent)' : 'rgba(255,255,255,0.5)' }}
         >
           {interests.length} / {MAX_INTERESTS}
         </span>
@@ -60,14 +60,14 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
         {interests.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1.5 bg-[#fab005]/12 text-[#fab005] text-xs font-medium px-3 py-1.5 rounded-full border border-[#fab005]/25"
+            className="inline-flex items-center gap-1.5 bg-accent/12 text-accent text-xs font-medium px-3 py-1.5 rounded-full border border-accent/25"
           >
             {tag}
             <button
               type="button"
               onClick={() => removeInterest(tag)}
               aria-label={`Удалить ${tag}`}
-              className="text-[#fab005]/70 hover:text-[#fab005] transition-colors"
+              className="text-accent/70 hover:text-accent transition-colors"
             >
               ×
             </button>
@@ -87,12 +87,12 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
         onKeyDown={handleKeyDown}
         disabled={atLimit}
         placeholder={atLimit ? 'Достигнут лимит интересов' : 'Добавить интерес и нажмите Enter'}
-        className="w-full bg-[#1b1f27] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm placeholder-white/30 focus:outline-none focus:border-[#fab005]/60 focus:ring-2 focus:ring-[#fab005]/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full bg-[#1b1f27] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm placeholder-white/30 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ color: 'rgba(255,255,255,0.92)' }}
       />
 
       {(atLimit || interestsError) && (
-        <p className="text-xs mt-2" style={{ color: '#fab005' }}>
+        <p className="text-xs mt-2" style={{ color: 'var(--craft-accent)' }}>
           {interestsError || 'Можно добавить максимум 10 интересов'}
         </p>
       )}

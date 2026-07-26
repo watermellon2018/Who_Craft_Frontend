@@ -1,24 +1,363 @@
-.login-page {
+/* ============================================================
+   WCraft Login Page
+   All selectors scoped under .wc-login to avoid leaking
+   AntD overrides to other pages.
+   ============================================================ */
+
+.wc-login {
+    min-height: 100vh;
+    width: 100%;
+    display: grid;
+    place-items: center;
+    padding: clamp(16px, 4vw, 48px);
+    background: #0b0c10;
+    position: relative;
+    overflow: hidden;
+    color: #f5f5f7;
+    font-family: inherit;
+}
+
+/* Decorative cinematic background */
+.wc-login__bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-color: #0b0c10;
+    background-image:
+        radial-gradient(60% 45% at 18% 20%, rgba(250, 176, 5, 0.18), transparent 60%),
+        radial-gradient(55% 45% at 88% 85%, rgba(120, 90, 250, 0.10), transparent 60%),
+        radial-gradient(40% 30% at 50% 50%, rgba(255, 196, 46, 0.04), transparent 70%),
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><path d='M0 .5H40 M.5 0V40' stroke='rgba(255,255,255,0.025)' fill='none'/></svg>");
+    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+}
+
+.wc-login__shell {
+    position: relative;
+    width: 100%;
+    max-width: 1080px;
+    z-index: 1;
+}
+
+/* Logo */
+.wc-login__logo {
     display: flex;
-    justify-content: center;
+    gap: 10px;
     align-items: center;
-    height: 100vh;
+    justify-content: center;
+    margin-bottom: clamp(16px, 3vh, 28px);
+    color: #fff;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    font-size: 18px;
+    user-select: none;
+}
+.wc-login__logo-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--craft-accent), #ffd166);
+    color: #1b1d22;
+    font-size: 16px;
+    box-shadow: 0 4px 18px rgba(250, 176, 5, 0.35);
+}
+.wc-login__logo-text { letter-spacing: 0.08em; }
+.wc-login__logo-w { color: var(--craft-accent); }
+
+/* Card */
+.wc-login__card {
+    display: grid;
+    grid-template-columns: 1fr;
+    background: rgba(20, 22, 28, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.5),
+        0 0 60px rgba(250, 176, 5, 0.06);
+    position: relative;
+}
+@media (min-width: 900px) {
+    .wc-login__card { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 899px) {
+    .wc-login__promo { display: none; }
 }
 
-.login-page .row-field-login {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    position: relative !important;
-    margin-bottom: 20px !important;
+/* Form pane */
+.wc-login__form-pane {
+    padding: clamp(24px, 4vw, 44px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wc-login__form-inner {
+    width: 100%;
+    max-width: 380px;
+}
+.wc-login__title {
+    color: #f5f5f7;
+    font-size: clamp(22px, 2.4vw, 28px);
+    margin: 0 0 8px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+.wc-login__subtitle {
+    color: #9ca3af;
+    margin: 0 0 24px;
+    font-size: 14px;
+    line-height: 1.45;
 }
 
-.login-page .ant-input {
-    min-width: 50px;
-    max-width: 250px;
+/* ----- AntD overrides — scoped to .wc-login ----- */
+
+.wc-login .ant-form-item-label > label {
+    color: rgba(255, 255, 255, 0.75) !important;
+    font-size: 13px;
+    height: auto;
+}
+.wc-login .ant-form-item { margin-bottom: 16px; }
+
+.wc-login .ant-input,
+.wc-login .ant-input-affix-wrapper,
+.wc-login .ant-input-password {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    color: #fff !important;
+    border-radius: 12px !important;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.wc-login .ant-input-affix-wrapper {
+    height: 52px;
+    padding: 0 14px;
+}
+.wc-login .ant-input-affix-wrapper > input.ant-input {
+    background: transparent !important;
+    border: none !important;
+    color: #fff !important;
+    height: 100%;
+    font-size: 15px;
+}
+.wc-login .ant-input::placeholder,
+.wc-login .ant-input-affix-wrapper input::placeholder {
+    color: rgba(255, 255, 255, 0.32) !important;
+}
+.wc-login .ant-input-affix-wrapper:hover {
+    border-color: rgba(255, 255, 255, 0.18) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+.wc-login .ant-input-affix-wrapper:focus-within,
+.wc-login .ant-input-affix-wrapper-focused {
+    border-color: rgba(250, 176, 5, 0.65) !important;
+    box-shadow: 0 0 0 4px rgba(250, 176, 5, 0.12) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+.wc-login .ant-input-prefix {
+    color: rgba(255, 255, 255, 0.45);
+    margin-right: 10px;
+    font-size: 16px;
+}
+.wc-login .ant-input-suffix .anticon {
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 0.15s;
+}
+.wc-login .ant-input-suffix .anticon:hover { color: var(--craft-accent); }
+
+/* Error state */
+.wc-login .ant-form-item-has-error .ant-input-affix-wrapper,
+.wc-login .ant-form-item-has-error .ant-input-affix-wrapper:focus-within {
+    border-color: rgba(255, 77, 79, 0.6) !important;
+    box-shadow: 0 0 0 4px rgba(255, 77, 79, 0.10) !important;
+}
+.wc-login .ant-form-item-explain-error {
+    color: #ff8a8a !important;
+    font-size: 12px;
+    margin-top: 4px;
 }
 
-.login-page .ant-input-password {
-    min-width: 50px;
-    max-width: 250px;
+/* Checkbox */
+.wc-login .ant-checkbox-wrapper {
+    color: rgba(255, 255, 255, 0.78) !important;
+    font-size: 13px;
+}
+.wc-login .ant-checkbox-inner {
+    background-color: transparent !important;
+    border-color: rgba(255, 255, 255, 0.28) !important;
+    border-radius: 4px;
+}
+.wc-login .ant-checkbox-checked .ant-checkbox-inner {
+    background-color: var(--craft-accent) !important;
+    border-color: var(--craft-accent) !important;
+}
+.wc-login .ant-checkbox-checked .ant-checkbox-inner::after {
+    border-color: #1b1d22;
+}
+
+/* Row: remember + forgot */
+.wc-login__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 4px 0 18px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.wc-login__forgot {
+    color: var(--craft-accent);
+    font-size: 13px;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+.wc-login__forgot:hover { color: #ffd166; text-decoration: underline; }
+
+/* Inline error */
+.wc-login__error {
+    color: #ffb1b1;
+    background: rgba(255, 77, 79, 0.08);
+    border: 1px solid rgba(255, 77, 79, 0.28);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/* Buttons */
+.wc-login .ant-btn {
+    height: 50px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: transform 0.15s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
+}
+.wc-login .ant-btn + .ant-btn { margin-top: 10px; }
+.wc-login__primary.ant-btn-primary {
+    background: linear-gradient(180deg, #ffc42e 0%, var(--craft-accent) 100%) !important;
+    border: none !important;
+    color: #1b1d22 !important;
+    box-shadow: 0 6px 20px rgba(250, 176, 5, 0.25);
+}
+.wc-login__primary.ant-btn-primary:hover {
+    background: linear-gradient(180deg, #ffd166 0%, #ffc42e 100%) !important;
+    box-shadow: 0 8px 26px rgba(250, 176, 5, 0.35);
+}
+.wc-login__primary.ant-btn-primary:active { transform: scale(0.98); }
+.wc-login__primary.ant-btn-primary:disabled,
+.wc-login__primary.ant-btn-primary.ant-btn-loading {
+    color: #1b1d22 !important;
+    opacity: 0.85;
+}
+
+.wc-login__secondary {
+    background: transparent !important;
+    border: 1px solid rgba(250, 176, 5, 0.45) !important;
+    color: var(--craft-accent) !important;
+}
+.wc-login__secondary:hover {
+    background: rgba(250, 176, 5, 0.08) !important;
+    border-color: var(--craft-accent) !important;
+    color: #ffd166 !important;
+}
+.wc-login__secondary:active { transform: scale(0.98); }
+
+/* ============================================================
+   Promo panel
+   ============================================================ */
+
+.wc-login__promo {
+    position: relative;
+    padding: clamp(28px, 4vw, 48px);
+    background:
+        linear-gradient(160deg, rgba(250, 176, 5, 0.10) 0%, rgba(20, 22, 28, 0.4) 60%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+.wc-login__promo-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(40% 40% at 80% 20%, rgba(250, 176, 5, 0.22), transparent 70%),
+        radial-gradient(50% 40% at 20% 80%, rgba(255, 196, 46, 0.10), transparent 70%);
+}
+.wc-login__promo-content { position: relative; z-index: 1; max-width: 420px; }
+
+.wc-login__promo-tag {
+    display: inline-block;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--craft-accent);
+    background: rgba(250, 176, 5, 0.10);
+    border: 1px solid rgba(250, 176, 5, 0.25);
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+    font-weight: 600;
+}
+.wc-login__promo-title {
+    color: #f5f5f7;
+    font-size: clamp(24px, 2.6vw, 34px);
+    line-height: 1.18;
+    margin: 0 0 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+.wc-login__promo-accent {
+    background: linear-gradient(90deg, var(--craft-accent), #ffd166);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+.wc-login__promo-desc {
+    color: #a1a1aa;
+    margin: 0 0 28px;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.wc-login__features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 12px;
+}
+.wc-login__feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #e5e7eb;
+    font-size: 14px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.wc-login__feature-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: rgba(250, 176, 5, 0.12);
+    color: var(--craft-accent);
+    flex-shrink: 0;
+    font-size: 16px;
+}
+
+/* ============================================================
+   Mobile tweaks
+   ============================================================ */
+@media (max-width: 480px) {
+    .wc-login { padding: 16px; }
+    .wc-login__form-pane { padding: 24px 20px; }
+    .wc-login__card { border-radius: 18px; }
+    .wc-login__logo { font-size: 16px; }
 }

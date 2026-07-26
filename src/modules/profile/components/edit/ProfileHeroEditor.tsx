@@ -93,7 +93,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
       </div>
 
       <div className="relative -mt-10 ml-1 mb-4 w-fit">
-        <div className="w-20 h-20 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] flex items-center justify-center text-[#fab005] font-bold text-3xl shadow-lg overflow-hidden">
+        <div className="w-20 h-20 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] flex items-center justify-center text-accent font-bold text-3xl shadow-lg overflow-hidden">
           {avatarUrl ? (
             <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
           ) : (
@@ -104,7 +104,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
           type="button"
           onClick={() => avatarInputRef.current?.click()}
           aria-label="Загрузить аватар"
-          className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#fab005] text-[#13151a] text-xs flex items-center justify-center shadow-md border-2 border-[#16191f] hover:bg-[#fcc419] transition-colors"
+          className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-accent text-[#13151a] text-xs flex items-center justify-center shadow-md border-2 border-[#16191f] hover:bg-[#fcc419] transition-colors"
         >
           📷
         </button>
@@ -137,7 +137,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => avatarInputRef.current?.click()}
-            className="inline-flex items-center gap-2 bg-[#fab005] text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors"
+            className="inline-flex items-center gap-2 bg-accent text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors"
           >
             ⬆ Загрузить аватар
           </button>

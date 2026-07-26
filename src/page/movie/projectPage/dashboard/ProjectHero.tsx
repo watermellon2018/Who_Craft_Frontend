@@ -19,6 +19,7 @@ interface Props {
   onArchive: () => void;
   onUnarchive: () => void;
   onDelete: () => void;
+  onLeave?: () => void;
 }
 
 const ProjectHero: React.FC<Props> = ({
@@ -31,9 +32,11 @@ const ProjectHero: React.FC<Props> = ({
   onArchive,
   onUnarchive,
   onDelete,
+  onLeave,
 }) => {
   const role = project.currentUserRole || 'viewer';
-  const canEditStatus = role === 'owner' || role === 'editor';
+  // Editing the status is part of content-editing — gate on backend permission.
+  const canEditStatus = !!project.permissions?.canEdit;
   const statusKey: ProjectStatusKey = project.statusKey || 'in_progress';
 
   return (
@@ -61,6 +64,17 @@ const ProjectHero: React.FC<Props> = ({
               loading={!!statusUpdating}
               onChange={onStatusChange}
             />
+            {project.roleLabel && (
+              <span className={`proj-role-pill proj-role-${role}`}>
+                {project.roleLabel}
+              </span>
+            )}
+            {project.isTeamProject && (
+              <span className="proj-team-pill">
+                <TeamOutlined style={{ fontSize: 11 }} />
+                Командный проект
+              </span>
+            )}
           </div>
 
           <div className="flex items-start gap-3 mt-3">
@@ -68,7 +82,7 @@ const ProjectHero: React.FC<Props> = ({
               {project.title}
             </h2>
             {project.isFavorite && (
-              <StarFilled style={{ color: '#fab005', fontSize: 20, marginTop: 8 }} />
+              <StarFilled style={{ color: 'var(--craft-accent)', fontSize: 20, marginTop: 8 }} />
             )}
           </div>
 
@@ -124,11 +138,12 @@ const ProjectHero: React.FC<Props> = ({
             </button>
             <ProjectActionsMenu
               status={statusKey}
-              role={role}
+              permissions={project.permissions}
               onEdit={onEdit}
               onArchive={onArchive}
               onUnarchive={onUnarchive}
               onDelete={onDelete}
+              onLeave={onLeave}
             />
           </div>
         </div>

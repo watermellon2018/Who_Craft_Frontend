@@ -11,3 +11,153 @@
     height: inherit;
     min-width: inherit !important;
 }
+
+/* ---- Project card team meta ---- */
+.proj-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.proj-card-title {
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.proj-card-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.proj-card-badges-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.proj-card-role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+}
+.proj-card-team-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.proj-card-member-stack {
+    display: inline-flex;
+    align-items: center;
+}
+.proj-card-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #111827;
+    border: 1.5px solid #1b1d22;
+    margin-left: -6px;
+    text-transform: uppercase;
+}
+.proj-card-member-stack .proj-card-avatar:first-child {
+    margin-left: 0;
+}
+.proj-card-avatar-extra {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
+}
+.proj-card-member-count {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-left: 4px;
+}
+
+/* ---- Invitations block ---- */
+.invitations-block {
+    margin: 0 0 20px;
+    padding: 14px 16px;
+    background: rgba(250, 176, 5, 0.06);
+    border: 1px solid rgba(250, 176, 5, 0.22);
+    border-radius: 12px;
+}
+.invitations-block-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fab005;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+.invitations-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(250, 176, 5, 0.2);
+    font-size: 12px;
+}
+.invitations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.invitation-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+.invitation-title {
+    color: rgba(255, 255, 255, 0.92);
+    font-weight: 600;
+    font-size: 14px;
+}
+.invitation-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
+}
+.invitation-role {
+    color: #60a5fa;
+    font-weight: 500;
+}
+.invitation-expiry {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 2px;
+}
+.invitation-actions {
+    display: flex;
+    gap: 8px;
+}

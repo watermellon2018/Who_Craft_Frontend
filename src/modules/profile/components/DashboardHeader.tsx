@@ -1,10 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import Cookies from 'js-cookie';
+import WCraftBrand from '../../../components/WCraftBrand';
 import { ProfileUser } from '../types';
 import { fetchProfileMe } from '../api/profileApi';
-import PathConstants from '../../../routes/pathConstant';
+import PathConstants, { isScriptWorkspacePath } from '../../../routes/pathConstant';
+import { clearStoredUserToken } from '../../../api/http';
+import { safeImageUrl } from '../../../utils/safeUrl';
+import i18n from '../../../i18n';
 import './dashboardHeader.css';
+
+export interface BreadcrumbItem {
+  label: string;
+  to?: string;
+  state?: unknown;
+}
 
 interface Props {
   user?: ProfileUser | null;
@@ -13,21 +22,20 @@ interface Props {
   subtitle?: string;
   sectionTitle?: string;
   hideSubnav?: boolean;
+  breadcrumbItems?: BreadcrumbItem[];
 }
 
 function resolveSectionTitle(pathname: string): string {
-  if (pathname.startsWith(PathConstants.PROFILE_SUBSCRIPTIONS)) return 'Подписки';
-  if (pathname.startsWith(PathConstants.PROFILE_EDIT)) return 'Редактирование профиля';
-  if (pathname.startsWith(PathConstants.PROFILE)) return 'Профиль';
-  if (pathname.startsWith(PathConstants.PROJECTS)) return 'Мои проекты';
-  if (pathname.startsWith(PathConstants.CREATE_PROJECT)) return 'Создание проекта';
-  if (pathname.startsWith(PathConstants.EDIT_PROJECT)) return 'Редактирование проекта';
-  if (pathname.startsWith('/project/') && pathname.includes('/characters')) return 'Персонажи';
-  if (pathname.startsWith(PathConstants.ALL_HEROES_PAGE)) return 'Персонажи';
-  if (pathname.startsWith(PathConstants.HERO_PAGE)) return 'Персонаж';
-  if (pathname.startsWith(PathConstants.SCRIPT_PAGE)) return 'Сценарий';
-  if (pathname.startsWith(PathConstants.GENERATING)) return 'Генерация';
-  if (pathname === PathConstants.HOME) return 'Главная';
+  const t = (key: string) => i18n.t(key) as string;
+  if (pathname.startsWith(PathConstants.PROFILE_SUBSCRIPTIONS)) return t('navigation.sections.subscriptions');
+  if (pathname.startsWith(PathConstants.PROFILE_EDIT)) return t('navigation.sections.profileEdit');
+  if (pathname.startsWith(PathConstants.PROFILE)) return t('navigation.sections.profile');
+  if (pathname.startsWith(PathConstants.PROJECTS)) return t('navigation.sections.myProjects');
+  if (pathname.startsWith(PathConstants.CREATE_PROJECT)) return t('navigation.sections.createProject');
+  if (pathname.startsWith(PathConstants.EDIT_PROJECT)) return t('navigation.sections.editProject');
+  if (pathname.startsWith('/project/') && pathname.includes('/characters')) return t('navigation.sections.characters');
+  if (isScriptWorkspacePath(pathname)) return t('navigation.sections.script');
+  if (pathname === PathConstants.HOME) return t('navigation.sections.home');
   return '';
 }
 
@@ -38,6 +46,7 @@ const DashboardHeader: React.FC<Props> = ({
   subtitle,
   sectionTitle,
   hideSubnav = false,
+  breadcrumbItems,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,9 +83,7 @@ const DashboardHeader: React.FC<Props> = ({
   }, [sectionTitle, title, location.pathname]);
 
   const handleLogout = () => {
-    Cookies.remove('token');
-    Cookies.remove('id');
-    localStorage.removeItem('userId');
+    clearStoredUserToken();
     setDropdownOpen(false);
     navigate(PathConstants.AUTH);
   };
@@ -86,7 +93,8 @@ const DashboardHeader: React.FC<Props> = ({
     navigate(PathConstants.PROFILE);
   };
 
-  const showSubnav = !hideSubnav && Boolean(resolvedSection);
+  const hasCustomCrumbs = Array.isArray(breadcrumbItems) && breadcrumbItems.length > 0;
+  const showSubnav = !hideSubnav && (hasCustomCrumbs || Boolean(resolvedSection));
 
   return (
     <header className="app-header">
@@ -102,14 +110,7 @@ const DashboardHeader: React.FC<Props> = ({
               ☰
             </button>
           )}
-          <Link
-            to={PathConstants.HOME}
-            className="app-header__brand"
-            aria-label="Перейти на главную страницу"
-          >
-            <span className="app-header__logo-mark" aria-hidden="true">W</span>
-            <span className="app-header__logo-text">WCraft</span>
-          </Link>
+          <WCraftBrand />
           {subtitle && (
             <span className="app-header__subtitle hidden md:inline">{subtitle}</span>
           )}
@@ -125,8 +126,8 @@ const DashboardHeader: React.FC<Props> = ({
               aria-expanded={dropdownOpen}
             >
               <span className="app-header__avatar">
-                {resolvedUser?.avatar_url ? (
-                  <img src={resolvedUser.avatar_url} alt={displayName} />
+                {safeImageUrl(resolvedUser?.avatar_url) ? (
+                  <img src={safeImageUrl(resolvedUser?.avatar_url)!} alt={displayName} />
                 ) : (
                   <span className="app-header__avatar-fallback">{initial}</span>
                 )}
@@ -176,23 +177,47 @@ const DashboardHeader: React.FC<Props> = ({
 
       {showSubnav && (
         <div className="app-header__subnav">
-          <Link
-            to={PathConstants.PROJECTS}
-            className="app-header__home"
-            aria-label="На главную"
-          >
-            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
-              <path
-                d="M3 9.5L10 3.5L17 9.5V16.5C17 16.7761 16.7761 17 16.5 17H13V12H7V17H3.5C3.22386 17 3 16.7761 3 16.5V9.5Z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
-                fill="none"
-              />
-            </svg>
-          </Link>
-          <span className="app-header__subnav-divider" aria-hidden="true" />
-          <span className="app-header__section-title">{resolvedSection}</span>
+          {hasCustomCrumbs ? (
+            breadcrumbItems!.map((item, idx) => {
+              const isLast = idx === breadcrumbItems!.length - 1;
+              return (
+                <React.Fragment key={`${idx}-${item.label}`}>
+                  {idx > 0 && (
+                    <span className="app-header__crumb-separator" aria-hidden="true">/</span>
+                  )}
+                  {item.to && !isLast ? (
+                    <Link
+                      to={item.to}
+                      state={item.state}
+                      className="app-header__crumb-link"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : isLast ? (
+                    <span
+                      className="app-header__section-title"
+                      title={item.label}
+                      aria-current="page"
+                    >
+                      {item.label}
+                    </span>
+                  ) : (
+                    <span className="app-header__crumb-link app-header__crumb-link--static">
+                      {item.label}
+                    </span>
+                  )}
+                </React.Fragment>
+              );
+            })
+          ) : (
+            <>
+              <Link to={PathConstants.PROJECTS} className="app-header__crumb-link">
+                Все проекты
+              </Link>
+              <span className="app-header__crumb-separator" aria-hidden="true">/</span>
+              <span className="app-header__section-title">{resolvedSection}</span>
+            </>
+          )}
         </div>
       )}
     </header>

@@ -10,7 +10,6 @@ jest.mock('antd', () => {
   return {
     ...actual,
     Image: ({src, alt, onError}: {src: string; alt: string; onError?: () => void}) => (
-      // eslint-disable-next-line jsx-a11y/img-redundant-alt
       <img src={src} alt={alt} onError={onError} />
     ),
   };
@@ -112,7 +111,9 @@ describe('CharacterPreview – fullBody tab', () => {
     });
     const jobs = makeJobs({full_body: {status: 'completed', jobId: 'j1'}});
     renderPreview({activeViewMode: 'fullBody', character, secondaryJobs: jobs});
-    const img = screen.getByAltText('Предпросмотр персонажа') as HTMLImageElement;
+    // Full-body view uses the dedicated `FullBodyCanvas` whose <img> carries
+    // its own alt text ("Полный рост персонажа"), not the generic preview one.
+    const img = screen.getByAltText('Полный рост персонажа') as HTMLImageElement;
     expect(img.src).toBe('http://example.com/fb.png');
   });
 
