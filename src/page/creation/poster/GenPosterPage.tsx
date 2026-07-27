@@ -1,4 +1,3 @@
-import type {AxiosError} from 'axios';
 import React, { useRef, useState } from 'react';
 import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
@@ -22,6 +21,8 @@ import {
 import EditGenComponent from "../edit_generation";
 import {editPoster, generatePoster, selectPosterVariant} from "../../../api/posters";
 import type {PosterVariant} from "../../../api/posters";
+import {getApiErrorMessage} from '../../../api/errors';
+import {API_CONSTRAINTS} from '../../../api/generated/contracts';
 import PathConstants from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
 
@@ -44,14 +45,13 @@ const COLORS = {
     danger: '#EF4444',
 };
 
-const PROMPT_MAX = 2000;
+const PROMPT_MAX = API_CONSTRAINTS.posterPromptMaxLength;
 const REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
 const REFERENCE_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const REFERENCE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 
 type StyleId = 'cinematic' | 'anime' | 'dark_fantasy' | 'realism';
 type FormatId = 'vertical' | 'square' | 'horizontal';
-
 
 interface StyleOption {
     id: StyleId;
@@ -90,13 +90,6 @@ interface RecentPoster {
 interface PosterLocationState {
     is_edit?: boolean;
     project_id?: number | string;
-}
-
-interface ApiErrorPayload {
-    detail?: string;
-    error?: {
-        message?: string;
-    };
 }
 
 // ============== Card ==============
@@ -628,11 +621,8 @@ const GenPosterPage: React.FC = () => {
         resetImage = true,
         fallbackMessage = 'Ошибка при генерации изображения. Что-то пошло не так',
     ) => {
-        const data = (error as AxiosError<ApiErrorPayload>).response?.data;
-        const message =
-            data?.error?.message ||
-            data?.detail ||
-            (error instanceof Error ? error.message : fallbackMessage);
+        const message = getApiErrorMessage(error, fallbackMessage);
+
         setIsGenerating(false);
         if (resetImage) {
             setImageGeneratedUrl('');
@@ -710,7 +700,6 @@ const GenPosterPage: React.FC = () => {
             catchError(error);
         }
     };
-
 
     const generateDisabled = !projectId || !prompt.trim() || isGenerating;
 

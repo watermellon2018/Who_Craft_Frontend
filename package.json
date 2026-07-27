@@ -46,7 +46,10 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "api:generate": "node scripts/generate-api-contracts.mjs",
+    "api:check": "node scripts/generate-api-contracts.mjs --check",
+    "contract:test": "react-scripts test --watchAll=false --runInBand src/api/generation/characters/tree_structure.test.tsx src/api/errors.test.ts src/page/creation/projects/projectFormContract.test.ts src/modules/character-studio/pages/CharacterVariantsPage.test.tsx"
   },
   "jest": {
     "transformIgnorePatterns": [

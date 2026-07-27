@@ -1,58 +1,54 @@
+import type {
+  CharacterTreeCreateRequest,
+  CharacterTreeNode,
+  DeleteResponse,
+  ProjectId,
+  CharacterTreeRenameResponse,
+} from '../../generated/contracts';
+import {createGeneratedApiClient} from '../../generated/client';
 import api from '../../http';
 
-async function get_all_character_for_project(project_id: number | string): Promise<any> {
-    try {
-        return await api.get('api/character/select/', {
-            params: { projectId: project_id },
-        });
-    } catch {
-        return undefined;
-    }
+const treeApi = createGeneratedApiClient(api);
+
+async function get_all_character_for_project(projectId: ProjectId): Promise<CharacterTreeNode[]> {
+  return treeApi.listCharacterTree(projectId);
 }
 
-async function deleteCharacterFromTree(id: string): Promise<any> {
-    try {
-        return await api.post('api/character/delete/', { id });
-    } catch {
-        return undefined;
-    }
+async function deleteCharacterFromTree(id: string): Promise<DeleteResponse> {
+  return treeApi.deleteCharacterTreeNode({id});
 }
 
 async function createCharacterFromTreeAPI(
-    id: number | string,
-    name: string,
-    type: 'leaf' | 'node',
-    projectId: number | string,
-    parentId: string | null = null,
-    heroID: string | null = null,
-    studioCharacterId: string | null = null,
-): Promise<any> {
-    try {
-        return await api.post('api/character/create/', {
-            heroID,
-            id,
-            name,
-            type,
-            parent: parentId,
-            projectId,
-            studioCharacterId,
-        });
-    } catch {
-        return undefined;
-    }
+  id: string,
+  name: string,
+  type: 'leaf' | 'node',
+  projectId: ProjectId,
+  parentId: string | null = null,
+  heroID: number | null = null,
+  studioCharacterId: string | null = null,
+): Promise<void> {
+  const payload: CharacterTreeCreateRequest = {
+    heroID,
+    id,
+    name,
+    type,
+    parent: parentId,
+    projectId,
+    studioCharacterId,
+  };
+  await treeApi.createCharacterTreeNode(payload);
 }
 
-async function renameCharacterFromTree(id: string, name: string): Promise<any> {
-    try {
-        return await api.post('api/character/rename/', { id, name });
-    } catch {
-        return undefined;
-    }
+async function renameCharacterFromTree(
+  id: string,
+  name: string,
+): Promise<CharacterTreeRenameResponse> {
+  return treeApi.renameCharacterTreeNode({id, name});
 }
 
 export {
-    get_all_character_for_project,
-    deleteCharacterFromTree,
-    createCharacterFromTreeAPI,
-    renameCharacterFromTree,
+  get_all_character_for_project,
+  deleteCharacterFromTree,
+  createCharacterFromTreeAPI,
+  renameCharacterFromTree,
 };

@@ -9,16 +9,18 @@ jest.mock('../hooks/useGenerationJob', () => ({
   useGenerationJob: jest.fn(),
 }));
 jest.mock('../../../api/generation/characters/tree_structure', () => ({
-  createCharacterFromTreeAPI: jest.fn().mockResolvedValue({}),
+  createCharacterFromTreeAPI: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../events', () => ({
   notifyCharacterListUpdated: jest.fn(),
   notifyCharacterTreeUpdated: jest.fn(),
 }));
 
+import {createCharacterFromTreeAPI} from '../../../api/generation/characters/tree_structure';
 import {useGenerationJob} from '../hooks/useGenerationJob';
 
 const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
+const mockedCreateTreeNode = createCharacterFromTreeAPI as jest.MockedFunction<typeof createCharacterFromTreeAPI>;
 const mockedUseGenerationJob = useGenerationJob as jest.MockedFunction<typeof useGenerationJob>;
 
 const PROJECT_ID = 'proj-1';
@@ -43,6 +45,7 @@ const PAGE_STATE = {
     age: 30,
   },
   characterId: CHARACTER_ID,
+  characterName: 'Hero',
   generationOptions: {count: 2 as const, creativity: 'balanced' as const, lockSeed: false, seed: ''},
 };
 
@@ -57,6 +60,7 @@ function renderPage(locationState = PAGE_STATE) {
           element={<CharacterVariantsPage />}
         />
         <Route path="/project/:projectId/characters/create" element={<div>Create page</div>} />
+        <Route path="/project/:projectId/characters/:characterId/edit" element={<div>Edit page</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -65,6 +69,7 @@ function renderPage(locationState = PAGE_STATE) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockedApi.applyVariant.mockResolvedValue({data: {}} as never);
+  mockedCreateTreeNode.mockResolvedValue(undefined);
   mockedApi.generateInitial.mockResolvedValue({
     data: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []},
   } as never);
@@ -241,5 +246,37 @@ describe('CharacterVariantsPage – Change Params button', () => {
     fireEvent.click(screen.getByRole('button', {name: /перегенерировать/i}));
     await act(async () => { await Promise.resolve(); });
     expect(screen.queryByText('Create page')).not.toBeInTheDocument();
+  });
+});
+// ---------------------------------------------------------------------------
+// Continue — persistence must succeed before success navigation
+// ---------------------------------------------------------------------------
+
+describe('CharacterVariantsPage – Continue button', () => {
+  beforeEach(() => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: {job_id: 'job-1', status: 'completed', progress: 100, variants: VARIANTS},
+    } as never);
+  });
+
+  it('does not navigate or emit success when tree persistence fails', async () => {
+    mockedCreateTreeNode.mockRejectedValue(new Error('tree persistence failed'));
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+
+    await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Edit page')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', {name: /продолжить/i})).not.toBeDisabled();
+    });
+  });
+
+  it('navigates only after tree persistence succeeds', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+
+    await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
+    expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
   });
 });

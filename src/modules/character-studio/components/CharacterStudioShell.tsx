@@ -75,9 +75,9 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
     }
     let cancelled = false;
     fetch_project(projectIdKey)
-      .then((res) => {
+      .then((project) => {
         if (cancelled) return;
-        const title = res?.data?.title || res?.data?.name || '';
+        const title = project.title || '';
         if (title) {
           projectTitleCache.set(projectIdKey, title);
           setProjectTitle(title);

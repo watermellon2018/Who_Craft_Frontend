@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState, ReactNode } from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
+import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
@@ -25,8 +26,9 @@ import {
     create_project,
     fetch_project,
     patch_project,
-    ProjectEditPayload,
 } from "../../../api/projects/properties/project";
+import type {ProjectEditPayload} from "../../../api/projects/properties/project";
+import {getApiErrorMessage} from '../../../api/errors';
 import withAuth from "../../../utils/auth/check_auth";
 import PathConstants from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
@@ -35,11 +37,17 @@ import {
     PROJECT_GENRE_OPTIONS,
     GENRE_VALUES,
 } from "../../../constants/projectOptions";
+import {
+    PROJECT_ANNOTATION_MAX_LENGTH,
+    PROJECT_SYNOPSIS_MAX_LENGTH,
+    PROJECT_POSTER_MAX_MEGABYTES,
+    validateProjectPosterFile,
+} from './projectFormContract';
 
 const BOTTOM_LEN_ANNOT = 0;
-const UP_LEN_ANNOT = 800;
+const UP_LEN_ANNOT = PROJECT_ANNOTATION_MAX_LENGTH;
 const BOTTOM_LEN_DESC = 0;
-const UP_LEN_DESC = 2000;
+const UP_LEN_DESC = PROJECT_SYNOPSIS_MAX_LENGTH;
 
 // ============== Design tokens ==============
 const COLORS = {
@@ -232,35 +240,22 @@ export const ProjectCreatePage = () => {
         setLoading(true);
         setLoadError(null);
         try {
-            const response = await fetch_project(projectId);
-            if (response.status === 200) {
-                const data = response.data || {};
-                setImageUrl(data.posterUrl || '');
-                setTitle(data.title || '');
-                setFormat(data.format || 'feature_film');
-                setAnnotation(data.annotation || '');
-                setDescription(data.synopsis || '');
-                setSelectedAudience(
-                    Array.isArray(data.audience) && data.audience.length > 0
-                        ? data.audience
-                        : ['all']
-                );
-                // Backend returns genre as an array (M2M legacy). Take first
-                // known value; if it's an unknown string just keep it so the
-                // user sees raw value rather than an empty select.
-                const incomingGenre = Array.isArray(data.genre)
-                    ? (data.genre[0] || '')
-                    : (typeof data.genre === 'string' ? data.genre : '');
-                setGenre(incomingGenre || '');
-            } else {
-                setLoadError('Не удалось загрузить проект.');
-            }
-        } catch (error: any) {
-            const message =
-                error?.response?.data?.detail ||
-                error?.message ||
-                'Не удалось загрузить проект';
-            setLoadError(message);
+            const data = await fetch_project(projectId);
+            setImageUrl(data.posterUrl || '');
+            setTitle(data.title || '');
+            setFormat(data.format || 'feature_film');
+            setAnnotation(data.annotation || '');
+            setDescription(data.synopsis || '');
+            setSelectedAudience(
+                Array.isArray(data.audience) && data.audience.length > 0
+                    ? data.audience
+                    : ['all']
+            );
+            const incomingGenre = Array.isArray(data.genre) ? (data.genre[0] || '') : '';
+            setGenre(incomingGenre);
+        } catch (error: unknown) {
+            const errorMessage = getApiErrorMessage(error, 'Не удалось загрузить проект');
+            setLoadError(errorMessage);
             openNotificationWithIcon('Не удалось загрузить проект', 'Ошибка', 'error');
         } finally {
             setLoading(false);
@@ -326,7 +321,7 @@ export const ProjectCreatePage = () => {
             openNotificationWithIcon('Поле "Синопсис" должно содержать не менее ' + BOTTOM_LEN_DESC + ' символов');
             return false;
         }
-        if (!description || description.length > UP_LEN_ANNOT) {
+        if (!description || description.length > UP_LEN_DESC) {
             setErrorDesc(true);
             openNotificationWithIcon('Поле "Синопсис" должно содержать не более ' + UP_LEN_DESC + ' символов');
             return false;
@@ -351,20 +346,8 @@ export const ProjectCreatePage = () => {
         return payload;
     };
 
-    const formatBackendError = (error: any): string => {
-        const data = error?.response?.data;
-        if (!data) return 'Не удалось сохранить проект';
-        if (typeof data.detail === 'string' && !data.errors) return data.detail;
-        if (data.errors && typeof data.errors === 'object') {
-            const first = Object.entries(data.errors)[0];
-            if (first) {
-                const [field, messages] = first;
-                const text = Array.isArray(messages) ? messages[0] : String(messages);
-                return `${field}: ${text}`;
-            }
-        }
-        return 'Не удалось сохранить проект';
-    };
+    const formatBackendError = (error: unknown): string =>
+        getApiErrorMessage(error, 'Не удалось сохранить проект');
 
     const updateHandle = async () => {
         const payload = checkRecordFields();
@@ -372,24 +355,20 @@ export const ProjectCreatePage = () => {
 
         setSaving(true);
         try {
-            const response = await patch_project(location.state.project_id, payload);
-            if (response.status >= 200 && response.status < 300) {
-                openNotificationWithIcon('Изменения сохранены', 'Готово', 'success');
-                // Sync local state with the persisted version returned by the API.
-                const data = response.data || {};
-                setTitle(data.title || title);
-                setFormat(data.format || format);
-                setAnnotation(data.annotation ?? annotation);
-                setDescription(data.synopsis ?? description);
-                if (Array.isArray(data.genre)) setGenre(data.genre[0] || '');
-                else if (typeof data.genre === 'string') setGenre(data.genre);
-                if (Array.isArray(data.audience) && data.audience.length > 0) {
-                    setSelectedAudience(data.audience);
-                }
-                if (data.posterUrl) setImageUrl(data.posterUrl);
-                setPosterDataUrl('');
+            const data = await patch_project(location.state.project_id, payload);
+            openNotificationWithIcon('Изменения сохранены', 'Готово', 'success');
+            // Sync local state with the persisted version returned by the API.
+            setTitle(data.title || title);
+            setFormat(data.format || format);
+            setAnnotation(data.annotation ?? annotation);
+            setDescription(data.synopsis ?? description);
+            if (Array.isArray(data.genre)) setGenre(data.genre[0] || '');
+            if (Array.isArray(data.audience) && data.audience.length > 0) {
+                setSelectedAudience(data.audience);
             }
-        } catch (error: any) {
+            if (data.posterUrl) setImageUrl(data.posterUrl);
+            setPosterDataUrl('');
+        } catch (error: unknown) {
             openNotificationWithIcon(formatBackendError(error), 'Ошибка', 'error');
         } finally {
             setSaving(false);
@@ -402,12 +381,10 @@ export const ProjectCreatePage = () => {
 
         setSaving(true);
         try {
-            const response = await create_project(payload);
-            if (response.status >= 200 && response.status < 300) {
-                openNotificationWithIcon('Проект успешно создан', 'Готово', 'success');
-                navigate(PathConstants.PROJECTS);
-            }
-        } catch (error: any) {
+            await create_project(payload);
+            openNotificationWithIcon('Проект успешно создан', 'Готово', 'success');
+            navigate(PathConstants.PROJECTS);
+        } catch (error: unknown) {
             openNotificationWithIcon(formatBackendError(error), 'Ошибка', 'error');
         } finally {
             setSaving(false);
@@ -447,29 +424,27 @@ export const ProjectCreatePage = () => {
         setErrorTitle(false);
     };
 
-    const beforeUpload = (file: any) => {
-        const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
-        if (!isJpgOrPng) {
-            message.error('You can only upload JPG/PNG file!');
-        }
-        const isLt2M = file.size / 1024 / 1024 < 2;
-        if (!isLt2M) {
-            message.error('Image must smaller than 2MB!');
-        }
-        return isJpgOrPng && isLt2M;
-    };
-
-    const getBase64 = (img: any, callback: (url: string) => void) => {
+    const getBase64 = (image: Blob, callback: (url: string) => void) => {
         const reader = new FileReader();
-        reader.addEventListener('load', () => callback(reader.result as string));
-        reader.readAsDataURL(img);
+        reader.addEventListener('load', () => callback(String(reader.result ?? '')));
+        reader.readAsDataURL(image);
     };
 
-    const handleChange: UploadProps['onChange'] = (info) => {
-        getBase64(info.file, (url) => {
+    const beforeUpload: NonNullable<UploadProps['beforeUpload']> = (file) => {
+        const validationError = validateProjectPosterFile(file);
+        if (validationError === 'unsupported-type') {
+            message.error('Можно загрузить только JPG или PNG.');
+            return Upload.LIST_IGNORE;
+        }
+        if (validationError === 'too-large') {
+            message.error(`Размер изображения не должен превышать ${PROJECT_POSTER_MAX_MEGABYTES} МБ.`);
+            return Upload.LIST_IGNORE;
+        }
+        getBase64(file, (url) => {
             setImageUrl(url);
             setPosterDataUrl(url);
         });
+        return false;
     };
 
     const toGenPage = () => {
@@ -837,14 +812,9 @@ export const ProjectCreatePage = () => {
                                     </PrimaryButton>
 
                                     <Upload
-                                        action="https://run.mocky.io/v3/435e224c-44fb-4773-9faf-380c5e6a2188"
                                         showUploadList={false}
-                                        onChange={handleChange}
-                                        accept=".jpg,.png"
-                                        beforeUpload={(file) => {
-                                            beforeUpload(file);
-                                            return false;
-                                        }}
+                                        accept=".jpg,.jpeg,.png"
+                                        beforeUpload={beforeUpload}
                                         className="craft-poster-upload"
                                     >
                                         <SecondaryButton icon={<UploadOutlined />} block>

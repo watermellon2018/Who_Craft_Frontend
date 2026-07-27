@@ -1,3 +1,4 @@
+import {getApiErrorCode} from '../errors';
 import api from '../http';
 
 // Team-collaboration API client. Token is attached as X-User-Token by http.ts.
@@ -82,12 +83,6 @@ export interface IncomingInvitation {
   invitedByUsername: string | null;
   createdAt: string | null;
   expiresAt: string | null;
-}
-
-// Structured error code from the backend (see team_errors.py).
-export interface TeamApiError {
-  code: string;
-  detail: string;
 }
 
 const base = (projectId: number | string) => `api/projects/${projectId}/team`;
@@ -207,10 +202,9 @@ export async function acceptInvitationByToken(
   return res.data;
 }
 
-// Helper: extract a structured TeamApiError code from an axios error.
-export function teamErrorCode(e: unknown): string | null {
-  const data = (e as { response?: { data?: TeamApiError } })?.response?.data;
-  return data?.code ?? null;
+// Compatibility alias while call sites migrate to the shared error helper.
+export function teamErrorCode(error: unknown): string | null {
+  return getApiErrorCode(error);
 }
 
 // Russian pluralization for "участник".

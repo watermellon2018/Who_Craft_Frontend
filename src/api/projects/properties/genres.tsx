@@ -1,11 +1,9 @@
+import type {AxiosResponse} from 'axios';
+
 import api from '../../http';
 
-async function get_all_genres(): Promise<any> {
-    try {
-        return await api.get('api/projects/properties/genre/select/');
-    } catch {
-        return undefined;
-    }
+async function get_all_genres(): Promise<AxiosResponse<unknown>> {
+  return api.get<unknown>('api/projects/properties/genre/select/');
 }
 
-export { get_all_genres };
+export {get_all_genres};
