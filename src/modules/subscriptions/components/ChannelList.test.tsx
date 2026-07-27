@@ -46,7 +46,7 @@ describe('ChannelList', () => {
     );
     expect(screen.getByText('Каналы не найдены')).toBeInTheDocument();
     expect(
-      screen.getByText((_, node) => Boolean(node?.textContent?.includes('«foo»'))),
+      screen.getByText(/По запросу «foo» ничего не найдено/),
     ).toBeInTheDocument();
   });
 

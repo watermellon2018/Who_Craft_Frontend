@@ -1,6 +1,6 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo} from 'react';
 import './App.css';
-import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
+import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
 
 import {ConfigProvider} from 'antd';
 import MainPage from "./page/main";
@@ -14,7 +14,7 @@ import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
 import ProjectTeamPage from "./page/movie/projectPage/team/ProjectTeamPage";
 import InviteAcceptPage from "./page/movie/projectPage/team/InviteAcceptPage";
-import PathConstants from "./routes/pathConstant";
+import PathConstants, {projectDashboardPath} from "./routes/pathConstant";
 import GenPosterPage from "./page/creation/poster/GenPosterPage";
 import ScriptPage from "./page/script/editor";
 import CharacterGalleryPage from "./modules/character-studio/pages/CharacterGalleryPage";
@@ -27,6 +27,11 @@ import Character3DEditorPage from "./modules/character-studio/pages/Character3DE
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 import withAuth from "./utils/auth/check_auth";
 import {CRAFT_ACCENT} from './constants/theme';
+import AppErrorBoundary from './components/AppErrorBoundary';
+import NotFoundPage from './page/errors/NotFoundPage';
+import {AUTH_EXPIRED_EVENT} from './api/http';
+import type {AuthExpiredEventDetail} from './api/http';
+import {safeReturnTo} from './utils/auth/returnTo';
 
 // All private pages are wrapped once here so adding a new private route is a
 // one-line change and we can't forget the auth gate on any single page.
@@ -54,6 +59,35 @@ const ProtectedCharacterCreateReferenceRoute: React.FC = () => (
 );
 const GatedCharacterCreateReferenceRoute = withAuth(ProtectedCharacterCreateReferenceRoute);
 
+const LegacyProjectDashboardRedirect: React.FC = () => {
+    const location = useLocation();
+    const projectId = (location.state as {project_id?: string | number} | null)?.project_id;
+    return (
+        <Navigate
+            to={projectId ? projectDashboardPath(projectId) : PathConstants.PROJECTS}
+            replace
+        />
+    );
+};
+
+const AuthExpiryRedirect: React.FC = () => {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const handleAuthExpired = (event: Event) => {
+            const detail = (event as CustomEvent<AuthExpiredEventDetail>).detail;
+            const returnTo = safeReturnTo(detail?.returnTo);
+            navigate(PathConstants.LOGIN, {
+                replace: true,
+                state: returnTo ? {returnTo} : undefined,
+            });
+        };
+        window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+        return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    }, [navigate]);
+
+    return null;
+};
 // https://ant.design/theme-editor#component-color настройка цветов
 const theme = {
     "token": {
@@ -153,6 +187,7 @@ function App() {
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },
         { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProtectedProjectPage /> },
+        { key: 'projectPageLegacy', path: PathConstants.PROJECT_PAGE_LEGACY, component: <LegacyProjectDashboardRedirect /> },
         { key: 'projectTeam', path: PathConstants.PROJECT_TEAM, component: <ProjectTeamPage /> },
         { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
@@ -171,15 +206,19 @@ function App() {
 
 
     return (
-        <ConfigProvider theme={theme}>
-            <BrowserRouter>
-                <Routes>
-                    {routes.map(({ path, component }) => (
-                        <Route key={path} path={path} element={component} />
-                    ))}
-                </Routes>
-            </BrowserRouter>
-        </ConfigProvider>
+        <AppErrorBoundary>
+            <ConfigProvider theme={theme}>
+                <BrowserRouter>
+                    <AuthExpiryRedirect />
+                    <Routes>
+                        {routes.map(({ path, component }) => (
+                            <Route key={path} path={path} element={component} />
+                        ))}
+                        <Route path="*" element={<NotFoundPage />} />
+                    </Routes>
+                </BrowserRouter>
+            </ConfigProvider>
+        </AppErrorBoundary>
     );
 }
 

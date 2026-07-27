@@ -5,7 +5,7 @@ import {
   MoreOutlined,
   CustomerServiceOutlined,
 } from '@ant-design/icons';
-import { TrackMock } from './mocks';
+import type {TrackMock} from './mocks';
 
 const WAVE_BARS = 36;
 
@@ -42,8 +42,9 @@ const MusicTrackRow: React.FC<{ track: TrackMock; activeFrac: number }> = ({ tra
       <button
         type="button"
         className="proj-track-play"
-        onClick={() => undefined}
-        aria-label="Play"
+        disabled
+        title="Воспроизведение музыки пока недоступно"
+        aria-label="Воспроизведение недоступно"
       >
         <CaretRightOutlined />
       </button>
@@ -75,8 +76,9 @@ const MusicTrackRow: React.FC<{ track: TrackMock; activeFrac: number }> = ({ tra
       <button
         type="button"
         className="text-white/60 hover:text-white p-1 flex-shrink-0"
-        onClick={() => undefined}
-        aria-label="More"
+        disabled
+        title="Управление треком пока недоступно"
+        aria-label="Управление треком недоступно"
       >
         <MoreOutlined />
       </button>
@@ -86,7 +88,7 @@ const MusicTrackRow: React.FC<{ track: TrackMock; activeFrac: number }> = ({ tra
 
 interface Props {
   tracks: TrackMock[];
-  onAdd: () => void;
+  onAdd?: () => void;
 }
 
 const ProjectMusic: React.FC<Props> = ({ tracks, onAdd }) => {
@@ -99,6 +101,9 @@ const ProjectMusic: React.FC<Props> = ({ tracks, onAdd }) => {
           className="proj-btn proj-btn-secondary"
           style={{ padding: '8px 14px', fontSize: 13 }}
           onClick={onAdd}
+          disabled={!onAdd}
+          title={onAdd ? 'Добавить музыку' : 'Музыкальная библиотека пока недоступна'}
+          aria-label="Добавить музыку"
         >
           <PlusOutlined />
           Добавить музыку

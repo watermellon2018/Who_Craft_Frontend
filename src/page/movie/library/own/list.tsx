@@ -11,7 +11,8 @@ import {
 } from '../../../../api/projects/projectList';
 import { backendAssetUrl } from '../../../../api/http';
 import { useNavigate } from 'react-router-dom';
-import PathConstants from '../../../../routes/pathConstant';
+import PathConstants, {projectDashboardPath} from '../../../../routes/pathConstant';
+import {getApiStatus} from '../../../../api/errors';
 import ProjectCardBadges from './ProjectCardBadges';
 import InvitationsBlock from './InvitationsBlock';
 
@@ -39,8 +40,8 @@ const ProjectListPage = () => {
       await deleteProjectById(id);
       setProjectList((prev) => prev.filter((p) => p.id !== id));
       message.success('Проект удалён');
-    } catch (e: any) {
-      if (e?.response?.status === 403) {
+    } catch (requestError: unknown) {
+      if (getApiStatus(requestError) === 403) {
         message.error('Удалить проект может только владелец');
       } else {
         message.error('Не удалось удалить проект');
@@ -55,7 +56,7 @@ const ProjectListPage = () => {
   };
 
   const handleClickCard = (projectId: number) => {
-    navigate(PathConstants.PROJECT_PAGE, { state: { project_id: projectId } });
+    navigate(projectDashboardPath(projectId));
   };
 
   const coverFor = (project: ProjectListItem): string => {

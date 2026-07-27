@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Checkbox } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { setStoredUserTokens } from '../../api/http';
 import {
     CaretRightOutlined,
@@ -16,6 +16,8 @@ import {
 import './login.css';
 import { login } from '../../api/auth/login';
 import PathConstants from '../../routes/pathConstant';
+import { safeReturnTo } from '../../utils/auth/returnTo';
+import type { AuthReturnState } from '../../utils/auth/returnTo';
 
 interface LoginFormValues {
     username: string;
@@ -59,6 +61,7 @@ const PromoPanel: React.FC = () => (
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,7 +81,8 @@ const LoginPage: React.FC = () => {
                 data.refresh
             ) {
                 setStoredUserTokens(data.access, data.refresh);
-                navigate(PathConstants.HOME);
+                const returnTo = safeReturnTo((location.state as AuthReturnState | null)?.returnTo);
+                navigate(returnTo || PathConstants.HOME, { replace: true });
             } else {
                 setErrorMessage(t('auth.login.invalidCredentials'));
             }

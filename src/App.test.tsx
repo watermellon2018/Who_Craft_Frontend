@@ -1,9 +1,11 @@
-import PathConstants, {isScriptWorkspacePath} from './routes/pathConstant';
+import PathConstants, {isScriptWorkspacePath, projectDashboardPath} from './routes/pathConstant';
 
 test('defines character studio routes', () => {
   expect(PathConstants.CHARACTER_STUDIO).toBe('/project/:projectId/characters');
   expect(PathConstants.CHARACTER_STUDIO_CREATE).toBe('/project/:projectId/characters/create');
   expect(PathConstants.CHARACTER_STUDIO_DETAIL).toBe('/project/:projectId/characters/:characterId');
+  expect(PathConstants.PROJECT_PAGE).toBe('/projects/:projectId');
+  expect(projectDashboardPath(42)).toBe('/projects/42');
   expect(PathConstants.SCRIPT_PAGE).toBe('/project/:projectId/script');
   expect(PathConstants.SCRIPT_PAGE_LEGACY).toBe('/project/script');
   expect(PathConstants.CHARACTER_STUDIO_EDITOR).toBe('/project/:projectId/characters/:characterId/edit');

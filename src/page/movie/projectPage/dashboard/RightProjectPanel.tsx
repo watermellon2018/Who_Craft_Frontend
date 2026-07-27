@@ -19,6 +19,7 @@ interface Props {
   quickActions: QuickActionMock[];
   activity: ActivityItemMock[];
   onQuickAction?: (key: string) => void;
+  isQuickActionEnabled?: (key: string) => boolean;
   onOpenTeam: () => void;
   onInvite: () => void;
   loading?: boolean;
@@ -31,6 +32,7 @@ const RightProjectPanel: React.FC<Props> = ({
   quickActions,
   activity,
   onQuickAction,
+  isQuickActionEnabled,
   onOpenTeam,
   onInvite,
   loading = false,
@@ -47,7 +49,11 @@ const RightProjectPanel: React.FC<Props> = ({
         onOpenTeam={onOpenTeam}
         onInvite={onInvite}
       />
-      <QuickActionsCard actions={quickActions} onAction={onQuickAction} />
+      <QuickActionsCard
+        actions={quickActions}
+        onAction={onQuickAction}
+        isActionEnabled={isQuickActionEnabled}
+      />
       <RecentActivityCard activity={activity} loading={loading} />
     </aside>
   );

@@ -398,3 +398,38 @@ describe('useCharacterAssetJobs – status after launch API error', () => {
     expect(failedStatuses.length).toBeGreaterThan(0);
   });
 });
+
+describe('useCharacterAssetJobs – stable polling scheduler', () => {
+  it('does not restart polling after a job progress state update or parent rerender', async () => {
+    const character = makeCharacter({
+      images: {
+        full_body: {image_id: 'i1', image_type: 'full_body', image_url: 'http://a.com/1.png'},
+        scene: {image_id: 'i2', image_type: 'scene', image_url: 'http://a.com/2.png'},
+      },
+    });
+    mockedApi.getJob.mockResolvedValue(makeJobResponse('queued', 'job-stable') as never);
+
+    const {result, rerender} = renderHook(() =>
+      useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, character),
+    );
+    act(() => result.current.attachJob('full_body', 'job-stable'));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockedApi.getJob).toHaveBeenCalledTimes(1);
+
+    rerender();
+    await act(async () => {
+      await Promise.resolve();
+      jest.advanceTimersByTime(2499);
+    });
+    expect(mockedApi.getJob).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(mockedApi.getJob).toHaveBeenCalledTimes(2);
+  });
+});

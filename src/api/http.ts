@@ -53,7 +53,14 @@ export function getStoredRefreshToken(): string | null {
     }
 }
 
+export const AUTH_EXPIRED_EVENT = 'wcraft:auth-expired';
+
+export interface AuthExpiredEventDetail {
+    returnTo: string;
+}
+
 let authGeneration = 0;
+let authExpiryNotified = false;
 
 function writeStoredUserTokens(access: string, refresh: string): void {
     try {
@@ -67,6 +74,7 @@ function writeStoredUserTokens(access: string, refresh: string): void {
 
 export function setStoredUserTokens(access: string, refresh: string): void {
     authGeneration += 1;
+    authExpiryNotified = false;
     writeStoredUserTokens(access, refresh);
 }
 
@@ -79,6 +87,15 @@ export function clearStoredUserToken(): void {
     } catch {
         // ignore unavailable localStorage
     }
+}
+
+function notifyAuthExpired(): void {
+    if (authExpiryNotified || typeof window === 'undefined') return;
+    authExpiryNotified = true;
+    const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.dispatchEvent(new CustomEvent<AuthExpiredEventDetail>(AUTH_EXPIRED_EVENT, {
+        detail: { returnTo },
+    }));
 }
 
 const api: AxiosInstance = axios.create({
@@ -116,6 +133,7 @@ async function requestFreshAccessToken(): Promise<string | null> {
             return null;
         }
         writeStoredUserTokens(response.data.access, response.data.refresh);
+        authExpiryNotified = false;
         return response.data.access;
     } catch {
         if (
@@ -146,15 +164,39 @@ api.interceptors.response.use(
         if (
             error.response?.status !== 401 ||
             !config ||
-            config._authRetry ||
             isPublicAuthRequest(config.url)
         ) {
             throw error;
         }
 
+        if (config._authRetry) {
+            const currentAccess = getStoredUserToken();
+            const requestAccess = config.headers.get('X-User-Token');
+            if (currentAccess && requestAccess !== currentAccess) {
+                config.headers.set('X-User-Token', currentAccess);
+                return api.request(config);
+            }
+            clearStoredUserToken();
+            notifyAuthExpired();
+            throw error;
+        }
+
         config._authRetry = true;
+        const refreshAtStart = getStoredRefreshToken();
         const access = await getFreshAccessToken();
-        if (!access) throw error;
+        if (!access) {
+            const currentAccess = getStoredUserToken();
+            const currentRefresh = getStoredRefreshToken();
+            if (currentAccess && currentRefresh !== refreshAtStart) {
+                config.headers.set('X-User-Token', currentAccess);
+                return api.request(config);
+            }
+            if (currentRefresh === refreshAtStart) {
+                clearStoredUserToken();
+                notifyAuthExpired();
+            }
+            throw error;
+        }
 
         config.headers.set('X-User-Token', access);
         return api.request(config);

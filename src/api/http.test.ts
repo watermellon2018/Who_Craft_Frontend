@@ -21,6 +21,7 @@ jest.mock('axios', () => {
 
 import axios from 'axios';
 import {
+    AUTH_EXPIRED_EVENT,
     getStoredRefreshToken,
     getStoredUserToken,
     logout,
@@ -107,9 +108,33 @@ describe('auth refresh lifecycle', () => {
             data: { access: 'stale-access', refresh: 'stale-refresh' },
         });
 
-        await expect(protectedRequest).rejects.toBe(error);
+        await expect(protectedRequest).resolves.toBeUndefined();
         expect(getStoredUserToken()).toBe('new-access');
         expect(getStoredRefreshToken()).toBe('new-refresh');
-        expect(mockApiRequest).not.toHaveBeenCalled();
+        expect(error.config.headers.set).toHaveBeenCalledWith('X-User-Token', 'new-access');
+        expect(mockApiRequest).toHaveBeenCalledTimes(1);
+    });
+});
+
+describe('expired authentication redirect signal', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        jest.clearAllMocks();
+    });
+
+    it('clears an expired session and emits the current return URL when refresh is unavailable', async () => {
+        window.history.pushState({}, '', '/projects/42?tab=script#scene-3');
+        setStoredUserTokens('expired-access', '');
+        const listener = jest.fn();
+        window.addEventListener(AUTH_EXPIRED_EVENT, listener);
+
+        const error = unauthorizedError();
+        await expect(onResponseError(error)).rejects.toBe(error);
+
+        expect(getStoredUserToken()).toBeNull();
+        expect(listener).toHaveBeenCalledTimes(1);
+        const event = listener.mock.calls[0][0] as CustomEvent<{returnTo: string}>;
+        expect(event.detail.returnTo).toBe('/projects/42?tab=script#scene-3');
+        window.removeEventListener(AUTH_EXPIRED_EVENT, listener);
     });
 });

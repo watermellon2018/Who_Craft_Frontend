@@ -21,7 +21,7 @@ test('renders character data and calls edit action', () => {
   fireEvent.click(screen.getByRole('button', {name: /удалить персонажа/i}));
 
   expect(screen.getByText('Mira')).toBeInTheDocument();
-  expect(screen.getByText('lead')).toBeInTheDocument();
+  expect(screen.getByText('Главный герой')).toBeInTheDocument();
   expect(screen.getByText('locked')).toBeInTheDocument();
   expect(onEdit).toHaveBeenCalledTimes(1);
   expect(onDelete).toHaveBeenCalledTimes(1);

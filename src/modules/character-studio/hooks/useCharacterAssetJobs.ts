@@ -15,6 +15,7 @@ export interface AssetJobState {
 export type AssetJobsMap = Partial<Record<CharacterImageType, AssetJobState>>;
 
 const POLL_INTERVAL_MS = 2500;
+const AUTO_GENERATED_IMAGE_TYPES: CharacterImageType[] = ['full_body', 'scene'];
 
 const REGION_BY_TYPE: Record<CharacterImageType, string> = {
   portrait: 'face',
@@ -64,6 +65,8 @@ export function useCharacterAssetJobs(
 ) {
   const [jobs, setJobs] = useState<AssetJobsMap>({});
   const completionNotifiedRef = useRef<Set<string>>(new Set());
+  const autoLaunchAttemptedRef = useRef<Set<string>>(new Set());
+  const jobsRef = useRef<AssetJobsMap>({});
 
   const updateJob = useCallback((type: CharacterImageType, patch: Partial<AssetJobState>) => {
     setJobs((prev) => ({...prev, [type]: {...(prev[type] || {status: 'idle'}), ...patch}}));
@@ -135,15 +138,42 @@ export function useCharacterAssetJobs(
     [character, projectId, updateJob, handleJobCompleted],
   );
 
-  // Poll jobs that are still queued or processing (covers async/queued backends).
+  // Missing secondary assets are launched once per character/type. Mark the
+  // attempt before starting the request so React StrictMode and parent
+  // re-renders cannot duplicate a paid provider call.
   useEffect(() => {
-    if (disabled) return;
-    const activeEntries = (Object.entries(jobs) as Array<[CharacterImageType, AssetJobState]>).filter(
+    if (disabled || !character?.character_id) return;
+
+    AUTO_GENERATED_IMAGE_TYPES.forEach((type) => {
+      if (character.images?.[type]?.image_url) return;
+      const launchKey = `${projectId}:${character.character_id}:${type}`;
+      if (autoLaunchAttemptedRef.current.has(launchKey)) return;
+      autoLaunchAttemptedRef.current.add(launchKey);
+      void launchJob(type);
+    });
+  }, [character, disabled, launchJob, projectId]);
+
+  // Poll jobs that are still queued or processing (covers async/queued backends).
+  // The dependency key changes only when the active job set changes. Progress
+  // updates therefore do not tear down and immediately restart the scheduler.
+  const activeJobsKey = (Object.entries(jobs) as Array<[CharacterImageType, AssetJobState]>)
+    .filter(([, state]) => state.jobId && (state.status === 'queued' || state.status === 'processing'))
+    .map(([type, state]) => `${type}:${state.jobId}`)
+    .sort()
+    .join('|');
+
+  useEffect(() => {
+    jobsRef.current = jobs;
+  }, [jobs]);
+
+  useEffect(() => {
+    if (disabled || !activeJobsKey) return;
+    const activeEntries = (Object.entries(jobsRef.current) as Array<[CharacterImageType, AssetJobState]>).filter(
       ([, state]) => state.jobId && (state.status === 'queued' || state.status === 'processing'),
     );
-    if (activeEntries.length === 0) return;
 
     let cancelled = false;
+    let timeoutId: number | undefined;
     const poll = async () => {
       await Promise.all(
         activeEntries.map(async ([type, state]) => {
@@ -164,20 +194,22 @@ export function useCharacterAssetJobs(
           } catch (_) {}
         }),
       );
+      if (!cancelled) {
+        timeoutId = window.setTimeout(() => {
+          void poll();
+        }, POLL_INTERVAL_MS);
+      }
     };
 
-    const id = window.setInterval(poll, POLL_INTERVAL_MS);
-    poll();
+    void poll();
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     };
-  }, [disabled, jobs, handleJobCompleted, updateJob]);
+  }, [activeJobsKey, disabled, handleJobCompleted, updateJob]);
 
   const retry = useCallback(
-    (type: CharacterImageType) => {
-      launchJob(type);
-    },
+    (type: CharacterImageType) => launchJob(type),
     [launchJob],
   );
 

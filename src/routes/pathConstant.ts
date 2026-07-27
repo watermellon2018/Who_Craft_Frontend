@@ -12,7 +12,8 @@ const PathConstants = {
     EDIT_PROJECT: '/edit-project',
     GEN_POSTER: '/create-project/gen-poster',
     PROJECTS: '/project-list',
-    PROJECT_PAGE: '/project-list/project',
+    PROJECT_PAGE: '/projects/:projectId',
+    PROJECT_PAGE_LEGACY: '/project-list/project',
     PROJECT_TEAM: '/project-list/project/:projectId/team',
     INVITE_ACCEPT: '/invite/:token',
 
@@ -28,6 +29,10 @@ const PathConstants = {
     CHARACTER_STUDIO_REFERENCES: '/project/:projectId/characters/:characterId/references',
     CHARACTER_STUDIO_3D: '/project/:projectId/characters/:characterId/3d-model',
 
+}
+
+export function projectDashboardPath(projectId: string | number): string {
+    return PathConstants.PROJECT_PAGE.replace(':projectId', String(projectId));
 }
 
 export function isScriptWorkspacePath(pathname: string) {

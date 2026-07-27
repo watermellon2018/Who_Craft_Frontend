@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Spin, message } from 'antd';
 import withAuth from '../../../../utils/auth/check_auth';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
-import PathConstants from '../../../../routes/pathConstant';
+import PathConstants, {projectDashboardPath} from '../../../../routes/pathConstant';
 import api from '../../../../api/http';
 import {
   acceptInvitationByToken,
@@ -62,7 +62,7 @@ const InviteAcceptPage: React.FC = () => {
     try {
       const { projectId } = await acceptInvitationByToken(token!);
       message.success('Вы присоединились к проекту');
-      navigate(PathConstants.PROJECT_PAGE, { state: { project_id: projectId } });
+      navigate(projectDashboardPath(projectId));
     } catch (e) {
       const code = teamErrorCode(e);
       if (code === 'ALREADY_MEMBER') {

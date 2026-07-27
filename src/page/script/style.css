@@ -228,10 +228,15 @@
   width: 40px;
 }
 
-.script-rail__support button:hover {
+.script-rail__support button:hover:not(:disabled) {
   background: rgba(245, 166, 35, 0.07);
   color: #d2a657;
 }
+.script-rail__support button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .script-stats {
   align-items: center;
   background: rgba(12, 26, 36, 0.88);

@@ -16,7 +16,7 @@ import {useNavigate} from 'react-router-dom';
 import WCraftBrand from '../../components/WCraftBrand';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
-import PathConstants from '../../routes/pathConstant';
+import PathConstants, {projectDashboardPath} from '../../routes/pathConstant';
 import {sceneToPlainText} from './api';
 import CardsView from './CardsView';
 import CharactersView from './CharactersView';
@@ -60,7 +60,8 @@ export default function ScriptPage() {
   const finish = async () => {
     const saved = await workspace.saveSelectedScene();
     if (!saved) return;
-    navigate(PathConstants.PROJECT_PAGE, {state: {project_id: projectId}});
+    if (!projectId) return;
+    navigate(projectDashboardPath(projectId));
   };
 
   const deleteScene = (sceneId: number) => {
@@ -150,8 +151,8 @@ export default function ScriptPage() {
         ))}
       </div>
       <div className="script-rail__support">
-        <button aria-label="Настройки"><SettingOutlined /></button>
-        <button aria-label="Помощь"><QuestionCircleOutlined /></button>
+        <button disabled aria-label="Настройки недоступны" title="Настройки сценария пока недоступны"><SettingOutlined /></button>
+        <button disabled aria-label="Помощь недоступна" title="Раздел помощи пока недоступен"><QuestionCircleOutlined /></button>
       </div>
     </aside>
 

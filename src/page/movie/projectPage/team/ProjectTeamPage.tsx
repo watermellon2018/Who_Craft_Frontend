@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import withAuth from '../../../../utils/auth/check_auth';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
-import PathConstants from '../../../../routes/pathConstant';
+import PathConstants, {projectDashboardPath} from '../../../../routes/pathConstant';
 import {
   AccessRole,
   ACCESS_ROLE_LABELS,
@@ -113,7 +113,7 @@ const ProjectTeamPage: React.FC = () => {
   }, [load]);
 
   const goBack = () => {
-    navigate(PathConstants.PROJECT_PAGE, { state: { project_id: projectId } });
+    navigate(projectId ? projectDashboardPath(projectId) : PathConstants.PROJECTS);
   };
 
   const handleRoleChange = async (member: TeamMember, role: Exclude<AccessRole, 'owner'>) => {
