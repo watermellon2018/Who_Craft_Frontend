@@ -1,6 +1,6 @@
 import React from 'react';
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
-import {MemoryRouter, Route, Routes} from 'react-router-dom';
+import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
 import {characterApi} from '../api/characterApi';
 import CharacterVariantsPage from './CharacterVariantsPage';
 
@@ -46,20 +46,34 @@ const PAGE_STATE = {
   },
   characterId: CHARACTER_ID,
   characterName: 'Hero',
+  sourceTreeNodeId: 'tree-1',
   generationOptions: {count: 2 as const, creativity: 'balanced' as const, lockSeed: false, seed: ''},
 };
 
-function renderPage(locationState = PAGE_STATE) {
+function CreatePageProbe() {
+  const location = useLocation();
+  return <><div>Create page</div><pre>{JSON.stringify({path: `${location.pathname}${location.search}`, state: location.state})}</pre></>;
+}
+
+function renderPage(
+  locationState = PAGE_STATE,
+  jobId: string | null = PAGE_STATE.jobId,
+  treeNodeId: string | null = PAGE_STATE.sourceTreeNodeId,
+) {
+  const query = new URLSearchParams();
+  if (jobId) query.set('jobId', jobId);
+  if (treeNodeId) query.set('treeNodeId', treeNodeId);
+  const search = query.toString() ? `?${query.toString()}` : '';
   return render(
     <MemoryRouter
-      initialEntries={[{pathname: `/project/${PROJECT_ID}/characters/${CHARACTER_ID}/variants`, state: locationState}]}
+      initialEntries={[{pathname: `/project/${PROJECT_ID}/characters/${CHARACTER_ID}/variants`, search, state: locationState}]}
     >
       <Routes>
         <Route
           path="/project/:projectId/characters/:characterId/variants"
           element={<CharacterVariantsPage />}
         />
-        <Route path="/project/:projectId/characters/create" element={<div>Create page</div>} />
+        <Route path="/project/:projectId/characters/create" element={<CreatePageProbe />} />
         <Route path="/project/:projectId/characters/:characterId/edit" element={<div>Edit page</div>} />
       </Routes>
     </MemoryRouter>,
@@ -69,6 +83,19 @@ function renderPage(locationState = PAGE_STATE) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockedApi.applyVariant.mockResolvedValue({data: {}} as never);
+  mockedApi.get.mockResolvedValue({data: {
+    character_id: CHARACTER_ID,
+    project_id: 1,
+    name: 'Hero',
+    character_type: 'human',
+    role: 'main',
+    gender: 'female',
+    short_description: 'Recovered summary',
+    personality: {description: 'Recovered personality'},
+    backstory: 'Recovered backstory',
+    identity_locked: false,
+    appearance: {appearance_prompt: 'Recovered hero'},
+  }} as never);
   mockedCreateTreeNode.mockResolvedValue(undefined);
   mockedApi.generateInitial.mockResolvedValue({
     data: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []},
@@ -95,6 +122,94 @@ describe('CharacterVariantsPage – initial state', () => {
     expect(screen.getByRole('img', {name: 'Вариант 2'})).toBeInTheDocument();
   });
 
+  it('recovers variants and generation parameters from the URL and job after refresh', async () => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: {
+        job_id: 'job-1',
+        character_id: CHARACTER_ID,
+        status: 'completed',
+        progress: 100,
+        variants: VARIANTS,
+        request_payload: {
+          variant_count: 2,
+          creativity: 'balanced',
+          visual_style: 'cinematic_realism',
+          appearance_description: 'Recovered hero',
+          character_type: 'human',
+        },
+      },
+      loading: false,
+      errorStatus: null,
+      errorMessage: null,
+    } as never);
+
+    renderPage({} as never);
+
+    expect(screen.getByRole('img', {name: 'Вариант 1'})).toBeInTheDocument();
+    await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith(PROJECT_ID, CHARACTER_ID));
+    fireEvent.click(screen.getByRole('button', {name: /перегенерировать/i}));
+    await waitFor(() => expect(mockedApi.generateInitial).toHaveBeenCalledTimes(1));
+    expect(mockedApi.generateInitial.mock.calls[0][2]).toEqual(expect.objectContaining({
+      appearance_description: 'Recovered hero',
+      variant_count: 2,
+    }));
+  });
+
+  it('recovers the full saved form and tree context before editing after refresh', async () => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: {
+        job_id: 'job-1',
+        character_id: CHARACTER_ID,
+        status: 'completed',
+        progress: 100,
+        variants: VARIANTS,
+        request_payload: {variant_count: 2, appearance_description: 'Recovered hero'},
+      },
+      loading: false,
+      errorStatus: null,
+      errorMessage: null,
+    } as never);
+
+    renderPage({} as never, 'job-1', 'tree-1');
+    await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith(PROJECT_ID, CHARACTER_ID));
+    await waitFor(() => expect(screen.getByRole('button', {name: /изменить параметры/i})).not.toBeDisabled());
+    fireEvent.click(screen.getByRole('button', {name: /изменить параметры/i}));
+
+    expect(screen.getByText('Create page')).toBeInTheDocument();
+    expect(screen.getByText(/draftId=char-1&treeNodeId=tree-1/)).toBeInTheDocument();
+    expect(screen.getByText(/"role":"main"/)).toBeInTheDocument();
+    expect(screen.getByText(/"gender":"female"/)).toBeInTheDocument();
+    expect(screen.getByText(/"personality_description":"Recovered personality"/)).toBeInTheDocument();
+  });
+
+  it('uses the URL tree node when Apply follows a refresh', async () => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: {job_id: 'job-1', character_id: CHARACTER_ID, status: 'completed', progress: 100, variants: VARIANTS},
+      loading: false,
+      errorStatus: null,
+      errorMessage: null,
+    } as never);
+
+    renderPage({} as never, 'job-1', 'tree-1');
+    await waitFor(() => expect(screen.getByRole('button', {name: /продолжить/i})).not.toBeDisabled());
+    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+
+    await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalled());
+    expect(mockedCreateTreeNode.mock.calls[0][0]).toBe('tree-1');
+  });
+
+  it('shows an explicit forbidden error returned by the job endpoint', () => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: null,
+      loading: false,
+      errorStatus: 403,
+      errorMessage: 'Нет доступа к заданию генерации',
+    });
+    renderPage({} as never);
+    expect(screen.getByText('Нет доступа к генерации')).toBeInTheDocument();
+    expect(screen.getByText('Нет доступа к заданию генерации')).toBeInTheDocument();
+  });
+
   it('shows error state on job failure', () => {
     mockedUseGenerationJob.mockReturnValue({
       job: {job_id: 'job-1', status: 'failed', progress: 0, variants: [], error_message: 'Что-то пошло не так'},
@@ -106,7 +221,7 @@ describe('CharacterVariantsPage – initial state', () => {
 
   it('shows "no context" error when navigated to without state', () => {
     mockedUseGenerationJob.mockReturnValue({job: null} as never);
-    renderPage({} as never);
+    renderPage({} as never, null);
     expect(screen.getByText(/сессия не найдена/i)).toBeInTheDocument();
   });
 });

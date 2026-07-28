@@ -3,7 +3,7 @@ import {Empty} from 'antd';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import DashboardHeader, {BreadcrumbItem} from '../../profile/components/DashboardHeader';
-import PathConstants, {projectDashboardPath} from '../../../routes/pathConstant';
+import PathConstants, {characterCreatePath, projectDashboardPath} from '../../../routes/pathConstant';
 import {fetch_project} from '../../../api/projects/properties/project';
 import CharacterTreeSidebar from './CharacterTreeSidebar';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
@@ -148,7 +148,7 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
           collapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebar}
           onSelectCharacter={(id) => navigate(`/project/${projectId}/characters/${id}/edit`)}
-          onCreateCharacter={(name, treeNodeId) => navigate(`/project/${projectId}/characters/create`, {state: {initialCharacterName: name, sourceTreeNodeId: treeNodeId}})}
+          onCreateCharacter={(name, treeNodeId) => navigate(characterCreatePath(projectId, {treeNodeId}), {state: {initialCharacterName: name, sourceTreeNodeId: treeNodeId}})}
           onDeletedCharacter={(id) => {
             if (id === characterId) {
               navigate(`/project/${projectId}/characters`, {replace: true});

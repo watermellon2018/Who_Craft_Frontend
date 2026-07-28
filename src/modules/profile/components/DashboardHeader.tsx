@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import WCraftBrand from '../../../components/WCraftBrand';
 import { ProfileUser } from '../types';
 import { fetchProfileMe } from '../api/profileApi';
-import PathConstants, { isScriptWorkspacePath } from '../../../routes/pathConstant';
+import PathConstants, {isProjectEditPath, isScriptWorkspacePath} from '../../../routes/pathConstant';
 import { logout } from '../../../api/http';
 import { safeImageUrl } from '../../../utils/safeUrl';
 import i18n from '../../../i18n';
@@ -32,7 +32,7 @@ function resolveSectionTitle(pathname: string): string {
   if (pathname.startsWith(PathConstants.PROFILE)) return t('navigation.sections.profile');
   if (pathname.startsWith(PathConstants.PROJECTS)) return t('navigation.sections.myProjects');
   if (pathname.startsWith(PathConstants.CREATE_PROJECT)) return t('navigation.sections.createProject');
-  if (pathname.startsWith(PathConstants.EDIT_PROJECT)) return t('navigation.sections.editProject');
+  if (isProjectEditPath(pathname)) return t('navigation.sections.editProject');
   if (pathname.startsWith('/project/') && pathname.includes('/characters')) return t('navigation.sections.characters');
   if (isScriptWorkspacePath(pathname)) return t('navigation.sections.script');
   if (pathname === PathConstants.HOME) return t('navigation.sections.home');

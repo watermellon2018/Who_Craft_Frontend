@@ -1,24 +1,41 @@
 import React, { useEffect, useState } from 'react';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { createCharacterFromTreeAPI } from '../../../api/generation/characters/tree_structure';
+import {getApiStatus} from '../../../api/errors';
 import { characterApi } from '../api/characterApi';
 import { notifyCharacterListUpdated, notifyCharacterTreeUpdated } from '../events';
 import { useGenerationJob } from '../hooks/useGenerationJob';
-import { CharacterVariant } from '../types/character.types';
-import { GenerationOptions } from '../components/create/GenerationSettingsPanel';
-import PathConstants from '../../../routes/pathConstant';
+import {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import type {CharacterVariant, GenerationJob, StudioCharacter} from '../types/character.types';
+import {characterToFormValues} from '../types/characterForm';
+import {characterCreatePath} from '../../../routes/pathConstant';
 import './CharacterVariantsPage.css';
 
 interface VariantsPageState {
-  jobId?: string;
   formValues?: Record<string, unknown>;
-  characterId?: string;
   sourceTreeNodeId?: string;
   characterName?: string;
   generationOptions?: GenerationOptions;
+}
+
+function generationOptionsFromJob(job: GenerationJob | null): GenerationOptions {
+    const payload = job?.request_payload ?? {};
+    const requestedCount = Number(payload.variant_count ?? job?.variant_count ?? defaultGenerationOptions.count);
+    const count = requestedCount === 1 || requestedCount === 2 || requestedCount === 4
+        ? requestedCount
+        : defaultGenerationOptions.count;
+    const creativity = payload.creativity === 'strict' || payload.creativity === 'creative'
+        ? payload.creativity
+        : 'balanced';
+    return {
+        count,
+        creativity,
+        lockSeed: Boolean(payload.lock_seed),
+        seed: payload.seed == null ? '' : String(payload.seed),
+    };
 }
 
 export default function CharacterVariantsPage() {
@@ -28,14 +45,67 @@ export default function CharacterVariantsPage() {
     const location = useLocation();
     const state = (location.state as VariantsPageState | null) ?? {};
 
-    // Mutable job id — updated when user clicks Regenerate without navigating away.
-    const [currentJobId, setCurrentJobId] = useState<string | undefined>(state.jobId ?? undefined);
-    const { job } = useGenerationJob(currentJobId);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const currentJobId = searchParams.get('jobId') || undefined;
+    const sourceTreeNodeId = searchParams.get('treeNodeId') || state.sourceTreeNodeId;
+    const {job, loading: jobLoading, errorStatus, errorMessage} = useGenerationJob(currentJobId);
+    const [characterName, setCharacterName] = useState(state.characterName ?? '');
+    const [characterData, setCharacterData] = useState<StudioCharacter | null>(null);
+    const [characterLoading, setCharacterLoading] = useState(!state.characterName);
+    const [characterError, setCharacterError] = useState<string | null>(null);
 
     const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
     const [applying, setApplying] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
     const [regenError, setRegenError] = useState<string | undefined>();
+
+    const recoveredCharacterValues = characterData ? characterToFormValues(characterData) : undefined;
+    const hasFormContext = Boolean(recoveredCharacterValues || job?.request_payload || state.formValues);
+    const effectiveFormValues = hasFormContext
+        ? {...recoveredCharacterValues, ...state.formValues, ...job?.request_payload}
+        : undefined;
+    const effectiveGenerationOptions = state.generationOptions ?? generationOptionsFromJob(job);
+    const contextMismatch = Boolean(
+        job && (
+            (job.character_id && String(job.character_id) !== characterId)
+            || (job.project_id != null && String(job.project_id) !== projectId)
+        ),
+    );
+
+    useEffect(() => {
+        if (characterName) {
+            setCharacterLoading(false);
+            return;
+        }
+        if (!currentJobId || !projectId || !characterId) return;
+        let cancelled = false;
+        setCharacterLoading(true);
+        setCharacterError(null);
+        characterApi.get(projectId, characterId)
+            .then((response) => {
+                if (cancelled) return;
+                const recoveredCharacter = response.data as StudioCharacter;
+                const recoveredName = recoveredCharacter.name ?? '';
+                setCharacterData(recoveredCharacter);
+                setCharacterName(recoveredName);
+                if (!recoveredName) setCharacterError('Не удалось восстановить имя персонажа');
+            })
+            .catch((error: unknown) => {
+                if (cancelled) return;
+                const status = getApiStatus(error);
+                setCharacterError(status === 403
+                    ? 'Нет доступа к персонажу'
+                    : status === 404
+                        ? 'Персонаж не найден'
+                        : 'Не удалось загрузить персонажа');
+            })
+            .finally(() => {
+                if (!cancelled) setCharacterLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [characterId, characterName, currentJobId, projectId]);
 
     // Persist the last successfully loaded variants so the grid stays visible
     // while a new regeneration job is in flight.
@@ -59,8 +129,8 @@ export default function CharacterVariantsPage() {
 
     const noContext = !currentJobId;
     // Full-page loading only for the initial job (no displayVariants yet).
-    const isInitialLoading = !noContext && displayVariants.length === 0 && (
-        job === null || job.status === 'queued' || job.status === 'processing'
+    const isInitialLoading = !noContext && !errorMessage && !contextMismatch && displayVariants.length === 0 && (
+        jobLoading || job === null || job.status === 'queued' || job.status === 'processing'
     );
     // Grid-level loading during regeneration (we still have displayVariants to show).
     const isRegeneratingGrid = regenerating && (
@@ -74,14 +144,17 @@ export default function CharacterVariantsPage() {
     // Pass form values and draft character id back so the form can be pre-filled
     // and the same draft character can be reused (no new character created).
     const buildEditState = () => ({
-        formValues: state.formValues,
+        formValues: effectiveFormValues
+            ? {...effectiveFormValues, name: effectiveFormValues.name ?? characterName}
+            : undefined,
         characterId,
-        sourceTreeNodeId: state.sourceTreeNodeId,
-        generationOptions: state.generationOptions,
+        sourceTreeNodeId,
+        initialCharacterName: characterName,
+        generationOptions: effectiveGenerationOptions,
     });
 
     const handleEditParams = () => {
-        navigate(PathConstants.CHARACTER_STUDIO_CREATE.replace(':projectId', projectId), {
+        navigate(characterCreatePath(projectId, {draftId: characterId, treeNodeId: sourceTreeNodeId}), {
             state: buildEditState(),
         });
     };
@@ -89,7 +162,8 @@ export default function CharacterVariantsPage() {
     // Regenerate: re-run generation with the same params, stay on this page.
     const handleRegenerate = async () => {
         if (regenerating) return;
-        const { formValues, generationOptions: opts } = state;
+        const formValues = effectiveFormValues;
+        const opts = effectiveGenerationOptions;
         if (!formValues) {
             message.error(t('characterStudio.variants.missingParams'));
             return;
@@ -98,12 +172,12 @@ export default function CharacterVariantsPage() {
         setRegenError(undefined);
         setSelectedVariantId(null);
         try {
-            const jobResponse = await characterApi.generateInitial(projectId, characterId, {
-                variant_count: opts?.count ?? 1,
+            const payload = {
+                variant_count: opts.count,
                 image_type: 'portrait',
-                creativity: opts?.creativity ?? 'balanced',
-                seed: opts?.lockSeed && opts?.seed ? Number(opts.seed) : undefined,
-                lock_seed: opts?.lockSeed ?? false,
+                creativity: opts.creativity,
+                seed: opts.lockSeed && opts.seed ? Number(opts.seed) : undefined,
+                lock_seed: opts.lockSeed,
                 visual_style: formValues.visual_style,
                 text_refinement: formValues.appearance_description,
                 character_type: formValues.character_type,
@@ -113,7 +187,13 @@ export default function CharacterVariantsPage() {
                 surface_material: formValues.surface_material,
                 special_features: formValues.special_features,
                 appearance_description: formValues.appearance_description,
-            });
+            };
+            const jobResponse = await characterApi.generateInitial(
+                projectId,
+                characterId,
+                payload,
+                `character:${characterId}:portrait:${uuidv4()}`,
+            );
             if (jobResponse.data?.status === 'failed') {
                 setRegenError(jobResponse.data?.error_message || t('characterStudio.editor.saveGeneric'));
                 setRegenerating(false);
@@ -122,7 +202,9 @@ export default function CharacterVariantsPage() {
             const newJobId = jobResponse.data?.job_id;
             if (newJobId) {
                 setRegenerating(true);
-                setCurrentJobId(newJobId);
+                const nextParams = new URLSearchParams(searchParams);
+                nextParams.set('jobId', newJobId);
+                setSearchParams(nextParams, {replace: true, state});
             } else {
                 setRegenError(t('characterStudio.variants.noJobId'));
                 setRegenerating(false);
@@ -142,8 +224,8 @@ export default function CharacterVariantsPage() {
 
             // Tree node creation and list notifications are deferred here so that
             // draft characters never appear in UI lists before the user confirms a variant.
-            const treeNodeId = state.sourceTreeNodeId || uuidv4();
-            const charName = state.characterName || '';
+            const treeNodeId = sourceTreeNodeId || uuidv4();
+            const charName = characterName;
             if (charName) {
                 await createCharacterFromTreeAPI(treeNodeId, charName, 'leaf', projectId, null, null, characterId);
             }
@@ -164,6 +246,29 @@ export default function CharacterVariantsPage() {
                 <div className="cvp-error">
                     <p className="cvp-error__title">{t('characterStudio.variants.noSession')}</p>
                     <p className="cvp-error__text">{t('characterStudio.variants.backToForm')}</p>
+                    <button className="cvp-btn-accent" onClick={handleEditParams}>
+                        {t('characterStudio.variants.backToForm')}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (errorMessage || characterError || contextMismatch) {
+        const title = errorStatus === 403
+            ? 'Нет доступа к генерации'
+            : errorStatus === 404
+                ? 'Генерация не найдена'
+                : characterError
+                    ? characterError
+                    : contextMismatch
+                        ? 'Задание не относится к этому персонажу'
+                        : 'Не удалось загрузить генерацию';
+        return (
+            <div className="cvp-page">
+                <div className="cvp-error">
+                    <p className="cvp-error__title">{title}</p>
+                    <p className="cvp-error__text">{errorMessage || characterError || 'Проверьте адрес страницы и попробуйте снова.'}</p>
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
                         {t('characterStudio.variants.backToForm')}
                     </button>
@@ -219,7 +324,7 @@ export default function CharacterVariantsPage() {
 
     const displaySelectedVariant = displayVariants.find(v => v.variant_id === effectiveSelectedId) ?? null;
     // Number of skeleton cards to show during regeneration (match expected count).
-    const skeletonCount = state.generationOptions?.count ?? displayVariants.length;
+    const skeletonCount = effectiveGenerationOptions.count ?? displayVariants.length;
 
     return (
         <div className="cvp-page">
@@ -236,7 +341,7 @@ export default function CharacterVariantsPage() {
                     </div>
                 </div>
                 <div className="cvp-header-actions">
-                    <button className="cvp-btn-secondary" onClick={handleEditParams} disabled={regenerating}>
+                    <button className="cvp-btn-secondary" onClick={handleEditParams} disabled={regenerating || characterLoading}>
                         {t('characterStudio.variants.editParams')}
                     </button>
                     <button
@@ -323,7 +428,7 @@ export default function CharacterVariantsPage() {
                 <div className="cvp-panel-right">
                     <button
                         className="cvp-btn-continue"
-                        disabled={!effectiveSelectedId || applying || regenerating}
+                        disabled={!effectiveSelectedId || applying || regenerating || characterLoading || !characterName}
                         onClick={handleContinue}
                     >
                         {applying ? t('characterStudio.variants.applying') : t('characterStudio.variants.continue')}

@@ -1,14 +1,29 @@
 import {useEffect, useState} from 'react';
+import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
 import {characterApi} from '../api/characterApi';
-import {GenerationJob} from '../types/character.types';
+import type {GenerationJob} from '../types/character.types';
 
 export function useGenerationJob(jobId?: string) {
   const [job, setJob] = useState<GenerationJob | null>(null);
+  const [loading, setLoading] = useState(Boolean(jobId));
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId) {
+      setJob(null);
+      setLoading(false);
+      setErrorStatus(null);
+      setErrorMessage(null);
+      return;
+    }
     let cancelled = false;
     let intervalId: number | undefined;
+
+    setJob(null);
+    setLoading(true);
+    setErrorStatus(null);
+    setErrorMessage(null);
 
     const load = async () => {
       try {
@@ -16,19 +31,34 @@ export function useGenerationJob(jobId?: string) {
         if (cancelled) return;
         const data: GenerationJob = response.data;
         setJob(data);
-        // Stop polling once the job reaches a terminal state.
+        setLoading(false);
+        setErrorStatus(null);
+        setErrorMessage(null);
         if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
           if (intervalId !== undefined) {
             window.clearInterval(intervalId);
             intervalId = undefined;
           }
         }
-      } catch {
-        if (!cancelled) setJob(null);
+      } catch (error: unknown) {
+        if (cancelled) return;
+        const status = getApiStatus(error);
+        setJob(null);
+        setLoading(false);
+        setErrorStatus(status);
+        setErrorMessage(status === 403
+          ? 'Нет доступа к заданию генерации'
+          : status === 404
+            ? 'Задание генерации не найдено'
+            : getApiErrorMessage(error, 'Не удалось загрузить задание генерации'));
+        if (intervalId !== undefined) {
+          window.clearInterval(intervalId);
+          intervalId = undefined;
+        }
       }
     };
 
-    load();
+    void load();
     intervalId = window.setInterval(load, 3000);
     return () => {
       cancelled = true;
@@ -36,5 +66,5 @@ export function useGenerationJob(jobId?: string) {
     };
   }, [jobId]);
 
-  return {job};
+  return {job, loading, errorStatus, errorMessage};
 }

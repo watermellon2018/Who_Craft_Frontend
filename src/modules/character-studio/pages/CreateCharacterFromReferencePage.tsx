@@ -15,6 +15,7 @@ import GenerationSettingsPanel, {defaultGenerationOptions, GenerationOptions} fr
 import VisualStyleSelector, {VisualStyleValue} from '../components/create/VisualStyleSelector';
 import {characterTypeOptions, genderApplicabilityOptions, roleOptions} from '../components/create/characterCreateOptions';
 import {characterApi} from '../api/characterApi';
+import {characterVariantsPath} from '../../../routes/pathConstant';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './CharacterCreatePage.css';
 import './CreateCharacterFromReferencePage.css';
@@ -205,11 +206,13 @@ export function CreateCharacterFromReferenceContent() {
         message.error(job.error_message || 'Не удалось сгенерировать варианты. Попробуйте ещё раз позже.');
         return;
       }
+      if (!job?.job_id) {
+        message.error('Сервер не вернул идентификатор задачи генерации.');
+        return;
+      }
       message.success('Персонаж создан, генерация запущена.');
-      navigate(`/project/${projectId}/characters/${character.character_id}/variants`, {
+      navigate(characterVariantsPath(projectId, character.character_id, job.job_id), {
         state: {
-          jobId: job?.job_id,
-          characterId: character.character_id,
           characterName: character.name,
           generationOptions,
         },

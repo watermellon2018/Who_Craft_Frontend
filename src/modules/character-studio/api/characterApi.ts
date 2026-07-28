@@ -137,11 +137,16 @@ export const characterApi = {
       {params: {image_types: imageTypes.join(',')}},
     );
   },
-  generateInitial(projectId: string | number, characterId: string, data: Record<string, unknown>) {
+  generateInitial(
+    projectId: string | number,
+    characterId: string,
+    data: Record<string, unknown>,
+    idempotencyKey?: string,
+  ) {
     return api.post(
       `${base(projectId, characterId)}/generate-initial-variants`,
       data,
-      generationRequestConfig(`${projectId}:${characterId}:initial`, data),
+      generationRequestConfig(`${projectId}:${characterId}:initial`, data, idempotencyKey),
     );
   },
   generateEdit(

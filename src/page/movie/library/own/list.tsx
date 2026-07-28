@@ -11,7 +11,7 @@ import {
 } from '../../../../api/projects/projectList';
 import { backendAssetUrl } from '../../../../api/http';
 import { useNavigate } from 'react-router-dom';
-import PathConstants, {projectDashboardPath} from '../../../../routes/pathConstant';
+import {projectDashboardPath, projectEditPath} from '../../../../routes/pathConstant';
 import {getApiStatus} from '../../../../api/errors';
 import ProjectCardBadges from './ProjectCardBadges';
 import InvitationsBlock from './InvitationsBlock';
@@ -50,9 +50,7 @@ const ProjectListPage = () => {
   };
 
   const editProject = (projectId: number) => {
-    navigate(PathConstants.CREATE_PROJECT, {
-      state: { project_id: projectId, is_edit: true },
-    });
+    navigate(projectEditPath(projectId));
   };
 
   const handleClickCard = (projectId: number) => {

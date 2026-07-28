@@ -1,7 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {Link, useLocation, useNavigate, useParams} from 'react-router-dom';
 
 import { Input, Select, Upload, message } from 'antd';
 import {
@@ -28,9 +28,9 @@ import {
     patch_project,
 } from "../../../api/projects/properties/project";
 import type {ProjectEditPayload} from "../../../api/projects/properties/project";
-import {getApiErrorMessage} from '../../../api/errors';
+import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
 import withAuth from "../../../utils/auth/check_auth";
-import PathConstants from "../../../routes/pathConstant";
+import PathConstants, {projectEditPath, projectPosterPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
 import {
     PROJECT_FORMAT_OPTIONS,
@@ -205,7 +205,8 @@ const SecondaryButton: React.FC<BtnProps> = ({ onClick, children, icon, disabled
 export const ProjectCreatePage = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const is_edit = location.state?.is_edit || false;
+    const {projectId} = useParams<{projectId: string}>();
+    const is_edit = Boolean(projectId);
 
     // imageUrl can hold either a remote URL (loaded from backend) or a base64
     // data URL (just picked from the file picker). On save we only forward the
@@ -227,8 +228,6 @@ export const ProjectCreatePage = () => {
     const [loading, setLoading] = useState<boolean>(is_edit);
     const [saving, setSaving] = useState<boolean>(false);
     const [loadError, setLoadError] = useState<string | null>(null);
-
-    const projectId = location.state?.project_id;
 
     const loadProject = useCallback(async () => {
         if (!projectId) {
@@ -254,9 +253,14 @@ export const ProjectCreatePage = () => {
             const incomingGenre = Array.isArray(data.genre) ? (data.genre[0] || '') : '';
             setGenre(incomingGenre);
         } catch (error: unknown) {
-            const errorMessage = getApiErrorMessage(error, 'Не удалось загрузить проект');
+            const status = getApiStatus(error);
+            const errorMessage = status === 403
+                ? 'Нет доступа к проекту'
+                : status === 404
+                    ? 'Проект не найден'
+                    : getApiErrorMessage(error, 'Не удалось загрузить проект');
             setLoadError(errorMessage);
-            openNotificationWithIcon('Не удалось загрузить проект', 'Ошибка', 'error');
+            openNotificationWithIcon(errorMessage, 'Не удалось загрузить проект', 'error');
         } finally {
             setLoading(false);
         }
@@ -292,7 +296,7 @@ export const ProjectCreatePage = () => {
             }
             setLoading(false);
         }
-    }, []);
+    }, [is_edit, loadProject, location.state, projectId]);
 
     const checkRecordFields = () => {
         if (!title) {
@@ -355,7 +359,11 @@ export const ProjectCreatePage = () => {
 
         setSaving(true);
         try {
-            const data = await patch_project(location.state.project_id, payload);
+            if (!projectId) {
+                setLoadError('Не найден идентификатор проекта.');
+                return;
+            }
+            const data = await patch_project(projectId, payload);
             openNotificationWithIcon('Изменения сохранены', 'Готово', 'success');
             // Sync local state with the persisted version returned by the API.
             setTitle(data.title || title);
@@ -381,9 +389,9 @@ export const ProjectCreatePage = () => {
 
         setSaving(true);
         try {
-            await create_project(payload);
+            const data = await create_project(payload);
             openNotificationWithIcon('Проект успешно создан', 'Готово', 'success');
-            navigate(PathConstants.PROJECTS);
+            navigate(projectEditPath(data.id), {replace: true});
         } catch (error: unknown) {
             openNotificationWithIcon(formatBackendError(error), 'Ошибка', 'error');
         } finally {
@@ -448,9 +456,15 @@ export const ProjectCreatePage = () => {
     };
 
     const toGenPage = () => {
-        navigate(PathConstants.GEN_POSTER, {
-            state: { is_edit: true, project_id: location.state?.project_id },
-        });
+        if (!projectId) {
+            openNotificationWithIcon(
+                'Сначала создайте проект. После сохранения генератор постера станет доступен.',
+                'Проект ещё не сохранён',
+                'info',
+            );
+            return;
+        }
+        navigate(projectPosterPath(projectId));
     };
 
     // ============== Field styles ==============
@@ -807,9 +821,14 @@ export const ProjectCreatePage = () => {
                                         </div>
                                     )}
 
-                                    <PrimaryButton onClick={toGenPage} icon={<ThunderboltOutlined />} block>
+                                    <PrimaryButton onClick={toGenPage} icon={<ThunderboltOutlined />} block disabled={!projectId}>
                                         Сгенерировать постер
                                     </PrimaryButton>
+                                    {!projectId && (
+                                        <p style={{fontSize: 12, color: COLORS.textMuted, margin: 0, textAlign: 'center'}}>
+                                            Сначала создайте проект, чтобы открыть генератор постера.
+                                        </p>
+                                    )}
 
                                     <Upload
                                         showUploadList={false}

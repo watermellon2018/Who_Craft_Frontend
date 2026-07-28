@@ -1,7 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import {useNavigate, useParams} from "react-router-dom";
 import {
     ArrowLeftOutlined,
     BulbOutlined,
@@ -21,10 +21,11 @@ import {
 import EditGenComponent from "../edit_generation";
 import {editPoster, generatePoster, selectPosterVariant} from "../../../api/posters";
 import type {PosterVariant} from "../../../api/posters";
-import {getApiErrorMessage} from '../../../api/errors';
+import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
 import {API_CONSTRAINTS} from '../../../api/generated/contracts';
-import PathConstants from "../../../routes/pathConstant";
+import {projectEditPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
+import {fetch_project} from "../../../api/projects/properties/project";
 
 // ============== Design tokens ==============
 const COLORS = {
@@ -87,10 +88,6 @@ interface RecentPoster {
     url: string;
 }
 
-interface PosterLocationState {
-    is_edit?: boolean;
-    project_id?: number | string;
-}
 
 // ============== Card ==============
 interface CardProps {
@@ -592,10 +589,8 @@ const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
 
 // ============== Page ==============
 const GenPosterPage: React.FC = () => {
-    const location = useLocation();
     const navigate = useNavigate();
-    const locationState = (location.state as PosterLocationState | null) ?? {};
-    const projectId = locationState.project_id ?? null;
+    const {projectId} = useParams<{projectId: string}>();
 
     const [prompt, setPrompt] = useState<string>('');
     const [selectedStyle, setSelectedStyle] = useState<StyleId>('cinematic');
@@ -605,6 +600,33 @@ const GenPosterPage: React.FC = () => {
     const [imageGeneratedUrl, setImageGeneratedUrl] = useState<string>('');
     const [sourceVariantId, setSourceVariantId] = useState<number | null>(null);
     const [recentPosters] = useState<RecentPoster[]>([]);
+    const [contextLoading, setContextLoading] = useState(true);
+    const [contextError, setContextError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!projectId) {
+            setContextError('Проект не найден');
+            setContextLoading(false);
+            return () => { cancelled = true; };
+        }
+        setContextLoading(true);
+        setContextError(null);
+        fetch_project(projectId)
+            .catch((error: unknown) => {
+                if (cancelled) return;
+                const status = getApiStatus(error);
+                setContextError(status === 403
+                    ? 'Нет доступа к проекту'
+                    : status === 404
+                        ? 'Проект не найден'
+                        : 'Не удалось загрузить проект');
+            })
+            .finally(() => {
+                if (!cancelled) setContextLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [projectId]);
 
     const requireProjectId = () => {
         if (projectId) return projectId;
@@ -632,13 +654,7 @@ const GenPosterPage: React.FC = () => {
     };
 
     const handleBack = () => {
-        if (projectId) {
-            navigate(PathConstants.CREATE_PROJECT, {
-                state: { is_edit: true, project_id: projectId },
-            });
-            return;
-        }
-        navigate(-1);
+        navigate(projectId ? projectEditPath(projectId) : '/project-list');
     };
 
     const savePoster = async () => {
@@ -646,13 +662,8 @@ const GenPosterPage: React.FC = () => {
         if (!existingProjectId || sourceVariantId === null) return;
         try {
             await selectPosterVariant(existingProjectId, sourceVariantId);
-            navigate(PathConstants.CREATE_PROJECT, {
-                state: {
-                    imgUrl: imageGeneratedUrl,
-                    is_edit: !!locationState.is_edit,
-                    project_id: existingProjectId,
-                    regenerated: true,
-                },
+            navigate(projectEditPath(existingProjectId), {
+                state: {imgUrl: imageGeneratedUrl, regenerated: true},
             });
         } catch (error: unknown) {
             catchError(
@@ -702,6 +713,20 @@ const GenPosterPage: React.FC = () => {
     };
 
     const generateDisabled = !projectId || !prompt.trim() || isGenerating;
+
+    if (contextLoading || contextError) {
+        return (
+            <>
+                <DashboardHeader title="" />
+                <div style={{background: COLORS.pageBg, minHeight: '100vh', color: COLORS.textPrimary, padding: 48, textAlign: 'center'}}>
+                    <h1>{contextLoading ? 'Загружаем проект…' : contextError}</h1>
+                    {!contextLoading && (
+                        <PrimaryButton onClick={handleBack}>Вернуться к проектам</PrimaryButton>
+                    )}
+                </div>
+            </>
+        );
+    }
 
     return (
         <>
