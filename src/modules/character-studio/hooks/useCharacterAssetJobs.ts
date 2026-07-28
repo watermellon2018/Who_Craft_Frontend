@@ -1,12 +1,13 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
-import {CharacterImageType, GenerationJob, StudioCharacter} from '../types/character.types';
+import type {CharacterImageType, GenerationJob, StudioCharacter} from '../types/character.types';
 
 export type AssetJobStatus = 'idle' | 'queued' | 'processing' | 'completed' | 'failed';
 
 export interface AssetJobState {
   jobId?: string;
+  revisionId?: string;
   status: AssetJobStatus;
   errorMessage?: string;
   progress?: number;
@@ -15,7 +16,6 @@ export interface AssetJobState {
 export type AssetJobsMap = Partial<Record<CharacterImageType, AssetJobState>>;
 
 const POLL_INTERVAL_MS = 2500;
-const AUTO_GENERATED_IMAGE_TYPES: CharacterImageType[] = ['full_body', 'scene'];
 
 const REGION_BY_TYPE: Record<CharacterImageType, string> = {
   portrait: 'face',
@@ -50,7 +50,7 @@ function mapBackendStatus(status: GenerationJob['status']): AssetJobStatus {
 
 /**
  * Manages background generation of secondary assets (full_body, scene)
- * for the character editor. Auto-launches missing jobs once and polls active ones.
+ * for the character editor. Jobs only start after an explicit launch and active ones are polled.
  *
  * Note: the Django backend processes jobs synchronously — generateEdit often returns
  * status='completed' immediately. In that case the polling effect never fires for that
@@ -65,7 +65,6 @@ export function useCharacterAssetJobs(
 ) {
   const [jobs, setJobs] = useState<AssetJobsMap>({});
   const completionNotifiedRef = useRef<Set<string>>(new Set());
-  const autoLaunchAttemptedRef = useRef<Set<string>>(new Set());
   const jobsRef = useRef<AssetJobsMap>({});
 
   const updateJob = useCallback((type: CharacterImageType, patch: Partial<AssetJobState>) => {
@@ -102,10 +101,10 @@ export function useCharacterAssetJobs(
   );
 
   const launchJob = useCallback(
-    async (type: CharacterImageType): Promise<string | undefined> => {
+    async (type: CharacterImageType, revisionId: string): Promise<string | undefined> => {
       if (!character) return undefined;
       const region = REGION_BY_TYPE[type];
-      updateJob(type, {status: 'queued', errorMessage: undefined});
+      updateJob(type, {revisionId, status: 'queued', errorMessage: undefined});
       try {
         const response = await characterApi.generateEdit(projectId, character.character_id, {
           region: region as never,
@@ -115,7 +114,8 @@ export function useCharacterAssetJobs(
           variant_count: 1,
           current_image_url: character.images?.portrait?.image_url || null,
           current_asset_id: character.images?.portrait?.asset_id || null,
-        } as never);
+        } as never,
+        `${character.character_id}:${type}:${revisionId}`);
         const jobId = response.data?.job_id;
         const backendStatus = response.data?.status;
         const frontendStatus: AssetJobStatus =
@@ -137,21 +137,6 @@ export function useCharacterAssetJobs(
     },
     [character, projectId, updateJob, handleJobCompleted],
   );
-
-  // Missing secondary assets are launched once per character/type. Mark the
-  // attempt before starting the request so React StrictMode and parent
-  // re-renders cannot duplicate a paid provider call.
-  useEffect(() => {
-    if (disabled || !character?.character_id) return;
-
-    AUTO_GENERATED_IMAGE_TYPES.forEach((type) => {
-      if (character.images?.[type]?.image_url) return;
-      const launchKey = `${projectId}:${character.character_id}:${type}`;
-      if (autoLaunchAttemptedRef.current.has(launchKey)) return;
-      autoLaunchAttemptedRef.current.add(launchKey);
-      void launchJob(type);
-    });
-  }, [character, disabled, launchJob, projectId]);
 
   // Poll jobs that are still queued or processing (covers async/queued backends).
   // The dependency key changes only when the active job set changes. Progress
@@ -209,7 +194,10 @@ export function useCharacterAssetJobs(
   }, [activeJobsKey, disabled, handleJobCompleted, updateJob]);
 
   const retry = useCallback(
-    (type: CharacterImageType) => launchJob(type),
+    (type: CharacterImageType) => {
+      const revisionId = jobsRef.current[type]?.revisionId;
+      return revisionId ? launchJob(type, revisionId) : Promise.resolve(undefined);
+    },
     [launchJob],
   );
 

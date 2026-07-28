@@ -255,6 +255,7 @@ export interface EditRequest {
   text_refinement?: string;
   preserve: Record<string, boolean>;
   variant_count: number;
+  activate_image?: boolean;
 }
 
 export interface ZoneSelection {

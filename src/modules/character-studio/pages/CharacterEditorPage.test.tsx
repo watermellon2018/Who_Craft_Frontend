@@ -1,0 +1,206 @@
+import React from 'react';
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {Modal} from 'antd';
+import {characterApi} from '../api/characterApi';
+import type {StudioCharacter} from '../types/character.types';
+import CharacterEditorPage from './CharacterEditorPage';
+
+const mockRefresh = jest.fn();
+const mockSetCharacter = jest.fn();
+const mockLaunchSecondaryJob = jest.fn().mockResolvedValue('secondary-job');
+const mockSetControls = jest.fn();
+const mockSetRegion = jest.fn();
+
+const mockCharacter: StudioCharacter = {
+  character_id: 'char-1',
+  project_id: 1,
+  name: 'Mira',
+  identity_locked: false,
+  current_revision_id: 'revision-old',
+  images: {},
+};
+
+const mockGenerationJob = {
+  job_id: 'primary-job',
+  status: 'completed',
+  progress: 100,
+  request_payload: {image_type: 'portrait'},
+  variants: [{
+    variant_id: 'variant-1',
+    image_url: 'https://example.com/variant.png',
+    variant_index: 0,
+    region: 'face',
+    status: 'generated',
+  }],
+};
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({t: (key: string) => key}),
+}));
+
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useParams: () => ({projectId: '1', characterId: 'char-1'}),
+  useNavigate: () => jest.fn(),
+  useLocation: () => ({state: null}),
+}));
+
+jest.mock('../hooks/useCharacter', () => ({
+  useCharacter: () => ({
+    character: mockCharacter,
+    refresh: mockRefresh,
+    setCharacter: mockSetCharacter,
+  }),
+}));
+
+jest.mock('../hooks/useCharacterEditor', () => ({
+  useCharacterEditor: () => ({
+    controls: {},
+    setControls: mockSetControls,
+    setRegion: mockSetRegion,
+    textRefinement: '',
+    setTextRefinement: jest.fn(),
+    request: {
+      region: 'face',
+      controls: {},
+      preserve: {identity: true},
+      variant_count: 1,
+    },
+  }),
+}));
+
+jest.mock('../hooks/useGenerationJob', () => ({
+  useGenerationJob: (jobId?: string) => ({job: jobId ? mockGenerationJob : null}),
+}));
+
+jest.mock('../hooks/useCharacterAssetJobs', () => ({
+  dependentImageTypes: () => ['portrait', 'full_body', 'scene'],
+  useCharacterAssetJobs: () => ({
+    jobs: {},
+    retry: jest.fn(),
+    launchJob: mockLaunchSecondaryJob,
+  }),
+}));
+
+jest.mock('../components/CharacterEditorLayout', () => ({
+  __esModule: true,
+  default: ({topBar, center}: {topBar: React.ReactNode; center: React.ReactNode}) => <>{topBar}{center}</>,
+}));
+
+jest.mock('../components/CharacterPreview', () => ({
+  __esModule: true,
+  default: ({onGenerateImage}: {onGenerateImage: () => void}) => (
+    <button onClick={onGenerateImage}>Generate primary</button>
+  ),
+  viewModeToImageType: () => 'portrait',
+}));
+
+jest.mock('../components/VariantGrid', () => ({
+  __esModule: true,
+  default: ({onApply, variants}: {onApply: (variant: unknown) => void; variants: unknown[]}) => (
+    <button onClick={() => onApply(variants[0])}>Apply primary</button>
+  ),
+}));
+
+jest.mock('../components/CharacterCategorySidebar', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock('../components/CharacterSettingsPanel', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock('../components/OutfitSettingsPanel', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock('../components/PersonalityEditorPanel', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock('../events', () => ({
+  CHARACTER_DELETED_EVENT: 'character-deleted',
+  CHARACTER_RENAMED_EVENT: 'character-renamed',
+  notifyCharacterDeleted: jest.fn(),
+  notifyCharacterListUpdated: jest.fn(),
+  notifyCharacterTreeUpdated: jest.fn(),
+}));
+
+jest.mock('../api/characterApi');
+const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.spyOn(Modal, 'confirm').mockImplementation((config) => {
+    void config.onOk?.();
+    return {destroy: jest.fn(), update: jest.fn()} as never;
+  });
+  mockedApi.getGenerationPreview.mockResolvedValue({
+    data: {
+      provider: 'mock',
+      mode: 'offline',
+      image_types: ['portrait', 'full_body', 'scene'],
+      provider_call_count: 3,
+      estimated_cost_usd: '0',
+      budgets: {user: {used: 0, limit: 50}, project: {used: 0, limit: 100}},
+      concurrency: {global: {active: 0, limit: 4}, project: {active: 0, limit: 2}},
+    },
+  } as never);
+  mockedApi.generateEdit.mockResolvedValue({
+    data: {
+      ...mockGenerationJob,
+      dependent_image_types: ['portrait', 'full_body', 'scene'],
+    },
+  } as never);
+  mockedApi.applyVariant.mockResolvedValue({data: {revision_id: 'revision-applied'}} as never);
+  mockedApi.get.mockResolvedValue({
+    data: {...mockCharacter, current_revision_id: 'revision-applied'},
+  } as never);
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
+it('starts secondary jobs only after Apply, deduplicating Apply double clicks', async () => {
+  let completeApply: (() => void) | undefined;
+  mockedApi.applyVariant.mockImplementation(() => new Promise((resolve) => {
+    completeApply = () => resolve({data: {revision_id: 'revision-applied'}});
+  }) as never);
+  render(<CharacterEditorPage />);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Generate primary'}));
+  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(1));
+  expect(mockLaunchSecondaryJob).not.toHaveBeenCalled();
+
+  const applyButton = await screen.findByRole('button', {name: 'Apply primary'});
+  fireEvent.click(applyButton);
+  fireEvent.click(applyButton);
+  expect(mockedApi.applyVariant).toHaveBeenCalledTimes(1);
+  expect(mockLaunchSecondaryJob).not.toHaveBeenCalled();
+
+  await act(async () => completeApply?.());
+  await waitFor(() => {
+    expect(mockLaunchSecondaryJob).toHaveBeenCalledTimes(2);
+  });
+  expect(mockLaunchSecondaryJob).toHaveBeenNthCalledWith(1, 'full_body', 'revision-applied');
+  expect(mockLaunchSecondaryJob).toHaveBeenNthCalledWith(2, 'scene', 'revision-applied');
+});
+
+it('chains sequential secondary keys from each applied revision', async () => {
+  mockedApi.applyVariant
+    .mockResolvedValueOnce({data: {revision_id: 'revision-portrait'}} as never)
+    .mockResolvedValueOnce({data: {revision_id: 'revision-full-body'}} as never)
+    .mockResolvedValueOnce({data: {revision_id: 'revision-scene'}} as never);
+  render(<CharacterEditorPage />);
+
+  fireEvent.click(screen.getByRole('button', {name: /Обновить/}));
+
+  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(3));
+  expect(mockedApi.generateEdit.mock.calls[1][3]).toBe(
+    'char-1:full_body:revision-portrait',
+  );
+  expect(mockedApi.generateEdit.mock.calls[2][3]).toBe(
+    'char-1:scene:revision-full-body',
+  );
+});

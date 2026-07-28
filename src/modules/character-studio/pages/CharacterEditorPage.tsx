@@ -1,12 +1,14 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Button, Collapse, Modal, message} from 'antd';
 import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, MoreOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {characterApi} from '../api/characterApi';
+import type {CharacterGenerationPreview} from '../api/characterApi';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
 import CharacterEditorLayout from '../components/CharacterEditorLayout';
-import CharacterPreview, {viewModeToImageType, ZoneEditState} from '../components/CharacterPreview';
+import CharacterPreview, {viewModeToImageType} from '../components/CharacterPreview';
+import type {ZoneEditState} from '../components/CharacterPreview';
 import CharacterSettingsPanel from '../components/CharacterSettingsPanel';
 import OutfitSettingsPanel from '../components/OutfitSettingsPanel';
 import PersonalityEditorPanel from '../components/PersonalityEditorPanel';
@@ -22,7 +24,7 @@ import {useCharacter} from '../hooks/useCharacter';
 import {dependentImageTypes, useCharacterAssetJobs} from '../hooks/useCharacterAssetJobs';
 import {useCharacterEditor} from '../hooks/useCharacterEditor';
 import {useGenerationJob} from '../hooks/useGenerationJob';
-import {CharacterImageType, CharacterRegion, CharacterVariant, CharacterViewMode, GenerationJob, StudioCharacter, ZoneEditResponse} from '../types/character.types';
+import type {CharacterImageType, CharacterRegion, CharacterVariant, CharacterViewMode, GenerationJob, StudioCharacter, ZoneEditResponse} from '../types/character.types';
 import './CharacterEditorPage.css';
 
 const APPEARANCE_CONTROL_FIELDS = [
@@ -115,6 +117,37 @@ function confirmDeleteCharacter(name: string) {
   });
 }
 
+function confirmGenerationPreview(preview: CharacterGenerationPreview) {
+  const estimatedCost = preview.estimated_cost_usd === null
+    ? 'not configured'
+    : `$${preview.estimated_cost_usd}`;
+  return new Promise<boolean>((resolve) => {
+    Modal.confirm({
+      title: 'Confirm generation',
+      content: (
+        <div>
+          <p>Mode: {preview.mode === 'offline' ? 'mock / offline' : 'paid'}</p>
+          <p>Provider: {preview.provider}</p>
+          <p>Provider calls: {preview.provider_call_count}</p>
+          <p>Estimated cost: {estimatedCost}</p>
+          <p>
+            Daily budget: user {preview.budgets.user.used}/{preview.budgets.user.limit},
+            project {preview.budgets.project.used}/{preview.budgets.project.limit}
+          </p>
+          <p>
+            Active jobs: global {preview.concurrency.global.active}/{preview.concurrency.global.limit},
+            project {preview.concurrency.project.active}/{preview.concurrency.project.limit}
+          </p>
+        </div>
+      ),
+      okText: 'Start generation',
+      cancelText: 'Cancel',
+      onOk: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
+}
+
 const POLL_DELAY_MS = 3000;
 
 async function pollUntilDone(jobId: string): Promise<GenerationJob> {
@@ -178,6 +211,9 @@ export default function CharacterEditorPage() {
   const [sceneSettings, setSceneSettings] = useState({location: 'studio', time: 'night', weather: 'clear'});
   const [generatingImageType, setGeneratingImageType] = useState<CharacterImageType | null>(null);
   const [sequentialRunning, setSequentialRunning] = useState(false);
+  const applyingVariantRef = useRef(false);
+  const [pendingPrimaryImageType, setPendingPrimaryImageType] = useState<CharacterImageType | null>(null);
+  const [pendingSecondaryTypes, setPendingSecondaryTypes] = useState<CharacterImageType[]>([]);
   const [zoneEditOpen, setZoneEditOpen] = useState(false);
   const [zoneEditSubmitting, setZoneEditSubmitting] = useState(false);
   // Saved zone per image-type: one zone per format, independent state.
@@ -186,6 +222,19 @@ export default function CharacterEditorPage() {
   const zoneEditJobRef = React.useRef<{jobId: string; imageType: CharacterImageType} | null>(null);
   const editor = useCharacterEditor(false);
   const {jobs: secondaryJobs, retry: retrySecondaryJob, launchJob: launchSecondaryJob} = useCharacterAssetJobs(projectId, characterId, character, refresh, sequentialRunning);
+
+  const confirmGeneration = async (imageTypes: CharacterImageType[]) => {
+    if (!character) return false;
+    try {
+      const response = await characterApi.getGenerationPreview(
+        projectId, character.character_id, imageTypes,
+      );
+      return confirmGenerationPreview(response.data);
+    } catch {
+      message.error(t('characterStudio.editor.generationError'));
+      return false;
+    }
+  };
 
   useEffect(() => {
     const state = location.state as {jobId?: string} | null;
@@ -270,7 +319,10 @@ export default function CharacterEditorPage() {
     if (!character || generatingImageType) return;
     const imageType = viewModeToImageType(activeViewMode);
     const region = regionForImageType(imageType, activeTab);
+    const plannedTypes = dependentImageTypes(imageType);
+    if (!(await confirmGeneration(plannedTypes))) return;
     setGeneratingImageType(imageType);
+    let generationCharacter = character;
 
     // Save current controls to DB before generation so the backend prompt compiler
     // reads up-to-date appearance fields (skin_tone, eye_color, face_shape, etc.).
@@ -279,6 +331,7 @@ export default function CharacterEditorPage() {
       try {
         const saved = await characterApi.update(projectId, character.character_id, savePayload);
         if (saved?.data) {
+          generationCharacter = saved.data;
           setCharacter(saved.data);
           editor.setControls(controlsFromCharacter(saved.data));
           setHydratedCharacterId(saved.data.character_id);
@@ -289,14 +342,14 @@ export default function CharacterEditorPage() {
       }
     }
 
-    const baseControls = controlsFromCharacter(character);
+    const baseControls = controlsFromCharacter(generationCharacter);
     const diff = diffControls(baseControls, editor.controls);
-    const activeImage = character.images?.[imageType];
+    const activeImage = generationCharacter.images?.[imageType];
     editor.setRegion(region);
     const sceneTextRefinement = imageType === 'scene' ? buildSceneRefinement(sceneSettings) : '';
     const effectiveTextRefinement = [editor.textRefinement, sceneTextRefinement].filter(Boolean).join(' ');
     try {
-      const response = await characterApi.generateEdit(projectId, character.character_id, {
+      const response = await characterApi.generateEdit(projectId, generationCharacter.character_id, {
         ...editor.request,
         region,
         image_type: imageType,
@@ -312,6 +365,7 @@ export default function CharacterEditorPage() {
         new_values: diff.newValues,
         current_image_url: activeImage?.image_url || null,
         current_asset_id: activeImage?.asset_id || null,
+        activate_image: false,
       });
       setSelectedVariant(null);
       setPreviewedJobId(undefined);
@@ -322,17 +376,15 @@ export default function CharacterEditorPage() {
         setNotifiedFailedJobId(response.data.job_id);
         setGeneratingImageType(null);
       } else {
-        // Editing one mode forces regeneration of dependent modes (identity chain).
-        // Backend returns the dependency list under dependent_image_types; fall back
-        // to the local map if absent.
+        // Remember dependents, but do not start them until the selected primary
+        // variant has been explicitly applied and produced a new revision.
         const backendDeps = (response.data as {dependent_image_types?: string[]} | undefined)?.dependent_image_types;
         const deps = (backendDeps && backendDeps.length
           ? (backendDeps as CharacterImageType[])
           : dependentImageTypes(imageType)
         ).filter((t) => t !== imageType);
-        deps.forEach((depType) => {
-          launchSecondaryJob(depType);
-        });
+        setPendingPrimaryImageType(imageType);
+        setPendingSecondaryTypes(deps);
       }
     } catch {
       message.error(t('characterStudio.editor.generationError'));
@@ -349,6 +401,7 @@ export default function CharacterEditorPage() {
   const applyZoneEdit = async (zone: ZoneEditState) => {
     if (!character || zoneEditSubmitting) return;
     const imageType = currentImageTypeForZone;
+    if (!(await confirmGeneration([imageType]))) return;
     setZoneEditSubmitting(true);
     setGeneratingImageType(imageType);
     try {
@@ -390,12 +443,40 @@ export default function CharacterEditorPage() {
   };
 
   const apply = async (variant: CharacterVariant) => {
-    if (!character) return;
-    const imageType = viewModeToImageType(activeViewMode);
-    await characterApi.applyVariant(projectId, character.character_id, variant.variant_id, `Применен вариант ${variant.region}`, imageType);
-    message.success(t('characterStudio.editor.variantApplied'));
-    setSelectedVariant(null);
-    await refreshAndResync();
+    if (!character || applyingVariantRef.current) return;
+    applyingVariantRef.current = true;
+    try {
+      const imageType = pendingPrimaryImageType ?? viewModeToImageType(activeViewMode);
+      const secondaryTypes = [...pendingSecondaryTypes];
+      const appliedRevision = await characterApi.applyVariant(
+        projectId,
+        character.character_id,
+        variant.variant_id,
+        `Применен вариант ${variant.region}`,
+        imageType,
+      );
+      const revisionId = appliedRevision.data?.revision_id;
+      message.success(t('characterStudio.editor.variantApplied'));
+      if (revisionId) {
+        for (const secondaryType of secondaryTypes) {
+          await launchSecondaryJob(secondaryType, revisionId);
+        }
+      } else if (secondaryTypes.length) {
+        message.error(t('characterStudio.editor.generationError'));
+      }
+      setPendingPrimaryImageType(null);
+      setPendingSecondaryTypes([]);
+      setSelectedVariant(null);
+      try {
+        await refreshAndResync();
+      } catch {
+        message.warning(t('characterStudio.editor.generationError'));
+      }
+    } catch {
+      message.error(t('characterStudio.editor.generationError'));
+    } finally {
+      applyingVariantRef.current = false;
+    }
   };
 
   const deleteCurrentCharacter = async () => {
@@ -477,12 +558,15 @@ export default function CharacterEditorPage() {
       setCharacter(response.data);
       editor.setControls(controlsFromCharacter(response.data));
       setHydratedCharacterId(response.data.character_id);
+      return response.data as StudioCharacter;
     }
+    return undefined;
   };
-  persistControlsAndRefreshRef.current = refreshAndResync;
+  persistControlsAndRefreshRef.current = async () => { await refreshAndResync(); };
 
   const generateSequential = async () => {
     if (!character || generatingImageType || sequentialRunning) return;
+    if (!(await confirmGeneration(['portrait', 'full_body', 'scene']))) return;
     setSequentialRunning(true);
 
     const STEPS: Array<{type: CharacterImageType; region: CharacterRegion; label: string}> = [
@@ -493,12 +577,14 @@ export default function CharacterEditorPage() {
 
     const msgKey = 'seq-gen';
 
+    let currentCharacter = character;
     // Save controls to DB once before starting all steps so appearance is up-to-date.
     const savePayload = updatePayloadFromControls(editor.controls);
     if (Object.keys(savePayload).length > 0) {
       try {
         const saved = await characterApi.update(projectId, character.character_id, savePayload);
         if (saved?.data) {
+          currentCharacter = saved.data;
           setCharacter(saved.data);
           editor.setControls(controlsFromCharacter(saved.data));
           setHydratedCharacterId(saved.data.character_id);
@@ -509,15 +595,23 @@ export default function CharacterEditorPage() {
       }
     }
 
-    const baseControls = controlsFromCharacter(character);
+    const baseControls = controlsFromCharacter(currentCharacter);
     const diff = diffControls(baseControls, editor.controls);
-    let currentCharacter = character;
 
-    for (const step of STEPS) {
+    let appliedRevisionId: string | undefined;
+    for (let stepIndex = 0; stepIndex < STEPS.length; stepIndex += 1) {
+      const step = STEPS[stepIndex];
       message.loading({content: step.label, key: msgKey, duration: 0});
       setGeneratingImageType(step.type);
       try {
         const activeImage = currentCharacter.images?.[step.type];
+        let idempotencyKey: string | undefined;
+        if (stepIndex > 0) {
+          if (!appliedRevisionId) {
+            throw new Error('Applied revision is required for secondary generation.');
+          }
+          idempotencyKey = `${characterId}:${step.type}:${appliedRevisionId}`;
+        }
         const response = await characterApi.generateEdit(projectId, currentCharacter.character_id, {
           ...editor.request,
           region: step.region,
@@ -533,7 +627,8 @@ export default function CharacterEditorPage() {
           new_values: diff.newValues,
           current_image_url: activeImage?.image_url || null,
           current_asset_id: activeImage?.asset_id || null,
-        });
+          activate_image: false,
+        }, idempotencyKey);
 
         if (response.data?.status === 'failed') {
           throw new Error(response.data?.error_message || 'Генерация не удалась');
@@ -549,11 +644,16 @@ export default function CharacterEditorPage() {
           variants = finalJob.variants ?? [];
         }
 
-        if (variants.length) {
-          await characterApi.applyVariant(
-            projectId, characterId, variants[0].variant_id,
-            `Обновить: ${step.type}`, step.type,
-          );
+        if (!variants.length) {
+          throw new Error('Generation completed without a variant to apply.');
+        }
+        const appliedRevision = await characterApi.applyVariant(
+          projectId, characterId, variants[0].variant_id,
+          `Обновить: ${step.type}`, step.type,
+        );
+        appliedRevisionId = appliedRevision.data?.revision_id;
+        if (stepIndex < STEPS.length - 1 && !appliedRevisionId) {
+          throw new Error('Apply response did not include a revision id.');
         }
 
         const refreshed = await characterApi.get(projectId, characterId);

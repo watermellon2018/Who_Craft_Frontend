@@ -2,7 +2,6 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {message} from 'antd';
 import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
-import {REQUIRED_REFERENCE_TYPES_FOR_3D} from '../components/references/referenceReadiness';
 
 const tx = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts) as string;
 import {
@@ -14,9 +13,6 @@ import {
 } from '../types/character.types';
 
 const POLL_INTERVAL_MS = 3000;
-
-// Optional types (emotions / poses / outfit_details / character_sheet) stay manual.
-export const AUTO_GENERATE_REFERENCE_TYPES: readonly ReferenceType[] = REQUIRED_REFERENCE_TYPES_FOR_3D;
 
 // Pull a user-friendly message off whatever shape axios/server gave us.
 // `unknown` instead of `any` keeps eslint happy without losing the
@@ -65,13 +61,8 @@ export function useCharacterReferences(projectId: string | number, characterId: 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeJobs, setActiveJobs] = useState<Record<string, string | undefined>>({});
-  const [autoGenerationActive, setAutoGenerationActive] = useState(false);
+  const autoGenerationActive = false;
   const isMountedRef = useRef(true);
-  // Latches so the auto-generation effect runs at most once per page mount.
-  // We also flip the latch BEFORE the network call so a fast re-render
-  // between fetch-resolve and state-commit can't trigger a second batch.
-  const autoTriggeredRef = useRef(false);
-  const characterKeyRef = useRef<string>('');
 
   // React 18 StrictMode runs effects twice in dev (mount → cleanup → mount).
   // The earlier "set false on cleanup only" pattern left the ref stuck at
@@ -106,16 +97,6 @@ export function useCharacterReferences(projectId: string | number, characterId: 
     refresh();
   }, [refresh]);
 
-  // Reset the auto-trigger latch when the user navigates between characters.
-  // Without this the latch from /characters/A/references would suppress
-  // auto-generation on /characters/B/references in the same tab session.
-  useEffect(() => {
-    const key = `${projectId}:${characterId}`;
-    if (characterKeyRef.current !== key) {
-      characterKeyRef.current = key;
-      autoTriggeredRef.current = false;
-    }
-  }, [projectId, characterId]);
 
   // Poll active generation jobs. Once a job hits a terminal state we drop it
   // from `activeJobs` and refresh the board so the new asset shows up without
@@ -159,69 +140,6 @@ export function useCharacterReferences(projectId: string | number, characterId: 
       window.clearInterval(intervalId);
     };
   }, [activeJobs, refresh]);
-
-  // ---------------------------------------------------------------------
-  // Auto-generation: on first page open, trigger missing required refs.
-  //
-  // Guards (also reinforced server-side by the batch endpoint's
-  // idempotency rules):
-  //   1. autoTriggeredRef latches so the effect runs at most once per mount.
-  //   2. We only fire when at least one REQUIRED type is in `missing`.
-  //      Ready / generating / failed required types are NOT re-triggered
-  //      (failed needs an explicit "Retry" click — spec section 11).
-  //   3. The latch is set BEFORE the network call so a fast re-render
-  //      between resolve and commit cannot fire a second batch.
-  // ---------------------------------------------------------------------
-  useEffect(() => {
-    if (!state || autoTriggeredRef.current) return;
-    const missing = AUTO_GENERATE_REFERENCE_TYPES.filter((type) => {
-      const row = state.references.find((r) => r.reference_type === type);
-      return !row || row.status === 'missing';
-    });
-    if (missing.length === 0) return;
-
-    autoTriggeredRef.current = true;
-    setAutoGenerationActive(true);
-    (async () => {
-      try {
-        const response = await characterApi.generateMissingReferences(projectId, characterId, {
-          reference_types: missing,
-          only_missing: true,
-          preserve_identity: true,
-        });
-        const data = response.data as {
-          created_jobs: {reference_type: ReferenceType; job_id: string}[];
-          skipped: {reference_type: ReferenceType; reason: string}[];
-          references: ReferencesState;
-        };
-        if (!isMountedRef.current) return;
-        if (data.references) setState(data.references);
-        if (data.created_jobs?.length) {
-          setActiveJobs((prev) => {
-            const next = {...prev};
-            for (const job of data.created_jobs) next[job.reference_type] = job.job_id;
-            return next;
-          });
-        } else if (!data.skipped?.length) {
-          // Nothing was created AND nothing was skipped — that means the
-          // backend accepted the request but did neither. Reset the latch so
-          // a manual click on a card can retry; surface the situation so
-          // the user isn't stuck staring at a frozen "0 / 4" board.
-          autoTriggeredRef.current = false;
-          message.warning(tx('characterStudio.errors.autoGenerationBanner'));
-        }
-      } catch (err) {
-        // Real failure (network, auth, validation). Reset the latch so a
-        // page revisit retries; show the message regardless of whether the
-        // backend included a body.
-        autoTriggeredRef.current = false;
-        const apiError = readApiError(err, tx('characterStudio.errors.autoGenerationFailed'));
-        message.error(apiError);
-      } finally {
-        if (isMountedRef.current) setAutoGenerationActive(false);
-      }
-    })();
-  }, [state, projectId, characterId]);
 
   const startJob = useCallback((referenceType: ReferenceType, jobId: string, status: GenerationJob['status']) => {
     if (status === 'completed' || status === 'failed' || status === 'cancelled') {
