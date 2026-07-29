@@ -1,27 +1,79 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import type {Dispatch, SetStateAction} from 'react';
 import {characterApi} from '../api/characterApi';
-import {StudioCharacter} from '../types/character.types';
+import type {StudioCharacter} from '../types/character.types';
+
+interface CharacterSnapshot {
+  character: StudioCharacter | null;
+  loading: boolean;
+  ownerKey: string;
+}
 
 export function useCharacter(projectId?: string | number, characterId?: string) {
-  const [character, setCharacter] = useState<StudioCharacter | null>(null);
-  const [loading, setLoading] = useState(false);
+  const ownerKey = projectId && characterId ? `${projectId}:${characterId}` : '';
+  const activeOwnerKeyRef = useRef(ownerKey);
+  activeOwnerKeyRef.current = ownerKey;
+  const [snapshot, setSnapshot] = useState<CharacterSnapshot>({
+    character: null,
+    loading: Boolean(ownerKey),
+    ownerKey,
+  });
 
   const refresh = useCallback(async () => {
-    if (!projectId || !characterId) return;
-    setLoading(true);
+    const requestOwnerKey = ownerKey;
+    if (!projectId || !characterId) {
+      if (activeOwnerKeyRef.current === requestOwnerKey) {
+        setSnapshot({character: null, loading: false, ownerKey: requestOwnerKey});
+      }
+      return;
+    }
+    setSnapshot((current) => {
+      if (activeOwnerKeyRef.current !== requestOwnerKey) return current;
+      return {
+        character: current.ownerKey === requestOwnerKey ? current.character : null,
+        loading: true,
+        ownerKey: requestOwnerKey,
+      };
+    });
     try {
       const response = await characterApi.get(projectId, characterId);
-      setCharacter(response?.data || null);
+      if (activeOwnerKeyRef.current !== requestOwnerKey) return;
+      setSnapshot({
+        character: response?.data || null,
+        loading: false,
+        ownerKey: requestOwnerKey,
+      });
     } catch {
-      setCharacter(null);
-    } finally {
-      setLoading(false);
+      if (activeOwnerKeyRef.current !== requestOwnerKey) return;
+      setSnapshot({character: null, loading: false, ownerKey: requestOwnerKey});
     }
-  }, [projectId, characterId]);
+  }, [characterId, ownerKey, projectId]);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
+
+  const setCharacter = useCallback<Dispatch<SetStateAction<StudioCharacter | null>>>(
+    (nextCharacter) => {
+      setSnapshot((current) => {
+        if (activeOwnerKeyRef.current !== ownerKey) return current;
+        const currentCharacter = current.ownerKey === ownerKey ? current.character : null;
+        return {
+          character:
+            typeof nextCharacter === 'function'
+              ? nextCharacter(currentCharacter)
+              : nextCharacter,
+          loading: false,
+          ownerKey,
+        };
+      });
+    },
+    [ownerKey],
+  );
+
+  const isCurrentOwner = snapshot.ownerKey === ownerKey;
+  const character = isCurrentOwner ? snapshot.character : null;
+  const loading = ownerKey ? (isCurrentOwner ? snapshot.loading : true) : false;
 
   return {character, loading, refresh, setCharacter};
 }

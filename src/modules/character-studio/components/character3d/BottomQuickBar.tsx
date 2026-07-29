@@ -30,6 +30,7 @@ interface Props {
   onCancel: () => void;
   onApply: () => void;
   onSave: () => void;
+  saveDisabled?: boolean;
 }
 
 // Canonical reference angles surfaced as buttons. Short Russian labels keep
@@ -67,6 +68,7 @@ const BottomQuickBar: React.FC<Props> = ({
   onCancel,
   onApply,
   onSave,
+  saveDisabled = false,
 }) => {
   // Find the first swatch parameter on the selected zone — that's the
   // one the quick-color row mirrors.
@@ -195,7 +197,7 @@ const BottomQuickBar: React.FC<Props> = ({
         >
           Применить
         </button>
-        <button type="button" className="c3d-bottom__primary" onClick={onSave}>
+        <button type="button" className="c3d-bottom__primary" onClick={onSave} disabled={saveDisabled}>
           <span>Сохранить</span>
           <svg viewBox="0 0 16 16" aria-hidden="true">
             <path

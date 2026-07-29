@@ -191,6 +191,11 @@ function buildSceneRefinement(settings: {location: string; time: string; weather
 
 export default function CharacterEditorPage() {
   const {projectId = '', characterId = ''} = useParams();
+  return <CharacterEditorPageContent key={`${projectId}:${characterId}`} />;
+}
+
+function CharacterEditorPageContent() {
+  const {projectId = '', characterId = ''} = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const {t} = useTranslation();
@@ -198,7 +203,7 @@ export default function CharacterEditorPage() {
   const [activeTab, setActiveTab] = useState<string>('face');
   const [activeViewMode, setActiveViewMode] = useState<CharacterViewMode>('portrait');
   const [jobId, setJobId] = useState<string>();
-  const {job} = useGenerationJob(jobId);
+  const {job} = useGenerationJob(jobId, projectId, characterId);
   const [selectedVariant, setSelectedVariant] = useState<CharacterVariant | null>(null);
   const [previewedJobId, setPreviewedJobId] = useState<string>();
   const [notifiedFailedJobId, setNotifiedFailedJobId] = useState<string>();

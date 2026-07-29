@@ -10,6 +10,18 @@ const PROJECT_ID = 'project-1';
 const CHARACTER_ID = 'char-abc';
 const REVISION_ID = 'revision-7';
 
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return {promise, resolve};
+}
 function makeCharacter(overrides: Partial<StudioCharacter> = {}): StudioCharacter {
   return {
     character_id: CHARACTER_ID,
@@ -206,5 +218,92 @@ describe('useCharacterAssetJobs - stable polling scheduler', () => {
       await Promise.resolve();
     });
     expect(mockedApi.getJob).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('useCharacterAssetJobs - route ownership', () => {
+  it('discards a late launch response after A → B', async () => {
+    const launchA = deferred<ReturnType<typeof makeCompletedJobResponse>>();
+    mockedApi.generateEdit.mockReturnValueOnce(launchA.promise as never);
+    const onCompleted = jest.fn();
+    const {result, rerender} = renderHook(
+      ({projectId, characterId, character}: {
+        projectId: string;
+        characterId: string;
+        character: StudioCharacter;
+      }) => useCharacterAssetJobs(projectId, characterId, character, onCompleted),
+      {
+        initialProps: {
+          projectId: 'project-a',
+          characterId: 'character-a',
+          character: makeCharacter({character_id: 'character-a', project_id: 1}),
+        },
+      },
+    );
+
+    let launchPromise!: Promise<string | undefined>;
+    act(() => {
+      launchPromise = result.current.launchJob('full_body', REVISION_ID);
+    });
+    expect(result.current.jobs.full_body?.status).toBe('queued');
+
+    rerender({
+      projectId: 'project-b',
+      characterId: 'character-b',
+      character: makeCharacter({character_id: 'character-b', project_id: 2}),
+    });
+    expect(result.current.jobs).toEqual({});
+
+    await act(async () => {
+      launchA.resolve(makeCompletedJobResponse('job-a', 'variant-a'));
+      await launchPromise;
+    });
+
+    expect(result.current.jobs).toEqual({});
+    expect(mockedApi.applyVariant).not.toHaveBeenCalled();
+    expect(onCompleted).not.toHaveBeenCalled();
+  });
+
+  it('does not apply or refresh B when polling for A completes late', async () => {
+    const pollA = deferred<ReturnType<typeof makeCompletedJobResponse>>();
+    mockedApi.getJob.mockReturnValueOnce(pollA.promise as never);
+    const onCompleted = jest.fn();
+    const {result, rerender} = renderHook(
+      ({projectId, characterId, character}: {
+        projectId: string;
+        characterId: string;
+        character: StudioCharacter;
+      }) => useCharacterAssetJobs(projectId, characterId, character, onCompleted),
+      {
+        initialProps: {
+          projectId: 'project-a',
+          characterId: 'character-a',
+          character: makeCharacter({character_id: 'character-a', project_id: 1}),
+        },
+      },
+    );
+
+    act(() => result.current.attachJob('scene', 'job-a'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockedApi.getJob).toHaveBeenCalledWith('job-a');
+
+    rerender({
+      projectId: 'project-b',
+      characterId: 'character-b',
+      character: makeCharacter({character_id: 'character-b', project_id: 2}),
+    });
+    expect(result.current.jobs).toEqual({});
+
+    await act(async () => {
+      pollA.resolve(makeCompletedJobResponse('job-a', 'variant-a'));
+      await pollA.promise;
+      await Promise.resolve();
+    });
+
+    expect(result.current.jobs).toEqual({});
+    expect(mockedApi.applyVariant).not.toHaveBeenCalled();
+    expect(onCompleted).not.toHaveBeenCalled();
   });
 });

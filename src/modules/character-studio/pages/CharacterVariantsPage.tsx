@@ -39,6 +39,11 @@ function generationOptionsFromJob(job: GenerationJob | null): GenerationOptions 
 }
 
 export default function CharacterVariantsPage() {
+    const {projectId = '', characterId = ''} = useParams<{projectId: string; characterId: string}>();
+    return <CharacterVariantsPageContent key={`${projectId}:${characterId}`} />;
+}
+
+function CharacterVariantsPageContent() {
     const navigate = useNavigate();
     const {t} = useTranslation();
     const { projectId = '', characterId = '' } = useParams<{ projectId: string; characterId: string }>();
@@ -48,7 +53,7 @@ export default function CharacterVariantsPage() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentJobId = searchParams.get('jobId') || undefined;
     const sourceTreeNodeId = searchParams.get('treeNodeId') || state.sourceTreeNodeId;
-    const {job, loading: jobLoading, errorStatus, errorMessage} = useGenerationJob(currentJobId);
+    const {job, loading: jobLoading, errorStatus, errorMessage} = useGenerationJob(currentJobId, projectId, characterId);
     const [characterName, setCharacterName] = useState(state.characterName ?? '');
     const [characterData, setCharacterData] = useState<StudioCharacter | null>(null);
     const [characterLoading, setCharacterLoading] = useState(!state.characterName);

@@ -52,6 +52,13 @@ const versionedAssetUrl = (url: string, assetId?: string | null): string => {
   return `${resolved}${separator}asset=${encodeURIComponent(assetId)}`;
 };
 const Character3DEditorPage: React.FC = () => {
+  const params = useParams();
+  const projectId = useProjectIdFromRoute();
+  const characterId = String(params.characterId || '');
+  return <Character3DEditorPageContent key={`${projectId ?? ''}:${characterId}`} />;
+};
+
+const Character3DEditorPageContent: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
   const projectId = useProjectIdFromRoute();
@@ -84,8 +91,18 @@ const Character3DEditorPage: React.FC = () => {
   const [autofitBusy, setAutofitBusy] = useState(false);
   const [reconstruction, setReconstruction] = useState<Model3DReconstruction | null>(null);
   const [reconstructionRetryBusy, setReconstructionRetryBusy] = useState(false);
+  const [modelLoadState, setModelLoadState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const pageActiveRef = useRef(true);
   // Turntable on/off — owned here so the toggle button reflects the state.
   const [turntableOn, setTurntableOn] = useState(false);
+
+  useEffect(() => {
+    pageActiveRef.current = true;
+    return () => {
+      pageActiveRef.current = false;
+    };
+  }, []);
+
   // Commit a new params object: keep the ref mirror in sync and trigger a
   // toolbar re-render. Pure with respect to React state updaters.
   const commitParams = useCallback((next: ZoneParamsState) => {
@@ -123,6 +140,7 @@ const Character3DEditorPage: React.FC = () => {
   useEffect(() => {
     if (!projectId || !characterId) return;
     let alive = true;
+    setModelLoadState('loading');
 
     const adopt = (saved: unknown) => {
       if (!saved || typeof saved !== 'object' || Object.keys(saved).length === 0) return;
@@ -145,6 +163,7 @@ const Character3DEditorPage: React.FC = () => {
         const autofitVersion = Number(res.data?.autofit_version ?? 0);
         if (res.data?.autofit_done && autofitVersion >= MODEL3D_AUTOFIT_VERSION) {
           // Current fit (including an intentional empty/reset state): keep it.
+          setModelLoadState('ready');
           return;
         }
         // First open, or a one-time upgrade from the old image-only profile.
@@ -159,12 +178,16 @@ const Character3DEditorPage: React.FC = () => {
             // Autofit is best-effort; defaults stand if it fails.
           })
           .finally(() => {
-            if (alive) setAutofitBusy(false);
+            if (alive) {
+              setAutofitBusy(false);
+              setModelLoadState('ready');
+            }
           });
       })
       .catch(() => {
         // No saved state (or transient error) — the registry defaults stand.
         if (alive) {
+          setModelLoadState('failed');
           setReconstruction((current) => current ?? {
             status: 'failed',
             progress: 0,
@@ -375,21 +398,24 @@ const Character3DEditorPage: React.FC = () => {
   }, [handleUndo, handleRedo]);
 
   const handleSave = useCallback(() => {
-    if (!projectId || !characterId) {
-      setParamsBaseline(zoneParams);
-      message.success('Изменения применены локально');
+    if (!projectId || !characterId || modelLoadState !== 'ready') {
+      message.error('Сохранение недоступно, пока модель текущего персонажа не загружена');
       return;
     }
+    const savedParams = zoneParams;
     characterApi
-      .saveModel3D(projectId, characterId, zoneParams)
+      .saveModel3D(projectId, characterId, savedParams)
       .then(() => {
-        setParamsBaseline(zoneParams);
+        if (!pageActiveRef.current) return;
+        setParamsBaseline(savedParams);
         message.success('Модель сохранена');
       })
       .catch(() => {
-        message.error('Не удалось сохранить модель — попробуйте ещё раз');
+        if (pageActiveRef.current) {
+          message.error('Не удалось сохранить модель — попробуйте ещё раз');
+        }
       });
-  }, [projectId, characterId, zoneParams]);
+  }, [projectId, characterId, modelLoadState, zoneParams]);
 
   // ─── Esc clears selection ───
   useEffect(() => {
@@ -412,9 +438,15 @@ const Character3DEditorPage: React.FC = () => {
     setReconstructionRetryBusy(true);
     characterApi
       .retryModel3DReconstruction(projectId, characterId)
-      .then((response) => setReconstruction(response.data.reconstruction))
-      .catch(() => message.error('Не удалось перезапустить 3D-реконструкцию'))
-      .finally(() => setReconstructionRetryBusy(false));
+      .then((response) => {
+        if (pageActiveRef.current) setReconstruction(response.data.reconstruction);
+      })
+      .catch(() => {
+        if (pageActiveRef.current) message.error('Не удалось перезапустить 3D-реконструкцию');
+      })
+      .finally(() => {
+        if (pageActiveRef.current) setReconstructionRetryBusy(false);
+      });
   }, [projectId, characterId, reconstructionRetryBusy]);
 
   const characterName = character?.name || MOCK_CHARACTER_NAME;
@@ -509,6 +541,7 @@ const Character3DEditorPage: React.FC = () => {
               onCancel={handleCancel}
               onApply={handleApply}
               onSave={handleSave}
+              saveDisabled={modelLoadState !== 'ready'}
             />
           </div>
         </main>
@@ -532,6 +565,7 @@ const Character3DEditorPage: React.FC = () => {
         onCancel={handleCancel}
         onApply={handleApply}
         onSave={handleSave}
+        saveDisabled={modelLoadState !== 'ready'}
       />
     </div>
   );

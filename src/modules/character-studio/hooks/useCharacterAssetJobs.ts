@@ -11,9 +11,15 @@ export interface AssetJobState {
   status: AssetJobStatus;
   errorMessage?: string;
   progress?: number;
+  ownerKey?: string;
 }
 
 export type AssetJobsMap = Partial<Record<CharacterImageType, AssetJobState>>;
+
+interface AssetJobsSnapshot {
+  jobs: AssetJobsMap;
+  ownerKey: string;
+}
 
 const POLL_INTERVAL_MS = 2500;
 
@@ -63,21 +69,73 @@ export function useCharacterAssetJobs(
   onCompleted?: () => void,
   disabled = false,
 ) {
-  const [jobs, setJobs] = useState<AssetJobsMap>({});
+  const ownerKey = projectId && characterId ? `${projectId}:${characterId}` : '';
+  const activeOwnerKeyRef = useRef(ownerKey);
+  activeOwnerKeyRef.current = ownerKey;
+  const [snapshot, setSnapshot] = useState<AssetJobsSnapshot>({jobs: {}, ownerKey});
   const completionNotifiedRef = useRef<Set<string>>(new Set());
-  const jobsRef = useRef<AssetJobsMap>({});
+  const jobsRef = useRef<AssetJobsSnapshot>({jobs: {}, ownerKey});
 
-  const updateJob = useCallback((type: CharacterImageType, patch: Partial<AssetJobState>) => {
-    setJobs((prev) => ({...prev, [type]: {...(prev[type] || {status: 'idle'}), ...patch}}));
-  }, []);
+  const jobs = snapshot.ownerKey === ownerKey ? snapshot.jobs : {};
+  if (jobsRef.current.ownerKey !== ownerKey) {
+    jobsRef.current = {jobs: {}, ownerKey};
+  } else {
+    jobsRef.current = {jobs, ownerKey};
+  }
+
+  useEffect(() => {
+    completionNotifiedRef.current = new Set();
+    setSnapshot((current) =>
+      current.ownerKey === ownerKey ? current : {jobs: {}, ownerKey},
+    );
+  }, [ownerKey]);
+
+  const updateJob = useCallback(
+    (
+      type: CharacterImageType,
+      patch: Partial<AssetJobState>,
+      requestOwnerKey = ownerKey,
+    ) => {
+      if (activeOwnerKeyRef.current !== requestOwnerKey) return false;
+      const currentJobs =
+        jobsRef.current.ownerKey === requestOwnerKey ? jobsRef.current.jobs : {};
+      const nextJobs = {
+        ...currentJobs,
+        [type]: {
+          ...(currentJobs[type] || {status: 'idle'}),
+          ...patch,
+          ownerKey: requestOwnerKey,
+        },
+      };
+      jobsRef.current = {jobs: nextJobs, ownerKey: requestOwnerKey};
+      setSnapshot({jobs: nextJobs, ownerKey: requestOwnerKey});
+      return true;
+    },
+    [ownerKey],
+  );
 
   /**
    * Shared completion handler used by both launchJob (synchronous backend completion)
    * and the polling loop (asynchronous completion).
    */
   const handleJobCompleted = useCallback(
-    async (type: CharacterImageType, jobId: string, variants: GenerationJob['variants']) => {
-      const completionKey = `${characterId}:${type}:${jobId}`;
+    async (
+      type: CharacterImageType,
+      jobId: string,
+      variants: GenerationJob['variants'],
+      requestOwnerKey: string,
+    ) => {
+      const currentJob = jobsRef.current.jobs[type];
+      if (
+        activeOwnerKeyRef.current !== requestOwnerKey ||
+        jobsRef.current.ownerKey !== requestOwnerKey ||
+        currentJob?.ownerKey !== requestOwnerKey ||
+        currentJob.jobId !== jobId
+      ) {
+        return;
+      }
+
+      const completionKey = `${requestOwnerKey}:${type}:${jobId}`;
       if (completionNotifiedRef.current.has(completionKey)) return;
       completionNotifiedRef.current.add(completionKey);
 
@@ -93,18 +151,33 @@ export function useCharacterAssetJobs(
         } catch (_) {}
       }
 
+      if (
+        activeOwnerKeyRef.current !== requestOwnerKey ||
+        jobsRef.current.ownerKey !== requestOwnerKey ||
+        jobsRef.current.jobs[type]?.jobId !== jobId
+      ) {
+        return;
+      }
+
       // Always refresh: the backend activates the image during job processing, so the
       // character payload contains the URL even if applyVariant above failed.
       onCompleted?.();
     },
-    [characterId, projectId, onCompleted],
+    [characterId, onCompleted, projectId],
   );
 
   const launchJob = useCallback(
     async (type: CharacterImageType, revisionId: string): Promise<string | undefined> => {
-      if (!character) return undefined;
+      const requestOwnerKey = ownerKey;
+      if (
+        !character ||
+        character.character_id !== characterId ||
+        activeOwnerKeyRef.current !== requestOwnerKey
+      ) {
+        return undefined;
+      }
       const region = REGION_BY_TYPE[type];
-      updateJob(type, {revisionId, status: 'queued', errorMessage: undefined});
+      updateJob(type, {revisionId, status: 'queued', errorMessage: undefined}, requestOwnerKey);
       try {
         const response = await characterApi.generateEdit(projectId, character.character_id, {
           region: region as never,
@@ -116,26 +189,39 @@ export function useCharacterAssetJobs(
           current_asset_id: character.images?.portrait?.asset_id || null,
         } as never,
         `${character.character_id}:${type}:${revisionId}`);
+        if (activeOwnerKeyRef.current !== requestOwnerKey) return undefined;
+
         const jobId = response.data?.job_id;
         const backendStatus = response.data?.status;
         const frontendStatus: AssetJobStatus =
           backendStatus === 'failed' ? 'failed' : mapBackendStatus(backendStatus) || 'queued';
-        updateJob(type, {jobId, status: frontendStatus, errorMessage: response.data?.error_message});
+        updateJob(
+          type,
+          {jobId, status: frontendStatus, errorMessage: response.data?.error_message},
+          requestOwnerKey,
+        );
 
         // The backend processes jobs synchronously: the response often arrives with
         // status already 'completed'. The polling effect only polls queued/processing
         // jobs, so it would never fire for this job. Handle completion here directly.
         if (frontendStatus === 'completed' && jobId) {
-          await handleJobCompleted(type, jobId, response.data?.variants ?? []);
+          await handleJobCompleted(type, jobId, response.data?.variants ?? [], requestOwnerKey);
         }
 
-        return jobId;
+        return activeOwnerKeyRef.current === requestOwnerKey ? jobId : undefined;
       } catch (_) {
-        updateJob(type, {status: 'failed', errorMessage: i18n.t('characterStudio.errors.assetGenerationFailed') as string});
+        updateJob(
+          type,
+          {
+            status: 'failed',
+            errorMessage: i18n.t('characterStudio.errors.assetGenerationFailed') as string,
+          },
+          requestOwnerKey,
+        );
         return undefined;
       }
     },
-    [character, projectId, updateJob, handleJobCompleted],
+    [character, characterId, handleJobCompleted, ownerKey, projectId, updateJob],
   );
 
   // Poll jobs that are still queued or processing (covers async/queued backends).
@@ -148,13 +234,13 @@ export function useCharacterAssetJobs(
     .join('|');
 
   useEffect(() => {
-    jobsRef.current = jobs;
-  }, [jobs]);
-
-  useEffect(() => {
     if (disabled || !activeJobsKey) return;
-    const activeEntries = (Object.entries(jobsRef.current) as Array<[CharacterImageType, AssetJobState]>).filter(
-      ([, state]) => state.jobId && (state.status === 'queued' || state.status === 'processing'),
+    const pollingOwnerKey = ownerKey;
+    const activeEntries = (Object.entries(jobsRef.current.jobs) as Array<[CharacterImageType, AssetJobState]>).filter(
+      ([, state]) =>
+        state.ownerKey === pollingOwnerKey &&
+        state.jobId &&
+        (state.status === 'queued' || state.status === 'processing'),
     );
 
     let cancelled = false;
@@ -166,20 +252,27 @@ export function useCharacterAssetJobs(
           try {
             const response = await characterApi.getJob(state.jobId);
             const job = response.data as GenerationJob;
-            if (cancelled) return;
+            if (
+              cancelled ||
+              activeOwnerKeyRef.current !== pollingOwnerKey ||
+              jobsRef.current.ownerKey !== pollingOwnerKey ||
+              jobsRef.current.jobs[type]?.jobId !== state.jobId
+            ) {
+              return;
+            }
             const nextStatus = mapBackendStatus(job.status);
             updateJob(type, {
               status: nextStatus,
               progress: job.progress,
               errorMessage: job.error_message,
-            });
-            if (nextStatus === 'completed' && state.jobId) {
-              await handleJobCompleted(type, state.jobId, job.variants);
+            }, pollingOwnerKey);
+            if (nextStatus === 'completed') {
+              await handleJobCompleted(type, state.jobId, job.variants, pollingOwnerKey);
             }
           } catch (_) {}
         }),
       );
-      if (!cancelled) {
+      if (!cancelled && activeOwnerKeyRef.current === pollingOwnerKey) {
         timeoutId = window.setTimeout(() => {
           void poll();
         }, POLL_INTERVAL_MS);
@@ -191,28 +284,31 @@ export function useCharacterAssetJobs(
       cancelled = true;
       if (timeoutId !== undefined) window.clearTimeout(timeoutId);
     };
-  }, [activeJobsKey, disabled, handleJobCompleted, updateJob]);
+  }, [activeJobsKey, disabled, handleJobCompleted, ownerKey, updateJob]);
 
   const retry = useCallback(
     (type: CharacterImageType) => {
-      const revisionId = jobsRef.current[type]?.revisionId;
+      const revisionId =
+        jobsRef.current.ownerKey === ownerKey
+          ? jobsRef.current.jobs[type]?.revisionId
+          : undefined;
       return revisionId ? launchJob(type, revisionId) : Promise.resolve(undefined);
     },
-    [launchJob],
+    [launchJob, ownerKey],
   );
 
   const markPending = useCallback(
     (type: CharacterImageType) => {
-      updateJob(type, {status: 'queued', errorMessage: undefined});
+      updateJob(type, {status: 'queued', errorMessage: undefined}, ownerKey);
     },
-    [updateJob],
+    [ownerKey, updateJob],
   );
 
   const attachJob = useCallback(
     (type: CharacterImageType, jobId: string) => {
-      updateJob(type, {jobId, status: 'queued', errorMessage: undefined});
+      updateJob(type, {jobId, status: 'queued', errorMessage: undefined}, ownerKey);
     },
-    [updateJob],
+    [ownerKey, updateJob],
   );
 
   return {jobs, retry, launchJob, markPending, attachJob};

@@ -1,10 +1,8 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {message} from 'antd';
 import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
-
-const tx = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts) as string;
-import {
+import type {
   CharacterReference,
   GenerationJob,
   ReferencesChecklist,
@@ -12,7 +10,22 @@ import {
   ReferenceType,
 } from '../types/character.types';
 
+const tx = (key: string, opts?: Record<string, unknown>) => i18n.t(key, opts) as string;
 const POLL_INTERVAL_MS = 3000;
+
+type ActiveJobs = Record<string, string | undefined>;
+
+interface ReferencesSnapshot {
+  state: ReferencesState | null;
+  loading: boolean;
+  error: string | null;
+  ownerKey: string;
+}
+
+interface ActiveJobsSnapshot {
+  jobs: ActiveJobs;
+  ownerKey: string;
+}
 
 // Pull a user-friendly message off whatever shape axios/server gave us.
 // `unknown` instead of `any` keeps eslint happy without losing the
@@ -57,19 +70,63 @@ interface UseCharacterReferencesResult {
  * at once if the user kicks off generation for several reference types.
  */
 export function useCharacterReferences(projectId: string | number, characterId: string): UseCharacterReferencesResult {
-  const [state, setState] = useState<ReferencesState | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeJobs, setActiveJobs] = useState<Record<string, string | undefined>>({});
+  const ownerKey = projectId && characterId ? `${projectId}:${characterId}` : '';
+  const activeOwnerKeyRef = useRef(ownerKey);
+  activeOwnerKeyRef.current = ownerKey;
+  const [snapshot, setSnapshot] = useState<ReferencesSnapshot>({
+    state: null,
+    loading: Boolean(ownerKey),
+    error: null,
+    ownerKey,
+  });
+  const [activeJobsSnapshot, setActiveJobsSnapshot] = useState<ActiveJobsSnapshot>({
+    jobs: {},
+    ownerKey,
+  });
+  const activeJobsRef = useRef<ActiveJobsSnapshot>({jobs: {}, ownerKey});
   const autoGenerationActive = false;
   const isMountedRef = useRef(true);
 
+  const state = snapshot.ownerKey === ownerKey ? snapshot.state : null;
+  const loading = ownerKey
+    ? snapshot.ownerKey === ownerKey
+      ? snapshot.loading
+      : true
+    : false;
+  const error = snapshot.ownerKey === ownerKey ? snapshot.error : null;
+  const activeJobs = useMemo(
+    () => activeJobsSnapshot.ownerKey === ownerKey ? activeJobsSnapshot.jobs : {},
+    [activeJobsSnapshot, ownerKey],
+  );
+
+  if (activeJobsRef.current.ownerKey !== ownerKey) {
+    activeJobsRef.current = {jobs: {}, ownerKey};
+  } else {
+    activeJobsRef.current = {jobs: activeJobs, ownerKey};
+  }
+
+  const isCurrentOwner = useCallback(
+    (requestOwnerKey: string) =>
+      isMountedRef.current && activeOwnerKeyRef.current === requestOwnerKey,
+    [],
+  );
+
+  const updateActiveJobs = useCallback(
+    (updater: (current: ActiveJobs) => ActiveJobs, requestOwnerKey: string) => {
+      if (!isCurrentOwner(requestOwnerKey)) return;
+      const currentJobs =
+        activeJobsRef.current.ownerKey === requestOwnerKey
+          ? activeJobsRef.current.jobs
+          : {};
+      const nextJobs = updater(currentJobs);
+      activeJobsRef.current = {jobs: nextJobs, ownerKey: requestOwnerKey};
+      setActiveJobsSnapshot({jobs: nextJobs, ownerKey: requestOwnerKey});
+    },
+    [isCurrentOwner],
+  );
+
   // React 18 StrictMode runs effects twice in dev (mount → cleanup → mount).
-  // The earlier "set false on cleanup only" pattern left the ref stuck at
-  // `false` after the first cycle, which silently swallowed every setState
-  // that happened after an `await` — making the page look frozen even though
-  // network requests succeeded. Re-set to true on every mount so the second
-  // mount's promises are allowed to commit.
+  // Re-set to true on every mount so the second mount's promises may commit.
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -78,57 +135,92 @@ export function useCharacterReferences(projectId: string | number, characterId: 
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!projectId || !characterId) return;
+    const requestOwnerKey = ownerKey;
+    if (!projectId || !characterId) {
+      if (isCurrentOwner(requestOwnerKey)) {
+        setSnapshot({state: null, loading: false, error: null, ownerKey: requestOwnerKey});
+      }
+      return;
+    }
+
+    if (isCurrentOwner(requestOwnerKey)) {
+      setSnapshot((current) => ({
+        state: current.ownerKey === requestOwnerKey ? current.state : null,
+        loading: true,
+        error: current.ownerKey === requestOwnerKey ? current.error : null,
+        ownerKey: requestOwnerKey,
+      }));
+    }
+
     try {
       const response = await characterApi.getReferences(projectId, characterId);
-      if (!isMountedRef.current) return;
-      setState(response.data as ReferencesState);
-      setError(null);
+      if (!isCurrentOwner(requestOwnerKey)) return;
+      setSnapshot({
+        state: response.data as ReferencesState,
+        loading: false,
+        error: null,
+        ownerKey: requestOwnerKey,
+      });
     } catch (err) {
-      if (!isMountedRef.current) return;
-      setError(readApiError(err, tx('characterStudio.errors.loadReferences')));
-    } finally {
-      if (isMountedRef.current) setLoading(false);
+      if (!isCurrentOwner(requestOwnerKey)) return;
+      setSnapshot({
+        state: null,
+        loading: false,
+        error: readApiError(err, tx('characterStudio.errors.loadReferences')),
+        ownerKey: requestOwnerKey,
+      });
     }
-  }, [projectId, characterId]);
+  }, [characterId, isCurrentOwner, ownerKey, projectId]);
 
   useEffect(() => {
-    setLoading(true);
-    refresh();
-  }, [refresh]);
-
+    activeJobsRef.current = {jobs: {}, ownerKey};
+    setActiveJobsSnapshot({jobs: {}, ownerKey});
+    setSnapshot({state: null, loading: Boolean(ownerKey), error: null, ownerKey});
+    void refresh();
+  }, [ownerKey, refresh]);
 
   // Poll active generation jobs. Once a job hits a terminal state we drop it
   // from `activeJobs` and refresh the board so the new asset shows up without
   // a manual reload.
   useEffect(() => {
+    const pollingOwnerKey = ownerKey;
     const entries = Object.entries(activeJobs).filter(([, jobId]) => Boolean(jobId)) as [ReferenceType, string][];
     if (entries.length === 0) return;
     let cancelled = false;
     const intervalId = window.setInterval(async () => {
-      const completedTypes: ReferenceType[] = [];
+      const completedJobs: Array<{referenceType: ReferenceType; jobId: string}> = [];
       const failedJobs: {referenceType: ReferenceType; reason: string}[] = [];
       await Promise.all(entries.map(async ([referenceType, jobId]) => {
         try {
           const response = await characterApi.getJob(jobId);
           const job: GenerationJob = response.data;
+          if (
+            cancelled ||
+            !isCurrentOwner(pollingOwnerKey) ||
+            activeJobsRef.current.ownerKey !== pollingOwnerKey ||
+            activeJobsRef.current.jobs[referenceType] !== jobId
+          ) {
+            return;
+          }
           if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
             if (job.status === 'failed') {
               failedJobs.push({referenceType, reason: job.error_message || 'Ошибка генерации.'});
             }
-            completedTypes.push(referenceType);
+            completedJobs.push({referenceType, jobId});
           }
         } catch {
           // Treat polling errors as transient — leave the job in place.
         }
       }));
-      if (cancelled) return;
-      if (completedTypes.length > 0) {
-        setActiveJobs((prev) => {
-          const next = {...prev};
-          for (const type of completedTypes) delete next[type];
+      if (cancelled || !isCurrentOwner(pollingOwnerKey)) return;
+      if (completedJobs.length > 0) {
+        updateActiveJobs((current) => {
+          const next = {...current};
+          for (const {referenceType, jobId} of completedJobs) {
+            if (next[referenceType] === jobId) delete next[referenceType];
+          }
           return next;
-        });
+        }, pollingOwnerKey);
         for (const failed of failedJobs) {
           message.error(tx('characterStudio.errors.referenceFailed', {type: failed.referenceType, reason: failed.reason}));
         }
@@ -139,37 +231,45 @@ export function useCharacterReferences(projectId: string | number, characterId: 
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [activeJobs, refresh]);
+  }, [activeJobs, isCurrentOwner, ownerKey, refresh, updateActiveJobs]);
 
-  const startJob = useCallback((referenceType: ReferenceType, jobId: string, status: GenerationJob['status']) => {
+  const startJob = useCallback((
+    referenceType: ReferenceType,
+    jobId: string,
+    status: GenerationJob['status'],
+    requestOwnerKey: string,
+  ) => {
+    if (!isCurrentOwner(requestOwnerKey)) return;
     if (status === 'completed' || status === 'failed' || status === 'cancelled') {
-      // Mock provider runs synchronously — the job finished before the
-      // request returned. No polling needed; the response already carries
-      // the updated board.
+      // Mock provider runs synchronously — the response already carries the updated board.
       return;
     }
-    setActiveJobs((prev) => ({...prev, [referenceType]: jobId}));
-  }, []);
+    updateActiveJobs(
+      (current) => ({...current, [referenceType]: jobId}),
+      requestOwnerKey,
+    );
+  }, [isCurrentOwner, updateActiveJobs]);
 
   const generate = useCallback(
     async (referenceType: ReferenceType, opts?: {correction_prompt?: string}) => {
-      if (!projectId || !characterId) return;
-      // Optimistic flip to `generating`. The mock provider returns the final
-      // `ready` row in a single response and the network round-trip is
-      // already short, so without this the user clicks the button and the
-      // preview sits silent for a beat — looks broken. The real response
-      // (success or failure) overwrites this row a moment later.
-      setState((prev) => {
-        if (!prev) return prev;
-        const next = {
-          ...prev,
-          references: prev.references.map((row) =>
-            row.reference_type === referenceType
-              ? {...row, status: 'generating' as const, error_message: ''}
-              : row,
-          ),
+      const requestOwnerKey = ownerKey;
+      if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return;
+      // Optimistic flip to `generating`; the real response overwrites it.
+      setSnapshot((current) => {
+        if (!isCurrentOwner(requestOwnerKey) || current.ownerKey !== requestOwnerKey || !current.state) {
+          return current;
+        }
+        return {
+          ...current,
+          state: {
+            ...current.state,
+            references: current.state.references.map((row) =>
+              row.reference_type === referenceType
+                ? {...row, status: 'generating' as const, error_message: ''}
+                : row,
+            ),
+          },
         };
-        return next;
       });
       try {
         const response = await characterApi.generateReference(projectId, characterId, {
@@ -177,99 +277,130 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           correction_prompt: opts?.correction_prompt,
           preserve_identity: true,
         });
+        if (!isCurrentOwner(requestOwnerKey)) return;
         const data = response.data as {job_id: string; status: GenerationJob['status']; references: ReferencesState};
-        if (isMountedRef.current && data.references) {
-          setState(data.references);
+        if (data.references) {
+          setSnapshot({state: data.references, loading: false, error: null, ownerKey: requestOwnerKey});
         }
-        startJob(referenceType, data.job_id, data.status);
+        startJob(referenceType, data.job_id, data.status, requestOwnerKey);
       } catch (err) {
+        if (!isCurrentOwner(requestOwnerKey)) return;
         // Roll back the optimistic generating flag so the user can retry.
-        setState((prev) => {
-          if (!prev) return prev;
+        setSnapshot((current) => {
+          if (current.ownerKey !== requestOwnerKey || !current.state) return current;
           return {
-            ...prev,
-            references: prev.references.map((row) =>
-              row.reference_type === referenceType && row.status === 'generating'
-                ? {...row, status: 'failed' as const, error_message: readApiError(err, tx('characterStudio.errors.generationLaunchFailed'))}
-                : row,
-            ),
+            ...current,
+            state: {
+              ...current.state,
+              references: current.state.references.map((row) =>
+                row.reference_type === referenceType && row.status === 'generating'
+                  ? {...row, status: 'failed' as const, error_message: readApiError(err, tx('characterStudio.errors.generationLaunchFailed'))}
+                  : row,
+              ),
+            },
           };
         });
         message.error(readApiError(err, tx('characterStudio.errors.generationLaunchFailed')));
       }
     },
-    [projectId, characterId, startJob],
+    [characterId, isCurrentOwner, ownerKey, projectId, startJob],
   );
 
   const correct = useCallback(
     async (referenceId: string, correctionPrompt: string, referenceType: ReferenceType) => {
-      if (!projectId || !characterId) return;
+      const requestOwnerKey = ownerKey;
+      if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return;
       try {
         const response = await characterApi.correctReference(projectId, characterId, referenceId, {
           correction_prompt: correctionPrompt,
           preserve_identity: true,
         });
+        if (!isCurrentOwner(requestOwnerKey)) return;
         const data = response.data as {job_id: string; status: GenerationJob['status']; references: ReferencesState};
-        if (isMountedRef.current && data.references) {
-          setState(data.references);
+        if (data.references) {
+          setSnapshot({state: data.references, loading: false, error: null, ownerKey: requestOwnerKey});
         }
-        startJob(referenceType, data.job_id, data.status);
+        startJob(referenceType, data.job_id, data.status, requestOwnerKey);
       } catch (err) {
-        message.error(readApiError(err, tx('characterStudio.errors.correctionFailed')));
+        if (isCurrentOwner(requestOwnerKey)) {
+          message.error(readApiError(err, tx('characterStudio.errors.correctionFailed')));
+        }
       }
     },
-    [projectId, characterId, startJob],
+    [characterId, isCurrentOwner, ownerKey, projectId, startJob],
   );
 
   const upload = useCallback(
     async (referenceType: ReferenceType, file: File) => {
-      if (!projectId || !characterId) return null;
+      const requestOwnerKey = ownerKey;
+      if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return null;
       try {
         const response = await characterApi.uploadReference(projectId, characterId, referenceType, file, true);
+        if (!isCurrentOwner(requestOwnerKey)) return null;
         await refresh();
-        return response.data as CharacterReference;
+        return isCurrentOwner(requestOwnerKey)
+          ? response.data as CharacterReference
+          : null;
       } catch (err) {
-        message.error(readApiError(err, tx('characterStudio.errors.uploadFailed')));
+        if (isCurrentOwner(requestOwnerKey)) {
+          message.error(readApiError(err, tx('characterStudio.errors.uploadFailed')));
+        }
         return null;
       }
     },
-    [projectId, characterId, refresh],
+    [characterId, isCurrentOwner, ownerKey, projectId, refresh],
   );
 
   const makePrimary = useCallback(
     async (referenceId: string) => {
-      if (!projectId || !characterId) return;
+      const requestOwnerKey = ownerKey;
+      if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return;
       try {
         const response = await characterApi.makePrimaryReference(projectId, characterId, referenceId);
-        if (isMountedRef.current && response.data) {
-          setState(response.data as ReferencesState);
+        if (isCurrentOwner(requestOwnerKey) && response.data) {
+          setSnapshot({
+            state: response.data as ReferencesState,
+            loading: false,
+            error: null,
+            ownerKey: requestOwnerKey,
+          });
         }
       } catch (err) {
-        message.error(readApiError(err, tx('characterStudio.errors.primaryFailed')));
+        if (isCurrentOwner(requestOwnerKey)) {
+          message.error(readApiError(err, tx('characterStudio.errors.primaryFailed')));
+        }
       }
     },
-    [projectId, characterId],
+    [characterId, isCurrentOwner, ownerKey, projectId],
   );
 
   const updateChecklist = useCallback(
     async (patch: Partial<ReferencesChecklist>) => {
-      if (!projectId || !characterId) return;
+      const requestOwnerKey = ownerKey;
+      if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return;
       try {
         await characterApi.updateReferencesChecklist(projectId, characterId, patch);
+        if (!isCurrentOwner(requestOwnerKey)) return;
         await refresh();
       } catch (err) {
-        message.error(readApiError(err, tx('characterStudio.errors.checklistSaveFailed')));
+        if (isCurrentOwner(requestOwnerKey)) {
+          message.error(readApiError(err, tx('characterStudio.errors.checklistSaveFailed')));
+        }
       }
     },
-    [projectId, characterId, refresh],
+    [characterId, isCurrentOwner, ownerKey, projectId, refresh],
   );
 
   const proceedTo3D = useCallback(async () => {
-    if (!projectId || !characterId) return null;
+    const requestOwnerKey = ownerKey;
+    if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return null;
     try {
       const response = await characterApi.proceedReferencesTo3D(projectId, characterId);
-      return response.data as {next_url?: string; can_proceed: boolean; blockers?: string[]};
+      return isCurrentOwner(requestOwnerKey)
+        ? response.data as {next_url?: string; can_proceed: boolean; blockers?: string[]}
+        : null;
     } catch (err) {
+      if (!isCurrentOwner(requestOwnerKey)) return null;
       const blockers = readApiBlockers(err);
       if (blockers) {
         return {can_proceed: false, blockers};
@@ -277,7 +408,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
       message.error(readApiError(err, tx('characterStudio.errors.proceedFailed')));
       return null;
     }
-  }, [projectId, characterId]);
+  }, [characterId, isCurrentOwner, ownerKey, projectId]);
 
   return {
     state,

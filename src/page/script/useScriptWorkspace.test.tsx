@@ -23,6 +23,16 @@ const getCharactersMock = scriptApi.getCharacters as jest.MockedFunction<typeof 
 const updateSceneMock = scriptApi.updateScene as jest.MockedFunction<typeof scriptApi.updateScene>;
 const createSceneMock = scriptApi.createScene as jest.MockedFunction<typeof scriptApi.createScene>;
 
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return {promise, reject, resolve};
+};
+
 const scene: Scene = {
   id: 1,
   title: 'Исходная сцена',
@@ -109,5 +119,59 @@ describe('useScriptWorkspace scene persistence', () => {
     expect(updateSceneMock).toHaveBeenCalledTimes(1);
     expect(createSceneMock).not.toHaveBeenCalled();
     expect(result.current.saveError).toContain('не удалось сохранить');
+  });
+});
+describe('useScriptWorkspace route ownership', () => {
+  it('keeps project B after the deferred project A response resolves', async () => {
+    const workspaceARequest = deferred<ScriptWorkspaceResponse>();
+    const charactersARequest = deferred<Awaited<ReturnType<typeof scriptApi.getCharacters>>>();
+    const workspaceBRequest = deferred<ScriptWorkspaceResponse>();
+    const charactersBRequest = deferred<Awaited<ReturnType<typeof scriptApi.getCharacters>>>();
+    const workspaceB: ScriptWorkspaceResponse = {
+      ...workspace,
+      project: {id: 8, title: 'Проект B', permissions: {canEdit: true}},
+      scenes: [{...scene, id: 2, title: 'Сцена B'}],
+    };
+
+    getWorkspaceMock.mockImplementation((requestedProjectId) => (
+      requestedProjectId === '7' ? workspaceARequest.promise : workspaceBRequest.promise
+    ));
+    getCharactersMock.mockImplementation((requestedProjectId) => (
+      requestedProjectId === '7' ? charactersARequest.promise : charactersBRequest.promise
+    ));
+
+    const {result, rerender} = renderHook(
+      ({currentProjectId}) => useScriptWorkspace(currentProjectId),
+      {initialProps: {currentProjectId: '7'}},
+    );
+    await waitFor(() => expect(getWorkspaceMock).toHaveBeenCalledWith('7'));
+
+    rerender({currentProjectId: '8'});
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.project).toBeNull();
+    expect(result.current.scenes).toEqual([]);
+    expect(result.current.canEdit).toBe(false);
+
+    await act(async () => {
+      workspaceBRequest.resolve(workspaceB);
+      charactersBRequest.resolve([]);
+      await Promise.all([workspaceBRequest.promise, charactersBRequest.promise]);
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.project?.id).toBe(8);
+    expect(result.current.scenes).toEqual([expect.objectContaining({id: 2, title: 'Сцена B'})]);
+
+    await act(async () => {
+      workspaceARequest.resolve(workspace);
+      charactersARequest.resolve([]);
+      await Promise.all([workspaceARequest.promise, charactersARequest.promise]);
+    });
+
+    expect(result.current.loading).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(result.current.project?.id).toBe(8);
+    expect(result.current.scenes).toEqual([expect.objectContaining({id: 2, title: 'Сцена B'})]);
   });
 });
