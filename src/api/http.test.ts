@@ -53,11 +53,50 @@ function unauthorizedError() {
     };
 }
 
+describe('token persistence', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+    });
+
+    it('stores remembered credentials only in localStorage', () => {
+        setStoredUserTokens('access', 'refresh', true);
+
+        expect(localStorage.getItem('authToken')).toBe('access');
+        expect(localStorage.getItem('authRefreshToken')).toBe('refresh');
+        expect(sessionStorage.getItem('authToken')).toBeNull();
+    });
+
+    it('stores non-remembered credentials only in sessionStorage', () => {
+        setStoredUserTokens('access', 'refresh', false);
+
+        expect(sessionStorage.getItem('authToken')).toBe('access');
+        expect(sessionStorage.getItem('authRefreshToken')).toBe('refresh');
+        expect(localStorage.getItem('authToken')).toBeNull();
+        expect(getStoredUserToken()).toBe('access');
+    });
+});
+
 describe('auth refresh lifecycle', () => {
     beforeEach(() => {
         localStorage.clear();
+        sessionStorage.clear();
         jest.clearAllMocks();
         mockApiPost.mockResolvedValue({});
+    });
+
+    it('keeps refreshed credentials in sessionStorage for a non-remembered login', async () => {
+        setStoredUserTokens('old-access', 'old-refresh', false);
+        mockAxiosPost.mockResolvedValue({
+            data: {access: 'new-access', refresh: 'new-refresh'},
+        });
+
+        const error = unauthorizedError();
+        await onResponseError(error);
+
+        expect(sessionStorage.getItem('authToken')).toBe('new-access');
+        expect(sessionStorage.getItem('authRefreshToken')).toBe('new-refresh');
+        expect(localStorage.getItem('authToken')).toBeNull();
     });
 
     it('does not restore credentials when refresh completes after logout', async () => {
@@ -119,6 +158,7 @@ describe('auth refresh lifecycle', () => {
 describe('expired authentication redirect signal', () => {
     beforeEach(() => {
         localStorage.clear();
+        sessionStorage.clear();
         jest.clearAllMocks();
     });
 

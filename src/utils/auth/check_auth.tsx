@@ -10,8 +10,8 @@ import { currentReturnTo } from './returnTo';
  *
  * Source of truth is the access token returned by ``getStoredUserToken``.
  * The legacy ``Cookies.get('id')`` check is gone — login/register only write
- * to localStorage now, and keeping both stores caused desync when one was
- * cleared by hand.
+ * to shared browser token storage now. Keeping cookies in parallel caused desync
+ * when one credential source was cleared by hand.
  */
 function withAuth<P extends object>(Component: React.ComponentType<P>) {
     const WithAuth: React.FC<P> = (props) => {

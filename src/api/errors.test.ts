@@ -44,4 +44,17 @@ describe('API error boundary', () => {
       error: {code: 'API_ERROR', message: 'Network failure'},
     });
   });
+
+  it('preserves a safe HTTP status after removing request credentials', () => {
+    const sanitized = sanitizeApiError(
+      axiosError(401, {status: 'fail'}),
+      'Login failed',
+    );
+
+    expect(sanitized).toEqual({
+      error: {code: 'API_ERROR', message: 'Login failed'},
+      status: 401,
+    });
+    expect(getApiStatus(sanitized)).toBe(401);
+  });
 });

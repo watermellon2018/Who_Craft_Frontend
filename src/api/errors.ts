@@ -4,6 +4,10 @@ import type {ApiErrorEnvelope} from './generated/contracts';
 
 const FALLBACK_CODE = 'API_ERROR';
 
+export interface SanitizedApiError extends ApiErrorEnvelope {
+  status?: number;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -70,14 +74,19 @@ export function getApiStatus(error: unknown): number | null {
   if (isRecord(error) && isRecord(error.response) && typeof error.response.status === 'number') {
     return error.response.status;
   }
+  if (isRecord(error) && typeof error.status === 'number') {
+    return error.status;
+  }
   return null;
 }
 
-export function sanitizeApiError(error: unknown, fallback: string): ApiErrorEnvelope {
-  return getApiErrorEnvelope(error) ?? {
+export function sanitizeApiError(error: unknown, fallback: string): SanitizedApiError {
+  const envelope = getApiErrorEnvelope(error) ?? {
     error: {
       code: FALLBACK_CODE,
       message: error instanceof Error ? error.message : fallback,
     },
   };
+  const status = getApiStatus(error);
+  return status === null ? envelope : {...envelope, status};
 }

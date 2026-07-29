@@ -10,6 +10,8 @@ const TOKEN_STORAGE_KEY = 'authToken';
 const REFRESH_TOKEN_STORAGE_KEY = 'authRefreshToken';
 const LEGACY_TOKEN_STORAGE_KEY = 'userId';
 
+type TokenPersistence = 'local' | 'session';
+
 interface TokenPairResponse {
     access: string;
     refresh: string;
@@ -19,13 +21,59 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
     _authRetry?: boolean;
 }
 
-function migrateLegacyTokenKey(): string | null {
+function getTokenStorage(persistence: TokenPersistence): Storage | null {
+    if (typeof window === 'undefined') return null;
     try {
-        const legacy = localStorage.getItem(LEGACY_TOKEN_STORAGE_KEY);
+        return persistence === 'local' ? window.localStorage : window.sessionStorage;
+    } catch {
+        return null;
+    }
+}
+
+function readStoredValue(persistence: TokenPersistence, key: string): string | null {
+    try {
+        const value = getTokenStorage(persistence)?.getItem(key);
+        return value && value.trim() ? value.trim() : null;
+    } catch {
+        return null;
+    }
+}
+
+function storedTokenPersistence(): TokenPersistence | null {
+    if (
+        readStoredValue('session', TOKEN_STORAGE_KEY)
+        || readStoredValue('session', REFRESH_TOKEN_STORAGE_KEY)
+    ) {
+        return 'session';
+    }
+    if (
+        readStoredValue('local', TOKEN_STORAGE_KEY)
+        || readStoredValue('local', REFRESH_TOKEN_STORAGE_KEY)
+    ) {
+        return 'local';
+    }
+    return null;
+}
+
+function removeStoredTokens(persistence: TokenPersistence): void {
+    try {
+        const storage = getTokenStorage(persistence);
+        storage?.removeItem(TOKEN_STORAGE_KEY);
+        storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        storage?.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    } catch {
+        // Ignore unavailable browser storage.
+    }
+}
+
+function migrateLegacyTokenKey(): string | null {
+    const storage = getTokenStorage('local');
+    try {
+        const legacy = storage?.getItem(LEGACY_TOKEN_STORAGE_KEY);
         if (legacy && legacy.trim()) {
-            localStorage.setItem(TOKEN_STORAGE_KEY, legacy);
-            localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
-            localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+            storage?.setItem(TOKEN_STORAGE_KEY, legacy.trim());
+            storage?.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+            storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
             return legacy.trim();
         }
         return null;
@@ -35,22 +83,14 @@ function migrateLegacyTokenKey(): string | null {
 }
 
 export function getStoredUserToken(): string | null {
-    try {
-        const value = localStorage.getItem(TOKEN_STORAGE_KEY);
-        if (value && value.trim()) return value.trim();
-        return migrateLegacyTokenKey();
-    } catch {
-        return null;
-    }
+    const persistence = storedTokenPersistence();
+    if (persistence) return readStoredValue(persistence, TOKEN_STORAGE_KEY);
+    return migrateLegacyTokenKey();
 }
 
 export function getStoredRefreshToken(): string | null {
-    try {
-        const value = localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
-        return value && value.trim() ? value.trim() : null;
-    } catch {
-        return null;
-    }
+    const persistence = storedTokenPersistence();
+    return persistence ? readStoredValue(persistence, REFRESH_TOKEN_STORAGE_KEY) : null;
 }
 
 export const AUTH_EXPIRED_EVENT = 'wcraft:auth-expired';
@@ -62,31 +102,36 @@ export interface AuthExpiredEventDetail {
 let authGeneration = 0;
 let authExpiryNotified = false;
 
-function writeStoredUserTokens(access: string, refresh: string): void {
+function writeStoredUserTokens(
+    access: string,
+    refresh: string,
+    persistence: TokenPersistence,
+): void {
+    removeStoredTokens('local');
+    removeStoredTokens('session');
     try {
-        localStorage.setItem(TOKEN_STORAGE_KEY, access);
-        localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refresh);
-        localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+        const storage = getTokenStorage(persistence);
+        storage?.setItem(TOKEN_STORAGE_KEY, access);
+        storage?.setItem(REFRESH_TOKEN_STORAGE_KEY, refresh);
     } catch {
         // A protected request will surface unavailable storage as an auth error.
     }
 }
 
-export function setStoredUserTokens(access: string, refresh: string): void {
+export function setStoredUserTokens(
+    access: string,
+    refresh: string,
+    remember = true,
+): void {
     authGeneration += 1;
     authExpiryNotified = false;
-    writeStoredUserTokens(access, refresh);
+    writeStoredUserTokens(access, refresh, remember ? 'local' : 'session');
 }
 
 export function clearStoredUserToken(): void {
     authGeneration += 1;
-    try {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-        localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
-    } catch {
-        // ignore unavailable localStorage
-    }
+    removeStoredTokens('local');
+    removeStoredTokens('session');
 }
 
 function notifyAuthExpired(): void {
@@ -117,8 +162,9 @@ function isPublicAuthRequest(url = ''): boolean {
 }
 
 async function requestFreshAccessToken(): Promise<string | null> {
+    const persistence = storedTokenPersistence();
     const refresh = getStoredRefreshToken();
-    if (!refresh) return null;
+    if (!persistence || !refresh) return null;
     const generation = authGeneration;
 
     try {
@@ -128,16 +174,18 @@ async function requestFreshAccessToken(): Promise<string | null> {
         const response = await axios.post<TokenPairResponse>(refreshUrl, { refresh });
         if (
             generation !== authGeneration ||
+            storedTokenPersistence() !== persistence ||
             getStoredRefreshToken() !== refresh
         ) {
             return null;
         }
-        writeStoredUserTokens(response.data.access, response.data.refresh);
+        writeStoredUserTokens(response.data.access, response.data.refresh, persistence);
         authExpiryNotified = false;
         return response.data.access;
     } catch {
         if (
             generation === authGeneration &&
+            storedTokenPersistence() === persistence &&
             getStoredRefreshToken() === refresh
         ) {
             clearStoredUserToken();

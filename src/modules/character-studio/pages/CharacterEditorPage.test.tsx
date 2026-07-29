@@ -84,7 +84,17 @@ jest.mock('../hooks/useCharacterAssetJobs', () => ({
 
 jest.mock('../components/CharacterEditorLayout', () => ({
   __esModule: true,
-  default: ({topBar, center}: {topBar: React.ReactNode; center: React.ReactNode}) => <>{topBar}{center}</>,
+  default: ({
+    topBar,
+    sidebar,
+    center,
+    right,
+  }: {
+    topBar: React.ReactNode;
+    sidebar: React.ReactNode;
+    center: React.ReactNode;
+    right: React.ReactNode;
+  }) => <>{topBar}{sidebar}{center}{right}</>,
 }));
 
 jest.mock('../components/CharacterPreview', () => ({
@@ -104,7 +114,12 @@ jest.mock('../components/VariantGrid', () => ({
 
 jest.mock('../components/CharacterCategorySidebar', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({onSelect}: {onSelect: (key: string) => void}) => (
+    <>
+      <button onClick={() => onSelect('personality')}>Personality tab</button>
+      <button onClick={() => onSelect('outfit')}>Outfit tab</button>
+    </>
+  ),
 }));
 jest.mock('../components/CharacterSettingsPanel', () => ({
   __esModule: true,
@@ -112,11 +127,28 @@ jest.mock('../components/CharacterSettingsPanel', () => ({
 }));
 jest.mock('../components/OutfitSettingsPanel', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({
+    onDescriptionChange,
+    onSourceChange,
+  }: {
+    onDescriptionChange: (value: string) => void;
+    onSourceChange: (value: 'reference' | 'text') => void;
+  }) => (
+    <button onClick={() => {
+      onDescriptionChange('Red expedition coat');
+      onSourceChange('reference');
+    }}>
+      Edit outfit
+    </button>
+  ),
 }));
 jest.mock('../components/PersonalityEditorPanel', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({onChange}: {onChange: (updates: Partial<StudioCharacter>) => void}) => (
+    <button onClick={() => onChange({personality: {motivation: 'protect the crew'}})}>
+      Edit personality
+    </button>
+  ),
 }));
 jest.mock('../events', () => ({
   CHARACTER_DELETED_EVENT: 'character-deleted',
@@ -146,6 +178,9 @@ beforeEach(() => {
       concurrency: {global: {active: 0, limit: 4}, project: {active: 0, limit: 2}},
     },
   } as never);
+  mockedApi.update.mockImplementation(async (_projectId, _characterId, payload) => ({
+    data: {...mockCharacter, ...payload},
+  }) as never);
   mockedApi.generateEdit.mockResolvedValue({
     data: {
       ...mockGenerationJob,
@@ -203,4 +238,66 @@ it('chains sequential secondary keys from each applied revision', async () => {
   expect(mockedApi.generateEdit.mock.calls[2][3]).toBe(
     'char-1:scene:revision-full-body',
   );
+});
+
+it('persists personality and outfit before Generate and clears the saved revision', async () => {
+  render(<CharacterEditorPage />);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Personality tab'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Edit personality'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Outfit tab'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Edit outfit'}));
+  expect(screen.getByText('Есть изменения')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', {name: 'Generate primary'}));
+
+  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(1));
+  expect(mockedApi.update).toHaveBeenCalledWith(
+    '1',
+    'char-1',
+    expect.objectContaining({
+      personality: {motivation: 'protect the crew'},
+      clothing_description: 'Red expedition coat',
+      clothing_source: 'reference',
+    }),
+  );
+  expect(mockedApi.update.mock.invocationCallOrder[0]).toBeLessThan(
+    mockedApi.generateEdit.mock.invocationCallOrder[0],
+  );
+  await waitFor(() => expect(screen.getByText('Сохранено')).toBeInTheDocument());
+});
+
+it('keeps the editor dirty when persistence before Generate fails', async () => {
+  mockedApi.update.mockRejectedValueOnce(new Error('save failed'));
+  render(<CharacterEditorPage />);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Personality tab'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Edit personality'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Outfit tab'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Edit outfit'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Generate primary'}));
+
+  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(1));
+  expect(screen.getByText('Есть изменения')).toBeInTheDocument();
+});
+
+it('does not clear a newer dirty revision when Generate persistence finishes late', async () => {
+  let resolveUpdate: (value: unknown) => void = () => undefined;
+  mockedApi.update.mockImplementationOnce(() => new Promise((resolve) => {
+    resolveUpdate = resolve;
+  }) as never);
+  render(<CharacterEditorPage />);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Personality tab'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Edit personality'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Generate primary'}));
+  await waitFor(() => expect(mockedApi.update).toHaveBeenCalledTimes(1));
+
+  fireEvent.click(screen.getByRole('button', {name: 'Edit personality'}));
+  await act(async () => {
+    resolveUpdate({data: {...mockCharacter, personality: {motivation: 'protect the crew'}}});
+  });
+
+  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(1));
+  expect(screen.getByText('Есть изменения')).toBeInTheDocument();
 });

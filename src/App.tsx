@@ -44,20 +44,7 @@ const ProtectedProjectListPage = withAuth(ProjectListPage);
 const ProtectedProjectPage = withAuth(ProjectPage);
 const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
-const ProtectedCharacterGalleryPage = withAuth(CharacterGalleryPage);
-const ProtectedCharacterCreatePage = withAuth(CharacterCreatePage);
-const ProtectedCharacterEditorPage = withAuth(CharacterEditorPage);
-const ProtectedCharacterDetailPage = withAuth(CharacterDetailPage);
-const ProtectedCharacterVariantsPage = withAuth(CharacterVariantsPage);
-const ProtectedCharacterReferencesPage = withAuth(CharacterReferencesPage);
-const ProtectedCharacter3DEditorPage = withAuth(Character3DEditorPage);
-
-const ProtectedCharacterCreateReferenceRoute: React.FC = () => (
-    <CharacterStudioShell>
-        <CharacterCreatePage activeMode="reference" />
-    </CharacterStudioShell>
-);
-const GatedCharacterCreateReferenceRoute = withAuth(ProtectedCharacterCreateReferenceRoute);
+const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
 
 const LegacyProjectDashboardRedirect: React.FC = () => {
     const location = useLocation();
@@ -196,14 +183,14 @@ function App() {
         { key: 'genPosterLegacy', path: PathConstants.GEN_POSTER_LEGACY, component: <Navigate to={PathConstants.CREATE_PROJECT} replace /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
         { key: 'scriptPageLegacy', path: PathConstants.SCRIPT_PAGE_LEGACY, component: <ProtectedScriptPage /> },
-        { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><ProtectedCharacterGalleryPage /></CharacterStudioShell> },
-        { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <CharacterStudioShell><ProtectedCharacterCreatePage /></CharacterStudioShell> },
-        { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <GatedCharacterCreateReferenceRoute /> },
-        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <CharacterStudioShell><ProtectedCharacterVariantsPage /></CharacterStudioShell> },
-        { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <CharacterStudioShell><ProtectedCharacterDetailPage /></CharacterStudioShell> },
-        { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <CharacterStudioShell><ProtectedCharacterEditorPage /></CharacterStudioShell> },
-        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <CharacterStudioShell><ProtectedCharacterReferencesPage /></CharacterStudioShell> },
-        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <CharacterStudioShell><ProtectedCharacter3DEditorPage /></CharacterStudioShell> },
+        { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <ProtectedCharacterStudioShell><CharacterGalleryPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <ProtectedCharacterStudioShell><CharacterCreatePage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <ProtectedCharacterStudioShell><CharacterCreatePage activeMode="reference" /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <ProtectedCharacterStudioShell><CharacterVariantsPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <ProtectedCharacterStudioShell><CharacterDetailPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <ProtectedCharacterStudioShell><CharacterEditorPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <ProtectedCharacterStudioShell><CharacterReferencesPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
     ], []);
 
 

@@ -209,6 +209,7 @@ function CharacterEditorPageContent() {
   const [notifiedFailedJobId, setNotifiedFailedJobId] = useState<string>();
   const [hydratedCharacterId, setHydratedCharacterId] = useState<string>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const editRevisionRef = useRef(0);
   const [saving, setSaving] = useState(false);
   const [personalityEdits, setPersonalityEdits] = useState<Partial<StudioCharacter>>({});
   const [outfitDescription, setOutfitDescription] = useState('');
@@ -259,6 +260,7 @@ function CharacterEditorPageContent() {
     setOutfitDescription(character.clothing_description || '');
     setOutfitSource(character.clothing_source || 'text');
     setHydratedCharacterId(character.character_id);
+    editRevisionRef.current = 0;
     setHasUnsavedChanges(false);
   }, [character, editor, hydratedCharacterId]);
 
@@ -288,6 +290,45 @@ function CharacterEditorPageContent() {
   }, [characterId, setCharacter]);
 
   const persistControlsAndRefreshRef = React.useRef<() => Promise<void>>();
+
+  const persistAllEdits = async () => {
+    if (!character) return {character: null, fullySaved: false, saved: false};
+    const savedEditRevision = editRevisionRef.current;
+    const payload = {
+      ...updatePayloadFromControls(editor.controls),
+      ...personalityEdits,
+      clothing_source: outfitSource,
+      clothing_description: outfitDescription,
+    };
+
+    try {
+      const response = await characterApi.update(projectId, character.character_id, payload);
+      const savedCharacter = response?.data ?? character;
+      const fullySaved = editRevisionRef.current === savedEditRevision;
+
+      if (response?.data) {
+        setCharacter(response.data);
+      }
+      if (fullySaved) {
+        if (response?.data) {
+          editor.setControls(controlsFromCharacter(response.data));
+          setPersonalityEdits({
+            role: response.data.role,
+            personality: response.data.personality,
+            speech_style: response.data.speech_style,
+          });
+          setOutfitDescription(response.data.clothing_description ?? outfitDescription);
+          setOutfitSource(response.data.clothing_source ?? outfitSource);
+          setHydratedCharacterId(response.data.character_id);
+        }
+        setHasUnsavedChanges(false);
+      }
+
+      return {character: savedCharacter, fullySaved, saved: true};
+    } catch {
+      return {character, fullySaved: false, saved: false};
+    }
+  };
 
   useEffect(() => {
     if (!job) return;
@@ -327,25 +368,8 @@ function CharacterEditorPageContent() {
     const plannedTypes = dependentImageTypes(imageType);
     if (!(await confirmGeneration(plannedTypes))) return;
     setGeneratingImageType(imageType);
-    let generationCharacter = character;
-
-    // Save current controls to DB before generation so the backend prompt compiler
-    // reads up-to-date appearance fields (skin_tone, eye_color, face_shape, etc.).
-    const savePayload = updatePayloadFromControls(editor.controls);
-    if (Object.keys(savePayload).length > 0) {
-      try {
-        const saved = await characterApi.update(projectId, character.character_id, savePayload);
-        if (saved?.data) {
-          generationCharacter = saved.data;
-          setCharacter(saved.data);
-          editor.setControls(controlsFromCharacter(saved.data));
-          setHydratedCharacterId(saved.data.character_id);
-          setHasUnsavedChanges(false);
-        }
-      } catch {
-        // non-critical: proceed with generation using controls in payload
-      }
-    }
+    const persisted = await persistAllEdits();
+    const generationCharacter = persisted.character ?? character;
 
     const baseControls = controlsFromCharacter(generationCharacter);
     const diff = diffControls(baseControls, editor.controls);
@@ -500,69 +524,62 @@ function CharacterEditorPageContent() {
 
   const save = async () => {
     if (!character) return;
-    const payload = {
-      ...updatePayloadFromControls(editor.controls),
-      ...personalityEdits,
-      clothing_source: outfitSource,
-      clothing_description: outfitDescription,
-    };
-
-    if (Object.keys(payload).length === 0) {
-      message.info(t('characterStudio.editor.changesUnsaved'));
-      return;
-    }
 
     setSaving(true);
     try {
-      const response = await characterApi.update(projectId, character.character_id, payload);
-      if (response?.data) {
-        setCharacter(response.data);
-        editor.setControls(controlsFromCharacter(response.data));
-        setPersonalityEdits({
-          role: response.data.role,
-          personality: response.data.personality,
-          speech_style: response.data.speech_style,
-        });
-        setHydratedCharacterId(response.data.character_id);
+      const persisted = await persistAllEdits();
+      if (!persisted.saved) {
+        message.error(t('characterStudio.editor.saveGeneric'));
+        return;
       }
-
-      setHasUnsavedChanges(false);
       notifyCharacterListUpdated();
       notifyCharacterTreeUpdated();
-      message.success(t('characterStudio.editor.changesSaved'));
+      if (persisted.fullySaved) {
+        message.success(t('characterStudio.editor.changesSaved'));
+      } else {
+        message.info(t('characterStudio.editor.changesUnsaved'));
+      }
     } finally {
       setSaving(false);
     }
   };
 
+  const markDirty = () => {
+    editRevisionRef.current += 1;
+    setHasUnsavedChanges(true);
+  };
+
   const updateControls = (value: Record<string, unknown>) => {
     editor.setControls(value);
-    setHasUnsavedChanges(true);
+    markDirty();
   };
 
   const updatePersonality = (updates: Partial<StudioCharacter>) => {
     setPersonalityEdits((prev) => ({...prev, ...updates}));
-    setHasUnsavedChanges(true);
+    markDirty();
   };
 
   const handleOutfitDescriptionChange = (value: string) => {
     setOutfitDescription(value);
-    setHasUnsavedChanges(true);
+    markDirty();
   };
 
   const handleOutfitSourceChange = (value: 'reference' | 'text') => {
     setOutfitSource(value);
-    setHasUnsavedChanges(true);
+    markDirty();
   };
 
   // Refresh character from backend and re-hydrate controls from the response.
   const refreshAndResync = async () => {
     if (!character?.character_id) return;
+    const requestedEditRevision = editRevisionRef.current;
     const response = await characterApi.get(projectId, character.character_id);
     if (response?.data) {
       setCharacter(response.data);
-      editor.setControls(controlsFromCharacter(response.data));
-      setHydratedCharacterId(response.data.character_id);
+      if (editRevisionRef.current === requestedEditRevision) {
+        editor.setControls(controlsFromCharacter(response.data));
+        setHydratedCharacterId(response.data.character_id);
+      }
       return response.data as StudioCharacter;
     }
     return undefined;
@@ -582,23 +599,8 @@ function CharacterEditorPageContent() {
 
     const msgKey = 'seq-gen';
 
-    let currentCharacter = character;
-    // Save controls to DB once before starting all steps so appearance is up-to-date.
-    const savePayload = updatePayloadFromControls(editor.controls);
-    if (Object.keys(savePayload).length > 0) {
-      try {
-        const saved = await characterApi.update(projectId, character.character_id, savePayload);
-        if (saved?.data) {
-          currentCharacter = saved.data;
-          setCharacter(saved.data);
-          editor.setControls(controlsFromCharacter(saved.data));
-          setHydratedCharacterId(saved.data.character_id);
-          setHasUnsavedChanges(false);
-        }
-      } catch {
-        // non-critical: proceed anyway
-      }
-    }
+    const persisted = await persistAllEdits();
+    let currentCharacter = persisted.character ?? character;
 
     const baseControls = controlsFromCharacter(currentCharacter);
     const diff = diffControls(baseControls, editor.controls);
