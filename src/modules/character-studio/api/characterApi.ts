@@ -2,6 +2,7 @@ import api from '../../../api/http';
 import type {
   CreateCharacterFromReferencePayload,
   EditRequest,
+  GenerationJob,
   Model3DReconstruction,
   Model3DState,
   ReferenceType,
@@ -169,7 +170,20 @@ export const characterApi = {
     );
   },
   getJob(jobId: string) {
-    return api.get(`api/generation-jobs/${jobId}`);
+    return api.get<GenerationJob>(`api/generation-jobs/${jobId}`);
+  },
+  listGenerationJobs(projectId: string | number, characterId: string) {
+    return api.get<{jobs: GenerationJob[]}>(`${base(projectId, characterId)}/generation-jobs`);
+  },
+  retryGenerationJob(jobId: string) {
+    return api.post<{job?: GenerationJob; job_id: string; status: GenerationJob['status']}>(
+      `api/generation-jobs/${jobId}/retry`,
+    );
+  },
+  requestGenerationJobCancellation(jobId: string) {
+    return api.post<GenerationJob | {job?: GenerationJob; job_id: string; status: GenerationJob['status']}>(
+      `api/generation-jobs/${jobId}/cancellation-request`,
+    );
   },
   getModel3D(projectId: string | number, characterId: string) {
     return api.get<Model3DState>(`${base(projectId, characterId)}/model3d`);

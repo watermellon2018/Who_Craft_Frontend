@@ -378,6 +378,15 @@
   min-height: 0;
 }
 
+.c3d-generation-history {
+  position: absolute;
+  z-index: 12;
+  top: 16px;
+  left: 16px;
+  width: min(420px, calc(100% - 32px));
+  backdrop-filter: blur(16px);
+}
+
 /* ───── Viewport (mock 3D area) ──────────────────────────────────── */
 .c3d-viewport {
   position: relative;

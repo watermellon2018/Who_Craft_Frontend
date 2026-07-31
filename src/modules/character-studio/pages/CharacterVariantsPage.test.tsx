@@ -100,6 +100,10 @@ beforeEach(() => {
   mockedApi.generateInitial.mockResolvedValue({
     data: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []},
   } as never);
+  mockedApi.listGenerationJobs.mockResolvedValue({data: {jobs: []}} as never);
+  mockedApi.requestGenerationJobCancellation.mockResolvedValue({
+    data: {job_id: 'job-1', status: 'cancellation_requested', progress: 40, variants: []},
+  } as never);
 });
 
 // ---------------------------------------------------------------------------
@@ -113,6 +117,18 @@ describe('CharacterVariantsPage – initial state', () => {
     expect(screen.getByText(/генерируем портретные варианты/i)).toBeInTheDocument();
   });
 
+
+  it('allows cancellation from the initial loading state', async () => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: {job_id: 'job-1', status: 'processing', progress: 40, variants: []},
+      loading: false,
+    } as never);
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', {name: 'Запросить отмену'}));
+
+    await waitFor(() => expect(mockedApi.requestGenerationJobCancellation).toHaveBeenCalledWith('job-1'));
+  });
   it('displays variant cards when job is completed', () => {
     mockedUseGenerationJob.mockReturnValue({
       job: {job_id: 'job-1', status: 'completed', progress: 100, variants: VARIANTS},
@@ -204,6 +220,8 @@ describe('CharacterVariantsPage – initial state', () => {
       loading: false,
       errorStatus: 403,
       errorMessage: 'Нет доступа к заданию генерации',
+      isActive: false,
+      isTerminal: false,
     });
     renderPage({} as never);
     expect(screen.getByText('Нет доступа к генерации')).toBeInTheDocument();
@@ -216,7 +234,7 @@ describe('CharacterVariantsPage – initial state', () => {
     } as never);
     renderPage();
     expect(screen.getByText(/ошибка генерации/i)).toBeInTheDocument();
-    expect(screen.getByText('Что-то пошло не так')).toBeInTheDocument();
+    expect(screen.getAllByText('Что-то пошло не так')).not.toHaveLength(0);
   });
 
   it('shows "no context" error when navigated to without state', () => {

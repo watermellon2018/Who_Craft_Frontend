@@ -102,6 +102,10 @@
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
+.character-editor-generation-history {
+  margin-bottom: 12px;
+}
+
 
 .character-editor__canvas {
   /* The center column must not scroll — the preview stage owns its size and

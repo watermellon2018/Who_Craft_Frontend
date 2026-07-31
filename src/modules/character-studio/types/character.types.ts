@@ -185,7 +185,7 @@ export interface GenerationJob {
   project_id?: number;
   user_id?: number;
   job_type?: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  status: 'queued' | 'processing' | 'cancellation_requested' | 'completed' | 'failed' | 'cancelled';
   region?: CharacterRegion;
   variant_count?: number;
   request_payload?: Record<string, unknown>;
@@ -206,9 +206,18 @@ export interface GenerationJob {
   variants: CharacterVariant[];
 }
 
+export const isGenerationJobActive = (status: GenerationJob['status']) =>
+  status === 'queued' || status === 'processing';
+
+export const isGenerationJobTerminal = (status: GenerationJob['status']) =>
+  status === 'cancellation_requested' || status === 'completed' ||
+  status === 'failed' || status === 'cancelled';
+
+
 export type Model3DReconstructionStatus =
   | 'missing'
   | 'queued'
+  | 'cancellation_requested'
   | 'processing'
   | 'ready'
   | 'failed';

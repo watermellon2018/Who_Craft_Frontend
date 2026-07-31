@@ -3,7 +3,7 @@ import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
 import type {CharacterImageType, GenerationJob, StudioCharacter} from '../types/character.types';
 
-export type AssetJobStatus = 'idle' | 'queued' | 'processing' | 'completed' | 'failed';
+export type AssetJobStatus = 'idle' | 'queued' | 'processing' | 'cancellation_requested' | 'completed' | 'failed';
 
 export interface AssetJobState {
   jobId?: string;
@@ -49,6 +49,7 @@ export function dependentImageTypes(type: CharacterImageType): CharacterImageTyp
 function mapBackendStatus(status: GenerationJob['status']): AssetJobStatus {
   if (status === 'queued') return 'queued';
   if (status === 'processing') return 'processing';
+  if (status === 'cancellation_requested') return 'cancellation_requested';
   if (status === 'completed') return 'completed';
   if (status === 'failed' || status === 'cancelled') return 'failed';
   return 'idle';

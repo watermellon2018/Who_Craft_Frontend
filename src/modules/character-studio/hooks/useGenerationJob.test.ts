@@ -68,3 +68,33 @@ test('does not expose a job that belongs to another character', async () => {
   expect(result.current.job).toBeNull();
   expect(result.current.errorMessage).toContain('не принадлежит');
 });
+test('treats cancellation_requested as terminal and stops polling', async () => {
+  jest.useFakeTimers();
+  const cancellationRequested: GenerationJob = {
+    job_id: 'job-a',
+    project_id: 1,
+    character_id: 'char-a',
+    status: 'cancellation_requested',
+    progress: 55,
+    variants: [],
+  };
+  mockedApi.getJob.mockResolvedValue({data: cancellationRequested} as never);
+
+  const {result, unmount} = renderHook(() => useGenerationJob('job-a', '1', 'char-a'));
+
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(result.current.job?.status).toBe('cancellation_requested');
+  expect(result.current.isActive).toBe(false);
+  expect(result.current.isTerminal).toBe(true);
+
+  await act(async () => {
+    jest.advanceTimersByTime(3000);
+    await Promise.resolve();
+  });
+  expect(mockedApi.getJob).toHaveBeenCalledTimes(1);
+
+  unmount();
+  jest.useRealTimers();
+});

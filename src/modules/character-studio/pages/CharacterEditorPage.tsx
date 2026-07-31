@@ -7,6 +7,7 @@ import {characterApi} from '../api/characterApi';
 import type {CharacterGenerationPreview} from '../api/characterApi';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
 import CharacterEditorLayout from '../components/CharacterEditorLayout';
+import GenerationJobHistory from '../components/GenerationJobHistory';
 import CharacterPreview, {viewModeToImageType} from '../components/CharacterPreview';
 import type {ZoneEditState} from '../components/CharacterPreview';
 import CharacterSettingsPanel from '../components/CharacterSettingsPanel';
@@ -23,6 +24,7 @@ import {
 import {useCharacter} from '../hooks/useCharacter';
 import {dependentImageTypes, useCharacterAssetJobs} from '../hooks/useCharacterAssetJobs';
 import {useCharacterEditor} from '../hooks/useCharacterEditor';
+import {isGenerationJobTerminal} from '../types/character.types';
 import {useGenerationJob} from '../hooks/useGenerationJob';
 import type {CharacterImageType, CharacterRegion, CharacterVariant, CharacterViewMode, GenerationJob, StudioCharacter, ZoneEditResponse} from '../types/character.types';
 import './CharacterEditorPage.css';
@@ -148,13 +150,14 @@ function confirmGenerationPreview(preview: CharacterGenerationPreview) {
   });
 }
 
+const CANCELLATION_REQUESTED_LABEL = '\u041e\u0442\u043c\u0435\u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u0430';
 const POLL_DELAY_MS = 3000;
 
 async function pollUntilDone(jobId: string): Promise<GenerationJob> {
   for (;;) {
     const response = await characterApi.getJob(jobId);
     const job = response.data as GenerationJob;
-    if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
+    if (isGenerationJobTerminal(job.status)) {
       return job;
     }
     await new Promise<void>((resolve) => setTimeout(resolve, POLL_DELAY_MS));
@@ -356,7 +359,7 @@ function CharacterEditorPageContent() {
       }
       persistControlsAndRefreshRef.current?.();
     }
-    if (job.status === 'cancelled') {
+    if (job.status === 'cancelled' || job.status === 'cancellation_requested') {
       setGeneratingImageType(null);
     }
   }, [job, notifiedFailedJobId, previewedJobId]);
@@ -646,6 +649,9 @@ function CharacterEditorPageContent() {
         if (response.data?.status !== 'completed') {
           const finalJob = await pollUntilDone(response.data.job_id);
           if (finalJob.status !== 'completed') {
+            if (finalJob.status === 'cancellation_requested') {
+              throw new Error(CANCELLATION_REQUESTED_LABEL);
+            }
             throw new Error(finalJob.error_message || 'Генерация не удалась');
           }
           variants = finalJob.variants ?? [];
@@ -775,7 +781,19 @@ function CharacterEditorPageContent() {
     topBar={<EditorTopBar characterName={character?.name || t('characterStudio.editor.tipsCharacter')} onBack={() => navigate(`/project/${projectId}/characters`)} onRename={() => message.info(t('characterStudio.editor.renameHint'))} onRefresh={generateSequential} sequentialRunning={sequentialRunning} generatingImageType={generatingImageType} onSave={save} onDelete={deleteCurrentCharacter} saving={saving} hasUnsavedChanges={hasUnsavedChanges} onGoToReferences={goToReferences} />}
     sidebar={<CharacterCategorySidebar active={activeTab} onSelect={selectCategory} />}
     center={<div className="character-editor-center"><CharacterPreview character={character} selectedVariant={previewVariant} activeViewMode={activeViewMode} onViewModeChange={selectViewMode} onGenerateImage={generate} generatingImageType={generatingImageType} jobProgress={job?.progress} secondaryJobs={secondaryJobs} onRetrySecondary={retrySecondaryJob} zoneEditOpen={zoneEditOpen} onZoneEditToggle={setZoneEditOpen} onZoneEditApply={applyZoneEdit} zoneEditSubmitting={zoneEditSubmitting} savedZone={savedZones[currentImageTypeForZone] ?? null} onZoneSave={handleZoneSave} pendingZoneCount={Object.keys(savedZones).length} />{job?.variants && (!jobImageType || jobImageType === currentImageType) && !zoneEditOpen && <div className="character-side-card"><VariantGrid variants={job.variants} selectedVariantId={selectedVariant?.variant_id} onSelect={setSelectedVariant} onApply={apply} /></div>}</div>}
-    right={right}
+    right={(
+      <>
+        <GenerationJobHistory
+          characterId={characterId}
+          className="character-editor-generation-history"
+          currentJob={job}
+          currentJobId={jobId}
+          onJobStarted={setJobId}
+          projectId={projectId}
+        />
+        {right}
+      </>
+    )}
   />;
 }
 

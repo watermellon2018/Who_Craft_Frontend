@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
 import {useNavigate, useParams} from "react-router-dom";
@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 
 import EditGenComponent from "../edit_generation";
+import PosterJobHistory from './PosterJobHistory';
 import {editPoster, generatePoster, selectPosterVariant} from "../../../api/posters";
 import type {PosterVariant} from "../../../api/posters";
 import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
@@ -674,11 +675,11 @@ const GenPosterPage: React.FC = () => {
         }
     };
 
-    const displayGenImage = (variant: PosterVariant) => {
+    const displayGenImage = useCallback((variant: PosterVariant) => {
         setImageGeneratedUrl(variant.imageUrl);
         setSourceVariantId(variant.id);
         setIsGenerating(false);
-    };
+    }, []);
 
     const genHandle = async () => {
         if (!prompt.trim() || isGenerating) return;
@@ -967,7 +968,16 @@ const GenPosterPage: React.FC = () => {
                             >
                                 <RecentPostersStrip posters={recentPosters} />
                             </Card>
+
+                            <Card
+                                title="История генераций"
+                                icon={<HistoryOutlined />}
+                                style={{padding: '16px 20px'}}
+                            >
+                                <PosterJobHistory projectId={projectId || ''} onVariantReady={displayGenImage} />
+                            </Card>
                         </div>
+
 
                         {/* RIGHT — Settings */}
                         <Card title="Настройки генерации" icon={<ThunderboltOutlined />}>

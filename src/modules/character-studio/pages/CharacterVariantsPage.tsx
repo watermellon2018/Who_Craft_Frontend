@@ -9,6 +9,7 @@ import { characterApi } from '../api/characterApi';
 import { notifyCharacterListUpdated, notifyCharacterTreeUpdated } from '../events';
 import { useGenerationJob } from '../hooks/useGenerationJob';
 import {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import GenerationJobHistory from '../components/GenerationJobHistory';
 import type {CharacterVariant, GenerationJob, StudioCharacter} from '../types/character.types';
 import {characterToFormValues} from '../types/characterForm';
 import {characterCreatePath} from '../../../routes/pathConstant';
@@ -20,6 +21,10 @@ interface VariantsPageState {
   characterName?: string;
   generationOptions?: GenerationOptions;
 }
+const VARIANT_GENERATION_JOB_TYPES = ['initial_variants', 'reference_variants'] as const;
+const CANCELLATION_REQUESTED_LABEL = '\u041e\u0442\u043c\u0435\u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u0430';
+const CANCELLATION_REQUESTED_NOTICE = '\u0423\u0436\u0435 \u043d\u0430\u0447\u0430\u0442\u0430\u044f \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c\u0441\u044f, \u043d\u043e \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043d\u0435 \u0431\u0443\u0434\u0435\u0442 \u043f\u0440\u0438\u043c\u0435\u043d\u0451\u043d.';
+
 
 function generationOptionsFromJob(job: GenerationJob | null): GenerationOptions {
     const payload = job?.request_payload ?? {};
@@ -128,6 +133,10 @@ function CharacterVariantsPageContent() {
             setRegenerating(false);
             setRegenError(job.error_message || t('characterStudio.variants.generationFailedRetry'));
         }
+        if (job?.status === 'cancellation_requested') {
+            setRegenerating(false);
+            setRegenError(CANCELLATION_REQUESTED_LABEL);
+        }
     }, [job, t]);
 
     const effectiveSelectedId = selectedVariantId ?? displayVariants[0]?.variant_id ?? null;
@@ -143,8 +152,19 @@ function CharacterVariantsPageContent() {
     );
     const isFailed = !noContext && !regenerating && job?.status === 'failed';
     const isEmpty = !noContext && job?.status === 'completed' && displayVariants.length === 0;
+    const isCancelled = !noContext && job?.status === 'cancelled';
+    const isCancellationRequested = job?.status === 'cancellation_requested';
 
     const handleBack = () => navigate(-1);
+
+    const handleHistoryJobStarted = (nextJobId: string) => {
+        setRegenerating(displayVariants.length > 0);
+        setRegenError(undefined);
+        setSelectedVariantId(null);
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('jobId', nextJobId);
+        setSearchParams(nextParams, {replace: true, state});
+    };
 
     // Pass form values and draft character id back so the form can be pre-filled
     // and the same draft character can be reused (no new character created).
@@ -287,17 +307,59 @@ function CharacterVariantsPageContent() {
             <div className="cvp-page">
                 <div className="cvp-loading">
                     <div className="cvp-loading__spinner" />
-                    <p className="cvp-loading__title">{t('characterStudio.variants.generatingPortraits')}</p>
-                    <p className="cvp-loading__sub">{t('characterStudio.variants.typicalTime')}</p>
+                    <p className="cvp-loading__title">
+                        {isCancellationRequested ? 'Отмена запрошена' : t('characterStudio.variants.generatingPortraits')}
+                    </p>
+                    <p className="cvp-loading__sub">
+                        {isCancellationRequested
+                            ? 'Уже начатая генерация может завершиться, но результат не будет применён.'
+                            : t('characterStudio.variants.typicalTime')}
+                    </p>
                     {job && typeof job.progress === 'number' && job.progress > 0 && (
                         <div className="cvp-progress">
                             <div className="cvp-progress__bar" style={{ width: `${job.progress}%` }} />
                         </div>
                     )}
+                    <GenerationJobHistory
+                        allowedJobTypes={VARIANT_GENERATION_JOB_TYPES}
+                        characterId={characterId}
+                        className="cvp-generation-history"
+                        currentJob={job}
+                        currentJobId={currentJobId}
+                        defaultOpen
+                        onJobStarted={handleHistoryJobStarted}
+                        projectId={projectId}
+                    />
                 </div>
             </div>
         );
     }
+    if (isCancellationRequested && displayVariants.length === 0) {
+        return (
+            <div className="cvp-page">
+                <div className="cvp-error">
+                    <p className="cvp-error__title">{CANCELLATION_REQUESTED_LABEL}</p>
+                    <p className="cvp-error__text">
+                        {CANCELLATION_REQUESTED_NOTICE}
+                    </p>
+                    <button className="cvp-btn-accent" onClick={handleEditParams}>
+                        {t('characterStudio.variants.backToForm')}
+                    </button>
+                    <GenerationJobHistory
+                        allowedJobTypes={VARIANT_GENERATION_JOB_TYPES}
+                        characterId={characterId}
+                        className="cvp-generation-history"
+                        currentJob={job}
+                        currentJobId={currentJobId}
+                        defaultOpen
+                        onJobStarted={handleHistoryJobStarted}
+                        projectId={projectId}
+                    />
+                </div>
+            </div>
+        );
+    }
+
 
     if (isFailed) {
         return (
@@ -308,6 +370,40 @@ function CharacterVariantsPageContent() {
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
                         {t('characterStudio.variants.backToForm')}
                     </button>
+                    <GenerationJobHistory
+                        allowedJobTypes={VARIANT_GENERATION_JOB_TYPES}
+                        characterId={characterId}
+                        className="cvp-generation-history"
+                        currentJob={job}
+                        currentJobId={currentJobId}
+                        defaultOpen
+                        onJobStarted={handleHistoryJobStarted}
+                        projectId={projectId}
+                    />
+                </div>
+            </div>
+        );
+
+    }
+    if (isCancelled) {
+        return (
+            <div className="cvp-page">
+                <div className="cvp-error">
+                    <p className="cvp-error__title">Генерация отменена</p>
+                    <p className="cvp-error__text">Можно повторить генерацию из истории.</p>
+                    <button className="cvp-btn-accent" onClick={handleEditParams}>
+                        {t('characterStudio.variants.backToForm')}
+                    </button>
+                    <GenerationJobHistory
+                        allowedJobTypes={VARIANT_GENERATION_JOB_TYPES}
+                        characterId={characterId}
+                        className="cvp-generation-history"
+                        currentJob={job}
+                        currentJobId={currentJobId}
+                        defaultOpen
+                        onJobStarted={handleHistoryJobStarted}
+                        projectId={projectId}
+                    />
                 </div>
             </div>
         );
@@ -372,7 +468,18 @@ function CharacterVariantsPageContent() {
                 </div>
             )}
 
+            <GenerationJobHistory
+                allowedJobTypes={VARIANT_GENERATION_JOB_TYPES}
+                characterId={characterId}
+                className="cvp-generation-history cvp-generation-history--page"
+                currentJob={job}
+                currentJobId={currentJobId}
+                onJobStarted={handleHistoryJobStarted}
+                projectId={projectId}
+            />
+
             <div className="cvp-grid">
+
                 {isRegeneratingGrid
                     ? Array.from({ length: skeletonCount }, (_, i) => (
                         <div key={`skeleton-${i}`} className="cvp-card cvp-card--skeleton">

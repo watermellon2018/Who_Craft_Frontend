@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
 import {characterApi} from '../api/characterApi';
+import {isGenerationJobActive, isGenerationJobTerminal} from '../types/character.types';
 import type {GenerationJob} from '../types/character.types';
 
 interface GenerationJobState {
@@ -38,14 +39,14 @@ export function useGenerationJob(
       return;
     }
     let cancelled = false;
-    let intervalId: number | undefined;
+    let timeoutId: number | undefined;
 
     setState(initialState(requestKey, jobId));
 
     const stopPolling = () => {
-      if (intervalId !== undefined) {
-        window.clearInterval(intervalId);
-        intervalId = undefined;
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
       }
     };
 
@@ -66,8 +67,10 @@ export function useGenerationJob(
           return;
         }
         setState({...initialState(requestKey), job: data});
-        if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+        if (isGenerationJobTerminal(data.status)) {
           stopPolling();
+        } else {
+          timeoutId = window.setTimeout(() => void load(), 3000);
         }
       } catch (error: unknown) {
         if (cancelled || activeRequestRef.current !== requestKey) return;
@@ -86,7 +89,6 @@ export function useGenerationJob(
     };
 
     void load();
-    intervalId = window.setInterval(load, 3000);
     return () => {
       cancelled = true;
       stopPolling();
@@ -98,5 +100,7 @@ export function useGenerationJob(
     loading: visibleState.loading,
     errorStatus: visibleState.errorStatus,
     errorMessage: visibleState.errorMessage,
+    isActive: visibleState.job ? isGenerationJobActive(visibleState.job.status) : false,
+    isTerminal: visibleState.job ? isGenerationJobTerminal(visibleState.job.status) : false,
   };
 }

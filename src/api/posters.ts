@@ -10,24 +10,36 @@ import {v4 as uuidv4} from 'uuid';
 import api from './http';
 
 type ProjectId = number | string;
-type PosterJobStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+export type PosterJobStatus =
+    | 'queued'
+    | 'processing'
+    | 'cancellation_requested'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
 
 export interface PosterVariant {
     id: number;
     imageUrl: string;
 }
 
-interface PosterJob {
+export interface PosterJob {
     id: number;
     status: PosterJobStatus;
+    operation?: 'generate' | 'edit';
+    prompt?: string;
+    createdAt?: string | null;
+    completedAt?: string | null;
     errorMessage?: string | null;
+    variants?: PosterVariant[];
 }
 
-interface PosterOperationResponse {
+export interface PosterOperationResponse {
     jobId?: number;
+    job_id?: number;
     status?: PosterJobStatus;
     job?: PosterJob;
-    variants: PosterVariant[];
+    variants?: PosterVariant[];
 }
 
 interface GeneratePosterOptions {
@@ -59,6 +71,11 @@ function operationStatus(response: PosterOperationResponse): PosterJobStatus | u
 
 function throwTerminalError(response: PosterOperationResponse): void {
     const status = operationStatus(response);
+    if (status === 'cancellation_requested') {
+        throw new Error(
+            'Отмена запрошена. Уже начатая генерация может завершиться, но результат не будет применён.',
+        );
+    }
     if (status === 'failed' || status === 'cancelled') {
         throw new Error(
             response.job?.errorMessage ||
@@ -75,11 +92,11 @@ async function waitForVariant(
     projectId: ProjectId,
     initial: PosterOperationResponse,
 ): Promise<PosterVariant> {
+    throwTerminalError(initial);
     const immediate = firstVariant(initial);
     if (immediate) return immediate;
-    throwTerminalError(initial);
 
-    const jobId = initial.jobId ?? initial.job?.id;
+    const jobId = initial.jobId ?? initial.job_id ?? initial.job?.id;
     if (!jobId || operationStatus(initial) === 'completed') {
         throw new Error('Сервер не вернул вариант постера. Повторите попытку.');
     }
@@ -89,13 +106,33 @@ async function waitForVariant(
         const response = await api.get<PosterOperationResponse>(
             `api/projects/${projectId}/poster/jobs/${jobId}/`,
         );
+        throwTerminalError(response.data);
         const variant = firstVariant(response.data);
         if (variant) return variant;
-        throwTerminalError(response.data);
         if (operationStatus(response.data) === 'completed') break;
     }
 
     throw new Error('Генерация постера заняла слишком много времени. Повторите попытку позже.');
+}
+
+export function listPosterJobs(projectId: ProjectId) {
+    return api.get<{jobs: PosterJob[]}>(`api/projects/${projectId}/poster/jobs/`);
+}
+
+export function getPosterJob(projectId: ProjectId, jobId: number) {
+    return api.get<PosterOperationResponse>(`api/projects/${projectId}/poster/jobs/${jobId}/`);
+}
+
+export function retryPosterJob(projectId: ProjectId, jobId: number) {
+    return api.post<PosterOperationResponse | PosterJob>(
+        `api/projects/${projectId}/poster/jobs/${jobId}/retry/`,
+    );
+}
+
+export function requestPosterJobCancellation(projectId: ProjectId, jobId: number) {
+    return api.post<PosterOperationResponse | PosterJob>(
+        `api/projects/${projectId}/poster/jobs/${jobId}/cancellation-request/`,
+    );
 }
 
 export async function generatePoster(
