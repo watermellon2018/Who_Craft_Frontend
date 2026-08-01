@@ -16,8 +16,10 @@ import {useNavigate} from 'react-router-dom';
 import WCraftBrand from '../../components/WCraftBrand';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
+import {useUnsavedChangesGuard} from '../../utils/useUnsavedChangesGuard';
 import PathConstants, {projectDashboardPath} from '../../routes/pathConstant';
 import {sceneToPlainText} from './api';
+import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
 import CardsView from './CardsView';
 import CharactersView from './CharactersView';
 import LocationsPlaceholder from './LocationsPlaceholder';
@@ -45,6 +47,9 @@ export default function ScriptPage() {
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
   const workspace = useScriptWorkspace(projectId);
+  const {allowNextNavigation} = useUnsavedChangesGuard(
+    workspace.dirtySceneIds.length > 0,
+  );
 
   const exportScript = () => {
     const content = workspace.scenes.map(sceneToPlainText).join('\n\n\n');
@@ -61,6 +66,12 @@ export default function ScriptPage() {
     const saved = await workspace.saveSelectedScene();
     if (!saved) return;
     if (!projectId) return;
+    if (canBypassUnsavedChangesAfterSelectedSceneSave(
+      workspace.dirtySceneIds,
+      workspace.selectedScene?.id,
+    )) {
+      allowNextNavigation();
+    }
     navigate(projectDashboardPath(projectId));
   };
 

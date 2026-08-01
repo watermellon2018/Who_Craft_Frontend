@@ -8,6 +8,9 @@ import CharacterEditorPage from './CharacterEditorPage';
 const mockRefresh = jest.fn();
 const mockSetCharacter = jest.fn();
 const mockLaunchSecondaryJob = jest.fn().mockResolvedValue('secondary-job');
+const mockRetryGenerationJob = jest.fn();
+const mockUnsavedChangesGuard = jest.fn();
+let mockJobPollingError: string | null = null;
 const mockSetControls = jest.fn();
 const mockSetRegion = jest.fn();
 
@@ -70,7 +73,18 @@ jest.mock('../hooks/useCharacterEditor', () => ({
 }));
 
 jest.mock('../hooks/useGenerationJob', () => ({
-  useGenerationJob: (jobId?: string) => ({job: jobId ? mockGenerationJob : null}),
+  useGenerationJob: (jobId?: string) => ({
+    errorMessage: mockJobPollingError,
+    job: jobId ? mockGenerationJob : null,
+    retry: mockRetryGenerationJob,
+  }),
+}));
+
+jest.mock('../../../utils/useUnsavedChangesGuard', () => ({
+  useUnsavedChangesGuard: (dirty: boolean) => {
+    mockUnsavedChangesGuard(dirty);
+    return {allowNextNavigation: jest.fn()};
+  },
 }));
 
 jest.mock('../hooks/useCharacterAssetJobs', () => ({
@@ -163,6 +177,7 @@ const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockJobPollingError = null;
   jest.spyOn(Modal, 'confirm').mockImplementation((config) => {
     void config.onOk?.();
     return {destroy: jest.fn(), update: jest.fn()} as never;
@@ -248,6 +263,7 @@ it('persists personality and outfit before Generate and clears the saved revisio
   fireEvent.click(screen.getByRole('button', {name: 'Outfit tab'}));
   fireEvent.click(screen.getByRole('button', {name: 'Edit outfit'}));
   expect(screen.getByText('Есть изменения')).toBeInTheDocument();
+  expect(mockUnsavedChangesGuard).toHaveBeenLastCalledWith(true);
 
   fireEvent.click(screen.getByRole('button', {name: 'Generate primary'}));
 
@@ -300,4 +316,16 @@ it('does not clear a newer dirty revision when Generate persistence finishes lat
 
   await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(1));
   expect(screen.getByText('Есть изменения')).toBeInTheDocument();
+});
+
+it('shows a generation polling error and retries it', () => {
+  mockJobPollingError = 'Polling connection failed';
+
+  render(<CharacterEditorPage />);
+
+  expect(screen.getByRole('alert')).toHaveTextContent('Polling connection failed');
+  fireEvent.click(screen.getByRole('button', {
+    name: '\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c',
+  }));
+  expect(mockRetryGenerationJob).toHaveBeenCalledTimes(1);
 });

@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
 import {characterApi} from '../api/characterApi';
 import {isGenerationJobActive, isGenerationJobTerminal} from '../types/character.types';
@@ -31,7 +31,14 @@ export function useGenerationJob(
   const activeRequestRef = useRef(requestKey);
   activeRequestRef.current = requestKey;
   const [state, setState] = useState<GenerationJobState>(() => initialState(requestKey, jobId));
+  const [retryRevision, setRetryRevision] = useState(0);
   const visibleState = state.requestKey === requestKey ? state : initialState(requestKey, jobId);
+
+  const retry = useCallback(() => {
+    if (!jobId || state.requestKey !== requestKey || !state.errorMessage) return;
+    setState(initialState(requestKey, jobId));
+    setRetryRevision((revision) => revision + 1);
+  }, [jobId, requestKey, state.errorMessage, state.requestKey]);
 
   useEffect(() => {
     if (!jobId) {
@@ -93,13 +100,14 @@ export function useGenerationJob(
       cancelled = true;
       stopPolling();
     };
-  }, [characterId, jobId, projectId, requestKey]);
+  }, [characterId, jobId, projectId, requestKey, retryRevision]);
 
   return {
     job: visibleState.job,
     loading: visibleState.loading,
     errorStatus: visibleState.errorStatus,
     errorMessage: visibleState.errorMessage,
+    retry,
     isActive: visibleState.job ? isGenerationJobActive(visibleState.job.status) : false,
     isTerminal: visibleState.job ? isGenerationJobTerminal(visibleState.job.status) : false,
   };

@@ -4,6 +4,7 @@ import {characterApi} from '../api/characterApi';
 import Character3DEditorPage from './Character3DEditorPage';
 
 const route = {projectId: 'project-a', characterId: 'char-a'};
+const mockUnsavedChangesGuard = jest.fn();
 
 jest.mock('react-router-dom', () => ({
   useNavigate: () => jest.fn(),
@@ -18,18 +19,40 @@ jest.mock('../hooks/useCharacter', () => ({
   }),
 }));
 jest.mock('../../../api/http', () => ({backendAssetUrl: (url: string) => url}));
+jest.mock('../../../utils/useUnsavedChangesGuard', () => ({
+  useUnsavedChangesGuard: (dirty: boolean) => {
+    mockUnsavedChangesGuard(dirty);
+    return {allowNextNavigation: jest.fn()};
+  },
+}));
 jest.mock('antd', () => ({
   message: {error: jest.fn(), success: jest.fn()},
 }));
 jest.mock('../api/characterApi');
 jest.mock('../components/character3d/CharacterCategoryRail', () => () => null);
-jest.mock('../components/character3d/ContextualZonePanel', () => () => null);
+jest.mock('../components/character3d/ContextualZonePanel', () => function MockContextualZonePanel(
+  {hasChanges, onApply}: {hasChanges: boolean; onApply: () => void},
+) {
+  return <>
+    <span data-testid="unapplied">{hasChanges ? 'yes' : 'no'}</span>
+    <button type="button" onClick={onApply}>Apply 3D</button>
+  </>;
+});
 jest.mock('../components/character3d/ReferenceDock', () => () => null);
 jest.mock('../components/character3d/StepperHeader', () => () => null);
 jest.mock('../components/character3d/CharacterViewport', () => function MockCharacterViewport(
-  {zoneParams}: {zoneParams: unknown},
+  {
+    onParameterChange,
+    zoneParams,
+  }: {
+    onParameterChange: (zoneId: string, paramId: string, value: number) => void;
+    zoneParams: unknown;
+  },
 ) {
-  return <div data-testid="zone-params">{JSON.stringify(zoneParams)}</div>;
+  return <>
+    <div data-testid="zone-params">{JSON.stringify(zoneParams)}</div>
+    <button type="button" onClick={() => onParameterChange('head_neck', 'headSize', 0.9)}>Edit 3D</button>
+  </>;
 });
 jest.mock('../components/character3d/BottomQuickBar', () => function MockBottomQuickBar(
   {onSave, saveDisabled}: {onSave: () => void; saveDisabled?: boolean},
@@ -118,4 +141,27 @@ test('resets parameters and blocks Save when loading route B fails', async () =>
   await waitFor(() => expect(screen.getByRole('button', {name: 'Сохранить 3D'})).toBeDisabled());
   fireEvent.click(screen.getByRole('button', {name: 'Сохранить 3D'}));
   expect(mockedApi.saveModel3D).not.toHaveBeenCalled();
+});
+
+test('keeps applied parameters dirty until they are persisted', async () => {
+  mockedApi.getModel3D.mockResolvedValue(modelResponse(0.2) as never);
+
+  render(<Character3DEditorPage />);
+  const saveButton = await screen.findByRole('button', {
+    name: '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c 3D',
+  });
+  await waitFor(() => expect(saveButton).not.toBeDisabled());
+  expect(mockUnsavedChangesGuard).toHaveBeenLastCalledWith(false);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Edit 3D'}));
+  expect(screen.getByTestId('unapplied')).toHaveTextContent('yes');
+  expect(mockUnsavedChangesGuard).toHaveBeenLastCalledWith(true);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Apply 3D'}));
+  expect(screen.getByTestId('unapplied')).toHaveTextContent('no');
+  expect(mockUnsavedChangesGuard).toHaveBeenLastCalledWith(true);
+
+  fireEvent.click(saveButton);
+  await waitFor(() => expect(mockedApi.saveModel3D).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockUnsavedChangesGuard).toHaveBeenLastCalledWith(false));
 });

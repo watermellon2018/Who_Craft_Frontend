@@ -11,8 +11,10 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import CharacterCreateHeader from '../components/create/CharacterCreateHeader';
-import GenerationSettingsPanel, {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
-import VisualStyleSelector, {VisualStyleValue} from '../components/create/VisualStyleSelector';
+import GenerationSettingsPanel, {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
+import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import VisualStyleSelector from '../components/create/VisualStyleSelector';
+import type {VisualStyleValue} from '../components/create/VisualStyleSelector';
 import {characterTypeOptions, genderApplicabilityOptions, roleOptions} from '../components/create/characterCreateOptions';
 import {characterApi} from '../api/characterApi';
 import {characterVariantsPath} from '../../../routes/pathConstant';
@@ -22,14 +24,6 @@ import './CreateCharacterFromReferencePage.css';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
-
-const extractedFeatures = [
-  {label: 'Форма лица', value: 'oval'},
-  {label: 'Цвет кожи', value: 'fair'},
-  {label: 'Цвет глаз', value: 'green'},
-  {label: 'Волосы', value: 'brown long'},
-  {label: 'Возраст (оценка)', value: '~20'},
-];
 
 const tips = [
   'Используйте фото с чётким лицом',
@@ -48,10 +42,6 @@ interface ReferenceUploadCardProps {
   previewUrl: string;
   onFileSelect: (file: File) => void;
   onRemove: () => void;
-}
-
-interface ExtractedFeaturesPanelProps {
-  visible: boolean;
 }
 
 interface IdentityInfoPanelProps {
@@ -119,7 +109,7 @@ export default function CreateCharacterFromReferencePage() {
       <div className="character-create-page__inner">
         <CharacterCreateHeader
           activeMode="reference"
-          subtitle="Создайте персонажа на основе референс-изображения. Мы извлечём ключевые черты и сохраним идентичность."
+          subtitle="Загрузите референс-изображение и настройте параметры будущего персонажа."
         />
         <div className="character-create-content">
           <CreateCharacterFromReferenceContent />
@@ -273,7 +263,6 @@ export function CreateCharacterFromReferenceContent() {
 
       <aside className="character-reference-side">
         <GenerationSettingsPanel value={generationOptions} onChange={setGenerationOptions} />
-        <ExtractedFeaturesPanel visible={Boolean(file)} />
         <IdentityInfoPanel preserveIdentity={preserveIdentity} />
         <TipsPanel />
       </aside>
@@ -602,29 +591,6 @@ function OptionalRefinementBox({value, onChange}: OptionalRefinementBoxProps) {
           {value.length} / 300
         </div>
       </div>
-    </section>
-  );
-}
-
-function ExtractedFeaturesPanel({visible}: ExtractedFeaturesPanelProps) {
-  if (!visible) {
-    return null;
-  }
-
-  return (
-    <section className="create-side-card">
-      <div className="create-side-card__header">
-        <h2>Извлечённые характеристики</h2>
-      </div>
-
-      <dl className="extracted-features-list">
-        {extractedFeatures.map((feature) => (
-          <div className="extracted-features-list__row" key={feature.label}>
-            <dt>{feature.label}</dt>
-            <dd>{feature.value}</dd>
-          </div>
-        ))}
-      </dl>
     </section>
   );
 }

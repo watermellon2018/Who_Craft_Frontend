@@ -98,3 +98,63 @@ test('treats cancellation_requested as terminal and stops polling', async () => 
   unmount();
   jest.useRealTimers();
 });
+
+test('never overlaps polling requests when a response takes longer than the polling delay', async () => {
+  jest.useFakeTimers();
+  const secondResponse = deferred<{data: GenerationJob}>();
+  mockedApi.getJob
+    .mockResolvedValueOnce({
+      data: {
+        ...completedJob('job-a', 1, 'char-a'),
+        status: 'processing',
+        progress: 25,
+      },
+    } as never)
+    .mockImplementationOnce(() => secondResponse.promise as never);
+
+  const {result, unmount} = renderHook(() => useGenerationJob('job-a', '1', 'char-a'));
+
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(mockedApi.getJob).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    jest.advanceTimersByTime(3000);
+    await Promise.resolve();
+  });
+  expect(mockedApi.getJob).toHaveBeenCalledTimes(2);
+
+  await act(async () => {
+    jest.advanceTimersByTime(30_000);
+    await Promise.resolve();
+  });
+  expect(mockedApi.getJob).toHaveBeenCalledTimes(2);
+
+  await act(async () => {
+    secondResponse.resolve({data: completedJob('job-a', 1, 'char-a')});
+  });
+  expect(result.current.job?.status).toBe('completed');
+
+  unmount();
+  jest.useRealTimers();
+});
+
+test('retries an explicitly failed poll and clears the error while retrying', async () => {
+  mockedApi.getJob
+    .mockRejectedValueOnce(new Error('network unavailable'))
+    .mockResolvedValueOnce({data: completedJob('job-a', 1, 'char-a')} as never);
+
+  const {result} = renderHook(() => useGenerationJob('job-a', '1', 'char-a'));
+
+  await waitFor(() => expect(result.current.errorMessage).toBe('network unavailable'));
+  expect(result.current.loading).toBe(false);
+
+  act(() => result.current.retry());
+  expect(result.current.errorMessage).toBeNull();
+  expect(result.current.loading).toBe(true);
+
+  await waitFor(() => expect(result.current.job?.status).toBe('completed'));
+  expect(mockedApi.getJob).toHaveBeenCalledTimes(2);
+  expect(result.current.errorMessage).toBeNull();
+});

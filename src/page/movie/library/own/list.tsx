@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, message } from 'antd';
 import withAuth from '../../../../utils/auth/check_auth';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
@@ -7,8 +7,8 @@ import './style.css';
 import {
   fetchProjectList,
   deleteProjectById,
-  ProjectListItem,
 } from '../../../../api/projects/projectList';
+import type { ProjectListItem } from '../../../../api/projects/projectList';
 import { backendAssetUrl } from '../../../../api/http';
 import { useNavigate } from 'react-router-dom';
 import {projectDashboardPath, projectEditPath} from '../../../../routes/pathConstant';
@@ -16,24 +16,29 @@ import {getApiStatus} from '../../../../api/errors';
 import ProjectCardBadges from './ProjectCardBadges';
 import InvitationsBlock from './InvitationsBlock';
 
-const PLACEHOLDER = 'https://placehold.co/195x147';
-
-const ProjectListPage = () => {
+export const ProjectListPage = () => {
   const [projectsList, setProjectList] = useState<ProjectListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const navigate = useNavigate();
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
     try {
       const projects = await fetchProjectList();
       setProjectList(projects);
     } catch {
       setProjectList([]);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadProjects();
-  }, []);
+    void loadProjects();
+  }, [loadProjects]);
 
   const deleteProject = async (id: number) => {
     try {
@@ -57,9 +62,9 @@ const ProjectListPage = () => {
     navigate(projectDashboardPath(projectId));
   };
 
-  const coverFor = (project: ProjectListItem): string => {
+  const coverFor = (project: ProjectListItem): string | null => {
     if (project.coverImageUrl) return backendAssetUrl(project.coverImageUrl);
-    return PLACEHOLDER;
+    return null;
   };
 
   return (
@@ -67,8 +72,36 @@ const ProjectListPage = () => {
       <DashboardHeader title="" />
       <main className="app-main library-projects-page text-white">
         <InvitationsBlock onAccepted={loadProjects} />
-        <div className="grid grid-cols-4 gap-4 projects-div">
-          {projectsList.map((project) => {
+        {loading && (
+          <div className="projects-state" role="status">
+            <span className="projects-state-spinner" aria-hidden="true" />
+            <h2>Загружаем проекты…</h2>
+            <p>Это займёт всего несколько секунд.</p>
+          </div>
+        )}
+
+        {!loading && loadError && (
+          <div className="projects-state projects-state-error" role="alert">
+            <h2>Не удалось загрузить проекты</h2>
+            <p>Проверьте подключение и попробуйте ещё раз.</p>
+            <button type="button" className="projects-retry-button" onClick={loadProjects}>
+              Повторить
+            </button>
+          </div>
+        )}
+
+        {!loading && !loadError && projectsList.length === 0 && (
+          <div className="projects-state projects-state-empty">
+            <span className="projects-empty-icon" aria-hidden="true">+</span>
+            <h2>У вас пока нет проектов</h2>
+            <p>Создайте первый проект, и он появится в этой библиотеке.</p>
+          </div>
+        )}
+
+        {!loading && !loadError && projectsList.length > 0 && (
+          <div className="grid grid-cols-4 gap-4 projects-div">
+            {projectsList.map((project) => {
+            const coverUrl = coverFor(project);
             const isOwner = project.currentUserRole === 'owner';
             return (
               <Card
@@ -77,11 +110,24 @@ const ProjectListPage = () => {
                 key={'my-movie-' + project.id}
                 cover={
                   <>
-                    <img
-                      src={coverFor(project)}
-                      alt={project.title}
-                      onClick={() => handleClickCard(project.id)}
-                    />
+                    {coverUrl ? (
+                      <img
+                        className="project-card-cover-image"
+                        src={coverUrl}
+                        alt={project.title}
+                        onClick={() => handleClickCard(project.id)}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="project-card-placeholder"
+                        aria-label={`Открыть проект «${project.title}»`}
+                        onClick={() => handleClickCard(project.id)}
+                      >
+                        <span className="project-card-placeholder-icon" aria-hidden="true">+</span>
+                        <span>Обложка проекта</span>
+                      </button>
+                    )}
                     {/* Owner-only quick actions. Non-owners can't edit/delete the
                         project, so we hide the icons rather than show a 403. */}
                     {isOwner && (
@@ -109,8 +155,9 @@ const ProjectListPage = () => {
                 />
               </Card>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </main>
     </>
   );

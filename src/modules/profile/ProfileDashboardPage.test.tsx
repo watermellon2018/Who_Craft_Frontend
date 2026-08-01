@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import ProfileDashboardPage from './ProfileDashboardPage';
-import { DashboardData } from './types';
+import type { DashboardData } from './types';
 
 // `ProfileSidebar` transitively imports `api/http`, which imports the
 // ESM-only `axios` package. Jest's default transformer skips node_modules
@@ -20,7 +20,7 @@ jest.mock('../../api/http', () => ({
 
 const mockFetchDashboard = jest.fn();
 jest.mock('./api/profileApi', () => ({
-  fetchDashboard: (...args: any[]) => mockFetchDashboard(...args),
+  fetchDashboard: () => mockFetchDashboard(),
   updateSettings: jest.fn(),
 }));
 
@@ -172,19 +172,60 @@ describe('ProfileDashboardPage', () => {
     });
   });
 
-  it('shows empty state for continue watching when list is empty', async () => {
+  it('hides continue watching when the list is empty', async () => {
     mockFetchDashboard.mockResolvedValueOnce(makeDashboard({ continue_watching: [] }));
     await act(async () => { renderPage(); });
     await waitFor(() => {
-      expect(screen.getByText(/ещё не смотрели/i)).toBeInTheDocument();
+      expect(screen.getAllByText('Test User').length).toBeGreaterThan(0);
     });
+    expect(screen.queryByText('Тест видео')).not.toBeInTheDocument();
   });
 
-  it('shows empty state for awards when list is empty', async () => {
+  it('hides awards when the list is empty', async () => {
     mockFetchDashboard.mockResolvedValueOnce(makeDashboard({ awards: [] }));
     await act(async () => { renderPage(); });
     await waitFor(() => {
-      expect(screen.getByText(/первых действий/i)).toBeInTheDocument();
+      expect(screen.getAllByText('Test User').length).toBeGreaterThan(0);
     });
+    expect(screen.queryByText('Первый шаг')).not.toBeInTheDocument();
+  });
+
+  it('hides unavailable stats and analytics while keeping core cards', async () => {
+    const dashboard = makeDashboard();
+    mockFetchDashboard.mockResolvedValueOnce(makeDashboard({
+      stats: {...dashboard.stats, available: false},
+      views_analytics: {...dashboard.views_analytics, available: false},
+    }));
+
+    await act(async () => { renderPage(); });
+    await waitFor(() => {
+      expect(screen.getAllByText('Test User').length).toBeGreaterThan(0);
+    });
+
+    expect(screen.queryByText('1.0K')).not.toBeInTheDocument();
+    expect(screen.queryByText('Статистика просмотров')).not.toBeInTheDocument();
+    expect(screen.getByText('Текст о себе')).toBeInTheDocument();
+    expect(screen.getAllByRole('switch').length).toBeGreaterThan(0);
+  });
+
+  it('hides every optional collection card when its array is empty', async () => {
+    mockFetchDashboard.mockResolvedValueOnce(makeDashboard({
+      awards: [],
+      continue_watching: [],
+      favorite_authors: [],
+      favorite_genres: [],
+      recent_activity: [],
+    }));
+
+    await act(async () => { renderPage(); });
+    await waitFor(() => {
+      expect(screen.getAllByText('Test User').length).toBeGreaterThan(0);
+    });
+
+    expect(screen.queryByText('Первый шаг')).not.toBeInTheDocument();
+    expect(screen.queryByText('Фэнтези')).not.toBeInTheDocument();
+    expect(screen.queryByText('Тест видео')).not.toBeInTheDocument();
+    expect(screen.queryByText('Вы подписались на автора')).not.toBeInTheDocument();
+    expect(screen.queryByText('Visual Alchemist')).not.toBeInTheDocument();
   });
 });

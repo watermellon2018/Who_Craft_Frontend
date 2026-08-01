@@ -3,6 +3,7 @@ import {Button, Collapse, Modal, message} from 'antd';
 import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, MoreOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
+import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
 import {characterApi} from '../api/characterApi';
 import type {CharacterGenerationPreview} from '../api/characterApi';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
@@ -206,12 +207,17 @@ function CharacterEditorPageContent() {
   const [activeTab, setActiveTab] = useState<string>('face');
   const [activeViewMode, setActiveViewMode] = useState<CharacterViewMode>('portrait');
   const [jobId, setJobId] = useState<string>();
-  const {job} = useGenerationJob(jobId, projectId, characterId);
+  const {
+    errorMessage: jobPollingError,
+    job,
+    retry: retryJobPolling,
+  } = useGenerationJob(jobId, projectId, characterId);
   const [selectedVariant, setSelectedVariant] = useState<CharacterVariant | null>(null);
   const [previewedJobId, setPreviewedJobId] = useState<string>();
   const [notifiedFailedJobId, setNotifiedFailedJobId] = useState<string>();
   const [hydratedCharacterId, setHydratedCharacterId] = useState<string>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const {allowNextNavigation} = useUnsavedChangesGuard(hasUnsavedChanges);
   const editRevisionRef = useRef(0);
   const [saving, setSaving] = useState(false);
   const [personalityEdits, setPersonalityEdits] = useState<Partial<StudioCharacter>>({});
@@ -272,13 +278,14 @@ function CharacterEditorPageContent() {
       const deletedCharacterId = (event as CustomEvent<{characterId?: string}>).detail?.characterId;
       if (deletedCharacterId === characterId) {
         setCharacter(null);
+        allowNextNavigation();
         navigate(`/project/${projectId}/characters`, {replace: true});
       }
     };
 
     window.addEventListener(CHARACTER_DELETED_EVENT, handleDeleted);
     return () => window.removeEventListener(CHARACTER_DELETED_EVENT, handleDeleted);
-  }, [characterId, navigate, projectId, setCharacter]);
+  }, [allowNextNavigation, characterId, navigate, projectId, setCharacter]);
 
   useEffect(() => {
     const handleRenamed = (event: Event) => {
@@ -522,6 +529,7 @@ function CharacterEditorPageContent() {
     notifyCharacterTreeUpdated();
     message.success(t('characterStudio.editor.characterDeleted'));
     setCharacter(null);
+    allowNextNavigation();
     navigate(`/project/${projectId}/characters`, {replace: true});
   };
 
@@ -791,6 +799,12 @@ function CharacterEditorPageContent() {
           onJobStarted={setJobId}
           projectId={projectId}
         />
+        {jobPollingError && <div className="character-editor-polling-error" role="alert">
+          <span>{jobPollingError}</span>
+          <button type="button" onClick={retryJobPolling}>
+            {'\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c'}
+          </button>
+        </div>}
         {right}
       </>
     )}

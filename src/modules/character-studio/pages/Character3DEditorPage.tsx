@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {message} from 'antd';
 import {backendAssetUrl} from '../../../api/http';
 import {useNavigate, useParams} from 'react-router-dom';
+import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
 import BottomQuickBar from '../components/character3d/BottomQuickBar';
 import CharacterCategoryRail from '../components/character3d/CharacterCategoryRail';
 import CharacterViewport from '../components/character3d/CharacterViewport';
@@ -13,12 +14,11 @@ import {ParamHistory} from '../components/character3d/engine/history';
 import GenerationJobHistory from '../components/GenerationJobHistory';
 import {
   buildInitialZoneParams,
-  EditableZone,
   findZone,
   getAncestors,
   getTopLevelGroup,
-  ZoneGroup,
 } from '../components/character3d/zones';
+import type {EditableZone, ZoneGroup} from '../components/character3d/zones';
 
 const MOCK_CHARACTER_NAME = 'Персонаж';
 import {characterApi} from '../api/characterApi';
@@ -72,8 +72,10 @@ const Character3DEditorPageContent: React.FC = () => {
   const [symmetryEnabled, setSymmetryEnabled] = useState<boolean>(true);
   type ZoneParamsState = Record<string, Record<string, number | string | boolean>>;
   const [zoneParams, setZoneParams] = useState<ZoneParamsState>(() => buildInitialZoneParams());
-  // Baseline snapshot for the Cancel button; reset on Apply/Save.
-  const [paramsBaseline, setParamsBaseline] = useState(zoneParams);
+  // Apply changes the Cancel target, while Save alone changes persistence.
+  // Keeping both snapshots ensures Apply never disguises unsaved work.
+  const [cancelBaseline, setCancelBaseline] = useState(zoneParams);
+  const [savedBaseline, setSavedBaseline] = useState(zoneParams);
   // Which mirrored half the user edits while «Применять симметрично» is off.
   const [selectedSide, setSelectedSide] = useState<'L' | 'R'>('L');
 
@@ -148,7 +150,8 @@ const Character3DEditorPageContent: React.FC = () => {
       const merged = mergeSavedParams(saved);
       zoneParamsRef.current = merged;
       setZoneParams(merged);
-      setParamsBaseline(merged);
+      setCancelBaseline(merged);
+      setSavedBaseline(merged);
       // The loaded state is the new ground zero — nothing to undo into.
       historyRef.current.reset();
     };
@@ -243,9 +246,14 @@ const Character3DEditorPageContent: React.FC = () => {
   const editSide: 'L' | 'R' | null =
     selectedZone?.isSymmetric && !symmetryEnabled ? selectedSide : null;
   const hasUnappliedChanges = useMemo(
-    () => JSON.stringify(zoneParams) !== JSON.stringify(paramsBaseline),
-    [zoneParams, paramsBaseline],
+    () => JSON.stringify(zoneParams) !== JSON.stringify(cancelBaseline),
+    [cancelBaseline, zoneParams],
   );
+  const hasUnsavedChanges = useMemo(
+    () => JSON.stringify(zoneParams) !== JSON.stringify(savedBaseline),
+    [savedBaseline, zoneParams],
+  );
+  useUnsavedChangesGuard(hasUnsavedChanges);
 
   // ─── Handlers ───
   const handleSelectZone = useCallback((zoneId: string | null) => {
@@ -322,11 +330,11 @@ const Character3DEditorPageContent: React.FC = () => {
   }, [mutateParams]);
 
   const handleCancel = useCallback(() => {
-    mutateParams(() => paramsBaseline);
-  }, [paramsBaseline, mutateParams]);
+    mutateParams(() => cancelBaseline);
+  }, [cancelBaseline, mutateParams]);
 
   const handleApply = useCallback(() => {
-    setParamsBaseline(zoneParams);
+    setCancelBaseline(zoneParams);
     message.success('Изменения применены');
   }, [zoneParams]);
 
@@ -413,7 +421,8 @@ const Character3DEditorPageContent: React.FC = () => {
       .saveModel3D(projectId, characterId, savedParams)
       .then(() => {
         if (!pageActiveRef.current) return;
-        setParamsBaseline(savedParams);
+        setCancelBaseline(savedParams);
+        setSavedBaseline(savedParams);
         message.success('Модель сохранена');
       })
       .catch(() => {

@@ -58,7 +58,13 @@ function CharacterVariantsPageContent() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentJobId = searchParams.get('jobId') || undefined;
     const sourceTreeNodeId = searchParams.get('treeNodeId') || state.sourceTreeNodeId;
-    const {job, loading: jobLoading, errorStatus, errorMessage} = useGenerationJob(currentJobId, projectId, characterId);
+    const {
+        errorMessage,
+        errorStatus,
+        job,
+        loading: jobLoading,
+        retry: retryJobPolling,
+    } = useGenerationJob(currentJobId, projectId, characterId);
     const [characterName, setCharacterName] = useState(state.characterName ?? '');
     const [characterData, setCharacterData] = useState<StudioCharacter | null>(null);
     const [characterLoading, setCharacterLoading] = useState(!state.characterName);
@@ -294,6 +300,9 @@ function CharacterVariantsPageContent() {
                 <div className="cvp-error">
                     <p className="cvp-error__title">{title}</p>
                     <p className="cvp-error__text">{errorMessage || characterError || 'Проверьте адрес страницы и попробуйте снова.'}</p>
+                    {errorMessage && <button className="cvp-btn-accent" onClick={retryJobPolling}>
+                        {'\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c'}
+                    </button>}
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
                         {t('characterStudio.variants.backToForm')}
                     </button>

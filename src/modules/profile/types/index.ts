@@ -21,6 +21,7 @@ export interface ProfileCompletion {
 }
 
 export interface ProfileStats {
+  available?: boolean;
   new_messages: number;
   subscriptions_count: number;
   watch_history_count: number;
@@ -51,6 +52,7 @@ export interface AnalyticsSummary {
 }
 
 export interface ViewsAnalytics {
+  available?: boolean;
   period: string;
   points: AnalyticsPoint[];
   summary: AnalyticsSummary;

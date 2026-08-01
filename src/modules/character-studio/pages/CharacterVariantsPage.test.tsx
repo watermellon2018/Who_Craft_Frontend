@@ -221,11 +221,33 @@ describe('CharacterVariantsPage – initial state', () => {
       errorStatus: 403,
       errorMessage: 'Нет доступа к заданию генерации',
       isActive: false,
+      retry: jest.fn(),
       isTerminal: false,
     });
     renderPage({} as never);
     expect(screen.getByText('Нет доступа к генерации')).toBeInTheDocument();
     expect(screen.getByText('Нет доступа к заданию генерации')).toBeInTheDocument();
+  });
+
+  it('retries a failed job poll from the visible error state', () => {
+    const retry = jest.fn();
+    mockedUseGenerationJob.mockReturnValue({
+      job: null,
+      loading: false,
+      errorStatus: null,
+      errorMessage: 'Polling connection failed',
+      retry,
+      isActive: false,
+      isTerminal: false,
+    });
+
+    renderPage({} as never);
+
+    expect(screen.getByText('Polling connection failed')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {
+      name: '\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c',
+    }));
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 
   it('shows error state on job failure', () => {

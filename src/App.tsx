@@ -1,6 +1,13 @@
 import React, {useEffect, useMemo} from 'react';
 import './App.css';
-import {BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
+import {
+    createBrowserRouter,
+    Navigate,
+    Outlet,
+    RouterProvider,
+    useLocation,
+    useNavigate,
+} from 'react-router-dom';
 
 import {ConfigProvider} from 'antd';
 import MainPage from "./page/main";
@@ -193,20 +200,20 @@ function App() {
         { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
     ], []);
 
+    const router = useMemo(() => createBrowserRouter([{
+        element: <><AuthExpiryRedirect /><Outlet /></>,
+        children: [
+            ...routes.map(({path, component}) => ({path, element: component})),
+            {path: '*', element: <NotFoundPage />},
+        ],
+    }]), [routes]);
+
 
 
     return (
         <AppErrorBoundary>
             <ConfigProvider theme={theme}>
-                <BrowserRouter>
-                    <AuthExpiryRedirect />
-                    <Routes>
-                        {routes.map(({ path, component }) => (
-                            <Route key={path} path={path} element={component} />
-                        ))}
-                        <Route path="*" element={<NotFoundPage />} />
-                    </Routes>
-                </BrowserRouter>
+                <RouterProvider router={router} />
             </ConfigProvider>
         </AppErrorBoundary>
     );
