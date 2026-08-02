@@ -40,6 +40,7 @@ test('requests cancellation without presenting the job as already cancelled', as
     />,
   );
 
+  fireEvent.click(await screen.findByRole('button', {expanded: false}));
   fireEvent.click(await screen.findByRole('button', {name: 'Запросить отмену'}));
 
   await waitFor(() => {
@@ -72,4 +73,59 @@ test('retries a failed job and reports the new job id', async () => {
   fireEvent.click(await screen.findByRole('button', {name: 'Повторить'}));
 
   await waitFor(() => expect(onJobStarted).toHaveBeenCalledWith('job-2', failedJob));
+});
+
+test('keeps manually closed history closed while an active job updates', async () => {
+  const view = render(
+    <GenerationJobHistory
+      characterId="char-1"
+      currentJob={processingJob}
+      currentJobId="job-1"
+      projectId="project-1"
+    />,
+  );
+  const toggle = await screen.findByRole('button', {expanded: false});
+
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  view.rerender(
+    <GenerationJobHistory
+      characterId="char-1"
+      currentJob={{...processingJob, progress: 60}}
+      currentJobId="job-1"
+      projectId="project-1"
+    />,
+  );
+
+  await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'false'));
+  expect(screen.getAllByRole('button')).toHaveLength(1);
+});
+
+test('replaces technical reconstruction logs with a safe message', async () => {
+  const failedJob: GenerationJob = {
+    ...processingJob,
+    job_type: 'model3d_reconstruction',
+    status: 'failed',
+    error_message: "Command ['C:\\Users\\stepa\\conda.exe'] returned non-zero exit status 1.",
+  };
+  mockedApi.listGenerationJobs.mockResolvedValue({data: {jobs: [failedJob]}} as never);
+
+  render(
+    <GenerationJobHistory
+      characterId="char-1"
+      currentJob={failedJob}
+      currentJobId="job-1"
+      defaultOpen
+      projectId="project-1"
+    />,
+  );
+
+  expect(await screen.findByText(
+    '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c 3D-\u043c\u043e\u0434\u0435\u043b\u044c. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u043f\u044b\u0442\u043a\u0443.',
+  )).toBeInTheDocument();
+  expect(screen.queryByText(/conda\.exe/i)).not.toBeInTheDocument();
 });

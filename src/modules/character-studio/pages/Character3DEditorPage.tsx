@@ -46,6 +46,7 @@ import './Character3DEditorPage.css';
 // characterApi.getModel3D / saveModel3D.
 const MODEL3D_AUTOFIT_VERSION = 7;
 
+const MODEL3D_HISTORY_JOB_TYPES = ['model3d_reconstruction'] as const;
 const versionedAssetUrl = (url: string, assetId?: string | null): string => {
   const resolved = backendAssetUrl(url);
   if (!assetId) return resolved;
@@ -542,15 +543,6 @@ const Character3DEditorPageContent: React.FC = () => {
         <CharacterCategoryRail active={activeGroup} onSelect={handleCategorySelect} />
 
         <main className="c3d-stage">
-          <GenerationJobHistory
-            characterId={characterId}
-            className="c3d-generation-history"
-            currentJob={reconstructionGenerationJob}
-            currentJobId={reconstruction?.job_id}
-            onJobStarted={handleGenerationJobStarted}
-            projectId={projectId ?? ''}
-          />
-
           <CharacterViewport
             hoveredZoneId={hoveredZoneId}
 
@@ -608,6 +600,17 @@ const Character3DEditorPageContent: React.FC = () => {
       </div>
 
       <BottomQuickBar
+        generationHistory={(
+          <GenerationJobHistory
+            allowedJobTypes={MODEL3D_HISTORY_JOB_TYPES}
+            characterId={characterId}
+            className="c3d-generation-history"
+            currentJob={reconstructionGenerationJob}
+            currentJobId={reconstruction?.job_id}
+            onJobStarted={handleGenerationJobStarted}
+            projectId={projectId ?? ''}
+          />
+        )}
         selectedZone={selectedZone}
         zoneParams={zoneParams[selectedZoneId ?? ''] ?? {}}
         hasChanges={hasUnappliedChanges}

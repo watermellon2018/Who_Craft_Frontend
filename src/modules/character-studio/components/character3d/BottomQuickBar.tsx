@@ -13,6 +13,7 @@ import type {EditableZone} from './zones';
 interface Props {
   selectedZone: EditableZone | null;
   zoneParams: Record<string, number | string | boolean>;
+  generationHistory?: React.ReactNode;
   hasChanges: boolean;
   canUndo: boolean;
   canRedo: boolean;
@@ -52,6 +53,7 @@ const VIEW_PRESETS: {angle: ViewAngle; label: string; title: string}[] = [
 //             selected).
 const BottomQuickBar: React.FC<Props> = ({
   selectedZone,
+  generationHistory,
   zoneParams,
   hasChanges,
   canUndo,
@@ -186,6 +188,7 @@ const BottomQuickBar: React.FC<Props> = ({
       </div>
 
       <div className="c3d-bottom__right">
+        {generationHistory}
         <button type="button" className="c3d-bottom__ghost" onClick={onCancel}>
           Отмена
         </button>

@@ -195,8 +195,10 @@ const CharacterReferencesPage: React.FC = () => {
 
   const characterName = refs.state?.character.name || 'Персонаж';
   const identityLocked = Boolean(refs.state?.character.identity_locked);
+  const checklist = refs.state?.checklist || EMPTY_CHECKLIST;
   const canProceed = canProceedTo3DFromReferences({
     references: referencesList,
+    checklist,
     activeJobs: refs.activeJobs,
     autoGenerationActive: refs.autoGenerationActive,
     serverAllowsProceed: Boolean(refs.state?.can_proceed_to_3d),
@@ -254,7 +256,7 @@ const CharacterReferencesPage: React.FC = () => {
           <ReferenceRightPanel
             references={referencesList}
             selected={selected}
-            checklist={refs.state?.checklist || EMPTY_CHECKLIST}
+            checklist={checklist}
             onChecklistChange={handleChecklistChange}
             blockers={blockers}
             canProceed={canProceed}

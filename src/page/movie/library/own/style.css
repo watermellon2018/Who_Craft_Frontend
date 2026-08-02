@@ -84,16 +84,16 @@
 .project-card-cover-image,
 .project-card-placeholder {
     width: 100%;
-    height: 147px;
 }
 
 .project-card-cover-image {
     display: block;
-    object-fit: cover;
+    height: auto;
 }
 
 .project-card-placeholder {
     display: flex;
+    aspect-ratio: 195 / 147;
     align-items: center;
     justify-content: center;
     flex-direction: column;

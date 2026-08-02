@@ -18,6 +18,32 @@ const STATUS_LABELS: Record<GenerationJob['status'], string> = {
   cancelled: 'Отменено',
 };
 
+const TECHNICAL_ERROR_MARKERS = [
+  'command [',
+  'traceback',
+  'returned non-zero exit status',
+  ':\\users\\',
+  '/users/',
+  '/home/',
+  'static\\media\\',
+  'static/media/',
+] as const;
+const GENERATION_FAILURE_MESSAGE = '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044e. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u043f\u044b\u0442\u043a\u0443.';
+const MODEL3D_FAILURE_MESSAGE = '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c 3D-\u043c\u043e\u0434\u0435\u043b\u044c. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u043f\u044b\u0442\u043a\u0443.';
+
+function publicFailureMessage(job: GenerationJob): string {
+  const message = job.error_message?.trim();
+  if (job.job_type === 'model3d_reconstruction') {
+    return MODEL3D_FAILURE_MESSAGE;
+  }
+  if (!message) return GENERATION_FAILURE_MESSAGE;
+  const normalized = message.toLowerCase();
+  if (TECHNICAL_ERROR_MARKERS.some((marker) => normalized.includes(marker))) {
+    return GENERATION_FAILURE_MESSAGE;
+  }
+  return message;
+}
+
 interface GenerationJobHistoryProps {
   allowedJobTypes?: readonly string[];
   characterId: string;
@@ -82,6 +108,7 @@ export default function GenerationJobHistory({
     );
   }, [allowedJobTypes, currentJob, currentJobId, jobs]);
 
+  const activeCount = visibleJobs.filter((job) => isGenerationJobActive(job.status)).length;
   const load = useCallback(async (alive?: () => boolean) => {
     const sequence = ++loadSequenceRef.current;
     const isStale = () => (
@@ -106,7 +133,7 @@ export default function GenerationJobHistory({
     setLoading(true);
     const poll = async () => {
       await load(() => alive);
-      if (alive) {
+      if (alive && (open || activeCount > 0)) {
         timer = window.setTimeout(() => void poll(), HISTORY_POLL_INTERVAL_MS);
       }
     };
@@ -116,11 +143,7 @@ export default function GenerationJobHistory({
       alive = false;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [load]);
-
-  useEffect(() => {
-    if (visibleJobs.some((job) => isGenerationJobActive(job.status))) setOpen(true);
-  }, [visibleJobs]);
+  }, [activeCount, load, open]);
 
   const retry = async (sourceJob: GenerationJob) => {
     loadSequenceRef.current += 1;
@@ -160,8 +183,6 @@ export default function GenerationJobHistory({
       setActionJobId(null);
     }
   };
-
-  const activeCount = visibleJobs.filter((job) => isGenerationJobActive(job.status)).length;
 
   return (
     <section className={`generation-history ${className}`.trim()}>
@@ -212,8 +233,8 @@ export default function GenerationJobHistory({
                     Уже начатая генерация может завершиться, но результат не будет применён.
                   </p>
                 )}
-                {job.status === 'failed' && job.error_message && (
-                  <p className="generation-history__notice generation-history__notice--error">{job.error_message}</p>
+                {job.status === 'failed' && (
+                  <p className="generation-history__notice generation-history__notice--error">{publicFailureMessage(job)}</p>
                 )}
               </div>
             );
