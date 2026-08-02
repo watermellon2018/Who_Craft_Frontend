@@ -49,7 +49,7 @@ interface Props {
   zoneParams: ZoneParams;
   reconstructedHeadUrl: string | null;
   reconstructedHairUrl?: string | null;
-  reconstructionStatus?: 'missing' | 'queued' | 'processing' | 'ready' | 'failed';
+  reconstructionStatus?: 'missing' | 'queued' | 'processing' | 'cancellation_requested' | 'ready' | 'failed';
   reconstructionProgress?: number;
   reconstructionError?: string;
   reconstructionRetryBusy?: boolean;
@@ -85,7 +85,9 @@ const CharacterViewport: React.FC<Props> = ({
   const [loadFailed, setLoadFailed] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(false);
   const reconstructionInProgress =
-    reconstructionStatus === 'queued' || reconstructionStatus === 'processing';
+    reconstructionStatus === 'queued' ||
+    reconstructionStatus === 'processing' ||
+    reconstructionStatus === 'cancellation_requested';
   const boundedReconstructionProgress = Math.max(
     0,
     Math.min(100, reconstructionProgress),
@@ -374,6 +376,8 @@ const CharacterViewport: React.FC<Props> = ({
             <span>
               {loadFailed
                 ? 'Персональная модель готова, но GLB не удалось загрузить. Обновите страницу'
+                : reconstructionStatus === 'cancellation_requested'
+                  ? 'Отмена запрошена'
                 : reconstructionStatus === 'failed'
                   ? reconstructionError || 'Не удалось создать 3D-модель по референсам'
                   : reconstructionStatus === 'missing'
@@ -394,7 +398,11 @@ const CharacterViewport: React.FC<Props> = ({
                 >
                   <span style={{width: `${visibleReconstructionProgress}%`}} />
                 </div>
-                <small>Создание продолжается в фоне и может занять несколько минут.</small>
+                <small>
+                  {reconstructionStatus === 'cancellation_requested'
+                    ? 'Уже начатая реконструкция может завершиться, но результат не будет применён.'
+                    : 'Создание продолжается в фоне и может занять несколько минут.'}
+                </small>
               </>
             ) : null}
           </div>

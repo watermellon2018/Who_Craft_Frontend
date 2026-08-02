@@ -6,7 +6,8 @@ import {
   BoxPlotOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
-import { ACCENT_HEX, PipelineStepMock } from './mocks';
+import {ACCENT_HEX} from './mocks';
+import type {PipelineStepMock} from './mocks';
 
 const ICONS: Record<PipelineStepMock['iconKey'], React.ReactNode> = {
   script: <FileTextOutlined />,
@@ -16,14 +17,22 @@ const ICONS: Record<PipelineStepMock['iconKey'], React.ReactNode> = {
   video: <VideoCameraOutlined />,
 };
 
-const PipelineStep: React.FC<{ step: PipelineStepMock }> = ({ step }) => {
+interface PipelineStepProps {
+  step: PipelineStepMock;
+  enabled: boolean;
+  onSelect?: (key: string) => void;
+}
+
+const PipelineStep: React.FC<PipelineStepProps> = ({step, enabled, onSelect}) => {
   const accent = ACCENT_HEX[step.accent];
   return (
-    <div
+    <button
+      type="button"
       className="proj-pipeline-step"
-      onClick={() => undefined}
-      role="button"
-      tabIndex={0}
+      onClick={enabled ? () => onSelect?.(step.key) : undefined}
+      disabled={!enabled}
+      title={enabled ? `Открыть: ${step.label}` : `${step.label}: раздел пока недоступен`}
+      aria-label={enabled ? `Открыть: ${step.label}` : `${step.label}: раздел пока недоступен`}
     >
       <div className="flex items-center justify-between mb-3">
         <div
@@ -42,26 +51,33 @@ const PipelineStep: React.FC<{ step: PipelineStepMock }> = ({ step }) => {
       <div className="proj-progress-track mt-3">
         <div
           className="proj-progress-fill"
-          style={{ width: `${step.progress}%`, background: accent }}
+          style={{width: `${step.progress}%`, background: accent}}
         />
       </div>
-    </div>
+    </button>
   );
 };
 
 interface Props {
   pipeline: PipelineStepMock[];
+  onStep?: (key: string) => void;
+  isStepEnabled?: (key: string) => boolean;
 }
 
-const ProjectPipeline: React.FC<Props> = ({ pipeline }) => {
+const ProjectPipeline: React.FC<Props> = ({pipeline, onStep, isStepEnabled}) => {
   return (
     <section className="proj-card p-5 sm:p-6">
       <div className="flex items-center justify-between mb-5">
         <h3 className="proj-section-title">Структура проекта</h3>
       </div>
       <div className="proj-pipeline-grid">
-        {pipeline.map((s) => (
-          <PipelineStep key={s.key} step={s} />
+        {pipeline.map((step) => (
+          <PipelineStep
+            key={step.key}
+            step={step}
+            enabled={Boolean(onStep && isStepEnabled?.(step.key))}
+            onSelect={onStep}
+          />
         ))}
       </div>
     </section>

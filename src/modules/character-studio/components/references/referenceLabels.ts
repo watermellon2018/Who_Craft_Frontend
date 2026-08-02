@@ -25,6 +25,10 @@ const BLOCKER_MESSAGES: Record<string, string> = {
   missing_profile_or_three_quarter: 'нет профиля или 3/4 ракурса',
   missing_back_view: 'не готов вид со спины',
   generation_in_progress: 'идёт активная генерация',
+  appearance_not_confirmed: 'подтвердите стабильность внешности',
+  face_not_confirmed: 'подтвердите совпадение лица',
+  outfit_not_confirmed: 'подтвердите читаемость одежды',
+  suitability_for_3d_not_confirmed: 'подтвердите готовность референсов для 3D',
 };
 
 export function describeBlockers(blockers: string[]): string {

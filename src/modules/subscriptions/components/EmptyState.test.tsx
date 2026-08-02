@@ -9,7 +9,7 @@ describe('EmptyState', () => {
     // After i18n migration the message is a single interpolated string —
     // match by substring so the test isn't coupled to JSX structure.
     expect(
-      screen.getByText((_, node) => Boolean(node?.textContent?.includes('«foobar»'))),
+      screen.getByText(/По запросу «foobar» ничего не найдено/),
     ).toBeInTheDocument();
   });
 

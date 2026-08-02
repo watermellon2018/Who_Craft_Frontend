@@ -6,7 +6,8 @@ import {
   EnvironmentOutlined,
   RightOutlined,
 } from '@ant-design/icons';
-import { ACCENT_HEX, QuickActionMock } from './mocks';
+import {ACCENT_HEX} from './mocks';
+import type {QuickActionMock} from './mocks';
 
 const ICONS: Record<QuickActionMock['iconKey'], React.ReactNode> = {
   newScene: <PlusOutlined />,
@@ -18,22 +19,26 @@ const ICONS: Record<QuickActionMock['iconKey'], React.ReactNode> = {
 interface Props {
   actions: QuickActionMock[];
   onAction?: (key: string) => void;
+  isActionEnabled?: (key: string) => boolean;
 }
 
-const QuickActionsCard: React.FC<Props> = ({ actions, onAction }) => {
+const QuickActionsCard: React.FC<Props> = ({actions, onAction, isActionEnabled}) => {
   return (
     <div className="proj-card p-5">
       <h4 className="text-white text-sm font-semibold mb-3">Быстрые действия</h4>
       <div className="flex flex-col">
-        {actions.map((a) => {
-          const accent = ACCENT_HEX[a.accent];
+        {actions.map((action) => {
+          const accent = ACCENT_HEX[action.accent];
+          const enabled = Boolean(onAction && isActionEnabled?.(action.key));
           return (
-            <div
-              key={a.key}
+            <button
+              type="button"
+              key={action.key}
               className="proj-action-row"
-              onClick={() => onAction?.(a.key)}
-              role="button"
-              tabIndex={0}
+              onClick={enabled ? () => onAction?.(action.key) : undefined}
+              disabled={!enabled}
+              title={enabled ? action.label : `${action.label}: функция пока недоступна`}
+              aria-label={enabled ? action.label : `${action.label}: функция пока недоступна`}
             >
               <span
                 className="proj-action-icon"
@@ -42,13 +47,13 @@ const QuickActionsCard: React.FC<Props> = ({ actions, onAction }) => {
                   color: accent,
                 }}
               >
-                {ICONS[a.iconKey]}
+                {ICONS[action.iconKey]}
               </span>
               <span className="text-white/90 text-sm font-medium flex-1 truncate">
-                {a.label}
+                {action.label}
               </span>
-              <RightOutlined style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }} />
-            </div>
+              <RightOutlined style={{fontSize: 11, color: 'rgba(255,255,255,0.5)'}} />
+            </button>
           );
         })}
       </div>

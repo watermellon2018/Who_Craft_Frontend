@@ -16,8 +16,10 @@ import {useNavigate} from 'react-router-dom';
 import WCraftBrand from '../../components/WCraftBrand';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
-import PathConstants from '../../routes/pathConstant';
+import {useUnsavedChangesGuard} from '../../utils/useUnsavedChangesGuard';
+import PathConstants, {projectDashboardPath} from '../../routes/pathConstant';
 import {sceneToPlainText} from './api';
+import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
 import CardsView from './CardsView';
 import CharactersView from './CharactersView';
 import LocationsPlaceholder from './LocationsPlaceholder';
@@ -45,6 +47,9 @@ export default function ScriptPage() {
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
   const workspace = useScriptWorkspace(projectId);
+  const {allowNextNavigation} = useUnsavedChangesGuard(
+    workspace.dirtySceneIds.length > 0,
+  );
 
   const exportScript = () => {
     const content = workspace.scenes.map(sceneToPlainText).join('\n\n\n');
@@ -60,7 +65,14 @@ export default function ScriptPage() {
   const finish = async () => {
     const saved = await workspace.saveSelectedScene();
     if (!saved) return;
-    navigate(PathConstants.PROJECT_PAGE, {state: {project_id: projectId}});
+    if (!projectId) return;
+    if (canBypassUnsavedChangesAfterSelectedSceneSave(
+      workspace.dirtySceneIds,
+      workspace.selectedScene?.id,
+    )) {
+      allowNextNavigation();
+    }
+    navigate(projectDashboardPath(projectId));
   };
 
   const deleteScene = (sceneId: number) => {
@@ -150,8 +162,8 @@ export default function ScriptPage() {
         ))}
       </div>
       <div className="script-rail__support">
-        <button aria-label="Настройки"><SettingOutlined /></button>
-        <button aria-label="Помощь"><QuestionCircleOutlined /></button>
+        <button disabled aria-label="Настройки недоступны" title="Настройки сценария пока недоступны"><SettingOutlined /></button>
+        <button disabled aria-label="Помощь недоступна" title="Раздел помощи пока недоступен"><QuestionCircleOutlined /></button>
       </div>
     </aside>
 

@@ -221,10 +221,6 @@ function confirmDelete(nodes: CharacterTreeNode[]) {
   });
 }
 
-function isSuccessfulResponse(response: {status?: number} | null | undefined) {
-  return typeof response?.status === 'number' && response.status >= 200 && response.status < 300;
-}
-
 function wait(delayMs: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, delayMs);
@@ -472,10 +468,10 @@ export default function CharacterTreeSidebar({
       // hides drafts on the server, which is exactly what we want here too.
       const [treeResponse, charactersResponse] = await Promise.all([
         get_all_character_for_project(projectId),
-        characterApi.list(projectId).catch(() => null),
+        characterApi.list(projectId),
       ]);
-      const treeNodes: CharacterTreeNode[] = treeResponse?.data || [];
-      const studioCharacters: StudioCharacter[] = charactersResponse?.data || [];
+      const treeNodes: CharacterTreeNode[] = treeResponse;
+      const studioCharacters: StudioCharacter[] = charactersResponse.data || [];
 
       // Build a lookup of which character_ids the gallery considers visible.
       // Any tree leaf whose character_id is NOT in this set is either a draft
@@ -526,6 +522,9 @@ export default function CharacterTreeSidebar({
         });
 
       setTreeData([...prunedTree, ...orphans]);
+    } catch {
+      setTreeData([]);
+      message.error(tx('characterStudio.tree.reloadError'));
     } finally {
       setLoading(false);
     }
@@ -577,16 +576,16 @@ export default function CharacterTreeSidebar({
       return;
     }
 
-    const response = await renameCharacterFromTree(id, name);
-    if (!isSuccessfulResponse(response)) {
+    try {
+      const response = await renameCharacterFromTree(id, name);
+      const characterId = response.character_id || node.data.character_id;
+      if (characterId) {
+        notifyCharacterRenamed(characterId, name);
+        notifyCharacterListUpdated();
+      }
+    } catch {
       message.error(tx('characterStudio.tree.renameError'));
       await loadTree();
-      return;
-    }
-    const characterId = response?.data?.character_id || node.data.character_id;
-    if (characterId) {
-      notifyCharacterRenamed(characterId, name);
-      notifyCharacterListUpdated();
     }
   };
 
@@ -610,14 +609,9 @@ export default function CharacterTreeSidebar({
     const syntheticNodes = persistedNodes.filter((node) => node.__synthetic && node.character_id);
 
     try {
-      const treeResponses = await Promise.all(
+      await Promise.all(
         treeDeleteNodes.map((node) => deleteCharacterFromTree(node.id)),
       );
-      if (treeResponses.some((response) => !isSuccessfulResponse(response))) {
-        message.error(tx('characterStudio.tree.deleteError'));
-        await loadTree();
-        return;
-      }
 
       await Promise.all(
         syntheticNodes.map((node) =>
@@ -663,10 +657,7 @@ export default function CharacterTreeSidebar({
         return;
       }
 
-      const response = await createCharacterFromTreeAPI(node.id, name, 'node', projectId, getNodeParentId(currentNode));
-      if (!isSuccessfulResponse(response)) {
-        throw new Error('Create folder failed');
-      }
+      await createCharacterFromTreeAPI(node.id, name, 'node', projectId, getNodeParentId(currentNode));
 
       pendingNodeIdsRef.current.delete(node.id);
       persisted = true;
@@ -679,7 +670,7 @@ export default function CharacterTreeSidebar({
       return;
     }
 
-    await loadTree().catch(() => message.error(tx('characterStudio.tree.reloadError')));
+    await loadTree();
   };
 
   const createCharacter = async () => {
@@ -705,10 +696,7 @@ export default function CharacterTreeSidebar({
         return;
       }
 
-      const response = await createCharacterFromTreeAPI(node.id, name, 'leaf', projectId, getNodeParentId(currentNode));
-      if (!isSuccessfulResponse(response)) {
-        throw new Error('Create character tree node failed');
-      }
+      await createCharacterFromTreeAPI(node.id, name, 'leaf', projectId, getNodeParentId(currentNode));
 
       pendingNodeIdsRef.current.delete(node.id);
       persisted = true;
@@ -722,7 +710,7 @@ export default function CharacterTreeSidebar({
       return;
     }
 
-    await loadTree().catch(() => message.error(tx('characterStudio.tree.reloadError')));
+    await loadTree();
   };
 
   if (collapsed) {

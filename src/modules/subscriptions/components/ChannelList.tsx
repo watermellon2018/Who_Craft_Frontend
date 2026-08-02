@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Channel } from '../types';
+import type {Channel} from '../types';
 import ChannelRow from './ChannelRow';
 import EmptyState from './EmptyState';
 import {CRAFT_ACCENT} from '../../../constants/theme';
@@ -14,6 +14,7 @@ interface Props {
   isSearchMode: boolean;
   searchQuery: string;
   isLoading?: boolean;
+  isLoadingMore?: boolean;
   onSubscribe: (id: number) => void;
   onUnsubscribe: (id: number) => void;
   onShowMore: () => void;
@@ -42,6 +43,7 @@ const ChannelList: React.FC<Props> = ({
   isSearchMode,
   searchQuery,
   isLoading,
+  isLoadingMore = false,
   onSubscribe,
   onUnsubscribe,
   onShowMore,
@@ -142,13 +144,16 @@ const ChannelList: React.FC<Props> = ({
           </span>
           {shown < total && (
             <button
+              type="button"
               onClick={onShowMore}
-              className="text-xs font-medium transition-colors duration-150"
+              disabled={isLoadingMore}
+              aria-busy={isLoadingMore}
+              className="text-xs font-medium transition-colors duration-150 disabled:cursor-wait disabled:opacity-50"
               style={{ color: 'rgba(255,255,255,0.45)' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = CRAFT_ACCENT; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.45)'; }}
             >
-              {t('subscriptions.list.showMore')}
+              {isLoadingMore ? t('subscriptions.list.loading') : t('subscriptions.list.showMore')}
             </button>
           )}
         </div>

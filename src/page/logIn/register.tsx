@@ -17,7 +17,8 @@ import {
 
 import './login.css';
 import './registration.css';
-import { register } from '../../api/auth/register';
+import {register} from '../../api/auth/register';
+import {getApiErrorMessage} from '../../api/errors';
 import PathConstants from '../../routes/pathConstant';
 
 interface RegistrationValues {
@@ -77,25 +78,18 @@ const RegistrationPage: React.FC = () => {
         // when filled — DRF ignores unknown fields, so contract stays intact and
         // the FE is ready when backend starts persisting it.
         const trimmedEmail = (values.email ?? '').trim();
-        const payload: Record<string, string> = {
+        const payload = {
             username: values.username.trim(),
             password: values.password,
+            ...(trimmedEmail ? {email: trimmedEmail} : {}),
         };
-        if (trimmedEmail.length > 0) {
-            payload.email = trimmedEmail;
-        }
 
         try {
             // ``register`` already persists the token via api/http.ts.
-            const res = await register(payload as { username: string; password: string });
-            const token = (res as any)?.data?.token;
-            navigate(token ? PathConstants.HOME : PathConstants.LOGIN);
-        } catch (err: any) {
-            // Never log the raw error — it embeds the request body (password).
-            const backendMsg =
-                (err && (err.username?.[0] || err.detail || err.message)) ||
-                (typeof err === 'string' ? err : null);
-            setErrorMessage(backendMsg || t('auth.register.createError'));
+            const response = await register(payload);
+            navigate(response.token ? PathConstants.HOME : PathConstants.LOGIN);
+        } catch (error: unknown) {
+            setErrorMessage(getApiErrorMessage(error, t('auth.register.createError')));
         } finally {
             setLoading(false);
         }

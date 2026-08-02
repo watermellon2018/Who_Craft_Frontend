@@ -93,9 +93,22 @@ const ReferenceRightPanel: React.FC<Props> = ({
       </div>
 
       <div className="character-settings-panel__body">
-        <p className="character-section-description">
-          Убедитесь, что основные ракурсы готовы и персонаж выглядит стабильно.
-        </p>
+        <div className="character-settings-section">
+          <h3>Проверка качества</h3>
+          <div className="references-quality-checklist">
+            {userItems.map((item) => (
+              <Checkbox
+                key={item.key}
+                checked={Boolean(checklist[item.key])}
+                onChange={(event) =>
+                  onChecklistChange({[item.key]: event.target.checked} as Partial<ReferencesChecklist>)
+                }
+              >
+                {item.label}
+              </Checkbox>
+            ))}
+          </div>
+        </div>
 
         <div className="character-settings-section character-settings-section--primary">
           <div className="references-required__header">
@@ -128,23 +141,6 @@ const ReferenceRightPanel: React.FC<Props> = ({
               </li>
             ))}
           </ul>
-        </div>
-
-        <div className="character-settings-section">
-          <h3>Проверка качества</h3>
-          <div className="references-quality-checklist">
-            {userItems.map((item) => (
-              <Checkbox
-                key={item.key}
-                checked={Boolean(checklist[item.key])}
-                onChange={(event) =>
-                  onChecklistChange({[item.key]: event.target.checked} as Partial<ReferencesChecklist>)
-                }
-              >
-                {item.label}
-              </Checkbox>
-            ))}
-          </div>
         </div>
 
         <div className="character-settings-section">

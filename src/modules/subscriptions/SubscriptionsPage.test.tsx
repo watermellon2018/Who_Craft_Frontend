@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 
 // Stub the shared axios wrapper so importing the page (which transitively
 // loads ../profile/api/profileApi → ../../api/http → axios ESM) doesn't
@@ -146,6 +146,42 @@ describe('SubscriptionsPage – subscribe / unsubscribe error', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Bob')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('SubscriptionsPage – pagination', () => {
+  it('loads the next page with the current item count as offset', async () => {
+    const firstPage = Array.from({length: 20}, (_, index) => apiChannel({
+      id: index + 1,
+      displayName: `Channel ${index + 1}`,
+      username: `channel${index + 1}`,
+    }));
+    mockedSubs.fetchMySubscriptions
+      .mockResolvedValueOnce({
+        items: firstPage,
+        total: 21,
+        favoriteCount: 0,
+        limit: 20,
+        offset: 0,
+      })
+      .mockResolvedValueOnce({
+        items: [apiChannel({id: 21, displayName: 'Channel 21', username: 'channel21'})],
+        total: 21,
+        favoriteCount: 0,
+        limit: 20,
+        offset: 20,
+      });
+
+    await act(async () => {
+      render(<SubscriptionsPage />);
+    });
+    const showMore = await screen.findByRole('button', {name: 'Показать ещё'});
+    fireEvent.click(showMore);
+
+    await waitFor(() => {
+      expect(mockedSubs.fetchMySubscriptions).toHaveBeenLastCalledWith(20, 20);
+      expect(screen.getByText('Channel 21')).toBeInTheDocument();
     });
   });
 });

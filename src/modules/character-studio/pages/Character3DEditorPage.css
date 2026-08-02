@@ -378,6 +378,39 @@
   min-height: 0;
 }
 
+.c3d-generation-history {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.c3d-generation-history .generation-history__toggle {
+  min-height: 38px;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.c3d-generation-history .generation-history__body {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  bottom: calc(100% + 14px);
+  width: min(420px, calc(100vw - 48px));
+  max-height: min(300px, 45vh);
+  padding: 10px;
+  border: 1px solid var(--c3d-line-strong);
+  border-radius: 14px;
+  background: rgba(17, 21, 28, 0.98);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5);
+}
+
 /* ───── Viewport (mock 3D area) ──────────────────────────────────── */
 .c3d-viewport {
   position: relative;

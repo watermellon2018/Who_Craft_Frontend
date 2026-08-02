@@ -1,0 +1,24 @@
+name: API contract
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev, fixed_bugs]
+
+jobs:
+  frontend-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Verify OpenAPI-generated client is current
+        run: npm run api:check
+      - name: Type-check API consumers
+        run: npx tsc --noEmit --pretty false
+      - name: Run API contract regressions
+        run: npm run contract:test

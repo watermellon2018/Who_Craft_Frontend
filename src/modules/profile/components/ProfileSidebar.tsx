@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import PathConstants from '../../../routes/pathConstant';
 import LogoButton from '../../../page/main/logo';
-import { clearStoredUserToken } from '../../../api/http';
+import { logout } from '../../../api/http';
 
 interface MenuItem {
   icon: string;
@@ -44,9 +44,9 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
     onClose();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Cookies.remove('token');
-    clearStoredUserToken();
+    await logout();
     navigate(PathConstants.AUTH);
   };
 

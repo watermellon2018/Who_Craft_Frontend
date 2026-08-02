@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { DashboardData, ProfileSettings } from './types';
+import type { DashboardData, ProfileSettings } from './types';
 import { fetchDashboard } from './api/profileApi';
 import ProfileSidebar from './components/ProfileSidebar';
 import ProfileHero from './components/ProfileHero';
@@ -81,22 +81,32 @@ const ProfileDashboardPage: React.FC = () => {
               <>
                 <ProfileHero user={data.user} />
                 <ProfileCompletion completion={data.profile_completion} />
-                <QuickStatsGrid stats={data.stats} />
+                {data.stats.available !== false && <QuickStatsGrid stats={data.stats} />}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <AwardsCard awards={data.awards} />
+                  {data.awards.length > 0 && <AwardsCard awards={data.awards} />}
                   <AboutCard bio={data.user.bio} interests={data.interests} />
-                  <FavoriteGenresCard genres={data.favorite_genres} />
+                  {data.favorite_genres.length > 0 && <FavoriteGenresCard genres={data.favorite_genres} />}
                   <SettingsCard settings={data.settings} onChange={handleSettingsChange} />
                 </div>
 
-                <ViewsAnalyticsCard analytics={data.views_analytics} />
-                <ContinueWatchingCard items={data.continue_watching} />
+                {data.views_analytics.available !== false && (
+                  <ViewsAnalyticsCard analytics={data.views_analytics} />
+                )}
+                {data.continue_watching.length > 0 && (
+                  <ContinueWatchingCard items={data.continue_watching} />
+                )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <RecentActivityCard activities={data.recent_activity} />
-                  <FavoriteAuthorsCard authors={data.favorite_authors} />
-                </div>
+                {(data.recent_activity.length > 0 || data.favorite_authors.length > 0) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {data.recent_activity.length > 0 && (
+                      <RecentActivityCard activities={data.recent_activity} />
+                    )}
+                    {data.favorite_authors.length > 0 && (
+                      <FavoriteAuthorsCard authors={data.favorite_authors} />
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>

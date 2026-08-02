@@ -27,6 +27,7 @@ interface Props {
   onCancel: () => void;
   onApply: () => void;
   onSave: () => void;
+  saveDisabled?: boolean;
 }
 
 // Right-side contextual panel. Renders only when a zone is selected.
@@ -50,6 +51,7 @@ const ContextualZonePanel: React.FC<Props> = ({
   onCancel,
   onApply,
   onSave,
+  saveDisabled = false,
 }) => {
   if (!zone) return null;
 
@@ -127,7 +129,7 @@ const ContextualZonePanel: React.FC<Props> = ({
         >
           Применить
         </button>
-        <button type="button" className="c3d-inspector__btn c3d-inspector__btn--primary" onClick={onSave}>
+        <button type="button" className="c3d-inspector__btn c3d-inspector__btn--primary" onClick={onSave} disabled={saveDisabled}>
           Сохранить
         </button>
       </footer>

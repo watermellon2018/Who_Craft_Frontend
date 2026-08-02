@@ -3,7 +3,7 @@ import {Empty} from 'antd';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import DashboardHeader, {BreadcrumbItem} from '../../profile/components/DashboardHeader';
-import PathConstants from '../../../routes/pathConstant';
+import PathConstants, {characterCreatePath, projectDashboardPath} from '../../../routes/pathConstant';
 import {fetch_project} from '../../../api/projects/properties/project';
 import CharacterTreeSidebar from './CharacterTreeSidebar';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
@@ -26,9 +26,6 @@ function buildCharactersUrl(projectId: string | number): string {
   return PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId));
 }
 
-function buildProjectLinkState(projectId: string | number): {project_id: string | number} {
-  return {project_id: projectId};
-}
 
 function useTrailingSegment(pathname: string): string | null {
   const {t} = useTranslation();
@@ -75,9 +72,9 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
     }
     let cancelled = false;
     fetch_project(projectIdKey)
-      .then((res) => {
+      .then((project) => {
         if (cancelled) return;
-        const title = res?.data?.title || res?.data?.name || '';
+        const title = project.title || '';
         if (title) {
           projectTitleCache.set(projectIdKey, title);
           setProjectTitle(title);
@@ -99,8 +96,7 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
       {label: t('characterStudio.breadcrumbs.allProjects'), to: PathConstants.PROJECTS},
       {
         label: projectTitle || t('characterStudio.breadcrumbs.project'),
-        to: PathConstants.PROJECT_PAGE,
-        state: buildProjectLinkState(projectId),
+        to: projectDashboardPath(projectId),
       },
       {label: t('characterStudio.breadcrumbs.characters'), to: buildCharactersUrl(projectId)},
     ];
@@ -152,7 +148,7 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
           collapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebar}
           onSelectCharacter={(id) => navigate(`/project/${projectId}/characters/${id}/edit`)}
-          onCreateCharacter={(name, treeNodeId) => navigate(`/project/${projectId}/characters/create`, {state: {initialCharacterName: name, sourceTreeNodeId: treeNodeId}})}
+          onCreateCharacter={(name, treeNodeId) => navigate(characterCreatePath(projectId, {treeNodeId}), {state: {initialCharacterName: name, sourceTreeNodeId: treeNodeId}})}
           onDeletedCharacter={(id) => {
             if (id === characterId) {
               navigate(`/project/${projectId}/characters`, {replace: true});

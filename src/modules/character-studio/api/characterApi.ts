@@ -1,7 +1,8 @@
 import api from '../../../api/http';
-import {
+import type {
   CreateCharacterFromReferencePayload,
   EditRequest,
+  GenerationJob,
   Model3DReconstruction,
   Model3DState,
   ReferenceType,
@@ -16,6 +17,57 @@ const base = (projectId: string | number, characterId = '') =>
   characterId
     ? `api/projects/${projectId}/characters/${characterId}`
     : `api/projects/${projectId}/characters`;
+
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableSerialize(entry)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? String(value);
+}
+
+function hashIntent(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function generationIdempotencyKey(scope: string, payload: unknown): string {
+  const safeScope = scope.replace(/[^A-Za-z0-9._:-]/g, '-');
+  return `character:${safeScope}:${hashIntent(stableSerialize(payload))}`.slice(0, 128);
+}
+
+const generationRequestConfig = (
+  scope: string,
+  payload: unknown,
+  idempotencyKey?: string,
+) => ({
+  headers: {
+    'Idempotency-Key': idempotencyKey || generationIdempotencyKey(scope, payload),
+  },
+});
+
+export interface CharacterGenerationPreview {
+  provider: string;
+  mode: 'offline' | 'paid';
+  image_types: string[];
+  provider_call_count: number;
+  estimated_cost_usd: string | null;
+  budgets: {
+    user: {used: number; limit: number};
+    project: {used: number; limit: number};
+  };
+  concurrency: {
+    global: {active: number; limit: number};
+    project: {active: number; limit: number};
+  };
+}
 
 const upload = (url: string, file: File, extra?: Record<string, string>) => {
   const form = new FormData();
@@ -52,7 +104,20 @@ export const characterApi = {
     if (payload.preserveIdentity !== undefined) {
       form.append('preserve_identity', String(payload.preserveIdentity));
     }
-    return api.post(`${base(projectId)}/from-reference`, form);
+    const fileIntent = {
+      ...payload,
+      referenceImage: {
+        name: payload.referenceImage.name,
+        size: payload.referenceImage.size,
+        type: payload.referenceImage.type,
+        lastModified: payload.referenceImage.lastModified,
+      },
+    };
+    return api.post(
+      `${base(projectId)}/from-reference`,
+      form,
+      generationRequestConfig(`${projectId}:from-reference`, fileIntent),
+    );
   },
   get(projectId: string | number, characterId: string) {
     return api.get(base(projectId, characterId));
@@ -63,17 +128,62 @@ export const characterApi = {
   delete(projectId: string | number, characterId: string) {
     return api.delete(base(projectId, characterId));
   },
-  generateInitial(projectId: string | number, characterId: string, data: Record<string, unknown>) {
-    return api.post(`${base(projectId, characterId)}/generate-initial-variants`, data);
+  getGenerationPreview(
+    projectId: string | number,
+    characterId: string,
+    imageTypes: string[],
+  ) {
+    return api.get<CharacterGenerationPreview>(
+      `${base(projectId, characterId)}/generation-preview`,
+      {params: {image_types: imageTypes.join(',')}},
+    );
   },
-  generateEdit(projectId: string | number, characterId: string, data: EditRequest) {
-    return api.post(`${base(projectId, characterId)}/generate-edit-variants`, data);
+  generateInitial(
+    projectId: string | number,
+    characterId: string,
+    data: Record<string, unknown>,
+    idempotencyKey?: string,
+  ) {
+    return api.post(
+      `${base(projectId, characterId)}/generate-initial-variants`,
+      data,
+      generationRequestConfig(`${projectId}:${characterId}:initial`, data, idempotencyKey),
+    );
   },
-  zoneEdit(projectId: string | number, characterId: string, data: ZoneEditRequest) {
-    return api.post(`${base(projectId, characterId)}/zone-edit`, data);
+  generateEdit(
+    projectId: string | number,
+    characterId: string,
+    data: EditRequest,
+    idempotencyKey?: string,
+  ) {
+    return api.post(
+      `${base(projectId, characterId)}/generate-edit-variants`,
+      data,
+      generationRequestConfig(`${projectId}:${characterId}:edit`, data, idempotencyKey),
+    );
+  },
+  zoneEdit(projectId: string | number, characterId: string, data: ZoneEditRequest, idempotencyKey?: string) {
+    return api.post(
+      `${base(projectId, characterId)}/zone-edit`,
+      data,
+      generationRequestConfig(`${projectId}:${characterId}:zone-edit`, data, idempotencyKey),
+    );
   },
   getJob(jobId: string) {
-    return api.get(`api/generation-jobs/${jobId}`);
+    return api.get<GenerationJob>(`api/generation-jobs/${jobId}`);
+  },
+  listGenerationJobs(projectId: string | number, characterId: string) {
+    return api.get<{jobs: GenerationJob[]}>(`${base(projectId, characterId)}/generation-jobs`);
+  },
+  retryGenerationJob(jobId: string) {
+    return api.post<{job?: GenerationJob; job_id: string; status: GenerationJob['status']}>(
+      `api/generation-jobs/${jobId}/retry`,
+    );
+  },
+  requestGenerationJobCancellation(jobId: string) {
+    return api.post<GenerationJob | {job?: GenerationJob; job_id: string; status: GenerationJob['status']}>(
+      `api/generation-jobs/${jobId}/cancellation-request`,
+    );
   },
   getModel3D(projectId: string | number, characterId: string) {
     return api.get<Model3DState>(`${base(projectId, characterId)}/model3d`);
@@ -87,6 +197,8 @@ export const characterApi = {
   retryModel3DReconstruction(projectId: string | number, characterId: string) {
     return api.post<{reconstruction: Model3DReconstruction}>(
       `${base(projectId, characterId)}/model3d/reconstruction`,
+      undefined,
+      generationRequestConfig(`${projectId}:${characterId}:model3d-reconstruction`, null),
     );
   },
   applyVariant(
@@ -148,14 +260,22 @@ export const characterApi = {
     characterId: string,
     payload: { reference_type: ReferenceType; correction_prompt?: string; preserve_identity?: boolean },
   ) {
-    return api.post(`${base(projectId, characterId)}/references/generate`, payload);
+    return api.post(
+      `${base(projectId, characterId)}/references/generate`,
+      payload,
+      generationRequestConfig(`${projectId}:${characterId}:reference`, payload),
+    );
   },
   generateMissingReferences(
     projectId: string | number,
     characterId: string,
     payload: { reference_types: ReferenceType[]; only_missing?: boolean; preserve_identity?: boolean },
   ) {
-    return api.post(`${base(projectId, characterId)}/references/generate-missing`, payload);
+    return api.post(
+      `${base(projectId, characterId)}/references/generate-missing`,
+      payload,
+      generationRequestConfig(`${projectId}:${characterId}:references-missing`, payload),
+    );
   },
   correctReference(
     projectId: string | number,
@@ -163,7 +283,14 @@ export const characterApi = {
     referenceId: string,
     payload: { correction_prompt: string; preserve_identity?: boolean },
   ) {
-    return api.post(`${base(projectId, characterId)}/references/${referenceId}/correct`, payload);
+    return api.post(
+      `${base(projectId, characterId)}/references/${referenceId}/correct`,
+      payload,
+      generationRequestConfig(
+        `${projectId}:${characterId}:reference:${referenceId}:correct`,
+        payload,
+      ),
+    );
   },
   uploadReference(
     projectId: string | number,
@@ -196,6 +323,10 @@ export const characterApi = {
     return api.patch(`${base(projectId, characterId)}/references/checklist`, payload);
   },
   proceedReferencesTo3D(projectId: string | number, characterId: string) {
-    return api.post(`${base(projectId, characterId)}/references/proceed-to-3d`);
+    return api.post(
+      `${base(projectId, characterId)}/references/proceed-to-3d`,
+      undefined,
+      generationRequestConfig(`${projectId}:${characterId}:proceed-to-3d`, null),
+    );
   },
 };

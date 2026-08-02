@@ -102,6 +102,40 @@
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
+.character-editor-generation-history {
+  margin-bottom: 12px;
+}
+
+.character-editor-polling-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 93, 115, 0.4);
+  border-radius: 10px;
+  background: rgba(255, 93, 115, 0.1);
+  color: #ffb4bf;
+  font-size: 13px;
+}
+
+.character-editor-polling-error button {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 180, 191, 0.55);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.character-editor-polling-error button:hover {
+  background: rgba(255, 180, 191, 0.12);
+}
+
 
 .character-editor__canvas {
   /* The center column must not scroll — the preview stage owns its size and

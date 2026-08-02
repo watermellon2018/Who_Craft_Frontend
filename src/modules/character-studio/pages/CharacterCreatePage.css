@@ -950,3 +950,23 @@
 .character-studio-dropdown .ant-select-item-empty {
   color: #6f7784;
 }
+
+.character-create-generation-error {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid rgba(255, 120, 117, 0.48);
+  border-radius: 12px;
+  background: rgba(255, 77, 79, 0.08);
+  color: #f4e7e1;
+}
+
+.character-create-generation-error p {
+  margin: 6px 0 14px;
+  color: #d9c9c4;
+}
+
+.character-create-generation-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}

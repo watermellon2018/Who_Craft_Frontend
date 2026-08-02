@@ -12,6 +12,118 @@
     min-width: inherit !important;
 }
 
+.projects-state {
+    display: flex;
+    min-height: 280px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    padding: 32px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.64);
+    text-align: center;
+}
+
+.projects-state h2,
+.projects-state p {
+    margin: 0;
+}
+
+.projects-state h2 {
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.projects-state p {
+    max-width: 420px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.projects-state-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(250, 176, 5, 0.18);
+    border-top-color: #fab005;
+    border-radius: 50%;
+    animation: projects-state-spin 700ms linear infinite;
+}
+
+.projects-empty-icon {
+    display: inline-flex;
+    width: 48px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(250, 176, 5, 0.24);
+    border-radius: 14px;
+    background: rgba(250, 176, 5, 0.1);
+    color: #fab005;
+    font-size: 28px;
+}
+
+.projects-retry-button {
+    margin-top: 6px;
+    padding: 9px 18px;
+    border: 1px solid #fab005;
+    border-radius: 9px;
+    background: #fab005;
+    color: #17191f;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.projects-retry-button:hover {
+    background: #fcc419;
+}
+
+.project-card-cover-image,
+.project-card-placeholder {
+    width: 100%;
+}
+
+.project-card-cover-image {
+    display: block;
+    height: auto;
+}
+
+.project-card-placeholder {
+    display: flex;
+    aspect-ratio: 195 / 147;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    border: 0;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(250, 176, 5, 0.18), transparent 42%),
+        linear-gradient(145deg, #252a34, #15181f);
+    color: rgba(255, 255, 255, 0.56);
+    cursor: pointer;
+    font: inherit;
+}
+
+.project-card-placeholder:focus-visible {
+    outline: 2px solid #fab005;
+    outline-offset: -2px;
+}
+
+.project-card-placeholder-icon {
+    color: #fab005;
+    font-size: 30px;
+    line-height: 1;
+}
+
+@keyframes projects-state-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* ---- Project card team meta ---- */
 .proj-card-meta {
     display: flex;

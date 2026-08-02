@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Checkbox } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { setStoredUserToken } from '../../api/http';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getApiStatus } from '../../api/errors';
+import { setStoredUserTokens } from '../../api/http';
 import {
     CaretRightOutlined,
     UserOutlined,
@@ -16,6 +17,8 @@ import {
 import './login.css';
 import { login } from '../../api/auth/login';
 import PathConstants from '../../routes/pathConstant';
+import { safeReturnTo } from '../../utils/auth/returnTo';
+import type { AuthReturnState } from '../../utils/auth/returnTo';
 
 interface LoginFormValues {
     username: string;
@@ -59,6 +62,7 @@ const PromoPanel: React.FC = () => (
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { t } = useTranslation();
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -71,16 +75,31 @@ const LoginPage: React.FC = () => {
                 username: values.username,
                 password: values.password,
             });
-            if (data && (data.status === 200 || String(data.status) === '200') && data.refresh) {
-                setStoredUserToken(data.refresh);
-                navigate(PathConstants.HOME);
+            if (
+                data &&
+                (data.status === 200 || String(data.status) === '200') &&
+                data.access &&
+                data.refresh
+            ) {
+                setStoredUserTokens(data.access, data.refresh, values.remember !== false);
+                const returnTo = safeReturnTo((location.state as AuthReturnState | null)?.returnTo);
+                navigate(returnTo || PathConstants.HOME, { replace: true });
             } else {
                 setErrorMessage(t('auth.login.invalidCredentials'));
             }
-        } catch {
+        } catch (error: unknown) {
             // NEVER log the raw error: axios errors embed the request body,
             // which means the password we just submitted.
-            setErrorMessage(t('auth.login.networkError'));
+            const status = getApiStatus(error);
+            if (status === 400 || status === 401) {
+                setErrorMessage(t('auth.login.invalidCredentials'));
+            } else if (status !== null && status >= 500) {
+                setErrorMessage(t('auth.login.serverError'));
+            } else if (status === null) {
+                setErrorMessage(t('auth.login.networkError'));
+            } else {
+                setErrorMessage(t('auth.login.requestError'));
+            }
         } finally {
             setLoading(false);
         }
@@ -150,14 +169,6 @@ const LoginPage: React.FC = () => {
                                     <Form.Item name="remember" valuePropName="checked" noStyle>
                                         <Checkbox>{t('auth.login.remember')}</Checkbox>
                                     </Form.Item>
-                                    <a
-                                        href="#"
-                                        className="wc-login__forgot"
-                                        onClick={(e) => e.preventDefault()}
-                                        // TODO: hook up to /forgot-password when route is added
-                                    >
-                                        {t('auth.login.forgot')}
-                                    </a>
                                 </div>
 
                                 {errorMessage && (

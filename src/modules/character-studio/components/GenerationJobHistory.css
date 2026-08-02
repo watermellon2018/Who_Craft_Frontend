@@ -1,0 +1,130 @@
+.generation-history {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(17, 21, 28, 0.96);
+  color: #f5f7fa;
+  overflow: hidden;
+}
+
+.generation-history__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.generation-history__summary,
+.generation-history__job-copy,
+.generation-history__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.generation-history__summary {
+  color: #929aa8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.generation-history__body {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  padding: 0 10px 10px;
+  overflow-y: auto;
+}
+
+.generation-history__job {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(8, 10, 14, 0.58);
+}
+
+.generation-history__job-copy {
+  flex-wrap: wrap;
+  color: #929aa8;
+  font-size: 11px;
+}
+
+.generation-history__job-type {
+  color: #d8dde6;
+  font-weight: 600;
+}
+
+.generation-history__status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.generation-history__status--queued,
+.generation-history__status--processing,
+.generation-history__status--cancellation_requested {
+  background: rgba(250, 176, 5, 0.12);
+  color: #f7c95d;
+}
+
+.generation-history__status--completed {
+  background: rgba(60, 203, 127, 0.12);
+  color: #72dda3;
+}
+
+.generation-history__status--failed,
+.generation-history__status--cancelled {
+  background: rgba(255, 92, 92, 0.12);
+  color: #ff8989;
+}
+
+.generation-history__actions {
+  justify-content: flex-end;
+}
+
+.generation-history__actions button {
+  padding: 5px 9px;
+  border: 1px solid rgba(250, 176, 5, 0.38);
+  border-radius: 8px;
+  background: rgba(250, 176, 5, 0.1);
+  color: #f7c95d;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.generation-history__actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.generation-history__notice,
+.generation-history__empty,
+.generation-history__error {
+  margin: 0;
+  color: #929aa8;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.generation-history__empty {
+  padding: 10px 4px;
+}
+
+.generation-history__error,
+.generation-history__notice--error {
+  color: #ff8989;
+}

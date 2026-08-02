@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import { fetchDashboard } from '../../../../modules/profile/api/profileApi';
-import { ProfileUser } from '../../../../modules/profile/types';
+import type { ProfileUser } from '../../../../modules/profile/types';
 import PathConstants from '../../../../routes/pathConstant';
 import withAuth from '../../../../utils/auth/check_auth';
 
@@ -12,16 +12,7 @@ import CharactersSection from './CharactersSection';
 import ProjectPipeline from './ProjectPipeline';
 import ProjectMusic from './ProjectMusic';
 import RightProjectPanel from './RightProjectPanel';
-import {
-  activityMock,
-  charactersMock,
-  musicMock,
-  pipelineMock,
-  progressLegendMock,
-  projectMock,
-  quickActionsMock,
-  statsMock,
-  overallProgressPercent,
+import type {
   ProjectMock,
   StatMock,
   CharacterMock,
@@ -41,17 +32,16 @@ import {
   adaptProject,
   adaptQuickActions,
   adaptStats,
-  DashboardPayload,
-  ProjectStatusValue,
   updateProject,
   updateProjectStatus,
   deleteProject as apiDeleteProject,
 } from './api';
+import type { DashboardPayload, ProjectStatusValue } from './api';
 import EditProjectModal from './EditProjectModal';
 import InviteMemberModal from '../team/InviteMemberModal';
 import { fetchTeamSummary, leaveProject, teamErrorCode } from '../../../../api/projects/team';
 import { Modal, message } from 'antd';
-import { safeHttpUrl } from '../../../../utils/safeUrl';
+import { getApiStatus } from '../../../../api/errors';
 
 import '../../../../modules/profile/profile.css';
 import './dashboard.css';
@@ -66,21 +56,7 @@ interface ViewModel {
   progressLegend: ProgressLegendItem[];
   quickActions: QuickActionMock[];
   activity: ActivityItemMock[];
-  quickActionUrls: Record<string, string>;
 }
-
-const DEMO_VIEW_MODEL: ViewModel = {
-  project: projectMock,
-  stats: statsMock,
-  characters: charactersMock,
-  pipeline: pipelineMock,
-  music: musicMock,
-  progressOverall: overallProgressPercent,
-  progressLegend: progressLegendMock,
-  quickActions: quickActionsMock,
-  activity: activityMock,
-  quickActionUrls: {},
-};
 
 function buildEmptyViewModel(): ViewModel {
   return {
@@ -126,16 +102,12 @@ function buildEmptyViewModel(): ViewModel {
       { key: 'create_location', label: 'Создать локацию', iconKey: 'newLocation', accent: 'yellow' },
     ],
     activity: [],
-    quickActionUrls: {},
   };
 }
 
 function buildViewModel(data: DashboardPayload): ViewModel {
   const progress = adaptProgress(data.progress);
-  const quickActionUrls: Record<string, string> = {};
-  (data.quickActions || []).forEach((a) => {
-    if (a.url) quickActionUrls[a.key] = a.url;
-  });
+
   return {
     project: adaptProject(data.project),
     stats: adaptStats(data.stats),
@@ -146,28 +118,26 @@ function buildViewModel(data: DashboardPayload): ViewModel {
     progressLegend: progress.legend,
     quickActions: adaptQuickActions(data.quickActions),
     activity: adaptActivity(data.recentActivity),
-    quickActionUrls,
   };
 }
 
-const ProjectDashboardPage: React.FC = () => {
+export const ProjectDashboardPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const stateProjectId = (location.state as { project_id?: string | number } | null)?.project_id;
+  const { projectId: routeProjectId } = useParams<{ projectId: string }>();
+  const projectId = routeProjectId?.trim() || null;
 
   const [user, setUser] = useState<ProfileUser | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [, setSidebarOpen] = useState(false);
   const [viewModel, setViewModel] = useState<ViewModel | null>(null);
-  const [loading, setLoading] = useState<boolean>(!!stateProjectId);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ status: number | null; message: string } | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [teamRoleOptions, setTeamRoleOptions] = useState<{ value: string; label: string }[]>([]);
 
-  // When we have a project_id we render an empty skeleton until the API
-  // responds — never the demo mocks. Demo mocks only appear when the page is
-  // opened without a project_id (e.g. design preview).
+  // Keep layout stable while the canonical URL project id is being loaded.
   const [skeleton] = useState<ViewModel>(() => buildEmptyViewModel());
 
   // Topbar user.
@@ -187,79 +157,82 @@ const ProjectDashboardPage: React.FC = () => {
 
   // Project dashboard data.
   useEffect(() => {
-    if (!stateProjectId) {
+    if (!projectId) {
       setViewModel(null);
+      setError({ status: null, message: 'Не указан проект' });
       setLoading(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchProjectDashboard(stateProjectId)
+    setViewModel(null);
+    fetchProjectDashboard(projectId)
       .then((data) => {
         if (cancelled) return;
         setViewModel(buildViewModel(data));
         setLoading(false);
       })
-      .catch((e) => {
+      .catch((requestError: unknown) => {
         if (cancelled) return;
-        const status = e?.response?.status;
-        if (status === 401) setError('Требуется авторизация');
-        else if (status === 403) setError('Нет доступа к проекту');
-        else if (status === 404) setError('Проект не найден');
-        else setError('Не удалось загрузить проект');
+        const status = getApiStatus(requestError);
+        const messageText = status === 401
+          ? 'Требуется повторная авторизация'
+          : status === 403
+            ? 'Нет доступа к проекту'
+            : status === 404
+              ? 'Проект не найден'
+              : 'Не удалось загрузить проект';
+        setError({ status, message: messageText });
         setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [stateProjectId]);
+  }, [projectId, reloadKey]);
 
-  // Render priority:
-  //  1) real data from API (viewModel)
-  //  2) skeleton if we are fetching (project_id present, no data yet)
-  //  3) demo mocks only when the page opened without a project_id
-  const usingDemo = !stateProjectId && viewModel === null;
-  const view: ViewModel = viewModel ?? (stateProjectId ? skeleton : DEMO_VIEW_MODEL);
+  const view: ViewModel = viewModel ?? skeleton;
 
-  const handleContinue = () => undefined;
   const handleOpenScript = () => {
-    if (!stateProjectId) return;
-    const url = PathConstants.SCRIPT_PAGE.replace(':projectId', String(stateProjectId));
-    navigate(url, { state: { project_id: stateProjectId } });
+    if (!projectId) return;
+    const url = PathConstants.SCRIPT_PAGE.replace(':projectId', String(projectId));
+    navigate(url, { state: { project_id: projectId } });
   };
-  const handleGenerateScene = () => undefined;
+  const handleContinue = handleOpenScript;
   const handleCreateCharacter = () => {
-    if (!stateProjectId) return;
+    if (!projectId) return;
     // Route the "create character" CTA to the modern character studio gallery
     // (the legacy ``/generating`` route was removed along with the legacy
     // hero editor).
-    const url = PathConstants.CHARACTER_STUDIO.replace(':projectId', String(stateProjectId));
+    const url = PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId));
     navigate(url);
   };
   const handleCharacterClick = useCallback(
     (characterId: string) => {
-      if (!stateProjectId) return;
+      if (!projectId) return;
       const url = PathConstants.CHARACTER_STUDIO_EDITOR
-        .replace(':projectId', String(stateProjectId))
+        .replace(':projectId', String(projectId))
         .replace(':characterId', String(characterId));
       navigate(url);
     },
-    [navigate, stateProjectId],
+    [navigate, projectId],
   );
-  const handleAddMusic = () => undefined;
-  const handleQuickAction = useCallback(
-    (key: string) => {
-      const raw = view.quickActionUrls[key];
-      // Quick-action URLs come from the API. Reject anything that isn't a
-      // safe http(s) target or a same-origin relative path — otherwise an
-      // attacker-controlled value could redirect the user to phishing.
-      const safe = safeHttpUrl(raw);
-      if (!safe) return;
-      window.open(safe, '_self');
-    },
-    [view.quickActionUrls],
-  );
+  const handleQuickAction = (key: string) => {
+    if (key === 'new_scene') handleOpenScript();
+  };
+  const isQuickActionEnabled = (key: string) =>
+    key === 'new_scene';
+
+  const handlePipelineStep = (key: string) => {
+    if (key === 'script') {
+      handleOpenScript();
+      return;
+    }
+    if (key === 'reference' && projectId) {
+      navigate(PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId)));
+    }
+  };
+  const isPipelineStepEnabled = (key: string) => key === 'script' || key === 'reference';
 
   const applySummaryToView = useCallback(
     (summary: {
@@ -299,7 +272,7 @@ const ProjectDashboardPage: React.FC = () => {
 
   const handleStatusChange = useCallback(
     async (next: ProjectStatusValue) => {
-      if (!stateProjectId) return;
+      if (!projectId) return;
       const prev = view.project.statusKey;
       // Optimistic update.
       applySummaryToView({
@@ -319,7 +292,7 @@ const ProjectDashboardPage: React.FC = () => {
       });
       setStatusUpdating(true);
       try {
-        const summary = await updateProjectStatus(stateProjectId, next);
+        const summary = await updateProjectStatus(projectId, next);
         applySummaryToView({
           title: summary.title,
           description: summary.description,
@@ -330,7 +303,7 @@ const ProjectDashboardPage: React.FC = () => {
           updatedAtLabel: summary.updatedAtLabel,
         });
         message.success('Статус обновлён');
-      } catch (e: any) {
+      } catch (requestError: unknown) {
         // Roll back.
         if (prev) {
           applySummaryToView({
@@ -342,39 +315,39 @@ const ProjectDashboardPage: React.FC = () => {
             tags: view.project.genres,
           });
         }
-        const status = e?.response?.status;
+        const status = getApiStatus(requestError);
         if (status === 403) message.error('Нет прав изменить статус');
         else message.error('Не удалось изменить статус');
       } finally {
         setStatusUpdating(false);
       }
     },
-    [stateProjectId, view.project, applySummaryToView],
+    [projectId, view.project, applySummaryToView],
   );
 
   const handleEdit = useCallback(() => setEditOpen(true), []);
 
   const handleOpenTeam = useCallback(() => {
-    if (!stateProjectId) return;
+    if (!projectId) return;
     const url = PathConstants.PROJECT_TEAM.replace(
       ':projectId',
-      String(stateProjectId),
+      String(projectId),
     );
-    navigate(url, { state: { project_id: stateProjectId } });
-  }, [navigate, stateProjectId]);
+    navigate(url, { state: { project_id: projectId } });
+  }, [navigate, projectId]);
 
   const handleOpenInvite = useCallback(async () => {
     // Lazily fetch the professional-role options for the invite form select.
-    if (teamRoleOptions.length === 0 && stateProjectId) {
+    if (teamRoleOptions.length === 0 && projectId) {
       try {
-        const summary = await fetchTeamSummary(stateProjectId);
+        const summary = await fetchTeamSummary(projectId);
         setTeamRoleOptions(summary.teamRoleOptions || []);
       } catch {
         /* non-fatal — the modal still works without prof-role options */
       }
     }
     setInviteOpen(true);
-  }, [teamRoleOptions.length, stateProjectId]);
+  }, [teamRoleOptions.length, projectId]);
 
   const handleEditSubmit = useCallback(
     async (values: {
@@ -383,8 +356,8 @@ const ProjectDashboardPage: React.FC = () => {
       tags: string[];
       is_favorite: boolean;
     }) => {
-      if (!stateProjectId) return;
-      const summary = await updateProject(stateProjectId, values);
+      if (!projectId) return;
+      const summary = await updateProject(projectId, values);
       applySummaryToView({
         title: summary.title,
         description: summary.description,
@@ -397,11 +370,11 @@ const ProjectDashboardPage: React.FC = () => {
       setEditOpen(false);
       message.success('Изменения сохранены');
     },
-    [stateProjectId, applySummaryToView],
+    [projectId, applySummaryToView],
   );
 
   const handleArchive = useCallback(() => {
-    if (!stateProjectId) return;
+    if (!projectId) return;
     Modal.confirm({
       title: 'Архивировать проект?',
       content:
@@ -413,7 +386,7 @@ const ProjectDashboardPage: React.FC = () => {
       },
       onOk: async () => {
         try {
-          const summary = await updateProjectStatus(stateProjectId, 'archived');
+          const summary = await updateProjectStatus(projectId, 'archived');
           applySummaryToView({
             title: summary.title,
             description: summary.description,
@@ -424,20 +397,20 @@ const ProjectDashboardPage: React.FC = () => {
             updatedAtLabel: summary.updatedAtLabel,
           });
           message.success('Проект архивирован');
-        } catch (e: any) {
-          const status = e?.response?.status;
+        } catch (requestError: unknown) {
+          const status = getApiStatus(requestError);
           if (status === 403) message.error('Нет прав архивировать проект');
           else message.error('Не удалось архивировать проект');
-          throw e;
+          throw requestError;
         }
       },
     });
-  }, [stateProjectId, applySummaryToView]);
+  }, [projectId, applySummaryToView]);
 
   const handleUnarchive = useCallback(async () => {
-    if (!stateProjectId) return;
+    if (!projectId) return;
     try {
-      const summary = await updateProjectStatus(stateProjectId, 'in_progress');
+      const summary = await updateProjectStatus(projectId, 'in_progress');
       applySummaryToView({
         title: summary.title,
         description: summary.description,
@@ -448,15 +421,15 @@ const ProjectDashboardPage: React.FC = () => {
         updatedAtLabel: summary.updatedAtLabel,
       });
       message.success('Проект восстановлен');
-    } catch (e: any) {
-      const status = e?.response?.status;
+    } catch (requestError: unknown) {
+      const status = getApiStatus(requestError);
       if (status === 403) message.error('Нет прав восстановить проект');
       else message.error('Не удалось восстановить проект');
     }
-  }, [stateProjectId, applySummaryToView]);
+  }, [projectId, applySummaryToView]);
 
   const handleLeave = useCallback(() => {
-    if (!stateProjectId) return;
+    if (!projectId) return;
     Modal.confirm({
       title: 'Покинуть проект?',
       content:
@@ -466,24 +439,24 @@ const ProjectDashboardPage: React.FC = () => {
       cancelText: 'Отмена',
       onOk: async () => {
         try {
-          await leaveProject(stateProjectId);
+          await leaveProject(projectId);
           message.success('Вы покинули проект');
           navigate(PathConstants.PROJECTS);
-        } catch (e: any) {
-          const code = teamErrorCode(e);
+        } catch (requestError: unknown) {
+          const code = teamErrorCode(requestError);
           if (code === 'OWNER_CANNOT_LEAVE') {
             message.error('Владелец не может покинуть проект — сначала передайте владение');
           } else {
             message.error('Не удалось покинуть проект');
           }
-          throw e;
+          throw requestError;
         }
       },
     });
-  }, [stateProjectId, navigate]);
+  }, [projectId, navigate]);
 
   const handleDelete = useCallback(() => {
-    if (!stateProjectId) return;
+    if (!projectId) return;
     Modal.confirm({
       title: 'Удалить проект?',
       content:
@@ -496,21 +469,82 @@ const ProjectDashboardPage: React.FC = () => {
       },
       onOk: async () => {
         try {
-          await apiDeleteProject(stateProjectId);
+          await apiDeleteProject(projectId);
           message.success('Проект удалён');
           navigate(PathConstants.PROJECTS);
-        } catch (e: any) {
-          const status = e?.response?.status;
+        } catch (requestError: unknown) {
+          const status = getApiStatus(requestError);
           if (status === 403) message.error('Нет прав удалить проект');
           else message.error('Не удалось удалить проект');
-          throw e;
+          throw requestError;
         }
       },
     });
-  }, [stateProjectId, navigate]);
+  }, [projectId, navigate]);
+
+  if (error) {
+    const retryable = error.status !== 403 && error.status !== 404;
+    return (
+      <div className="proj-dash">
+        <DashboardHeader
+          user={user}
+          onMenuToggle={() => setSidebarOpen((open) => !open)}
+          sectionTitle="Проект"
+        />
+        <main className="app-main profile-scroll">
+          <section
+            role="alert"
+            className="proj-card"
+            style={{maxWidth: 640, margin: '64px auto', padding: 32, textAlign: 'center'}}
+          >
+            <h1 className="text-white text-2xl font-bold">{error.message}</h1>
+            <p className="text-white/60 mt-3">
+              {error.status === 403
+                ? 'Попросите владельца проекта выдать вам доступ.'
+                : error.status === 404
+                  ? 'Возможно, проект был удалён или адрес устарел.'
+                  : 'Проверьте соединение и попробуйте снова.'}
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 mt-6">
+              {retryable && error.status !== 401 && (
+                <button
+                  type="button"
+                  className="proj-btn proj-btn-primary"
+                  onClick={() => {
+                    setError(null);
+                    setReloadKey((key) => key + 1);
+                  }}
+                >
+                  Повторить
+                </button>
+              )}
+              {error.status === 401 && (
+                <button
+                  type="button"
+                  className="proj-btn proj-btn-primary"
+                  onClick={() => navigate(PathConstants.LOGIN, {
+                    replace: true,
+                    state: {returnTo: window.location.pathname},
+                  })}
+                >
+                  Войти снова
+                </button>
+              )}
+              <button
+                type="button"
+                className="proj-btn proj-btn-secondary"
+                onClick={() => navigate(PathConstants.PROJECTS)}
+              >
+                К проектам
+              </button>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   const sectionTitle = loading ? 'Проект' : (view.project.title || 'Проект');
-
   return (
     <div className="proj-dash">
       <DashboardHeader
@@ -522,7 +556,7 @@ const ProjectDashboardPage: React.FC = () => {
       <main className="app-main profile-scroll">
         <div
           className="transition-opacity duration-200"
-          style={{ opacity: loading ? 0.55 : 1 }}
+          style={{opacity: loading ? 0.55 : 1, pointerEvents: loading ? 'none' : 'auto'}}
           aria-busy={loading}
         >
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 sm:gap-6">
@@ -543,10 +577,14 @@ const ProjectDashboardPage: React.FC = () => {
                 <CharactersSection
                   characters={view.characters}
                   onCreate={handleCreateCharacter}
-                  onCharacterClick={stateProjectId ? handleCharacterClick : undefined}
+                  onCharacterClick={projectId ? handleCharacterClick : undefined}
                 />
-                <ProjectPipeline pipeline={view.pipeline} />
-                <ProjectMusic tracks={view.music} onAdd={handleAddMusic} />
+                <ProjectPipeline
+                  pipeline={view.pipeline}
+                  onStep={handlePipelineStep}
+                  isStepEnabled={isPipelineStepEnabled}
+                />
+                <ProjectMusic tracks={view.music} />
               </div>
               <RightProjectPanel
                 project={view.project}
@@ -555,6 +593,7 @@ const ProjectDashboardPage: React.FC = () => {
                 quickActions={view.quickActions}
                 activity={view.activity}
                 onQuickAction={handleQuickAction}
+                isQuickActionEnabled={isQuickActionEnabled}
                 onOpenTeam={handleOpenTeam}
                 onInvite={handleOpenInvite}
                 loading={loading}
@@ -570,10 +609,10 @@ const ProjectDashboardPage: React.FC = () => {
         onSubmit={handleEditSubmit}
       />
 
-      {stateProjectId && (
+      {projectId && (
         <InviteMemberModal
           open={inviteOpen}
-          projectId={stateProjectId}
+          projectId={projectId}
           teamRoleOptions={teamRoleOptions}
           onClose={() => setInviteOpen(false)}
           onInvited={() => message.success('Приглашение создано')}

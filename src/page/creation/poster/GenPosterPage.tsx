@@ -1,6 +1,7 @@
-import React, { ReactNode, useRef, useState } from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import {useNavigate, useParams} from "react-router-dom";
 import {
     ArrowLeftOutlined,
     BulbOutlined,
@@ -18,9 +19,14 @@ import {
 } from '@ant-design/icons';
 
 import EditGenComponent from "../edit_generation";
-import {editGenerateImage, generatePosterApi} from "../../../api/posters";
-import PathConstants from "../../../routes/pathConstant";
+import PosterJobHistory from './PosterJobHistory';
+import {editPoster, generatePoster, selectPosterVariant} from "../../../api/posters";
+import type {PosterVariant} from "../../../api/posters";
+import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
+import {API_CONSTRAINTS} from '../../../api/generated/contracts';
+import {projectEditPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
+import {fetch_project} from "../../../api/projects/properties/project";
 
 // ============== Design tokens ==============
 const COLORS = {
@@ -41,14 +47,13 @@ const COLORS = {
     danger: '#EF4444',
 };
 
-const PROMPT_MAX = 2000;
+const PROMPT_MAX = API_CONSTRAINTS.posterPromptMaxLength;
 const REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
 const REFERENCE_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 const REFERENCE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
 
 type StyleId = 'cinematic' | 'anime' | 'dark_fantasy' | 'realism';
 type FormatId = 'vertical' | 'square' | 'horizontal';
-
 
 interface StyleOption {
     id: StyleId;
@@ -83,6 +88,7 @@ interface RecentPoster {
     id: string;
     url: string;
 }
+
 
 // ============== Card ==============
 interface CardProps {
@@ -584,8 +590,8 @@ const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
 
 // ============== Page ==============
 const GenPosterPage: React.FC = () => {
-    const location = useLocation();
     const navigate = useNavigate();
+    const {projectId} = useParams<{projectId: string}>();
 
     const [prompt, setPrompt] = useState<string>('');
     const [selectedStyle, setSelectedStyle] = useState<StyleId>('cinematic');
@@ -593,90 +599,135 @@ const GenPosterPage: React.FC = () => {
     const [referenceFile, setReferenceFile] = useState<File | null>(null);
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [imageGeneratedUrl, setImageGeneratedUrl] = useState<string>('');
+    const [sourceVariantId, setSourceVariantId] = useState<number | null>(null);
     const [recentPosters] = useState<RecentPoster[]>([]);
+    const [contextLoading, setContextLoading] = useState(true);
+    const [contextError, setContextError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        if (!projectId) {
+            setContextError('Проект не найден');
+            setContextLoading(false);
+            return () => { cancelled = true; };
+        }
+        setContextLoading(true);
+        setContextError(null);
+        fetch_project(projectId)
+            .catch((error: unknown) => {
+                if (cancelled) return;
+                const status = getApiStatus(error);
+                setContextError(status === 403
+                    ? 'Нет доступа к проекту'
+                    : status === 404
+                        ? 'Проект не найден'
+                        : 'Не удалось загрузить проект');
+            })
+            .finally(() => {
+                if (!cancelled) setContextLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [projectId]);
+
+    const requireProjectId = () => {
+        if (projectId) return projectId;
+        openNotificationWithIcon(
+            'Сначала сохраните проект, затем откройте генератор постера снова.',
+            'Нужен существующий проект',
+            'error',
+        );
+        return null;
+    };
+
+    const catchError = (
+        error: unknown,
+        resetImage = true,
+        fallbackMessage = 'Ошибка при генерации изображения. Что-то пошло не так',
+    ) => {
+        const message = getApiErrorMessage(error, fallbackMessage);
+
+        setIsGenerating(false);
+        if (resetImage) {
+            setImageGeneratedUrl('');
+            setSourceVariantId(null);
+        }
+        openNotificationWithIcon('Упс!', message, 'error');
+    };
 
     const handleBack = () => {
-        const projectId = location.state?.project_id;
-        if (projectId) {
-            navigate(PathConstants.CREATE_PROJECT, {
-                state: { is_edit: true, project_id: projectId },
+        navigate(projectId ? projectEditPath(projectId) : '/project-list');
+    };
+
+    const savePoster = async () => {
+        const existingProjectId = requireProjectId();
+        if (!existingProjectId || sourceVariantId === null) return;
+        try {
+            await selectPosterVariant(existingProjectId, sourceVariantId);
+            navigate(projectEditPath(existingProjectId), {
+                state: {imgUrl: imageGeneratedUrl, regenerated: true},
             });
-            return;
+        } catch (error: unknown) {
+            catchError(
+                error,
+                false,
+                'Не удалось сохранить выбранный постер. Повторите попытку.',
+            );
         }
-        navigate(-1);
     };
 
-    const savePoster = () => {
-        const projectId = location.state?.project_id;
-        // Only forward edit-mode flags when we actually have a project_id —
-        // otherwise the project page would mount in edit mode with no id and
-        // get stuck on "Загружаем проект…" forever.
-        navigate(PathConstants.CREATE_PROJECT, {
-            state: {
-                imgUrl: imageGeneratedUrl,
-                ...(projectId
-                    ? { is_edit: !!location.state?.is_edit, project_id: projectId }
-                    : {}),
-                regenerated: true,
-            },
-        });
-    };
-
-    const catchError = () => {
+    const displayGenImage = useCallback((variant: PosterVariant) => {
+        setImageGeneratedUrl(variant.imageUrl);
+        setSourceVariantId(variant.id);
         setIsGenerating(false);
-        setImageGeneratedUrl('');
-        openNotificationWithIcon(
-            'Упс!',
-            'Ошибка при генерации изображения. Что-то пошло не так',
-            'error'
-        );
-    };
-
-    const displayGenImage = (response: any) => {
-        const byteArray = response.data;
-        const imageUrl = `data:image/png;base64,${byteArray}`;
-        setImageGeneratedUrl(imageUrl);
-        setIsGenerating(false);
-    };
+    }, []);
 
     const genHandle = async () => {
         if (!prompt.trim() || isGenerating) return;
+        const existingProjectId = requireProjectId();
+        if (!existingProjectId) return;
         try {
             setIsGenerating(true);
-            const response = await generatePosterApi(prompt, {
+            const variant = await generatePoster(existingProjectId, prompt, {
                 style: selectedStyle,
                 format: selectedFormat,
                 referenceFile,
             });
-            displayGenImage(response);
-        } catch (error: any) {
-            const data = error?.response?.data;
-            const message =
-                data?.error?.message ||
-                data?.detail ||
-                'Ошибка при генерации изображения. Что-то пошло не так';
-            setIsGenerating(false);
-            setImageGeneratedUrl('');
-            openNotificationWithIcon('Упс!', message, 'error');
+            displayGenImage(variant);
+        } catch (error: unknown) {
+            catchError(error);
         }
     };
 
     const editHandle = async (correctionText: string) => {
+        const existingProjectId = requireProjectId();
+        if (!existingProjectId || sourceVariantId === null) return;
         try {
             setIsGenerating(true);
-            const params = {
-                url: imageGeneratedUrl,
-                correction: correctionText,
-            };
-            const response = await editGenerateImage(params);
-            displayGenImage(response);
-        } catch (error) {
-            catchError();
+            const variant = await editPoster(existingProjectId, {
+                sourceVariantId,
+                instruction: correctionText,
+            });
+            displayGenImage(variant);
+        } catch (error: unknown) {
+            catchError(error);
         }
     };
 
+    const generateDisabled = !projectId || !prompt.trim() || isGenerating;
 
-    const generateDisabled = !prompt.trim() || isGenerating;
+    if (contextLoading || contextError) {
+        return (
+            <>
+                <DashboardHeader title="" />
+                <div style={{background: COLORS.pageBg, minHeight: '100vh', color: COLORS.textPrimary, padding: 48, textAlign: 'center'}}>
+                    <h1>{contextLoading ? 'Загружаем проект…' : contextError}</h1>
+                    {!contextLoading && (
+                        <PrimaryButton onClick={handleBack}>Вернуться к проектам</PrimaryButton>
+                    )}
+                </div>
+            </>
+        );
+    }
 
     return (
         <>
@@ -917,7 +968,16 @@ const GenPosterPage: React.FC = () => {
                             >
                                 <RecentPostersStrip posters={recentPosters} />
                             </Card>
+
+                            <Card
+                                title="История генераций"
+                                icon={<HistoryOutlined />}
+                                style={{padding: '16px 20px'}}
+                            >
+                                <PosterJobHistory projectId={projectId || ''} onVariantReady={displayGenImage} />
+                            </Card>
                         </div>
+
 
                         {/* RIGHT — Settings */}
                         <Card title="Настройки генерации" icon={<ThunderboltOutlined />}>
@@ -1125,6 +1185,11 @@ const GenPosterPage: React.FC = () => {
                                         paddingTop: 20,
                                     }}
                                 >
+                                    {!projectId && (
+                                        <div role="alert" style={{ color: COLORS.danger, fontSize: 13, lineHeight: 1.5 }}>
+                                            Сначала сохраните проект, затем откройте генератор постера снова.
+                                        </div>
+                                    )}
                                     <PrimaryButton
                                         onClick={genHandle}
                                         disabled={generateDisabled}

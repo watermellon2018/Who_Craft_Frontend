@@ -5,7 +5,7 @@ import {
   ClockCircleOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import { ProjectMock, ProjectStatusKey } from './mocks';
+import type {ProjectMock, ProjectStatusKey} from './mocks';
 import StatusDropdown from './StatusDropdown';
 import ProjectActionsMenu from './ProjectActionsMenu';
 
@@ -47,8 +47,9 @@ const ProjectHero: React.FC<Props> = ({
           <button
             type="button"
             className="proj-hero-cover-play"
-            onClick={() => undefined}
-            aria-label="Play preview"
+            disabled
+            title="Превью появится после сборки видео"
+            aria-label="Превью пока недоступно"
           >
             <PlayCircleFilled style={{ fontSize: 22 }} />
           </button>

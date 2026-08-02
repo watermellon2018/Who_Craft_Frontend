@@ -5,7 +5,7 @@ import withAuth from '../../utils/auth/check_auth';
 import PathConstants from '../../routes/pathConstant';
 import { ProfileUser } from '../../modules/profile/types';
 import { fetchProfileMe } from '../../modules/profile/api/profileApi';
-import { clearStoredUserToken } from '../../api/http';
+import { logout } from '../../api/http';
 import '../../modules/profile/components/dashboardHeader.css';
 import './main.css';
 
@@ -108,10 +108,10 @@ const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
     navigate(PathConstants.PROFILE);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Cookies.remove('token');
     Cookies.remove('id');
-    clearStoredUserToken();
+    await logout();
     setOpen(false);
     navigate(PathConstants.AUTH);
   };

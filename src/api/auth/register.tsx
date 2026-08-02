@@ -1,25 +1,30 @@
-import api, { setStoredUserToken } from '../http';
+import {sanitizeApiError} from '../errors';
+import api, {setStoredUserTokens} from '../http';
 
 interface RegisterRequest {
-    username: string;
-    password: string;
+  username: string;
+  password: string;
+  email?: string;
 }
 
 interface RegisterResponse {
-    token: string;
+  access: string;
+  refresh: string;
+  token: string;
 }
 
-async function register(values: RegisterRequest) {
-    try {
-        const res = await api.post<RegisterResponse>('api/auth/register/', values);
-        if (res.data && res.data.token) {
-            setStoredUserToken(res.data.token);
-        }
-        return res;
-    } catch (err: any) {
-        const payload = err?.response?.data ?? { detail: 'registration_failed' };
-        throw payload;
+async function register(values: RegisterRequest): Promise<RegisterResponse> {
+  try {
+    const response = await api.post<RegisterResponse>('api/auth/register/', values);
+    if (response.data.access && response.data.refresh) {
+      setStoredUserTokens(response.data.access, response.data.refresh);
     }
+    return response.data;
+  } catch (error: unknown) {
+    // Never expose an AxiosError: it embeds request headers/body (password).
+    throw sanitizeApiError(error, 'registration_failed');
+  }
 }
 
-export { register };
+export {register};
+export type {RegisterRequest, RegisterResponse};

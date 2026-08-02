@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {message} from 'antd';
 import {backendAssetUrl} from '../../../api/http';
 import {useNavigate, useParams} from 'react-router-dom';
+import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
 import BottomQuickBar from '../components/character3d/BottomQuickBar';
 import CharacterCategoryRail from '../components/character3d/CharacterCategoryRail';
 import CharacterViewport from '../components/character3d/CharacterViewport';
@@ -10,18 +11,18 @@ import ContextualZonePanel from '../components/character3d/ContextualZonePanel';
 import ReferenceDock from '../components/character3d/ReferenceDock';
 import StepperHeader from '../components/character3d/StepperHeader';
 import {ParamHistory} from '../components/character3d/engine/history';
+import GenerationJobHistory from '../components/GenerationJobHistory';
 import {
   buildInitialZoneParams,
-  EditableZone,
   findZone,
   getAncestors,
   getTopLevelGroup,
-  ZoneGroup,
 } from '../components/character3d/zones';
+import type {EditableZone, ZoneGroup} from '../components/character3d/zones';
 
 const MOCK_CHARACTER_NAME = 'Персонаж';
 import {characterApi} from '../api/characterApi';
-import type {Model3DReconstruction} from '../types/character.types';
+import type {GenerationJob, Model3DReconstruction} from '../types/character.types';
 import {collapseSideOverrides, mergeSavedParams} from '../components/character3d/engine/paramMerge';
 import {useCharacter} from '../hooks/useCharacter';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
@@ -45,6 +46,7 @@ import './Character3DEditorPage.css';
 // characterApi.getModel3D / saveModel3D.
 const MODEL3D_AUTOFIT_VERSION = 7;
 
+const MODEL3D_HISTORY_JOB_TYPES = ['model3d_reconstruction'] as const;
 const versionedAssetUrl = (url: string, assetId?: string | null): string => {
   const resolved = backendAssetUrl(url);
   if (!assetId) return resolved;
@@ -52,6 +54,13 @@ const versionedAssetUrl = (url: string, assetId?: string | null): string => {
   return `${resolved}${separator}asset=${encodeURIComponent(assetId)}`;
 };
 const Character3DEditorPage: React.FC = () => {
+  const params = useParams();
+  const projectId = useProjectIdFromRoute();
+  const characterId = String(params.characterId || '');
+  return <Character3DEditorPageContent key={`${projectId ?? ''}:${characterId}`} />;
+};
+
+const Character3DEditorPageContent: React.FC = () => {
   const navigate = useNavigate();
   const params = useParams();
   const projectId = useProjectIdFromRoute();
@@ -64,8 +73,10 @@ const Character3DEditorPage: React.FC = () => {
   const [symmetryEnabled, setSymmetryEnabled] = useState<boolean>(true);
   type ZoneParamsState = Record<string, Record<string, number | string | boolean>>;
   const [zoneParams, setZoneParams] = useState<ZoneParamsState>(() => buildInitialZoneParams());
-  // Baseline snapshot for the Cancel button; reset on Apply/Save.
-  const [paramsBaseline, setParamsBaseline] = useState(zoneParams);
+  // Apply changes the Cancel target, while Save alone changes persistence.
+  // Keeping both snapshots ensures Apply never disguises unsaved work.
+  const [cancelBaseline, setCancelBaseline] = useState(zoneParams);
+  const [savedBaseline, setSavedBaseline] = useState(zoneParams);
   // Which mirrored half the user edits while «Применять симметрично» is off.
   const [selectedSide, setSelectedSide] = useState<'L' | 'R'>('L');
 
@@ -84,8 +95,18 @@ const Character3DEditorPage: React.FC = () => {
   const [autofitBusy, setAutofitBusy] = useState(false);
   const [reconstruction, setReconstruction] = useState<Model3DReconstruction | null>(null);
   const [reconstructionRetryBusy, setReconstructionRetryBusy] = useState(false);
+  const [modelLoadState, setModelLoadState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const pageActiveRef = useRef(true);
   // Turntable on/off — owned here so the toggle button reflects the state.
   const [turntableOn, setTurntableOn] = useState(false);
+
+  useEffect(() => {
+    pageActiveRef.current = true;
+    return () => {
+      pageActiveRef.current = false;
+    };
+  }, []);
+
   // Commit a new params object: keep the ref mirror in sync and trigger a
   // toolbar re-render. Pure with respect to React state updaters.
   const commitParams = useCallback((next: ZoneParamsState) => {
@@ -123,13 +144,15 @@ const Character3DEditorPage: React.FC = () => {
   useEffect(() => {
     if (!projectId || !characterId) return;
     let alive = true;
+    setModelLoadState('loading');
 
     const adopt = (saved: unknown) => {
       if (!saved || typeof saved !== 'object' || Object.keys(saved).length === 0) return;
       const merged = mergeSavedParams(saved);
       zoneParamsRef.current = merged;
       setZoneParams(merged);
-      setParamsBaseline(merged);
+      setCancelBaseline(merged);
+      setSavedBaseline(merged);
       // The loaded state is the new ground zero — nothing to undo into.
       historyRef.current.reset();
     };
@@ -145,6 +168,7 @@ const Character3DEditorPage: React.FC = () => {
         const autofitVersion = Number(res.data?.autofit_version ?? 0);
         if (res.data?.autofit_done && autofitVersion >= MODEL3D_AUTOFIT_VERSION) {
           // Current fit (including an intentional empty/reset state): keep it.
+          setModelLoadState('ready');
           return;
         }
         // First open, or a one-time upgrade from the old image-only profile.
@@ -159,12 +183,16 @@ const Character3DEditorPage: React.FC = () => {
             // Autofit is best-effort; defaults stand if it fails.
           })
           .finally(() => {
-            if (alive) setAutofitBusy(false);
+            if (alive) {
+              setAutofitBusy(false);
+              setModelLoadState('ready');
+            }
           });
       })
       .catch(() => {
         // No saved state (or transient error) — the registry defaults stand.
         if (alive) {
+          setModelLoadState('failed');
           setReconstruction((current) => current ?? {
             status: 'failed',
             progress: 0,
@@ -184,21 +212,26 @@ const Character3DEditorPage: React.FC = () => {
   // Poll only while it is active; a ready URL stops polling and is loaded once.
   useEffect(() => {
     if (!projectId || !characterId) return;
-    if (reconstruction?.status !== 'queued' && reconstruction?.status !== 'processing') return;
+    if (
+      reconstruction?.status !== 'queued' &&
+      reconstruction?.status !== 'processing'
+    ) return;
     let alive = true;
-    const timer = window.setInterval(() => {
-      characterApi
-        .getModel3D(projectId, characterId)
-        .then((response) => {
-          if (alive) setReconstruction(response.data.reconstruction);
-        })
-        .catch(() => {
-          // Keep the last known state; the next polling tick can recover.
-        });
-    }, 4000);
+    let timer: number | undefined;
+    const poll = async () => {
+      try {
+        const response = await characterApi.getModel3D(projectId, characterId);
+        if (alive) setReconstruction(response.data.reconstruction);
+      } catch {
+        // Keep the last known state; the next polling tick can recover.
+      } finally {
+        if (alive) timer = window.setTimeout(() => void poll(), 4000);
+      }
+    };
+    void poll();
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      if (timer !== undefined) window.clearTimeout(timer);
     };
   }, [projectId, characterId, reconstruction?.status]);
 
@@ -214,9 +247,14 @@ const Character3DEditorPage: React.FC = () => {
   const editSide: 'L' | 'R' | null =
     selectedZone?.isSymmetric && !symmetryEnabled ? selectedSide : null;
   const hasUnappliedChanges = useMemo(
-    () => JSON.stringify(zoneParams) !== JSON.stringify(paramsBaseline),
-    [zoneParams, paramsBaseline],
+    () => JSON.stringify(zoneParams) !== JSON.stringify(cancelBaseline),
+    [cancelBaseline, zoneParams],
   );
+  const hasUnsavedChanges = useMemo(
+    () => JSON.stringify(zoneParams) !== JSON.stringify(savedBaseline),
+    [savedBaseline, zoneParams],
+  );
+  useUnsavedChangesGuard(hasUnsavedChanges);
 
   // ─── Handlers ───
   const handleSelectZone = useCallback((zoneId: string | null) => {
@@ -293,11 +331,11 @@ const Character3DEditorPage: React.FC = () => {
   }, [mutateParams]);
 
   const handleCancel = useCallback(() => {
-    mutateParams(() => paramsBaseline);
-  }, [paramsBaseline, mutateParams]);
+    mutateParams(() => cancelBaseline);
+  }, [cancelBaseline, mutateParams]);
 
   const handleApply = useCallback(() => {
-    setParamsBaseline(zoneParams);
+    setCancelBaseline(zoneParams);
     message.success('Изменения применены');
   }, [zoneParams]);
 
@@ -375,21 +413,25 @@ const Character3DEditorPage: React.FC = () => {
   }, [handleUndo, handleRedo]);
 
   const handleSave = useCallback(() => {
-    if (!projectId || !characterId) {
-      setParamsBaseline(zoneParams);
-      message.success('Изменения применены локально');
+    if (!projectId || !characterId || modelLoadState !== 'ready') {
+      message.error('Сохранение недоступно, пока модель текущего персонажа не загружена');
       return;
     }
+    const savedParams = zoneParams;
     characterApi
-      .saveModel3D(projectId, characterId, zoneParams)
+      .saveModel3D(projectId, characterId, savedParams)
       .then(() => {
-        setParamsBaseline(zoneParams);
+        if (!pageActiveRef.current) return;
+        setCancelBaseline(savedParams);
+        setSavedBaseline(savedParams);
         message.success('Модель сохранена');
       })
       .catch(() => {
-        message.error('Не удалось сохранить модель — попробуйте ещё раз');
+        if (pageActiveRef.current) {
+          message.error('Не удалось сохранить модель — попробуйте ещё раз');
+        }
       });
-  }, [projectId, characterId, zoneParams]);
+  }, [projectId, characterId, modelLoadState, zoneParams]);
 
   // ─── Esc clears selection ───
   useEffect(() => {
@@ -412,11 +454,52 @@ const Character3DEditorPage: React.FC = () => {
     setReconstructionRetryBusy(true);
     characterApi
       .retryModel3DReconstruction(projectId, characterId)
-      .then((response) => setReconstruction(response.data.reconstruction))
-      .catch(() => message.error('Не удалось перезапустить 3D-реконструкцию'))
-      .finally(() => setReconstructionRetryBusy(false));
+      .then((response) => {
+        if (pageActiveRef.current) setReconstruction(response.data.reconstruction);
+      })
+      .catch(() => {
+        if (pageActiveRef.current) message.error('Не удалось перезапустить 3D-реконструкцию');
+      })
+      .finally(() => {
+        if (pageActiveRef.current) setReconstructionRetryBusy(false);
+      });
   }, [projectId, characterId, reconstructionRetryBusy]);
 
+
+  const reconstructionGenerationJob = useMemo<GenerationJob | null>(() => {
+    if (!reconstruction?.job_id) return null;
+    const status: GenerationJob['status'] = reconstruction.status === 'ready'
+      ? 'completed'
+      : reconstruction.status === 'failed'
+        ? 'failed'
+        : reconstruction.status === 'cancellation_requested'
+          ? 'cancellation_requested'
+        : reconstruction.status === 'processing'
+          ? 'processing'
+          : 'queued';
+    return {
+      job_id: reconstruction.job_id,
+      job_type: 'model3d_reconstruction',
+      status,
+      progress: reconstruction.progress,
+      error_message: reconstruction.error_message,
+      variants: [],
+    };
+  }, [reconstruction]);
+
+  const handleGenerationJobStarted = useCallback((nextJobId: string, sourceJob: GenerationJob) => {
+    if (sourceJob.job_id !== reconstruction?.job_id) return;
+    setReconstruction((current) => ({
+      status: 'queued',
+      progress: 0,
+      job_id: nextJobId,
+      asset_id: current?.asset_id ?? null,
+      model_url: current?.model_url ?? null,
+      hair_url: current?.hair_url ?? null,
+      assets: current?.assets,
+      error_message: '',
+    }));
+  }, [reconstruction?.job_id]);
   const characterName = character?.name || MOCK_CHARACTER_NAME;
   const reconstructedHeadUrl =
     reconstruction?.status === 'ready' && reconstruction.model_url
@@ -462,6 +545,7 @@ const Character3DEditorPage: React.FC = () => {
         <main className="c3d-stage">
           <CharacterViewport
             hoveredZoneId={hoveredZoneId}
+
             selectedZoneId={selectedZoneId}
             zoomZoneId={zoomZoneId}
             ancestorIds={ancestorIds}
@@ -509,12 +593,24 @@ const Character3DEditorPage: React.FC = () => {
               onCancel={handleCancel}
               onApply={handleApply}
               onSave={handleSave}
+              saveDisabled={modelLoadState !== 'ready'}
             />
           </div>
         </main>
       </div>
 
       <BottomQuickBar
+        generationHistory={(
+          <GenerationJobHistory
+            allowedJobTypes={MODEL3D_HISTORY_JOB_TYPES}
+            characterId={characterId}
+            className="c3d-generation-history"
+            currentJob={reconstructionGenerationJob}
+            currentJobId={reconstruction?.job_id}
+            onJobStarted={handleGenerationJobStarted}
+            projectId={projectId ?? ''}
+          />
+        )}
         selectedZone={selectedZone}
         zoneParams={zoneParams[selectedZoneId ?? ''] ?? {}}
         hasChanges={hasUnappliedChanges}
@@ -532,6 +628,7 @@ const Character3DEditorPage: React.FC = () => {
         onCancel={handleCancel}
         onApply={handleApply}
         onSave={handleSave}
+        saveDisabled={modelLoadState !== 'ready'}
       />
     </div>
   );

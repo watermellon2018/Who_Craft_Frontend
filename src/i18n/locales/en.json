@@ -37,7 +37,9 @@
       "submitting": "Signing in...",
       "register": "Sign up",
       "invalidCredentials": "Invalid username or password",
-      "networkError": "Could not reach the server. Please try again later."
+      "networkError": "Could not reach the server. Check your connection and try again.",
+      "serverError": "The server is temporarily unavailable. Please try again later.",
+      "requestError": "Could not sign in. Please try again."
     },
     "register": {
       "title": "Create an account",
@@ -381,6 +383,13 @@
       "descriptionMode": "Describe the character and generate unique visual variants.",
       "referenceMode": "Create a character from a reference image. We'll extract the key features and preserve identity.",
       "generationError": "Character created, but portrait variant generation failed",
+      "retryGeneration": "Retry generation",
+      "continueDraft": "Continue with draft",
+      "deleteDraft": "Delete draft",
+      "draftDeleted": "Character draft deleted",
+      "draftDeleteError": "Could not delete the draft",
+      "draftIdMissing": "The server did not return a draft id",
+      "draftLoadError": "Could not restore the character draft",
       "generatingPortraits": "Generating portrait variants…",
       "generateButton": "Generate",
       "afterGenerationHint": "After generation you'll be able to refine the character in the editor.",

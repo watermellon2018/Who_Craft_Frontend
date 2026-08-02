@@ -2,19 +2,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import ProfileSidebar from '../profile/components/ProfileSidebar';
-import { fetchDashboard } from '../profile/api/profileApi';
-import { ProfileUser } from '../profile/types';
 import SubscriptionStats from './components/SubscriptionStats';
 import SubscriptionSearch from './components/SubscriptionSearch';
 import ChannelList from './components/ChannelList';
-import { Channel } from './types';
+import type {Channel} from './types';
 import {
-  ApiChannel,
   fetchMySubscriptions,
   searchChannels,
   subscribeToChannel,
   unsubscribeFromChannel,
 } from './api/subscriptionsApi';
+import type {ApiChannel} from './api/subscriptionsApi';
 import '../profile/profile.css';
 
 const PAGE_SIZE = 20;
@@ -53,7 +51,6 @@ const SubscriptionsPage: React.FC = () => {
   const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [user, setUser] = useState<ProfileUser | null>(null);
 
   const [mySubs, setMySubs] = useState<Channel[]>([]);
   const [totalSubs, setTotalSubs] = useState(0);
@@ -61,20 +58,14 @@ const SubscriptionsPage: React.FC = () => {
   const [loadingSubs, setLoadingSubs] = useState(true);
 
   const [searchResults, setSearchResults] = useState<Channel[]>([]);
+  const [searchTotal, setSearchTotal] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const searchSeqRef = useRef(0);
 
   const normalizedQuery = searchQuery.replace(/^@/, '').trim();
   const isSearchMode = normalizedQuery.length > 0;
 
-  // -- load dashboard user (for header) --
-  useEffect(() => {
-    let cancelled = false;
-    fetchDashboard()
-      .then((d) => { if (!cancelled) setUser(d.user); })
-      .catch(() => { /* header has graceful fallback */ });
-    return () => { cancelled = true; };
-  }, []);
 
   // -- load my subscriptions --
   const loadMySubs = useCallback(async (options?: {silent?: boolean}) => {
@@ -99,6 +90,7 @@ const SubscriptionsPage: React.FC = () => {
   useEffect(() => {
     if (!isSearchMode) {
       setSearchResults([]);
+      setSearchTotal(0);
       setSearchLoading(false);
       return;
     }
@@ -109,16 +101,18 @@ const SubscriptionsPage: React.FC = () => {
         const res = await searchChannels(normalizedQuery, PAGE_SIZE, 0);
         if (seq !== searchSeqRef.current) return;
         setSearchResults(res.items.map(toChannel));
+        setSearchTotal(res.total);
       } catch {
         if (seq !== searchSeqRef.current) return;
         setSearchResults([]);
+        setSearchTotal(0);
         message.error(t('subscriptions.errors.searchFailed'));
       } finally {
         if (seq === searchSeqRef.current) setSearchLoading(false);
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
-  }, [isSearchMode, normalizedQuery]);
+  }, [isSearchMode, normalizedQuery, t]);
 
   const displayedChannels = isSearchMode ? searchResults : mySubs;
 
@@ -169,9 +163,53 @@ const SubscriptionsPage: React.FC = () => {
     }
   }, [loadMySubs, t]);
 
+  const handleShowMore = useCallback(async () => {
+    const offset = displayedChannels.length;
+    const total = isSearchMode ? searchTotal : totalSubs;
+    if (loadingMore || offset >= total) return;
+
+    setLoadingMore(true);
+    try {
+      if (isSearchMode) {
+        const sequence = searchSeqRef.current;
+        const response = await searchChannels(normalizedQuery, PAGE_SIZE, offset);
+        if (sequence !== searchSeqRef.current) return;
+        setSearchResults((current) => {
+          const existingIds = new Set(current.map((channel) => channel.id));
+          const nextItems = response.items.map(toChannel).filter((channel) => !existingIds.has(channel.id));
+          return [...current, ...nextItems];
+        });
+        setSearchTotal(response.total);
+      } else {
+        const response = await fetchMySubscriptions(PAGE_SIZE, offset);
+        setMySubs((current) => {
+          const existingIds = new Set(current.map((channel) => channel.id));
+          const nextItems = response.items.map(toChannel).filter((channel) => !existingIds.has(channel.id));
+          return [...current, ...nextItems];
+        });
+        setTotalSubs(response.total);
+        setFavoriteCount(response.favoriteCount);
+      }
+    } catch {
+      message.error(t(isSearchMode
+        ? 'subscriptions.errors.searchFailed'
+        : 'subscriptions.errors.loadFailed'));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [
+    displayedChannels.length,
+    isSearchMode,
+    loadingMore,
+    normalizedQuery,
+    searchTotal,
+    t,
+    totalSubs,
+  ]);
+
   const listTitle = isSearchMode ? t('subscriptions.list.searchResults') : t('subscriptions.list.mySubscriptions');
-  const listBadge = isSearchMode ? displayedChannels.length : undefined;
-  const listTotal = isSearchMode ? displayedChannels.length : totalSubs;
+  const listBadge = isSearchMode ? searchTotal : undefined;
+  const listTotal = isSearchMode ? searchTotal : totalSubs;
   const listShown = displayedChannels.length;
 
   const isInitialLoading = !isSearchMode && loadingSubs && mySubs.length === 0;
@@ -227,7 +265,8 @@ const SubscriptionsPage: React.FC = () => {
               isLoading={isSearchMode ? searchLoading : isInitialLoading}
               onSubscribe={handleSubscribe}
               onUnsubscribe={handleUnsubscribe}
-              onShowMore={() => { /* pagination intentionally simple for now */ }}
+              isLoadingMore={loadingMore}
+              onShowMore={() => void handleShowMore()}
             />
           </div>
         </main>
