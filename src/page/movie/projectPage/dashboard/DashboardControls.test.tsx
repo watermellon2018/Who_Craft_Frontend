@@ -6,6 +6,10 @@ import ProjectPipeline from './ProjectPipeline';
 import QuickActionsCard from './QuickActionsCard';
 import {musicMock, pipelineMock, projectMock} from './mocks';
 
+jest.mock('../../../../api/http', () => ({
+  backendAssetUrl: (path: string) => 'https://backend.test' + path,
+}));
+
 const noop = () => undefined;
 
 test('Continue is functional while project preview is explicitly unavailable', () => {
@@ -56,10 +60,12 @@ test('pipeline and quick actions enable only implemented destinations', () => {
   expect(screen.getByRole('button', {name: /Генерация видео/})).toBeDisabled();
 });
 
-test('music controls are disabled until a playback workflow exists', () => {
-  render(<ProjectMusic tracks={musicMock.slice(0, 1)} />);
+test('viewer can play and inspect music without seeing generation controls', () => {
+  const onOpenTrack = jest.fn();
+  const {container} = render(<ProjectMusic tracks={musicMock.slice(0, 1)} onOpenTrack={onOpenTrack} />);
 
-  expect(screen.getByRole('button', {name: 'Воспроизведение недоступно'})).toBeDisabled();
-  expect(screen.getByRole('button', {name: 'Управление треком недоступно'})).toBeDisabled();
-  expect(screen.getByRole('button', {name: 'Добавить музыку'})).toBeDisabled();
+  expect(container.querySelector('.proj-track-play')).toBeEnabled();
+  fireEvent.click(container.querySelector('.proj-track-title') as HTMLButtonElement);
+  expect(onOpenTrack).toHaveBeenCalledWith('m1');
+  expect(container.querySelector('.proj-btn')).not.toBeInTheDocument();
 });

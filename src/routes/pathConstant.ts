@@ -22,6 +22,17 @@ const PathConstants = {
     SCRIPT_PAGE: '/project/:projectId/script',
     SCRIPT_PAGE_LEGACY: '/project/script',
 
+    MUSIC_STUDIO: '/project/:projectId/music',
+    MUSIC_STUDIO_CREATE: '/project/:projectId/music/create',
+    MUSIC_STUDIO_JOB: '/project/:projectId/music/jobs/:jobId',
+    MUSIC_STUDIO_TRACK: '/project/:projectId/music/tracks/:trackId',
+
+    REFERENCE_LIBRARY: '/project/:projectId/references',
+    REFERENCE_LIBRARY_CREATE: '/project/:projectId/references/create',
+    REFERENCE_LIBRARY_JOB: '/project/:projectId/references/:referenceId/jobs/:jobId',
+    REFERENCE_LIBRARY_DETAIL: '/project/:projectId/references/:referenceId',
+    REFERENCE_LIBRARY_EDIT: '/project/:projectId/references/:referenceId/edit',
+
     CHARACTER_STUDIO: '/project/:projectId/characters',
     CHARACTER_STUDIO_CREATE: '/project/:projectId/characters/create',
     CHARACTER_STUDIO_CREATE_REFERENCE: '/project/:projectId/characters/create/reference',
@@ -43,6 +54,67 @@ export function projectEditPath(projectId: string | number): string {
 
 export function projectPosterPath(projectId: string | number): string {
     return PathConstants.GEN_POSTER.replace(':projectId', String(projectId));
+}
+
+export function musicStudioPath(projectId: string | number): string {
+    return PathConstants.MUSIC_STUDIO.replace(':projectId', String(projectId));
+}
+
+export function musicStudioCreatePath(
+    projectId: string | number,
+    sceneId?: string | number,
+): string {
+    const base = PathConstants.MUSIC_STUDIO_CREATE.replace(':projectId', String(projectId));
+    return sceneId == null ? base : `${base}?sceneId=${encodeURIComponent(String(sceneId))}`;
+}
+
+export function musicJobPath(projectId: string | number, jobId: string): string {
+    return PathConstants.MUSIC_STUDIO_JOB
+        .replace(':projectId', String(projectId))
+        .replace(':jobId', encodeURIComponent(jobId));
+}
+
+export function musicTrackPath(projectId: string | number, trackId: string | number): string {
+    return PathConstants.MUSIC_STUDIO_TRACK
+        .replace(':projectId', String(projectId))
+        .replace(':trackId', encodeURIComponent(String(trackId)));
+}
+
+export function referenceLibraryPath(projectId: string | number): string {
+    return PathConstants.REFERENCE_LIBRARY.replace(':projectId', String(projectId));
+}
+
+export function referenceCreatePath(projectId: string | number): string {
+    return PathConstants.REFERENCE_LIBRARY_CREATE.replace(':projectId', String(projectId));
+}
+
+export function referenceDetailPath(
+    projectId: string | number,
+    referenceId: string,
+): string {
+    return PathConstants.REFERENCE_LIBRARY_DETAIL
+        .replace(':projectId', String(projectId))
+        .replace(':referenceId', encodeURIComponent(referenceId));
+}
+
+export function referenceEditPath(
+    projectId: string | number,
+    referenceId: string,
+): string {
+    return PathConstants.REFERENCE_LIBRARY_EDIT
+        .replace(':projectId', String(projectId))
+        .replace(':referenceId', encodeURIComponent(referenceId));
+}
+
+export function referenceJobPath(
+    projectId: string | number,
+    referenceId: string,
+    jobId: string,
+): string {
+    return PathConstants.REFERENCE_LIBRARY_JOB
+        .replace(':projectId', String(projectId))
+        .replace(':referenceId', encodeURIComponent(referenceId))
+        .replace(':jobId', encodeURIComponent(jobId));
 }
 
 export function characterCreatePath(

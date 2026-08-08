@@ -17,7 +17,7 @@ import WCraftBrand from '../../components/WCraftBrand';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
 import {useUnsavedChangesGuard} from '../../utils/useUnsavedChangesGuard';
-import PathConstants, {projectDashboardPath} from '../../routes/pathConstant';
+import PathConstants, {musicStudioCreatePath, projectDashboardPath} from '../../routes/pathConstant';
 import {sceneToPlainText} from './api';
 import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
 import CardsView from './CardsView';
@@ -73,6 +73,11 @@ export default function ScriptPage() {
       allowNextNavigation();
     }
     navigate(projectDashboardPath(projectId));
+  };
+
+  const createMusicForScene = (sceneId: number) => {
+    if (!projectId) return;
+    navigate(musicStudioCreatePath(projectId, sceneId));
   };
 
   const deleteScene = (sceneId: number) => {
@@ -199,12 +204,14 @@ export default function ScriptPage() {
         selectedScene={workspace.selectedScene}
         characterFilter={workspace.characterSceneFilter}
         canEdit={workspace.canEdit}
+        canRunGeneration={workspace.canRunGeneration}
         dirtySceneIds={workspace.dirtySceneIds}
         savingSceneIds={workspace.savingSceneIds}
         onAdd={() => void workspace.addScene()}
         onChange={workspace.updateScene}
         onClearFilter={() => workspace.setCharacterSceneFilter(null)}
         onDelete={deleteScene}
+        onCreateMusic={createMusicForScene}
         onOpenScreenplay={() => void workspace.changeMode('screenplay')}
         onSave={() => void workspace.saveSelectedScene()}
         onSelect={(sceneId) => void workspace.selectScene(sceneId)}
@@ -214,11 +221,13 @@ export default function ScriptPage() {
         characters={workspace.characters}
         selectedScene={workspace.selectedScene}
         canEdit={workspace.canEdit}
+        canRunGeneration={workspace.canRunGeneration}
         dirtySceneIds={workspace.dirtySceneIds}
         savingSceneIds={workspace.savingSceneIds}
         onAddScene={() => void workspace.addScene()}
         onChange={workspace.updateScene}
         onDeleteScene={deleteScene}
+        onCreateMusic={createMusicForScene}
         onSave={() => void workspace.saveSelectedScene()}
         onSelect={(sceneId) => void workspace.selectScene(sceneId)}
       />}

@@ -102,6 +102,12 @@ export interface DashboardMusicTrack {
   author: string;
   durationSeconds: number;
   durationLabel: string;
+  audioUrl?: string | null;
+  activeVersion?: {
+    audioUrl?: string | null;
+    durationSeconds?: number | null;
+    versionNumber?: number | null;
+  } | null;
   tags: string[];
   coverImageUrl: string | null;
   usageCount: number;
@@ -300,6 +306,7 @@ export function adaptProject(api: DashboardProject): ProjectMock {
     permissions: p
       ? {
           canEdit: p.canEdit,
+          canRunGeneration: p.canRunGeneration ?? p.canEdit,
           canEditSettings: p.canEditSettings,
           canPublish: p.canPublish,
           canManageTeam: p.canManageTeam,
@@ -414,16 +421,22 @@ export function adaptPipeline(api: DashboardPipeline): PipelineStepMock[] {
 }
 
 export function adaptMusic(list: DashboardMusicTrack[]): TrackMock[] {
-  return (list || []).map((t, i) => ({
-    id: String(t.id),
-    title: t.title,
-    author: t.author || '',
-    duration: t.durationLabel,
-    tags: t.tags || [],
-    usageLabel: t.usageLabel,
-    coverGradient: pick(TRACK_GRADIENTS, i),
-    waveSeed: ((t.id || 0) * 17 + 3) || 17,
-  }));
+  return (list || []).map((t, i) => {
+    const activeVersion = t.activeVersion ?? null;
+    return {
+      id: String(t.id),
+      title: t.title,
+      author: t.author || '',
+      duration: t.durationLabel,
+      audioUrl: activeVersion?.audioUrl ?? t.audioUrl ?? null,
+      versionNumber: activeVersion?.versionNumber ?? null,
+      usageCount: Number(t.usageCount || 0),
+      tags: t.tags || [],
+      usageLabel: t.usageLabel,
+      coverGradient: pick(TRACK_GRADIENTS, i),
+      waveSeed: ((t.id || 0) * 17 + 3) || 17,
+    };
+  });
 }
 
 export interface ProgressView {

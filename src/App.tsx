@@ -32,6 +32,9 @@ import CharacterVariantsPage from "./modules/character-studio/pages/CharacterVar
 import CharacterReferencesPage from "./modules/character-studio/pages/CharacterReferencesPage";
 import Character3DEditorPage from "./modules/character-studio/pages/Character3DEditorPage";
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
+import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
+import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
+import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import withAuth from "./utils/auth/check_auth";
 import {CRAFT_ACCENT} from './constants/theme';
 import AppErrorBoundary from './components/AppErrorBoundary';
@@ -51,6 +54,9 @@ const ProtectedProjectListPage = withAuth(ProjectListPage);
 const ProtectedProjectPage = withAuth(ProjectPage);
 const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
+const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
+const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
+const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
 const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
 
 const LegacyProjectDashboardRedirect: React.FC = () => {
@@ -190,6 +196,15 @@ function App() {
         { key: 'genPosterLegacy', path: PathConstants.GEN_POSTER_LEGACY, component: <Navigate to={PathConstants.CREATE_PROJECT} replace /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
         { key: 'scriptPageLegacy', path: PathConstants.SCRIPT_PAGE_LEGACY, component: <ProtectedScriptPage /> },
+        { key: 'musicStudio', path: PathConstants.MUSIC_STUDIO, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioCreate', path: PathConstants.MUSIC_STUDIO_CREATE, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioTrack', path: PathConstants.MUSIC_STUDIO_TRACK, component: <ProtectedMusicStudioPage /> },
+        { key: 'referenceLibrary', path: PathConstants.REFERENCE_LIBRARY, component: <ProtectedReferenceLibraryPage /> },
+        { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'referenceLibraryEdit', path: PathConstants.REFERENCE_LIBRARY_EDIT, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'referenceLibraryDetail', path: PathConstants.REFERENCE_LIBRARY_DETAIL, component: <ProtectedReferenceWorkspacePage /> },
         { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <ProtectedCharacterStudioShell><CharacterGalleryPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <ProtectedCharacterStudioShell><CharacterCreatePage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <ProtectedCharacterStudioShell><CharacterCreatePage activeMode="reference" /></ProtectedCharacterStudioShell> },

@@ -162,6 +162,7 @@ export function useScriptWorkspace(projectId: string) {
   );
   const stats = useMemo(() => calculateStats(visibleScenes), [visibleScenes]);
   const canEdit = visibleProject?.permissions.canEdit === true;
+  const canRunGeneration = visibleProject?.permissions.canRunGeneration ?? canEdit;
   const visibleLoading = Boolean(ownerKey) && (stateOwnerKey !== ownerKey || loading);
   const visibleError = stateOwnerKey === ownerKey ? error : null;
   const markDirty = useCallback((sceneId: number) => {
@@ -386,6 +387,7 @@ export function useScriptWorkspace(projectId: string) {
     characterSceneFilter: visibleCharacterSceneFilter,
     stats: visibleProject ? stats : EMPTY_STATS,
     canEdit,
+    canRunGeneration,
     loading: visibleLoading,
     error: visibleError,
     saveError: ownsVisibleData ? saveError : null,

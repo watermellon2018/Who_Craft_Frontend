@@ -67,6 +67,70 @@ export const ProjectListPage = () => {
     return null;
   };
 
+  const activeProjects = projectsList.filter((project) => project.status !== 'archived');
+  const archivedProjects = projectsList.filter((project) => project.status === 'archived');
+
+  const renderProjectCards = (projects: ProjectListItem[]) => (
+    <div className="grid grid-cols-4 gap-4 projects-div">
+      {projects.map((project) => {
+        const coverUrl = coverFor(project);
+        const isOwner = project.currentUserRole === 'owner';
+        return (
+          <Card
+            hoverable
+            className="bottom-card"
+            key={'my-movie-' + project.id}
+            cover={
+              <>
+                {coverUrl ? (
+                  <img
+                    className="project-card-cover-image"
+                    src={coverUrl}
+                    alt={project.title}
+                    onClick={() => handleClickCard(project.id)}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="project-card-placeholder"
+                    aria-label={`Открыть проект «${project.title}»`}
+                    onClick={() => handleClickCard(project.id)}
+                  >
+                    <span className="project-card-placeholder-icon" aria-hidden="true">+</span>
+                    <span>Обложка проекта</span>
+                  </button>
+                )}
+                {/* Owner-only quick actions. Non-owners can't edit/delete the
+                    project, so we hide the icons rather than show a 403. */}
+                {isOwner && (
+                  <div className="text-right absolute top-1 right-0">
+                    <EditOutlined
+                      onClick={() => editProject(project.id)}
+                      className="text-white text-xl p-2"
+                    />
+                    <DeleteOutlined
+                      onClick={() => deleteProject(project.id)}
+                      className="text-white text-xl p-2"
+                    />
+                  </div>
+                )}
+              </>
+            }
+          >
+            <Card.Meta
+              description={
+                <div className="proj-card-meta">
+                  <div className="proj-card-title">{project.title}</div>
+                  <ProjectCardBadges project={project} />
+                </div>
+              }
+            />
+          </Card>
+        );
+      })}
+    </div>
+  );
+
   return (
     <>
       <DashboardHeader title="" />
@@ -99,64 +163,33 @@ export const ProjectListPage = () => {
         )}
 
         {!loading && !loadError && projectsList.length > 0 && (
-          <div className="grid grid-cols-4 gap-4 projects-div">
-            {projectsList.map((project) => {
-            const coverUrl = coverFor(project);
-            const isOwner = project.currentUserRole === 'owner';
-            return (
-              <Card
-                hoverable
-                className="bottom-card"
-                key={'my-movie-' + project.id}
-                cover={
-                  <>
-                    {coverUrl ? (
-                      <img
-                        className="project-card-cover-image"
-                        src={coverUrl}
-                        alt={project.title}
-                        onClick={() => handleClickCard(project.id)}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="project-card-placeholder"
-                        aria-label={`Открыть проект «${project.title}»`}
-                        onClick={() => handleClickCard(project.id)}
-                      >
-                        <span className="project-card-placeholder-icon" aria-hidden="true">+</span>
-                        <span>Обложка проекта</span>
-                      </button>
-                    )}
-                    {/* Owner-only quick actions. Non-owners can't edit/delete the
-                        project, so we hide the icons rather than show a 403. */}
-                    {isOwner && (
-                      <div className="text-right absolute top-1 right-0">
-                        <EditOutlined
-                          onClick={() => editProject(project.id)}
-                          className="text-white text-xl p-2"
-                        />
-                        <DeleteOutlined
-                          onClick={() => deleteProject(project.id)}
-                          className="text-white text-xl p-2"
-                        />
-                      </div>
-                    )}
-                  </>
-                }
-              >
-                <Card.Meta
-                  description={
-                    <div className="proj-card-meta">
-                      <div className="proj-card-title">{project.title}</div>
-                      <ProjectCardBadges project={project} />
-                    </div>
-                  }
-                />
-              </Card>
-            );
-            })}
-          </div>
+          <>
+            <section className="projects-active-section" aria-label="Активные проекты">
+              {activeProjects.length > 0 ? renderProjectCards(activeProjects) : (
+                <div className="projects-state projects-state-empty">
+                  <h2>Активных проектов пока нет</h2>
+                  <p>Архивные проекты доступны в разделе ниже.</p>
+                </div>
+              )}
+            </section>
+
+            {archivedProjects.length > 0 && (
+              <details className="archived-projects">
+                <summary className="archived-projects-summary">
+                  <span>Архивные проекты</span>
+                  <span
+                    className="archived-projects-count"
+                    aria-label={`Архивных проектов: ${archivedProjects.length}`}
+                  >
+                    {archivedProjects.length}
+                  </span>
+                </summary>
+                <div className="archived-projects-content">
+                  {renderProjectCards(archivedProjects)}
+                </div>
+              </details>
+            )}
+          </>
         )}
       </main>
     </>

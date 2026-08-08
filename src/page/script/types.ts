@@ -46,6 +46,7 @@ export interface Scene {
 
 export interface ProjectPermissions {
   canEdit: boolean;
+  canRunGeneration?: boolean;
   canView?: boolean;
   canManage?: boolean;
 }
