@@ -141,3 +141,526 @@ export interface ProjectInvitationResponse {
   inviteUrl?: string;
   token?: string;
 }
+
+export interface MusicErrorResponse {
+  code: string;
+  detail: string;
+  retryable: boolean;
+  errors?: Record<string, unknown>;
+  currentVersion?: number;
+}
+
+export interface MusicPermissions {
+  currentUserRole: string | null;
+  canView: boolean;
+  canEdit: boolean;
+  canRunGeneration: boolean;
+}
+
+export interface MusicPage {
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+export interface MusicTrackVersion {
+  versionId: string | null;
+  versionNumber: number | null;
+  durationSeconds: number | null;
+  mimeType: string | null;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  brief?: Record<string, unknown>;
+  lyrics?: Array<MusicLyricsSection>;
+  referenceAssetId?: string | null;
+  createdAt?: string | null;
+  createdById?: number | null;
+  provenance?: Record<string, unknown>;
+  legacy?: boolean;
+}
+
+export interface MusicTrackSummary {
+  id: number;
+  title: string;
+  author: string;
+  tags: Array<string>;
+  status: "active" | "archived";
+  source: "manual" | "generated" | "legacy";
+  version: number;
+  activeVersion: MusicTrackVersion | null;
+  usageCount: number;
+  updatedAt: string | null;
+}
+
+export interface DashboardMusicTrackVersion {
+  versionId: string;
+  versionNumber: number;
+  durationSeconds: number;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+}
+
+export interface DashboardMusicTrack {
+  id: number;
+  title: string;
+  author: string;
+  durationSeconds: number;
+  durationLabel: string;
+  tags: Array<string>;
+  coverImageUrl: string | null;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  activeVersionId?: string | null;
+  activeVersionNumber?: number | null;
+  activeVersion: DashboardMusicTrackVersion | null;
+  version: number;
+  source: "manual" | "generated" | "legacy";
+  usageCount: number;
+  usageLabel: string;
+}
+
+export interface MusicTrackPage {
+  items: Array<MusicTrackSummary>;
+  page: MusicPage;
+  permissions: MusicPermissions;
+}
+
+export type MusicTrackDetail = MusicTrackSummary & { versions: Array<MusicTrackVersion>; assignments: Array<MusicAssignment>; permissions: MusicPermissions; };
+
+export interface LegacyMusicTrackRequest {
+  title: string;
+  author?: string;
+  duration_seconds?: number;
+  tags?: Array<string>;
+}
+
+export interface LegacyMusicTrackResponse {
+  id: number;
+  title: string;
+}
+
+export interface MusicCapabilities {
+  contentModes: Array<"instrumental" | "song">;
+  variantCounts: Array<1 | 2>;
+  duration: Record<string, unknown>;
+  outputFormats: Array<string>;
+  briefFields: Record<string, unknown>;
+  lyrics: Record<string, unknown>;
+  audioReference: Record<string, unknown>;
+  supportsSeed?: boolean;
+  supportsCancellation?: boolean;
+  providerDisplayName: string;
+  permissions: MusicPermissions;
+}
+
+export interface MusicSceneOption {
+  sceneId: number;
+  number: number;
+  act: number;
+  title: string;
+  location: string;
+  summary: string;
+  mood: string;
+  durationSeconds: number;
+  characters: Array<string>;
+}
+
+export interface MusicSceneOptionPage {
+  items: Array<MusicSceneOption>;
+  nextCursor: string | null;
+  permissions: MusicPermissions;
+}
+
+export interface MusicReferenceUploadRequest {
+  file: File;
+  rightsConfirmed: true;
+  rightsStatementVersion: "music-reference-v1";
+}
+
+export interface MusicReferenceAsset {
+  assetId: string;
+  name: string;
+  durationSeconds: number | null;
+  mimeType: string | null;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  localVerificationStatus: "pending" | "accepted" | "rejected";
+  providerModerationStatus: "not_required" | "pending" | "accepted" | "rejected";
+  permissions?: MusicPermissions;
+}
+
+export interface MusicContext {
+  type: "project" | "scene";
+  sceneId?: number;
+}
+
+export interface MusicLyricsSection {
+  type: "verse" | "chorus" | "bridge" | "outro";
+  label?: string;
+  text: string;
+}
+
+export interface MusicContent {
+  mode: "instrumental" | "song";
+  lyricsLanguage?: "ru" | "en";
+  vocalStyle?: Record<string, unknown>;
+  sections?: Array<MusicLyricsSection>;
+}
+
+export interface MusicTempo {
+  mode: "auto" | "slow" | "medium" | "fast" | "bpm";
+  bpm?: number;
+}
+
+export interface MusicBrief {
+  context?: MusicContext;
+  content: MusicContent;
+  title: string;
+  purpose: "underscore" | "ambience" | "transition" | "stinger" | "song";
+  genre: "cinematic" | "cinematic_pop" | "ambient" | "electronic" | "orchestral" | "acoustic" | "experimental" | "pop";
+  moods: Array<string>;
+  durationSeconds: number;
+  tempo: MusicTempo;
+  energyCurve: "steady" | "build" | "peak" | "fade";
+  instruments?: Array<string>;
+  exclude?: Array<string>;
+  loopable?: boolean;
+  seed?: number | null;
+  textRefinement?: string;
+}
+
+export interface MusicGenerationCreateRequest {
+  targetTrackId?: number | null;
+  referenceAssetId?: string | null;
+  variantCount?: 1 | 2;
+  brief: MusicBrief;
+}
+
+export interface MusicGenerationAccepted {
+  jobId: string;
+  status: string;
+  stage: string;
+  idempotentReplay: boolean;
+  pollAfterMs: number;
+  createdAt: string;
+}
+
+export interface MusicVariant {
+  variantId: string;
+  index: number;
+  status: "generated" | "failed";
+  durationSeconds: number | null;
+  mimeType: string | null;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  seed: number | null;
+  appliedTrackVersionId: string | null;
+}
+
+export interface MusicGenerationJob {
+  jobId: string;
+  status: "queued" | "processing" | "cancellation_requested" | "completed" | "failed" | "cancelled";
+  stage: string;
+  variantCount: 1 | 2;
+  brief: MusicBrief;
+  referenceAsset?: MusicReferenceAsset | null;
+  targetTrackId: number | null;
+  retryOf?: string | null;
+  attempts: number;
+  canCancel: boolean;
+  canRetry: boolean;
+  error?: MusicErrorResponse | null;
+  createdAt: string;
+  completedAt?: string | null;
+  permissions: MusicPermissions;
+  variants: Array<MusicVariant>;
+}
+
+export interface MusicJobPage {
+  items: Array<MusicGenerationJob>;
+  page: MusicPage;
+  permissions: MusicPermissions;
+}
+
+export interface MusicVariantApplyRequest {
+  targetTrackId?: number | null;
+  expectedTrackVersion?: number | null;
+  title: string;
+  author?: string;
+  tags?: Array<string>;
+  makeActive?: boolean;
+}
+
+export interface MusicVariantApplyResponse {
+  trackId: number;
+  trackVersion: number;
+  activeVersion: MusicTrackVersion | null;
+  idempotentReplay: boolean;
+}
+
+export interface MusicTrackPatchRequest {
+  version?: number;
+  title?: string;
+  author?: string;
+  durationSeconds?: number;
+  duration_seconds?: number;
+  tags?: Array<string>;
+  activeVersionId?: string;
+}
+
+export interface MusicTrackArchiveRequest {
+  expectedTrackVersion: number;
+}
+
+export interface MusicAssignment {
+  sceneId: number;
+  sceneNumber: number;
+  sceneTitle: string;
+  location: string;
+  scene: MusicSceneOption;
+  trackVersionId: string | null;
+  trackVersionNumber: number | null;
+  startTimeSeconds: number;
+}
+
+export interface MusicAssignmentRequest {
+  sceneId: number;
+  trackVersionId: string;
+  startTimeSeconds?: number;
+}
+
+export interface MusicAssignments {
+  trackId: number;
+  trackVersion: number;
+  items: Array<MusicAssignment>;
+  permissions: MusicPermissions;
+}
+
+export interface MusicAssignmentsReplaceRequest {
+  expectedTrackVersion: number;
+  items: Array<MusicAssignmentRequest>;
+}
+
+export interface ReferenceErrorResponse {
+  error: ApiErrorDetail;
+  code: "AUTH_REQUIRED" | "PROJECT_ACCESS_DENIED" | "REFERENCE_EDIT_FORBIDDEN" | "REFERENCE_GENERATION_FORBIDDEN" | "REFERENCE_NOT_FOUND" | "REFERENCE_VERSION_NOT_FOUND" | "REFERENCE_JOB_NOT_FOUND" | "REFERENCE_VARIANT_NOT_FOUND" | "REFERENCE_CROSS_PROJECT_LINK" | "REFERENCE_INVALID_CATEGORY" | "REFERENCE_INVALID_BRIEF" | "REFERENCE_LOCATION_CATEGORY_REQUIRED" | "REFERENCE_UPLOAD_RIGHTS_REQUIRED" | "MEDIA_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INVALID_IMAGE" | "REFERENCE_VERSION_CONFLICT" | "REFERENCE_IDEMPOTENCY_MISMATCH" | "REFERENCE_JOB_ALREADY_ACTIVE" | "REFERENCE_JOB_NOT_CANCELLABLE" | "REFERENCE_JOB_NOT_RETRYABLE" | "REFERENCE_JOB_NOT_COMPLETED" | "REFERENCE_VARIANT_ALREADY_APPLIED" | "REFERENCE_ARCHIVED" | "REFERENCE_ASSET_IN_USE" | "REFERENCE_MAX_ATTEMPTS_EXCEEDED" | "REFERENCE_STORAGE_FAILED" | "IMAGE_MODEL_UNKNOWN" | "IMAGE_PROVIDER_EDIT_NOT_SUPPORTED" | "IMAGE_PROVIDER_NOT_CONFIGURED" | "IMAGE_PROVIDER_FORBIDDEN" | "IMAGE_PROVIDER_UNAVAILABLE" | "IMAGE_PROVIDER_BLOCKED" | "IMAGE_PROVIDER_BAD_RESPONSE" | "IMAGE_PROVIDER_ERROR" | "REFERENCE_INTERNAL_ERROR";
+  detail: string;
+  retryable: boolean;
+  errors?: Record<string, unknown>;
+  currentVersion?: number;
+}
+
+export type ReferenceCategory = "location" | "prop" | "wardrobe" | "vehicle" | "symbol" | "other";
+
+export type ReferenceComputedStatus = "draft" | "generating" | "ready" | "failed" | "archived";
+
+export type ReferenceCharacterRelation = "owns" | "wears" | "carries" | "uses" | "important" | "associated";
+
+export interface ReferenceBrief {
+  schemaVersion?: "reference_brief.v1";
+  aspectRatio?: "1:1" | "4:3" | "3:2" | "16:9" | "2:3";
+  description?: string;
+  condition?: string;
+  era?: string;
+  style?: string;
+  view?: string;
+  dimensions?: string;
+  continuityNotes?: string;
+  negativePrompt?: string;
+  materials?: Array<string>;
+  palette?: Array<string>;
+  distinctiveFeatures?: Array<string>;
+  continuityProperties?: Array<string>;
+  markings?: Array<string>;
+}
+
+export interface ReferenceCharacterLinkRequest {
+  characterId: string;
+  relation: ReferenceCharacterRelation;
+  note?: string;
+}
+
+export interface ReferenceCharacterLink {
+  characterId: string;
+  name: string;
+  relation: ReferenceCharacterRelation;
+  note: string;
+}
+
+export interface ReferenceVersion {
+  id: string;
+  number: number;
+  origin: "upload" | "generated" | "edit" | "legacy";
+  imageUrl: string | null;
+  thumbnailUrl: string | null;
+  provider: string | null;
+  modelName: string | null;
+  createdById: number | null;
+  createdAt: string;
+}
+
+export interface ReferenceJobWarning {
+  code: string;
+  detail: string;
+  retryable: boolean;
+}
+
+export interface ReferenceUsageSummary {
+  sceneCount: number;
+  characters: Array<ReferenceCharacterLink>;
+}
+
+export interface ReferenceSummary {
+  id: string;
+  title: string;
+  category: ReferenceCategory;
+  categoryLabel: string;
+  status: ReferenceComputedStatus;
+  activeVersion: ReferenceVersion | null | null;
+  tags: Array<string>;
+  usage: ReferenceUsageSummary;
+  lastJobWarning: ReferenceJobWarning | null | null;
+  version: number;
+  archivedAt: string | null;
+  updatedAt: string;
+}
+
+export type ReferenceDetail = ReferenceSummary & { description: string; brief: ReferenceBrief; locationId: number | null; characterLinks: Array<ReferenceCharacterLink>; createdAt: string; };
+
+export interface ReferencePage {
+  items: Array<ReferenceSummary>;
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface ReferenceCreateRequest {
+  title: string;
+  category: ReferenceCategory;
+  description?: string;
+  brief?: ReferenceBrief;
+  tags?: Array<string>;
+  locationId?: number | null;
+  characterLinks?: Array<ReferenceCharacterLinkRequest>;
+}
+
+export interface ReferencePatchRequest {
+  version: number;
+  title?: string;
+  category?: ReferenceCategory;
+  description?: string;
+  brief?: ReferenceBrief;
+  tags?: Array<string>;
+  locationId?: number | null;
+  characterLinks?: Array<ReferenceCharacterLinkRequest>;
+}
+
+export interface ExpectedReferenceVersionRequest {
+  expectedReferenceVersion: number;
+}
+
+export interface ReferenceUploadRequest {
+  file: File;
+  expectedReferenceVersion: number;
+  rightsConfirmed: true;
+  rightsStatementVersion: "reference-upload-v1";
+}
+
+export interface ReferenceCapabilities {
+  permissions: { canView: boolean; canEdit: boolean; canRunGeneration: boolean; };
+  categories: Array<{ key: ReferenceCategory; label: string; }>;
+  generation: { configured: boolean; providerMode: "mock" | "registry"; effectiveModel: string | null; canGenerate: boolean; canEdit: boolean; generateVariantCounts: Array<1 | 2 | 4>; editVariantCounts: Array<1>; aspectRatios: Array<"1:1" | "4:3" | "3:2" | "16:9" | "2:3">; };
+  upload: { maxBytes: number; maxPixels: number; mimeTypes: Array<"image/jpeg" | "image/png" | "image/webp">; rightsStatementVersion: "reference-upload-v1"; };
+}
+
+export interface ReferenceVersionPage {
+  items: Array<ReferenceVersion>;
+  activeVersionId: string | null;
+}
+
+export interface ReferenceVersionMutationResponse {
+  referenceId: string;
+  referenceVersion: number;
+  activeVersion: ReferenceVersion;
+}
+
+export interface ReferenceGenerationCreateRequest {
+  expectedReferenceVersion: number;
+  operation: "generate" | "edit";
+  sourceVersionId?: string | null;
+  variantCount: 1 | 2 | 4;
+  imageModel?: string;
+  brief?: ReferenceBrief;
+  editInstruction?: string;
+}
+
+export interface ReferenceGenerationError {
+  code: string;
+  detail: string;
+  retryable: boolean;
+}
+
+export interface ReferenceVariant {
+  id: string;
+  index: number;
+  status: "generated" | "applied" | "discarded";
+  imageUrl: string | null;
+  thumbnailUrl: string | null;
+  width: number | null;
+  height: number | null;
+}
+
+export interface ReferenceGenerationJobSummary {
+  id: string;
+  referenceId: string;
+  operation: "generate" | "edit";
+  status: "queued" | "processing" | "cancellation_requested" | "completed" | "failed" | "cancelled";
+  stage: "queued" | "compiling" | "generating" | "validating" | "storing" | "finalized" | "failed" | "cancelled";
+  progress: number;
+  variantCount: 1 | 2 | 4;
+  attempts: number;
+  canCancel: boolean;
+  canRetry: boolean;
+  error: ReferenceGenerationError | null | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export type ReferenceGenerationJob = ReferenceGenerationJobSummary & { variants: Array<ReferenceVariant>; };
+
+export interface ReferenceJobPage {
+  items: Array<ReferenceGenerationJobSummary>;
+}
+
+export type SceneReferenceUsage = "environment" | "hero_prop" | "set_dressing" | "wardrobe" | "vehicle" | "symbol" | "other";
+
+export interface SceneReferenceRequest {
+  referenceId: string;
+  versionId: string;
+  usage: SceneReferenceUsage;
+  note?: string;
+}
+
+export interface SceneReference {
+  referenceId: string;
+  title: string;
+  category: ReferenceCategory;
+  versionId: string;
+  versionNumber: number;
+  usage: SceneReferenceUsage;
+  note: string;
+  thumbnailUrl: string | null;
+  updateAvailable: boolean;
+  activeVersionId: string | null;
+}
+
+export interface SceneReferences {
+  sceneId: number;
+  sceneVersion: number;
+  items: Array<SceneReference>;
+}
+
+export interface SceneReferencesReplaceRequest {
+  expectedSceneVersion: number;
+  items: Array<SceneReferenceRequest>;
+}

@@ -10,6 +10,7 @@ interface ScreenplayViewProps {
   characters: CompactCharacter[];
   selectedScene: Scene | null;
   canEdit: boolean;
+  canRunGeneration: boolean;
   dirtySceneIds: number[];
   savingSceneIds: number[];
   onSelect: (sceneId: number) => void;
@@ -17,6 +18,7 @@ interface ScreenplayViewProps {
   onSave: () => void;
   onAddScene: () => void;
   onDeleteScene: (sceneId: number) => void;
+  onCreateMusic: (sceneId: number) => void;
 }
 
 const newBlock = (type: ScriptBlockType): ScriptBlock => ({
@@ -145,10 +147,12 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
       scene={scene}
       characters={props.characters}
       canEdit={props.canEdit}
+      canRunGeneration={props.canRunGeneration}
       dirty={Boolean(scene && props.dirtySceneIds.includes(scene.id))}
       saving={Boolean(scene && props.savingSceneIds.includes(scene.id))}
       onChange={props.onChange}
       onDelete={props.onDeleteScene}
+      onCreateMusic={props.onCreateMusic}
       onSave={props.onSave}
     />
   </div>;

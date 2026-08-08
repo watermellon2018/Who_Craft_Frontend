@@ -15,6 +15,7 @@ export type ProjectRole = 'owner' | 'admin' | 'editor' | 'viewer';
 
 export interface ProjectPermissionFlags {
   canEdit: boolean;
+  canRunGeneration?: boolean;
   canEditSettings: boolean;
   canPublish: boolean;
   canManageTeam: boolean;
@@ -164,6 +165,9 @@ export interface TrackMock {
   title: string;
   author: string;
   duration: string;
+  audioUrl?: string | null;
+  versionNumber?: number | null;
+  usageCount: number;
   tags: string[];
   usageLabel: string;
   coverGradient: string;
@@ -176,6 +180,9 @@ export const musicMock: TrackMock[] = [
     title: 'Neon Shadows',
     author: 'SynthWave Collective',
     duration: '03:42',
+    audioUrl: '/media/music/neon-shadows.mp3',
+    versionNumber: 2,
+    usageCount: 6,
     tags: ['Напряжённый', 'Киберпанк'],
     usageLabel: 'Используется в 6 сценах',
     coverGradient: 'linear-gradient(135deg, #8B5CF6, #EC4899)',
@@ -186,6 +193,9 @@ export const musicMock: TrackMock[] = [
     title: 'Rain Over Tokyo',
     author: 'Akira Yamaoka',
     duration: '04:18',
+    audioUrl: '/media/music/rain-over-tokyo.mp3',
+    versionNumber: 1,
+    usageCount: 4,
     tags: ['Меланхоличный', 'Атмосферный'],
     usageLabel: 'Используется в 4 сценах',
     coverGradient: 'linear-gradient(135deg, #1e3a8a, #155e75)',

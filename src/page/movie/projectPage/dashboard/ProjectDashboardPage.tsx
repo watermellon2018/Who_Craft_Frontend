@@ -3,7 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import { fetchDashboard } from '../../../../modules/profile/api/profileApi';
 import type { ProfileUser } from '../../../../modules/profile/types';
-import PathConstants from '../../../../routes/pathConstant';
+import PathConstants, {
+  musicStudioCreatePath,
+  musicStudioPath,
+  musicTrackPath,
+  projectEditPath,
+  referenceCreatePath,
+  referenceLibraryPath,
+} from '../../../../routes/pathConstant';
 import withAuth from '../../../../utils/auth/check_auth';
 
 import ProjectHero from './ProjectHero';
@@ -32,12 +39,10 @@ import {
   adaptProject,
   adaptQuickActions,
   adaptStats,
-  updateProject,
   updateProjectStatus,
   deleteProject as apiDeleteProject,
 } from './api';
 import type { DashboardPayload, ProjectStatusValue } from './api';
-import EditProjectModal from './EditProjectModal';
 import InviteMemberModal from '../team/InviteMemberModal';
 import { fetchTeamSummary, leaveProject, teamErrorCode } from '../../../../api/projects/team';
 import { Modal, message } from 'antd';
@@ -133,7 +138,6 @@ export const ProjectDashboardPage: React.FC = () => {
   const [error, setError] = useState<{ status: number | null; message: string } | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [statusUpdating, setStatusUpdating] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [teamRoleOptions, setTeamRoleOptions] = useState<{ value: string; label: string }[]>([]);
 
@@ -198,6 +202,22 @@ export const ProjectDashboardPage: React.FC = () => {
     const url = PathConstants.SCRIPT_PAGE.replace(':projectId', String(projectId));
     navigate(url, { state: { project_id: projectId } });
   };
+  const handleOpenMusic = useCallback(() => {
+    if (!projectId) return;
+    navigate(musicStudioPath(projectId));
+  }, [navigate, projectId]);
+  const handleCreateMusic = useCallback(() => {
+    if (!projectId) return;
+    navigate(musicStudioCreatePath(projectId));
+  }, [navigate, projectId]);
+  const handleOpenMusicTrack = useCallback((trackId: string) => {
+    if (!projectId) return;
+    navigate(musicTrackPath(projectId, trackId));
+  }, [navigate, projectId]);
+  const handleStat = useCallback((key: string) => {
+    if (key === 'music') handleOpenMusic();
+  }, [handleOpenMusic]);
+
   const handleContinue = handleOpenScript;
   const handleCreateCharacter = () => {
     if (!projectId) return;
@@ -219,9 +239,11 @@ export const ProjectDashboardPage: React.FC = () => {
   );
   const handleQuickAction = (key: string) => {
     if (key === 'new_scene') handleOpenScript();
+    if (key === 'upload_reference' && projectId) navigate(referenceCreatePath(projectId));
   };
   const isQuickActionEnabled = (key: string) =>
-    key === 'new_scene';
+    key === 'new_scene'
+    || (key === 'upload_reference' && Boolean(view.project.permissions?.canEdit));
 
   const handlePipelineStep = (key: string) => {
     if (key === 'script') {
@@ -229,7 +251,7 @@ export const ProjectDashboardPage: React.FC = () => {
       return;
     }
     if (key === 'reference' && projectId) {
-      navigate(PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId)));
+      navigate(referenceLibraryPath(projectId));
     }
   };
   const isPipelineStepEnabled = (key: string) => key === 'script' || key === 'reference';
@@ -325,7 +347,10 @@ export const ProjectDashboardPage: React.FC = () => {
     [projectId, view.project, applySummaryToView],
   );
 
-  const handleEdit = useCallback(() => setEditOpen(true), []);
+  const handleEdit = useCallback(() => {
+    if (!projectId) return;
+    navigate(projectEditPath(projectId));
+  }, [navigate, projectId]);
 
   const handleOpenTeam = useCallback(() => {
     if (!projectId) return;
@@ -348,30 +373,6 @@ export const ProjectDashboardPage: React.FC = () => {
     }
     setInviteOpen(true);
   }, [teamRoleOptions.length, projectId]);
-
-  const handleEditSubmit = useCallback(
-    async (values: {
-      title: string;
-      description: string;
-      tags: string[];
-      is_favorite: boolean;
-    }) => {
-      if (!projectId) return;
-      const summary = await updateProject(projectId, values);
-      applySummaryToView({
-        title: summary.title,
-        description: summary.description,
-        status: summary.status,
-        statusLabel: summary.statusLabel,
-        isFavorite: summary.isFavorite,
-        tags: summary.tags,
-        updatedAtLabel: summary.updatedAtLabel,
-      });
-      setEditOpen(false);
-      message.success('Изменения сохранены');
-    },
-    [projectId, applySummaryToView],
-  );
 
   const handleArchive = useCallback(() => {
     if (!projectId) return;
@@ -573,7 +574,7 @@ export const ProjectDashboardPage: React.FC = () => {
                   onDelete={handleDelete}
                   onLeave={handleLeave}
                 />
-                <ProjectStats stats={view.stats} />
+                <ProjectStats stats={view.stats} onStat={handleStat} />
                 <CharactersSection
                   characters={view.characters}
                   onCreate={handleCreateCharacter}
@@ -584,7 +585,11 @@ export const ProjectDashboardPage: React.FC = () => {
                   onStep={handlePipelineStep}
                   isStepEnabled={isPipelineStepEnabled}
                 />
-                <ProjectMusic tracks={view.music} />
+                <ProjectMusic
+                  tracks={view.music}
+                  onAdd={view.project.permissions?.canRunGeneration ? handleCreateMusic : undefined}
+                  onOpenTrack={handleOpenMusicTrack}
+                />
               </div>
               <RightProjectPanel
                 project={view.project}
@@ -601,13 +606,6 @@ export const ProjectDashboardPage: React.FC = () => {
           </div>
         </div>
       </main>
-
-      <EditProjectModal
-        open={editOpen}
-        project={view.project}
-        onCancel={() => setEditOpen(false)}
-        onSubmit={handleEditSubmit}
-      />
 
       {projectId && (
         <InviteMemberModal

@@ -1,6 +1,6 @@
 import type {ComponentType} from 'react';
 import React from 'react';
-import {fireEvent, render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 
 import type {ProjectListItem} from '../../../../api/projects/projectList';
@@ -51,6 +51,14 @@ const project: ProjectListItem = {
   tags: [],
   stats: {charactersTotal: 0, scenesTotal: 0},
   currentUserRole: 'owner',
+};
+
+const archivedProject: ProjectListItem = {
+  ...project,
+  id: 8,
+  title: 'Архивный проект',
+  status: 'archived',
+  statusLabel: 'В архиве',
 };
 
 function renderPage() {
@@ -107,5 +115,36 @@ describe('ProjectListPage', () => {
     });
     expect(coverButton).toHaveClass('project-card-placeholder');
     expect(document.querySelector('.project-card-cover-image')).not.toBeInTheDocument();
+  });
+
+  it('keeps archived projects out of the active grid and reveals them on demand', async () => {
+    mockFetchProjectList.mockResolvedValueOnce([project, archivedProject]);
+
+    renderPage();
+
+    const activeProjects = await screen.findByRole('region', {name: 'Активные проекты'});
+    expect(within(activeProjects).getByText(project.title)).toBeInTheDocument();
+    expect(within(activeProjects).queryByText(archivedProject.title)).not.toBeInTheDocument();
+
+    const archiveSummary = screen.getByText('Архивные проекты').closest('summary');
+    if (!archiveSummary) throw new Error('Archive summary is missing');
+    const archiveDetails = archiveSummary.closest('details');
+    if (!archiveDetails) throw new Error('Archive details container is missing');
+    expect(archiveDetails).not.toHaveAttribute('open');
+    expect(screen.getByLabelText('Архивных проектов: 1')).toBeInTheDocument();
+
+    fireEvent.click(archiveSummary);
+
+    expect(archiveDetails).toHaveAttribute('open');
+    expect(within(archiveDetails).getByText(archivedProject.title)).toBeInTheDocument();
+  });
+
+  it('keeps the archive available when there are no active projects', async () => {
+    mockFetchProjectList.mockResolvedValueOnce([archivedProject]);
+
+    renderPage();
+
+    expect(await screen.findByText('Активных проектов пока нет')).toBeInTheDocument();
+    expect(screen.getByText('Архивные проекты')).toBeInTheDocument();
   });
 });

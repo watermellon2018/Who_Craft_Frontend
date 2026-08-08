@@ -1,5 +1,6 @@
-import {DeleteOutlined, PlusOutlined, SaveOutlined} from '@ant-design/icons';
+import {CustomerServiceOutlined, DeleteOutlined, PlusOutlined, SaveOutlined} from '@ant-design/icons';
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 
 import type {CompactCharacter, Scene, SceneCharacter} from './types';
 import {MOOD_LABELS, SCENE_TYPE_LABELS} from './types';
@@ -8,12 +9,14 @@ interface SceneInspectorProps {
   scene: Scene | null;
   characters: CompactCharacter[];
   canEdit: boolean;
+  canRunGeneration: boolean;
   saving: boolean;
   dirty: boolean;
   onChange: (sceneId: number, update: Partial<Scene>) => void;
   onSave: () => void;
   onDelete: (sceneId: number) => void;
   onOpenScreenplay?: () => void;
+  onCreateMusic?: (sceneId: number) => void;
 }
 
 const toSceneCharacter = (character: CompactCharacter): SceneCharacter => ({
@@ -28,13 +31,16 @@ export default function SceneInspector({
   scene,
   characters,
   canEdit,
+  canRunGeneration,
   saving,
   dirty,
   onChange,
   onSave,
   onDelete,
   onOpenScreenplay,
+  onCreateMusic,
 }: SceneInspectorProps) {
+  const {t} = useTranslation();
   if (!scene) {
     return <aside className="script-inspector script-inspector--empty">
       <span className="script-empty-icon">✦</span>
@@ -165,6 +171,9 @@ export default function SceneInspector({
       </button>
       {onOpenScreenplay && <button className="script-button" onClick={onOpenScreenplay}>
         <PlusOutlined /> Открыть в сценарии
+      </button>}
+      {canRunGeneration && onCreateMusic && <button className="script-button" onClick={() => onCreateMusic(scene.id)}>
+        <CustomerServiceOutlined /> {t('musicStudio.create.title')}
       </button>}
       {canEdit && <button className="script-button script-button--danger" onClick={() => onDelete(scene.id)}>
         <DeleteOutlined /> Удалить сцену

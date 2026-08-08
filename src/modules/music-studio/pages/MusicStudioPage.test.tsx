@@ -1,0 +1,393 @@
+import React from 'react';
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
+
+import i18n from '../../../i18n';
+import {musicApi} from '../api/musicApi';
+import {useMusicGenerationJob} from '../hooks/useMusicGenerationJob';
+import type {
+  MusicBrief,
+  MusicCapabilities,
+  MusicGenerationJob,
+  MusicTrackDetail,
+} from '../types';
+import MusicStudioPage, {musicEnqueueIntentFingerprint} from './MusicStudioPage';
+
+jest.mock('../hooks/useMusicGenerationJob');
+jest.mock('../hooks/useUnsavedMusicGuard', () => ({
+  useUnsavedMusicGuard: jest.fn(),
+}));
+
+const mockedUseMusicGenerationJob = useMusicGenerationJob as jest.MockedFunction<
+  typeof useMusicGenerationJob
+>;
+
+const brief: MusicBrief = {
+  content: {mode: 'instrumental'},
+  context: {type: 'project'},
+  durationSeconds: 30,
+  energyCurve: 'steady',
+  exclude: [],
+  genre: 'cinematic',
+  instruments: ['piano'],
+  loopable: false,
+  moods: ['hopeful'],
+  purpose: 'underscore',
+  seed: 123,
+  tempo: {mode: 'auto'},
+  textRefinement: '',
+  title: 'Existing theme',
+};
+
+const capabilities: MusicCapabilities = {
+  audioReference: {
+    formats: ['mp3'],
+    maxBytes: 100,
+    maxCount: 1,
+    maxSeconds: 300,
+    minSeconds: 10,
+    supported: false,
+  },
+  briefFields: {
+    energyCurves: ['steady'],
+    genres: ['cinematic'],
+    instruments: ['piano'],
+    moods: ['hopeful'],
+    purposes: ['underscore', 'song'],
+    tempoModes: ['auto'],
+    vocalStyles: {deliveries: ['soft'], timbres: ['warm']},
+  },
+  contentModes: ['instrumental', 'song'],
+  duration: {defaultSeconds: 30, maxSeconds: 300, minSeconds: 3},
+  lyrics: {
+    languages: ['ru'],
+    maxChars: 12000,
+    sectionTypes: ['verse', 'chorus'],
+    supported: true,
+  },
+  outputFormats: ['mp3'],
+  providerDisplayName: 'Generator',
+  supportsCancellation: true,
+  supportsSeed: true,
+  variantCounts: [1, 2],
+};
+
+const track: MusicTrackDetail = {
+  activeVersion: {
+    audioUrl: '/media/version-1.mp3',
+    durationSeconds: 30,
+    versionId: 'version-1',
+    versionNumber: 1,
+  },
+  assignments: [],
+  author: 'Craft AI',
+  id: 12,
+  permissions: {canEdit: true, canRunGeneration: true},
+  status: 'active',
+  tags: ['cinematic'],
+  title: 'Existing theme',
+  updatedAt: '2026-08-02T08:00:00Z',
+  usageCount: 0,
+  version: 4,
+  versions: [{
+    audioUrl: '/media/version-1.mp3',
+    brief,
+    durationSeconds: 30,
+    versionId: 'version-1',
+    versionNumber: 1,
+  }],
+};
+
+function completedTargetJob(): MusicGenerationJob {
+  return {
+    attempts: 1,
+    brief,
+    canCancel: false,
+    canRetry: false,
+    completedAt: '2026-08-02T10:01:00Z',
+    createdAt: '2026-08-02T10:00:00Z',
+    error: null,
+    jobId: 'job-2',
+    permissions: {canEdit: true, canRunGeneration: true},
+    referenceAsset: null,
+    retryOf: null,
+    stage: 'finalized',
+    status: 'completed',
+    targetTrackId: 12,
+    variantCount: 1,
+    variants: [{
+      appliedTrackVersionId: null,
+      audioUrl: '/media/variant.mp3',
+      audioUrlExpiresAt: null,
+      durationSeconds: 30,
+      index: 0,
+      mimeType: 'audio/mpeg',
+      seed: 123,
+      status: 'generated',
+      variantId: 'variant-2',
+    }],
+  };
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
+}
+
+function pageTree(path: string) {
+  return (
+    <MemoryRouter initialEntries={[path]}>
+      <LocationProbe />
+      <Routes>
+        <Route path="/project/:projectId/music" element={<MusicStudioPage />} />
+        <Route path="/project/:projectId/music/create" element={<MusicStudioPage />} />
+        <Route path="/project/:projectId/music/jobs/:jobId" element={<MusicStudioPage />} />
+        <Route path="/project/:projectId/music/tracks/:trackId" element={<MusicStudioPage />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
+function renderPage(path: string) {
+  return render(pageTree(path));
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.spyOn(musicApi, 'getCapabilities').mockResolvedValue({data: capabilities} as never);
+  jest.spyOn(musicApi, 'getTrack').mockResolvedValue({data: track} as never);
+  jest.spyOn(musicApi, 'listLibrary').mockResolvedValue({data: {
+    items: [],
+    page: {limit: 30, offset: 0, total: 0},
+    permissions: {canEdit: true, canRunGeneration: true},
+  }} as never);
+  jest.spyOn(musicApi, 'listJobs').mockResolvedValue({data: {items: []}} as never);
+  mockedUseMusicGenerationJob.mockReturnValue({
+    errorCode: null,
+    errorMessage: null,
+    isTerminal: false,
+    job: null,
+    loading: false,
+    refresh: jest.fn(),
+  });
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
+
+test('fingerprints reference, target, expected version, and brief changes as new intents', () => {
+  const payload = {
+    brief,
+    referenceAssetId: null,
+    targetTrackId: null,
+    variantCount: 2,
+  };
+  const original = musicEnqueueIntentFingerprint(payload, null);
+
+  expect(musicEnqueueIntentFingerprint({
+    ...payload,
+    brief: {...brief, title: 'Changed intent'},
+  }, null)).not.toBe(original);
+  expect(musicEnqueueIntentFingerprint({
+    ...payload,
+    referenceAssetId: 'reference-2',
+  }, null)).not.toBe(original);
+  expect(musicEnqueueIntentFingerprint({
+    ...payload,
+    targetTrackId: 12,
+  }, null)).not.toBe(original);
+  expect(musicEnqueueIntentFingerprint(payload, 4)).not.toBe(original);
+});
+test('starts a new-version job from track detail with the exact target snapshot', async () => {
+  const getTrack = musicApi.getTrack as jest.MockedFunction<typeof musicApi.getTrack>;
+  getTrack
+    .mockResolvedValueOnce({data: track} as never)
+    .mockResolvedValue({data: {...track, version: 5}} as never);
+  const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
+    jobId: 'job-new-version',
+  }} as never);
+  renderPage('/project/7/music/tracks/12');
+
+  await waitFor(() => expect(musicApi.getTrack).toHaveBeenCalled());
+  expect(await screen.findByText('Existing theme')).toBeInTheDocument();
+  fireEvent.click(await screen.findByText(i18n.t('musicStudio.job.newBrief')));
+
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    '/project/7/music/create?expectedTrackVersion=4&targetTrackId=12',
+  ));
+  await waitFor(() => expect(musicApi.getTrack).toHaveBeenCalledWith(
+    '7',
+    12,
+    expect.any(AbortSignal),
+  ));
+  await waitFor(() => expect(screen.getByLabelText(i18n.t('musicStudio.brief.title'))).toHaveValue(
+    'Existing theme',
+  ));
+
+  const generate = await screen.findByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  });
+  await waitFor(() => expect(generate).not.toBeDisabled());
+  fireEvent.click(generate);
+
+  await waitFor(() => expect(enqueue).toHaveBeenCalled());
+  expect(enqueue.mock.calls[0][1]).toEqual(expect.objectContaining({
+    targetTrackId: 12,
+    brief: expect.objectContaining({seed: 123, title: 'Existing theme'}),
+  }));
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    '/project/7/music/jobs/job-new-version?expectedTrackVersion=4',
+  ));
+});
+
+test('hydrates a legacy target when its detail resolves before capabilities', async () => {
+  let resolveCapabilities: ((value: unknown) => void) | undefined;
+  const pendingCapabilities = new Promise((resolve) => {
+    resolveCapabilities = resolve;
+  });
+  const getCapabilities = musicApi.getCapabilities as jest.MockedFunction<
+    typeof musicApi.getCapabilities
+  >;
+  getCapabilities.mockReturnValue(pendingCapabilities as never);
+  const getTrack = musicApi.getTrack as jest.MockedFunction<typeof musicApi.getTrack>;
+  getTrack.mockResolvedValue({
+    data: {
+      ...track,
+      versions: track.versions.map((version) => ({...version, brief: null})),
+    },
+  } as never);
+
+  renderPage('/project/7/music/create?expectedTrackVersion=4&targetTrackId=12');
+  await waitFor(() => expect(getTrack).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    resolveCapabilities?.({data: capabilities});
+    await pendingCapabilities;
+  });
+
+  await waitFor(() => expect(
+    screen.getByLabelText(i18n.t('musicStudio.brief.title')),
+  ).toHaveValue(track.title));
+});
+test('guards track signed-URL refreshes across detail remounts', async () => {
+  const getTrack = musicApi.getTrack as jest.MockedFunction<typeof musicApi.getTrack>;
+  renderPage('/project/7/music/tracks/12');
+
+  await waitFor(() => expect(getTrack).toHaveBeenCalledTimes(1));
+  const audioLabel = i18n.t('musicStudio.player.track', {title: track.title});
+  fireEvent.error(await screen.findByLabelText(audioLabel));
+  await waitFor(() => expect(getTrack).toHaveBeenCalledTimes(2));
+
+  fireEvent.error(await screen.findByLabelText(audioLabel));
+  expect(getTrack).toHaveBeenCalledTimes(2);
+});
+
+test('guards variant signed-URL refreshes across job-state remounts', async () => {
+  const route = '/project/7/music/jobs/job-2';
+  const refresh = jest.fn();
+  const job = {...completedTargetJob(), targetTrackId: null};
+  const completedState = {
+    errorCode: null,
+    errorMessage: null,
+    isTerminal: true,
+    job,
+    loading: false,
+    refresh,
+  };
+  mockedUseMusicGenerationJob.mockReturnValue(completedState);
+  const view = renderPage(route);
+  const audioLabel = i18n.t('musicStudio.player.variant', {letter: 'A'});
+
+  fireEvent.error(await screen.findByLabelText(audioLabel));
+  expect(refresh).toHaveBeenCalledTimes(1);
+
+  mockedUseMusicGenerationJob.mockReturnValue({...completedState, job: null, loading: true});
+  view.rerender(pageTree(route));
+  expect(screen.queryByLabelText(audioLabel)).not.toBeInTheDocument();
+
+  mockedUseMusicGenerationJob.mockReturnValue(completedState);
+  view.rerender(pageTree(route));
+  fireEvent.error(await screen.findByLabelText(audioLabel));
+  expect(refresh).toHaveBeenCalledTimes(1);
+});
+test('fetches a target detail outside the library page and applies version two optimistically', async () => {
+  const job = completedTargetJob();
+  mockedUseMusicGenerationJob.mockReturnValue({
+    errorCode: null,
+    errorMessage: null,
+    isTerminal: true,
+    job,
+    loading: false,
+    refresh: jest.fn(),
+  });
+  const apply = jest.spyOn(musicApi, 'applyVariant').mockResolvedValue({data: {
+    activeVersion: {
+      audioUrl: '/media/version-2.mp3',
+      durationSeconds: 30,
+      versionId: 'version-2',
+      versionNumber: 2,
+    },
+    idempotentReplay: false,
+    trackId: 12,
+    trackVersion: 5,
+  }} as never);
+  renderPage('/project/7/music/jobs/job-2?expectedTrackVersion=4');
+
+  const choose = await screen.findByRole('button', {
+    name: i18n.t('musicStudio.player.choose'),
+  });
+  await waitFor(() => expect(choose).not.toBeDisabled());
+  fireEvent.click(choose);
+
+  await waitFor(() => expect(apply).toHaveBeenCalledWith(
+    '7',
+    'job-2',
+    'variant-2',
+    expect.objectContaining({expectedTrackVersion: 4, targetTrackId: 12}),
+  ));
+  expect(musicApi.getTrack).toHaveBeenCalledWith('7', 12, expect.any(AbortSignal));
+  expect(await screen.findByText(i18n.t('musicStudio.apply.saved'))).toBeInTheDocument();
+  await waitFor(() => expect(musicApi.getTrack).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole('button', {
+    name: i18n.t('musicStudio.player.choose'),
+  })).not.toBeDisabled());
+});
+
+test('reuses an idempotency key after an ambiguous failure until the brief changes', async () => {
+  const rejectors: Array<(reason?: unknown) => void> = [];
+  const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockImplementation(() => (
+    new Promise((_resolve, reject) => rejectors.push(reject)) as never
+  ));
+  const failAttempt = async (index: number) => {
+    await act(async () => {
+      rejectors[index]?.(new Error('Network lost'));
+      await Promise.resolve();
+    });
+  };
+  renderPage('/project/7/music/create');
+
+  const title = await screen.findByLabelText(i18n.t('musicStudio.brief.title'));
+  fireEvent.change(title, {target: {value: 'First intent'}});
+  const generateButton = () => screen.getByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  });
+  await waitFor(() => expect(generateButton()).not.toBeDisabled());
+
+  fireEvent.click(generateButton());
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));
+  await failAttempt(0);
+  expect(await screen.findByText(i18n.t('musicStudio.errors.generic'))).toBeInTheDocument();
+  await waitFor(() => expect(generateButton()).not.toBeDisabled());
+
+  fireEvent.click(generateButton());
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(2));
+  expect(enqueue.mock.calls[1][2]).toBe(enqueue.mock.calls[0][2]);
+  await failAttempt(1);
+  await waitFor(() => expect(generateButton()).not.toBeDisabled());
+
+  fireEvent.change(title, {target: {value: 'Changed intent'}});
+  fireEvent.click(generateButton());
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(3));
+  expect(enqueue.mock.calls[2][2]).not.toBe(enqueue.mock.calls[0][2]);
+  await failAttempt(2);
+}, 15_000);
