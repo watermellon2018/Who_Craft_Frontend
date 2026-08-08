@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import PathConstants from '../../../routes/pathConstant';
+import LogoButton from '../../../page/main/logo';
+import { logout } from '../../../api/http';
 
 interface MenuItem {
   icon: string;
@@ -11,31 +13,29 @@ interface MenuItem {
 }
 
 const mainItems: MenuItem[] = [
-  { icon: '🏠', label: 'Главная', path: PathConstants.HOME },
+  { icon: '🏠', label: 'Мой кабинет', path: PathConstants.PROFILE },
   { icon: '💬', label: 'Сообщения', disabled: true },
-  { icon: '👥', label: 'Подписки', disabled: true },
+  { icon: '👥', label: 'Подписки', path: PathConstants.PROFILE_SUBSCRIPTIONS },
   { icon: '📺', label: 'История просмотров', disabled: true },
   { icon: '📊', label: 'Статистика', disabled: true },
   { icon: '✨', label: 'Рекомендации', disabled: true },
-  { icon: '🎓', label: 'Уроки', disabled: true },
   { icon: '🏆', label: 'Награды', disabled: true },
   { icon: '🔖', label: 'Сохранённое', disabled: true },
-  { icon: '🎵', label: 'Плейлисты', disabled: true },
 ];
 
 const bottomItems: MenuItem[] = [
   { icon: '⚙️', label: 'Настройки', path: PathConstants.PROFILE },
-  { icon: '❓', label: 'Помощь и поддержка', disabled: true },
 ];
 
 interface Props {
   mobileOpen: boolean;
   onClose: () => void;
+  activeItem?: string;
 }
 
-const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose }) => {
+const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) => {
   const navigate = useNavigate();
-  const [active, setActive] = useState('Главная');
+  const [active, setActive] = useState(activeItem ?? 'Главная');
 
   const handleNav = (item: MenuItem) => {
     if (item.disabled) return;
@@ -44,9 +44,9 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose }) => {
     onClose();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Cookies.remove('token');
-    localStorage.removeItem('userId');
+    await logout();
     navigate(PathConstants.AUTH);
   };
 
@@ -67,13 +67,11 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose }) => {
           lg:translate-x-0 lg:static lg:z-auto
         `}
       >
-        <div className="px-6 py-6 border-b border-white/5">
-          <span className="text-xl font-bold text-white tracking-wide">
-            <span className="text-[#fab005]">Craft</span>
-          </span>
+        <div className="px-6 py-5 border-b border-white/5 flex items-center">
+          <LogoButton />
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
+        <nav className="flex-1 overflow-y-auto profile-scroll py-4 px-3">
           {mainItems.map((item) => (
             <button
               key={item.label}
@@ -85,7 +83,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose }) => {
                 ${item.disabled
                   ? 'text-white/30 cursor-not-allowed'
                   : active === item.label
-                  ? 'bg-[#fab005]/15 text-[#fab005] border border-[#fab005]/30'
+                  ? 'bg-accent/15 text-accent border border-accent/30'
                   : 'text-white/70 hover:bg-white/5 hover:text-white'
                 }
               `}
@@ -96,15 +94,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose }) => {
           ))}
         </nav>
 
-        <div className="px-3 pb-2 border-t border-white/5 pt-3">
-          <div className="bg-gradient-to-br from-[#fab005]/20 to-[#f59f00]/10 border border-[#fab005]/25 rounded-2xl p-4 mb-3">
-            <p className="text-white font-semibold text-sm mb-1">Craft Pro</p>
-            <p className="text-white/50 text-xs mb-3">Расширенные возможности и эксклюзивный контент</p>
-            <button className="w-full bg-[#fab005] text-[#13151a] text-xs font-bold py-2 rounded-lg hover:bg-[#fcc419] transition-colors">
-              Улучшить подписку
-            </button>
-          </div>
-
+        <div className="px-3 pb-2 pt-3 border-t border-white/5">
           {bottomItems.map((item) => (
             <button
               key={item.label}

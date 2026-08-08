@@ -1,22 +1,28 @@
-import React, {useMemo} from 'react';
+import React, {useEffect, useMemo} from 'react';
 import './App.css';
-import {BrowserRouter, Route, Routes} from 'react-router-dom';
+import {
+    createBrowserRouter,
+    Navigate,
+    Outlet,
+    RouterProvider,
+    useLocation,
+    useNavigate,
+} from 'react-router-dom';
 
 import {ConfigProvider} from 'antd';
 import MainPage from "./page/main";
-import LandingPage from "./page/logIn/start";
 import RegistrationPage from "./page/logIn/register";
 import LoginPage from "./page/logIn/login";
 import ProfilePage from "./modules/profile/ProfileDashboardPage";
+import ProfileEditPage from "./modules/profile/ProfileEditPage";
+import SubscriptionsPage from "./modules/subscriptions/SubscriptionsPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
-import CharacterData from "./page/movie/characters/setting/CharacterData";
-import PathConstants from "./routes/pathConstant";
+import ProjectTeamPage from "./page/movie/projectPage/team/ProjectTeamPage";
+import InviteAcceptPage from "./page/movie/projectPage/team/InviteAcceptPage";
+import PathConstants, {projectDashboardPath} from "./routes/pathConstant";
 import GenPosterPage from "./page/creation/poster/GenPosterPage";
-import EditGenImgPage from "./page/creation/edit/editGenImgPage";
-import AllHeroesPage from "./page/movie/characters/info/allHeroes";
-import HeroPage from "./page/hero/main";
 import ScriptPage from "./page/script/editor";
 import CharacterGalleryPage from "./modules/character-studio/pages/CharacterGalleryPage";
 import CharacterCreatePage from "./modules/character-studio/pages/CharacterCreatePage";
@@ -24,14 +30,69 @@ import CharacterEditorPage from "./modules/character-studio/pages/CharacterEdito
 import CharacterDetailPage from "./modules/character-studio/pages/CharacterDetailPage";
 import CharacterVariantsPage from "./modules/character-studio/pages/CharacterVariantsPage";
 import CharacterReferencesPage from "./modules/character-studio/pages/CharacterReferencesPage";
-import Character3DPlaceholderPage from "./modules/character-studio/pages/Character3DPlaceholderPage";
+import Character3DEditorPage from "./modules/character-studio/pages/Character3DEditorPage";
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
+import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
+import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
+import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
+import withAuth from "./utils/auth/check_auth";
+import {CRAFT_ACCENT} from './constants/theme';
+import AppErrorBoundary from './components/AppErrorBoundary';
+import NotFoundPage from './page/errors/NotFoundPage';
+import {AUTH_EXPIRED_EVENT} from './api/http';
+import type {AuthExpiredEventDetail} from './api/http';
+import {safeReturnTo} from './utils/auth/returnTo';
 
+// All private pages are wrapped once here so adding a new private route is a
+// one-line change and we can't forget the auth gate on any single page.
+const ProtectedMainPage = withAuth(MainPage);
+const ProtectedProfilePage = withAuth(ProfilePage);
+const ProtectedProfileEditPage = withAuth(ProfileEditPage);
+const ProtectedSubscriptionsPage = withAuth(SubscriptionsPage);
+const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
+const ProtectedProjectListPage = withAuth(ProjectListPage);
+const ProtectedProjectPage = withAuth(ProjectPage);
+const ProtectedGenPosterPage = withAuth(GenPosterPage);
+const ProtectedScriptPage = withAuth(ScriptPage);
+const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
+const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
+const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
+const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
+
+const LegacyProjectDashboardRedirect: React.FC = () => {
+    const location = useLocation();
+    const projectId = (location.state as {project_id?: string | number} | null)?.project_id;
+    return (
+        <Navigate
+            to={projectId ? projectDashboardPath(projectId) : PathConstants.PROJECTS}
+            replace
+        />
+    );
+};
+
+const AuthExpiryRedirect: React.FC = () => {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const handleAuthExpired = (event: Event) => {
+            const detail = (event as CustomEvent<AuthExpiredEventDetail>).detail;
+            const returnTo = safeReturnTo(detail?.returnTo);
+            navigate(PathConstants.LOGIN, {
+                replace: true,
+                state: returnTo ? {returnTo} : undefined,
+            });
+        };
+        window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+        return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    }, [navigate]);
+
+    return null;
+};
 // https://ant.design/theme-editor#component-color настройка цветов
 const theme = {
     "token": {
-        "colorPrimary": "#fab005",
-        "colorInfo": "#fab005",
+        "colorPrimary": CRAFT_ACCENT,
+        "colorInfo": CRAFT_ACCENT,
         "colorBgBase": "#1b1d22",
         "colorTextBase": "#ffffff",
         "fontSize": 16,
@@ -84,7 +145,7 @@ const theme = {
             "colorTextPlaceholder": "#6f7784",
             "colorBorder": "#3b414d",
             "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
-            "optionSelectedColor": "#fab005",
+            "optionSelectedColor": CRAFT_ACCENT,
             "optionActiveBg": "rgba(255, 255, 255, 0.05)",
             "selectorBg": "#141820",
         },
@@ -93,11 +154,6 @@ const theme = {
         },
         "Radio": {
             "colorText": "rgb(27, 29, 34)",
-        },
-        "Card": {
-            "colorBgContainer": "#fab005",
-            "colorText": "rgb(27, 29, 34)",
-            "colorTextHeading":  "rgb(27, 29, 34)",
         },
         "Tabs": {
             "itemSelectedColor":  "rgb(27, 29, 34)",
@@ -109,8 +165,8 @@ const theme = {
             "labelColor": "rgb(27, 29, 34)",
         },
         "Empty": {
-            "colorText": "#fab005",
-            "colorTextDisabled": "#fab005",
+            "colorText": CRAFT_ACCENT,
+            "colorTextDisabled": CRAFT_ACCENT,
         }
     }
 }
@@ -118,43 +174,63 @@ const theme = {
 function App() {
 
     const routes = useMemo(() => [
-        { key: 'auth', path: PathConstants.AUTH, component: <LandingPage /> },
+        // Public.
+        { key: 'startRedirect', path: '/start', component: <Navigate to={PathConstants.LOGIN} replace /> },
         { key: 'register', path: PathConstants.REGISTER, component: <RegistrationPage /> },
         { key: 'login', path: PathConstants.LOGIN, component: <LoginPage /> },
-        { key: 'home', path: PathConstants.HOME, component: <MainPage /> },
-        { key: 'generating', path: PathConstants.GENERATING, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
-        { key: 'settingHero', path: PathConstants.SETTING_HERO, component: <CharacterData /> },
-        { key: 'profile', path: PathConstants.PROFILE, component: <ProfilePage /> },
-        { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProjectCreatePage /> },
-        { key: 'projects', path: PathConstants.PROJECTS, component: <ProjectListPage /> },
-        { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProjectPage /> },
-        { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <GenPosterPage /> },
-        { key: 'editGenImg', path: PathConstants.EDIT_GEN_IMG, component: <EditGenImgPage /> },
-        { key: 'allHeroesPage', path: PathConstants.ALL_HEROES_PAGE, component: <AllHeroesPage /> },
-        { key: 'heroPage', path: PathConstants.HERO_PAGE, component: <HeroPage /> },
-        { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ScriptPage /> },
-        { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <CharacterStudioShell><CharacterGalleryPage /></CharacterStudioShell> },
-        { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <CharacterStudioShell><CharacterCreatePage /></CharacterStudioShell> },
-        { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <CharacterStudioShell><CharacterCreatePage activeMode="reference" /></CharacterStudioShell> },
-        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <CharacterStudioShell><CharacterVariantsPage /></CharacterStudioShell> },
-        { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <CharacterStudioShell><CharacterDetailPage /></CharacterStudioShell> },
-        { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <CharacterStudioShell><CharacterEditorPage /></CharacterStudioShell> },
-        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <CharacterStudioShell><CharacterReferencesPage /></CharacterStudioShell> },
-        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <CharacterStudioShell><Character3DPlaceholderPage /></CharacterStudioShell> },
+
+        // Private — every entry below MUST be wrapped via withAuth.
+        { key: 'home', path: PathConstants.HOME, component: <ProtectedMainPage /> },
+        { key: 'profile', path: PathConstants.PROFILE, component: <ProtectedProfilePage /> },
+        { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProtectedProfileEditPage /> },
+        { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
+        { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
+        { key: 'editProject', path: PathConstants.EDIT_PROJECT, component: <ProtectedProjectCreatePage /> },
+        { key: 'editProjectLegacy', path: PathConstants.EDIT_PROJECT_LEGACY, component: <Navigate to={PathConstants.PROJECTS} replace /> },
+        { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },
+        { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProtectedProjectPage /> },
+        { key: 'projectPageLegacy', path: PathConstants.PROJECT_PAGE_LEGACY, component: <LegacyProjectDashboardRedirect /> },
+        { key: 'projectTeam', path: PathConstants.PROJECT_TEAM, component: <ProjectTeamPage /> },
+        { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
+        { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
+        { key: 'genPosterLegacy', path: PathConstants.GEN_POSTER_LEGACY, component: <Navigate to={PathConstants.CREATE_PROJECT} replace /> },
+        { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
+        { key: 'scriptPageLegacy', path: PathConstants.SCRIPT_PAGE_LEGACY, component: <ProtectedScriptPage /> },
+        { key: 'musicStudio', path: PathConstants.MUSIC_STUDIO, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioCreate', path: PathConstants.MUSIC_STUDIO_CREATE, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioTrack', path: PathConstants.MUSIC_STUDIO_TRACK, component: <ProtectedMusicStudioPage /> },
+        { key: 'referenceLibrary', path: PathConstants.REFERENCE_LIBRARY, component: <ProtectedReferenceLibraryPage /> },
+        { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'referenceLibraryEdit', path: PathConstants.REFERENCE_LIBRARY_EDIT, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'referenceLibraryDetail', path: PathConstants.REFERENCE_LIBRARY_DETAIL, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <ProtectedCharacterStudioShell><CharacterGalleryPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <ProtectedCharacterStudioShell><CharacterCreatePage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <ProtectedCharacterStudioShell><CharacterCreatePage activeMode="reference" /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioVariants', path: PathConstants.CHARACTER_STUDIO_VARIANTS, component: <ProtectedCharacterStudioShell><CharacterVariantsPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioDetail', path: PathConstants.CHARACTER_STUDIO_DETAIL, component: <ProtectedCharacterStudioShell><CharacterDetailPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <ProtectedCharacterStudioShell><CharacterEditorPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <ProtectedCharacterStudioShell><CharacterReferencesPage /></ProtectedCharacterStudioShell> },
+        { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
     ], []);
+
+    const router = useMemo(() => createBrowserRouter([{
+        element: <><AuthExpiryRedirect /><Outlet /></>,
+        children: [
+            ...routes.map(({path, component}) => ({path, element: component})),
+            {path: '*', element: <NotFoundPage />},
+        ],
+    }]), [routes]);
 
 
 
     return (
-        <ConfigProvider theme={theme}>
-            <BrowserRouter>
-                <Routes>
-                    {routes.map(({ path, component }) => (
-                        <Route key={path} path={path} element={component} />
-                    ))}
-                </Routes>
-            </BrowserRouter>
-        </ConfigProvider>
+        <AppErrorBoundary>
+            <ConfigProvider theme={theme}>
+                <RouterProvider router={router} />
+            </ConfigProvider>
+        </AppErrorBoundary>
     );
 }
 

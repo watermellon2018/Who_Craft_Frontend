@@ -1,26 +1,38 @@
 const PathConstants = {
     HOME: '/',
-    AUTH: "/start",
+    AUTH: "/login",
     REGISTER: "/register",
     LOGIN: "/login",
 
-    GENERATING: '/generating',
-    SETTING_HERO: '/generating/setting-hero',
-
     PROFILE: '/profile',
+    PROFILE_EDIT: '/profile/edit',
+    PROFILE_SUBSCRIPTIONS: '/profile/subscriptions',
 
-    EDIT_GEN_IMG: '/generating/edit',
     CREATE_PROJECT: '/create-project',
-    EDIT_PROJECT: '/edit-project',
-    GEN_POSTER: '/create-project/gen-poster',
+    EDIT_PROJECT: '/projects/:projectId/edit',
+    EDIT_PROJECT_LEGACY: '/edit-project',
+    GEN_POSTER: '/projects/:projectId/poster',
+    GEN_POSTER_LEGACY: '/create-project/gen-poster',
     PROJECTS: '/project-list',
-    PROJECT_PAGE: '/project-list/project',
+    PROJECT_PAGE: '/projects/:projectId',
+    PROJECT_PAGE_LEGACY: '/project-list/project',
+    PROJECT_TEAM: '/project-list/project/:projectId/team',
+    INVITE_ACCEPT: '/invite/:token',
 
-    ALL_HEROES_PAGE: '/project/heroes-list',
-    HERO_PAGE: '/project/hero',
+    SCRIPT_PAGE: '/project/:projectId/script',
+    SCRIPT_PAGE_LEGACY: '/project/script',
 
-    SCRIPT_PAGE: '/project/script'
-    ,
+    MUSIC_STUDIO: '/project/:projectId/music',
+    MUSIC_STUDIO_CREATE: '/project/:projectId/music/create',
+    MUSIC_STUDIO_JOB: '/project/:projectId/music/jobs/:jobId',
+    MUSIC_STUDIO_TRACK: '/project/:projectId/music/tracks/:trackId',
+
+    REFERENCE_LIBRARY: '/project/:projectId/references',
+    REFERENCE_LIBRARY_CREATE: '/project/:projectId/references/create',
+    REFERENCE_LIBRARY_JOB: '/project/:projectId/references/:referenceId/jobs/:jobId',
+    REFERENCE_LIBRARY_DETAIL: '/project/:projectId/references/:referenceId',
+    REFERENCE_LIBRARY_EDIT: '/project/:projectId/references/:referenceId/edit',
+
     CHARACTER_STUDIO: '/project/:projectId/characters',
     CHARACTER_STUDIO_CREATE: '/project/:projectId/characters/create',
     CHARACTER_STUDIO_CREATE_REFERENCE: '/project/:projectId/characters/create/reference',
@@ -30,5 +42,112 @@ const PathConstants = {
     CHARACTER_STUDIO_REFERENCES: '/project/:projectId/characters/:characterId/references',
     CHARACTER_STUDIO_3D: '/project/:projectId/characters/:characterId/3d-model',
 
+}
+
+export function projectDashboardPath(projectId: string | number): string {
+    return PathConstants.PROJECT_PAGE.replace(':projectId', String(projectId));
+}
+
+export function projectEditPath(projectId: string | number): string {
+    return PathConstants.EDIT_PROJECT.replace(':projectId', String(projectId));
+}
+
+export function projectPosterPath(projectId: string | number): string {
+    return PathConstants.GEN_POSTER.replace(':projectId', String(projectId));
+}
+
+export function musicStudioPath(projectId: string | number): string {
+    return PathConstants.MUSIC_STUDIO.replace(':projectId', String(projectId));
+}
+
+export function musicStudioCreatePath(
+    projectId: string | number,
+    sceneId?: string | number,
+): string {
+    const base = PathConstants.MUSIC_STUDIO_CREATE.replace(':projectId', String(projectId));
+    return sceneId == null ? base : `${base}?sceneId=${encodeURIComponent(String(sceneId))}`;
+}
+
+export function musicJobPath(projectId: string | number, jobId: string): string {
+    return PathConstants.MUSIC_STUDIO_JOB
+        .replace(':projectId', String(projectId))
+        .replace(':jobId', encodeURIComponent(jobId));
+}
+
+export function musicTrackPath(projectId: string | number, trackId: string | number): string {
+    return PathConstants.MUSIC_STUDIO_TRACK
+        .replace(':projectId', String(projectId))
+        .replace(':trackId', encodeURIComponent(String(trackId)));
+}
+
+export function referenceLibraryPath(projectId: string | number): string {
+    return PathConstants.REFERENCE_LIBRARY.replace(':projectId', String(projectId));
+}
+
+export function referenceCreatePath(projectId: string | number): string {
+    return PathConstants.REFERENCE_LIBRARY_CREATE.replace(':projectId', String(projectId));
+}
+
+export function referenceDetailPath(
+    projectId: string | number,
+    referenceId: string,
+): string {
+    return PathConstants.REFERENCE_LIBRARY_DETAIL
+        .replace(':projectId', String(projectId))
+        .replace(':referenceId', encodeURIComponent(referenceId));
+}
+
+export function referenceEditPath(
+    projectId: string | number,
+    referenceId: string,
+): string {
+    return PathConstants.REFERENCE_LIBRARY_EDIT
+        .replace(':projectId', String(projectId))
+        .replace(':referenceId', encodeURIComponent(referenceId));
+}
+
+export function referenceJobPath(
+    projectId: string | number,
+    referenceId: string,
+    jobId: string,
+): string {
+    return PathConstants.REFERENCE_LIBRARY_JOB
+        .replace(':projectId', String(projectId))
+        .replace(':referenceId', encodeURIComponent(referenceId))
+        .replace(':jobId', encodeURIComponent(jobId));
+}
+
+export function characterCreatePath(
+    projectId: string | number,
+    context: {draftId?: string; treeNodeId?: string} = {},
+): string {
+    const base = PathConstants.CHARACTER_STUDIO_CREATE.replace(':projectId', String(projectId));
+    const params = new URLSearchParams();
+    if (context.draftId) params.set('draftId', context.draftId);
+    if (context.treeNodeId) params.set('treeNodeId', context.treeNodeId);
+    const query = params.toString();
+    return query ? `${base}?${query}` : base;
+}
+
+export function characterVariantsPath(
+    projectId: string | number,
+    characterId: string,
+    jobId: string,
+    treeNodeId?: string,
+): string {
+    const base = PathConstants.CHARACTER_STUDIO_VARIANTS
+        .replace(':projectId', String(projectId))
+        .replace(':characterId', characterId);
+    const treeContext = treeNodeId ? `&treeNodeId=${encodeURIComponent(treeNodeId)}` : '';
+    return `${base}?jobId=${encodeURIComponent(jobId)}${treeContext}`;
+}
+
+export function isProjectEditPath(pathname: string): boolean {
+    return /^\/projects\/[^/]+\/edit\/?$/.test(pathname);
+}
+
+export function isScriptWorkspacePath(pathname: string) {
+    return pathname === PathConstants.SCRIPT_PAGE_LEGACY
+        || /^\/project\/[^/]+\/script\/?$/.test(pathname);
 }
 export default PathConstants

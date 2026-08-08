@@ -21,6 +21,7 @@ export interface ProfileCompletion {
 }
 
 export interface ProfileStats {
+  available?: boolean;
   new_messages: number;
   subscriptions_count: number;
   watch_history_count: number;
@@ -51,6 +52,7 @@ export interface AnalyticsSummary {
 }
 
 export interface ViewsAnalytics {
+  available?: boolean;
   period: string;
   points: AnalyticsPoint[];
   summary: AnalyticsSummary;
@@ -83,6 +85,37 @@ export interface ProfileSettings {
   language: string;
   private_account: boolean;
   notifications_enabled: boolean;
+}
+
+export interface SocialLinks {
+  telegram: string;
+  instagram: string;
+  youtube: string;
+  website: string;
+}
+
+export interface SocialLinkItem {
+  platform: string;
+  url: string;
+  display_order?: number;
+}
+
+export interface ProfileEditSettings {
+  private_account: boolean;
+  show_in_recommendations: boolean;
+  show_activity: boolean;
+}
+
+export interface ProfileEditFormState {
+  username: string;
+  display_name: string;
+  bio: string;
+  avatar_url: string | null;
+  cover_url: string | null;
+  interests: string[];
+  socials: SocialLinks;
+  settings: ProfileEditSettings;
+  language: 'ru' | 'en';
 }
 
 export interface DashboardData {

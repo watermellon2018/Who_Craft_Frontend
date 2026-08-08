@@ -1,105 +1,59 @@
-import axios from 'axios';
+import type {AxiosResponse} from 'axios';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+import type {
+  ProjectMutationRequest,
+  ProjectMutationResponse,
+} from '../../generated/contracts';
+import {createGeneratedApiClient} from '../../generated/client';
+import api from '../../http';
 
-interface ProjectI {
-    genre: string[];
-    format: string;
-    title: string;
-    desc: string;
-    annot: string;
-    audience: string[];
-    image: string;
+const projectApi = createGeneratedApiClient(api);
+
+// Token is attached as X-User-Token by api/http.ts. Do not pass token_user
+// in query params or body — query strings leak to logs/Referer.
+
+interface ProjectListResponse {
+  projects: ProjectMutationResponse[];
 }
 
-async function create_new_project(data: ProjectI): Promise<any> {
-    try {
-        const token = localStorage.getItem('userId');
-        return await axios.post(`${backendUrl}/api/projects/create/`, {
-            data: {
-                ...data,
-                'token_user': token,
-            },
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                'Accept': 'application/json',
-            }
-        });
-    } catch (error) {
-        console.error('Error creating project:', error);
-    }
+type ProjectEditPayload = ProjectMutationRequest;
 
+// ---- New API (preferred) ----
+
+async function fetch_project(
+  projectId: string | number,
+): Promise<ProjectMutationResponse> {
+  return projectApi.getProject(projectId);
 }
 
-async function get_all_list_projects(): Promise<any> {
-    try {
-        const token = localStorage.getItem('userId');
-        return await axios.get(`${backendUrl}/api/projects/get-list-projects/`, {
-            params: {
-                'token_user': token,
-            }
-        });
-    } catch (error) {
-        console.error('Error creating project:', error);
-    }
-
+async function patch_project(
+  projectId: string | number,
+  payload: ProjectEditPayload,
+): Promise<ProjectMutationResponse> {
+  return projectApi.updateProject(projectId, payload);
 }
 
-async function delete_project_by_id(id: string): Promise<any> {
-    try {
-        // чистим локальное хранилище, этого проекта больше нет
-        localStorage.removeItem("treeLeaf_" + id);
-
-        const token = localStorage.getItem('userId');
-        return await axios.get(`${backendUrl}/api/projects/delete-project-by-id/`, {
-            params: {
-                "id": id,
-                'token_user': token,
-            }
-        });
-    } catch (error) {
-        console.error('Error creating project:', error);
-    }
-
+async function create_project(
+  payload: ProjectEditPayload,
+): Promise<ProjectMutationResponse> {
+  return projectApi.createProject(payload);
 }
 
-async function get_info_project(id: string): Promise<any> {
-    try {
-        const token = localStorage.getItem('userId');
-        return await axios.get(`${backendUrl}/api/projects/select-project-by-id/`, {
-            params: {
-                "id": id,
-                'token_user': token,
-            }
-        });
-    } catch (error) {
-        console.error('Error creating project:', error);
-    }
+async function fetch_projects_list(): Promise<AxiosResponse<ProjectListResponse>> {
+  return api.get<ProjectListResponse>('api/projects/');
 }
 
-async function update_info_project(data: ProjectI, id: string): Promise<any> {
-    try {
-        const token = localStorage.getItem('userId');
-        return await axios.post(`${backendUrl}/api/projects/update-project-by-id/`, {
-            data: {
-                ...data,
-                'token_user': token,
-                "id": id,
-            },
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                'Accept': 'application/json',
-            }
-        });
-    } catch (error) {
-        console.error('Error creating project:', error);
-    }
-
+async function delete_project(projectId: string | number): Promise<AxiosResponse<void>> {
+  localStorage.removeItem(`treeLeaf_${projectId}`);
+  return api.delete<void>(`api/projects/${projectId}/`);
 }
 
-export { create_new_project,
-    get_all_list_projects,
-    delete_project_by_id,
-    get_info_project,
-    update_info_project,
-}
+export {
+  fetch_project,
+  patch_project,
+  create_project,
+  fetch_projects_list,
+  delete_project,
+};
+
+export type {ProjectEditPayload, ProjectListResponse};

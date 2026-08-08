@@ -12,7 +12,7 @@ const FavoriteGenresCard: React.FC<Props> = ({ genres }) => {
         {genres.map((genre) => (
           <span
             key={genre}
-            className="bg-white/5 text-white/70 text-xs font-medium px-3 py-1.5 rounded-full border border-white/10 hover:border-[#fab005]/40 hover:text-white transition-colors cursor-default"
+            className="bg-white/5 text-white/70 text-xs font-medium px-3 py-1.5 rounded-full border border-white/10 hover:border-accent/40 hover:text-white transition-colors cursor-default"
           >
             {genre}
           </span>

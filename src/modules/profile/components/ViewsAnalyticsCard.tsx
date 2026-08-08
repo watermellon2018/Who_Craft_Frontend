@@ -1,6 +1,7 @@
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { ViewsAnalytics } from '../types';
+import { CRAFT_ACCENT } from '../../../constants/theme';
 
 interface Props {
   analytics: ViewsAnalytics;
@@ -25,7 +26,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="bg-[#1e2330] border border-white/10 rounded-xl px-3 py-2 text-xs text-white shadow-lg">
         <p className="text-white/50 mb-1">{label}</p>
-        <p className="font-bold text-[#fab005]">{payload[0].value} просмотров</p>
+        <p className="font-bold text-accent">{payload[0].value} просмотров</p>
       </div>
     );
   }
@@ -70,8 +71,8 @@ const ViewsAnalyticsCard: React.FC<Props> = ({ analytics }) => {
           <AreaChart data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#fab005" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#fab005" stopOpacity={0} />
+                <stop offset="5%" stopColor={CRAFT_ACCENT} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={CRAFT_ACCENT} stopOpacity={0} />
               </linearGradient>
             </defs>
             <XAxis
@@ -86,7 +87,7 @@ const ViewsAnalyticsCard: React.FC<Props> = ({ analytics }) => {
             <Area
               type="monotone"
               dataKey="views"
-              stroke="#fab005"
+              stroke={CRAFT_ACCENT}
               strokeWidth={2}
               fill="url(#viewsGrad)"
               dot={false}

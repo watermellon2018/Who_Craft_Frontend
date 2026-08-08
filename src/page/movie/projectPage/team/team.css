@@ -1,0 +1,351 @@
+/* ===== Team card (project page right column) ===== */
+.team-card {
+  background: #171b24;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.team-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.team-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 600;
+  font-size: 14px;
+}
+.team-card-invite-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(250, 176, 5, 0.4);
+  background: rgba(250, 176, 5, 0.1);
+  color: #fab005;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.team-card-invite-btn:hover {
+  background: rgba(250, 176, 5, 0.2);
+}
+.team-card-avatars {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.team-card-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+.team-card-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  border: 2px solid #171b24;
+  margin-left: -8px;
+  text-transform: uppercase;
+}
+.team-card-avatar-stack .team-card-avatar:first-child {
+  margin-left: 0;
+}
+.team-card-avatar-extra {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+}
+.team-card-count {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.team-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.team-card-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.team-card-meta-label {
+  color: rgba(255, 255, 255, 0.5);
+}
+.team-card-meta-value {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 500;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-card-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.team-card-open:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ===== Team page ===== */
+.team-page-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+.team-page-wrap {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.team-page-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.team-back-btn {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+.team-page-titles {
+  flex: 1;
+  min-width: 0;
+}
+.team-page-h1 {
+  color: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+.team-page-subtitle {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+.team-section {
+  background: #171b24;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.team-section-title {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.team-members-list {
+  display: flex;
+  flex-direction: column;
+}
+.team-member-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.team-member-row:last-child {
+  border-bottom: none;
+}
+.team-member-avatar {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  text-transform: uppercase;
+}
+.team-member-info {
+  flex: 1;
+  min-width: 0;
+}
+.team-member-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.team-owner-icon {
+  color: #fab005;
+  font-size: 13px;
+}
+.team-member-sub {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.team-member-username {
+  color: rgba(255, 255, 255, 0.6);
+}
+.team-member-roles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.team-role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.team-role-owner {
+  background: rgba(250, 176, 5, 0.16);
+  color: #fab005;
+}
+.team-role-admin {
+  background: rgba(139, 92, 246, 0.18);
+  color: #a78bfa;
+}
+.team-role-editor {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+.team-role-viewer {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.78);
+}
+.team-prof-role {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.team-member-menu-btn {
+  color: rgba(255, 255, 255, 0.6) !important;
+  flex-shrink: 0;
+}
+.team-empty {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  padding: 8px 0;
+}
+.team-invitations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.team-invitation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.team-invitation-target {
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+}
+.team-invitation-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ===== Invite form / accept ===== */
+.invite-form {
+  display: flex;
+  flex-direction: column;
+}
+.invite-field-label {
+  display: block;
+  margin: 12px 0 4px;
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.7);
+}
+.invite-link-row {
+  display: flex;
+  gap: 8px;
+}
+.invite-link-hint {
+  margin: 10px 0 14px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.55);
+}
+.invite-accept-card {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  background: #171b24;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 32px 28px;
+}
+.invite-accept-title {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+.invite-accept-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  margin: 0 0 22px;
+}
+.invite-accept-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .team-member-row {
+    flex-wrap: wrap;
+  }
+  .team-member-roles {
+    width: 100%;
+    margin-left: 56px;
+  }
+}

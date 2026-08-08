@@ -1,14 +1,27 @@
-import axios from 'axios';
+import {sanitizeApiError} from '../errors';
+import api from '../http';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
-async function login(values: any): Promise<any> {
-    try {
-        const res = await axios.get(`${backendUrl}api/auth/login/`,
-            {params: values});
-        return res.data;
-    } catch (err: any) {
-        throw err.response.data;
-    }
+interface LoginRequest {
+  username: string;
+  password: string;
 }
 
-export {login}
+interface LoginResponse {
+  status: number | string;
+  refresh: string;
+  access: string;
+}
+
+async function login(values: LoginRequest): Promise<LoginResponse> {
+  try {
+    // POST, not GET: credentials must never appear in a URL/query string.
+    const response = await api.post<LoginResponse>('api/auth/login/', values);
+    return response.data;
+  } catch (error: unknown) {
+    // Never expose an AxiosError: it embeds request headers/body (password).
+    throw sanitizeApiError(error, 'login_failed');
+  }
+}
+
+export {login};
+export type {LoginRequest, LoginResponse};

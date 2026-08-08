@@ -11,3 +11,329 @@
     height: inherit;
     min-width: inherit !important;
 }
+
+.projects-state {
+    display: flex;
+    min-height: 280px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    padding: 32px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.64);
+    text-align: center;
+}
+
+.projects-state h2,
+.projects-state p {
+    margin: 0;
+}
+
+.projects-state h2 {
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.projects-state p {
+    max-width: 420px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.projects-state-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(250, 176, 5, 0.18);
+    border-top-color: #fab005;
+    border-radius: 50%;
+    animation: projects-state-spin 700ms linear infinite;
+}
+
+.projects-empty-icon {
+    display: inline-flex;
+    width: 48px;
+    height: 48px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(250, 176, 5, 0.24);
+    border-radius: 14px;
+    background: rgba(250, 176, 5, 0.1);
+    color: #fab005;
+    font-size: 28px;
+}
+
+.projects-retry-button {
+    margin-top: 6px;
+    padding: 9px 18px;
+    border: 1px solid #fab005;
+    border-radius: 9px;
+    background: #fab005;
+    color: #17191f;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.projects-retry-button:hover {
+    background: #fcc419;
+}
+
+.projects-active-section + .archived-projects {
+    margin-top: 28px;
+}
+
+.archived-projects {
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.archived-projects-summary {
+    display: flex;
+    min-height: 58px;
+    align-items: center;
+    gap: 10px;
+    padding: 0 18px;
+    color: rgba(255, 255, 255, 0.82);
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    list-style: none;
+}
+
+.archived-projects-summary::-webkit-details-marker {
+    display: none;
+}
+
+.archived-projects-summary::after {
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.46);
+    content: '⌄';
+    font-size: 20px;
+    line-height: 1;
+    transition: transform 160ms ease;
+}
+
+.archived-projects[open] .archived-projects-summary::after {
+    transform: rotate(180deg);
+}
+
+.archived-projects-summary:focus-visible {
+    outline: 2px solid #fab005;
+    outline-offset: -2px;
+}
+
+.archived-projects-count {
+    display: inline-flex;
+    min-width: 24px;
+    height: 24px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 12px;
+}
+
+.archived-projects-content {
+    padding: 4px 18px 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.project-card-cover-image,
+.project-card-placeholder {
+    width: 100%;
+}
+
+.project-card-cover-image {
+    display: block;
+    height: auto;
+}
+
+.project-card-placeholder {
+    display: flex;
+    aspect-ratio: 195 / 147;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    border: 0;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(250, 176, 5, 0.18), transparent 42%),
+        linear-gradient(145deg, #252a34, #15181f);
+    color: rgba(255, 255, 255, 0.56);
+    cursor: pointer;
+    font: inherit;
+}
+
+.project-card-placeholder:focus-visible {
+    outline: 2px solid #fab005;
+    outline-offset: -2px;
+}
+
+.project-card-placeholder-icon {
+    color: #fab005;
+    font-size: 30px;
+    line-height: 1;
+}
+
+@keyframes projects-state-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---- Project card team meta ---- */
+.proj-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.proj-card-title {
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.proj-card-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.proj-card-badges-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.proj-card-role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+}
+.proj-card-team-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.proj-card-member-stack {
+    display: inline-flex;
+    align-items: center;
+}
+.proj-card-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #111827;
+    border: 1.5px solid #1b1d22;
+    margin-left: -6px;
+    text-transform: uppercase;
+}
+.proj-card-member-stack .proj-card-avatar:first-child {
+    margin-left: 0;
+}
+.proj-card-avatar-extra {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
+}
+.proj-card-member-count {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-left: 4px;
+}
+
+/* ---- Invitations block ---- */
+.invitations-block {
+    margin: 0 0 20px;
+    padding: 14px 16px;
+    background: rgba(250, 176, 5, 0.06);
+    border: 1px solid rgba(250, 176, 5, 0.22);
+    border-radius: 12px;
+}
+.invitations-block-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #fab005;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+.invitations-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(250, 176, 5, 0.2);
+    font-size: 12px;
+}
+.invitations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.invitation-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+.invitation-title {
+    color: rgba(255, 255, 255, 0.92);
+    font-weight: 600;
+    font-size: 14px;
+}
+.invitation-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 2px;
+}
+.invitation-role {
+    color: #60a5fa;
+    font-weight: 500;
+}
+.invitation-expiry {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 2px;
+}
+.invitation-actions {
+    display: flex;
+    gap: 8px;
+}

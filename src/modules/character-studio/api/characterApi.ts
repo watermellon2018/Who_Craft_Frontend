@@ -1,144 +1,295 @@
-import axios from 'axios';
-import {EditRequest, ReferenceType, ZoneEditRequest} from '../types/character.types';
+import api from '../../../api/http';
+import type {
+  CreateCharacterFromReferencePayload,
+  EditRequest,
+  GenerationJob,
+  Model3DReconstruction,
+  Model3DState,
+  ReferenceType,
+  ZoneEditRequest,
+} from '../types/character.types';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
+// All requests use the shared axios instance which attaches the X-User-Token
+// header. Do NOT add ``token_user`` to params/body anywhere in this file —
+// it would leak to logs and bypasses our central auth handling.
 
-const tokenParams = () => ({token_user: localStorage.getItem('userId')});
-const tokenBody = () => ({token_user: localStorage.getItem('userId')});
+const base = (projectId: string | number, characterId = '') =>
+  characterId
+    ? `api/projects/${projectId}/characters/${characterId}`
+    : `api/projects/${projectId}/characters`;
+
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableSerialize(entry)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value) ?? String(value);
+}
+
+function hashIntent(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function generationIdempotencyKey(scope: string, payload: unknown): string {
+  const safeScope = scope.replace(/[^A-Za-z0-9._:-]/g, '-');
+  return `character:${safeScope}:${hashIntent(stableSerialize(payload))}`.slice(0, 128);
+}
+
+const generationRequestConfig = (
+  scope: string,
+  payload: unknown,
+  idempotencyKey?: string,
+) => ({
+  headers: {
+    'Idempotency-Key': idempotencyKey || generationIdempotencyKey(scope, payload),
+  },
+});
+
+export interface CharacterGenerationPreview {
+  provider: string;
+  mode: 'offline' | 'paid';
+  image_types: string[];
+  provider_call_count: number;
+  estimated_cost_usd: string | null;
+  budgets: {
+    user: {used: number; limit: number};
+    project: {used: number; limit: number};
+  };
+  concurrency: {
+    global: {active: number; limit: number};
+    project: {active: number; limit: number};
+  };
+}
+
+const upload = (url: string, file: File, extra?: Record<string, string>) => {
+  const form = new FormData();
+  form.append('file', file);
+  if (extra) {
+    for (const [k, v] of Object.entries(extra)) form.append(k, v);
+  }
+  return api.post(url, form);
+};
 
 export const characterApi = {
   list(projectId: string | number, params: Record<string, unknown> = {}) {
-    return axios.get(`${backendUrl}/api/projects/${projectId}/characters`, {
-      params: {...tokenParams(), ...params},
-    });
+    return api.get(base(projectId), { params });
   },
   create(projectId: string | number, data: Record<string, unknown>) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters`, {...data, ...tokenBody()});
+    return api.post(base(projectId), data);
+  },
+  createFromReference(
+    projectId: string | number,
+    payload: CreateCharacterFromReferencePayload,
+  ) {
+    const form = new FormData();
+    form.append('reference_image', payload.referenceImage);
+    form.append('name', payload.name);
+    form.append('character_type', payload.entityType);
+    if (payload.role) form.append('role', payload.role);
+    if (payload.lifecycleStage) form.append('lifecycle_stage', payload.lifecycleStage);
+    if (payload.gender) form.append('gender', payload.gender);
+    if (payload.visualStyle) form.append('visual_style', payload.visualStyle);
+    if (payload.refinement) form.append('refinement', payload.refinement);
+    if (payload.variantsCount !== undefined && payload.variantsCount !== null) {
+      form.append('variants_count', String(payload.variantsCount));
+    }
+    if (payload.preserveIdentity !== undefined) {
+      form.append('preserve_identity', String(payload.preserveIdentity));
+    }
+    const fileIntent = {
+      ...payload,
+      referenceImage: {
+        name: payload.referenceImage.name,
+        size: payload.referenceImage.size,
+        type: payload.referenceImage.type,
+        lastModified: payload.referenceImage.lastModified,
+      },
+    };
+    return api.post(
+      `${base(projectId)}/from-reference`,
+      form,
+      generationRequestConfig(`${projectId}:from-reference`, fileIntent),
+    );
   },
   get(projectId: string | number, characterId: string) {
-    return axios.get(`${backendUrl}/api/projects/${projectId}/characters/${characterId}`, {
-      params: tokenParams(),
-    });
+    return api.get(base(projectId, characterId));
   },
   update(projectId: string | number, characterId: string, data: Record<string, unknown>) {
-    return axios.patch(`${backendUrl}/api/projects/${projectId}/characters/${characterId}`, {...data, ...tokenBody()});
+    return api.patch(base(projectId, characterId), data);
   },
   delete(projectId: string | number, characterId: string) {
-    return axios.delete(`${backendUrl}/api/projects/${projectId}/characters/${characterId}`, {data: tokenBody()});
+    return api.delete(base(projectId, characterId));
   },
-  generateInitial(projectId: string | number, characterId: string, data: Record<string, unknown>) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/generate-initial-variants`, {...data, ...tokenBody()});
+  getGenerationPreview(
+    projectId: string | number,
+    characterId: string,
+    imageTypes: string[],
+  ) {
+    return api.get<CharacterGenerationPreview>(
+      `${base(projectId, characterId)}/generation-preview`,
+      {params: {image_types: imageTypes.join(',')}},
+    );
   },
-  generateEdit(projectId: string | number, characterId: string, data: EditRequest) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/generate-edit-variants`, {...data, ...tokenBody()});
+  generateInitial(
+    projectId: string | number,
+    characterId: string,
+    data: Record<string, unknown>,
+    idempotencyKey?: string,
+  ) {
+    return api.post(
+      `${base(projectId, characterId)}/generate-initial-variants`,
+      data,
+      generationRequestConfig(`${projectId}:${characterId}:initial`, data, idempotencyKey),
+    );
   },
-  zoneEdit(projectId: string | number, characterId: string, data: ZoneEditRequest) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/zone-edit`, {...data, ...tokenBody()});
+  generateEdit(
+    projectId: string | number,
+    characterId: string,
+    data: EditRequest,
+    idempotencyKey?: string,
+  ) {
+    return api.post(
+      `${base(projectId, characterId)}/generate-edit-variants`,
+      data,
+      generationRequestConfig(`${projectId}:${characterId}:edit`, data, idempotencyKey),
+    );
+  },
+  zoneEdit(projectId: string | number, characterId: string, data: ZoneEditRequest, idempotencyKey?: string) {
+    return api.post(
+      `${base(projectId, characterId)}/zone-edit`,
+      data,
+      generationRequestConfig(`${projectId}:${characterId}:zone-edit`, data, idempotencyKey),
+    );
   },
   getJob(jobId: string) {
-    return axios.get(`${backendUrl}/api/generation-jobs/${jobId}`, {params: tokenParams()});
+    return api.get<GenerationJob>(`api/generation-jobs/${jobId}`);
   },
-  applyVariant(projectId: string | number, characterId: string, variantId: string, notes: string, imageType?: string) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/apply-variant`, {
+  listGenerationJobs(projectId: string | number, characterId: string) {
+    return api.get<{jobs: GenerationJob[]}>(`${base(projectId, characterId)}/generation-jobs`);
+  },
+  retryGenerationJob(jobId: string) {
+    return api.post<{job?: GenerationJob; job_id: string; status: GenerationJob['status']}>(
+      `api/generation-jobs/${jobId}/retry`,
+    );
+  },
+  requestGenerationJobCancellation(jobId: string) {
+    return api.post<GenerationJob | {job?: GenerationJob; job_id: string; status: GenerationJob['status']}>(
+      `api/generation-jobs/${jobId}/cancellation-request`,
+    );
+  },
+  getModel3D(projectId: string | number, characterId: string) {
+    return api.get<Model3DState>(`${base(projectId, characterId)}/model3d`);
+  },
+  saveModel3D(projectId: string | number, characterId: string, params: Record<string, unknown>) {
+    return api.put(`${base(projectId, characterId)}/model3d`, { params });
+  },
+  autofitModel3D(projectId: string | number, characterId: string) {
+    return api.post(`${base(projectId, characterId)}/model3d/autofit`);
+  },
+  retryModel3DReconstruction(projectId: string | number, characterId: string) {
+    return api.post<{reconstruction: Model3DReconstruction}>(
+      `${base(projectId, characterId)}/model3d/reconstruction`,
+      undefined,
+      generationRequestConfig(`${projectId}:${characterId}:model3d-reconstruction`, null),
+    );
+  },
+  applyVariant(
+    projectId: string | number,
+    characterId: string,
+    variantId: string,
+    notes: string,
+    imageType?: string,
+  ) {
+    return api.post(`${base(projectId, characterId)}/apply-variant`, {
       variant_id: variantId,
       apply_as: 'current_reference',
       image_type: imageType,
       notes,
-      ...tokenBody(),
     });
   },
   lockIdentity(projectId: string | number, characterId: string, data: Record<string, unknown>) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/lock-identity`, {...data, confirm: true, ...tokenBody()});
+    return api.post(`${base(projectId, characterId)}/lock-identity`, { ...data, confirm: true });
   },
   listOutfits(projectId: string | number, characterId: string) {
-    return axios.get(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits`, {params: tokenParams()});
+    return api.get(`${base(projectId, characterId)}/outfits`);
   },
   createOutfit(projectId: string | number, characterId: string, data: Record<string, unknown>) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits`, {...data, ...tokenBody()});
+    return api.post(`${base(projectId, characterId)}/outfits`, data);
   },
   updateOutfit(projectId: string | number, characterId: string, outfitId: string, data: Record<string, unknown>) {
-    return axios.patch(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}`, {...data, ...tokenBody()});
+    return api.patch(`${base(projectId, characterId)}/outfits/${outfitId}`, data);
   },
   deleteOutfit(projectId: string | number, characterId: string, outfitId: string) {
-    return axios.delete(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}`, {data: tokenBody()});
+    return api.delete(`${base(projectId, characterId)}/outfits/${outfitId}`);
   },
   setDefaultOutfit(projectId: string | number, characterId: string, outfitId: string) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}/set-default`, tokenBody());
+    return api.post(`${base(projectId, characterId)}/outfits/${outfitId}/set-default`);
   },
   uploadOutfitReference(projectId: string | number, characterId: string, outfitId: string, file: File) {
-    const form = new FormData();
-    form.append('file', file);
-    form.append('token_user', localStorage.getItem('userId') || '');
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}/upload-reference`,
-      form,
-      {headers: {'Content-Type': 'multipart/form-data'}},
-    );
+    return upload(`${base(projectId, characterId)}/outfits/${outfitId}/upload-reference`, file);
   },
   deleteOutfitReference(projectId: string | number, characterId: string, outfitId: string) {
-    return axios.delete(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/outfits/${outfitId}/delete-reference`,
-      {data: tokenBody()},
-    );
+    return api.delete(`${base(projectId, characterId)}/outfits/${outfitId}/delete-reference`);
   },
   uploadClothingReference(projectId: string | number, characterId: string, file: File) {
-    const form = new FormData();
-    form.append('file', file);
-    form.append('token_user', localStorage.getItem('userId') || '');
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/clothing-references`,
-      form,
-      {headers: {'Content-Type': 'multipart/form-data'}},
-    );
+    return upload(`${base(projectId, characterId)}/clothing-references`, file);
   },
   deleteClothingReference(projectId: string | number, characterId: string, assetId: string) {
-    return axios.delete(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/clothing-references/${assetId}`,
-      {data: tokenBody()},
-    );
+    return api.delete(`${base(projectId, characterId)}/clothing-references/${assetId}`);
   },
   listRevisions(projectId: string | number, characterId: string) {
-    return axios.get(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/revisions`, {params: tokenParams()});
+    return api.get(`${base(projectId, characterId)}/revisions`);
   },
   restoreRevision(projectId: string | number, characterId: string, revisionId: string) {
-    return axios.post(`${backendUrl}/api/projects/${projectId}/characters/${characterId}/revisions/${revisionId}/restore`, tokenBody());
+    return api.post(`${base(projectId, characterId)}/revisions/${revisionId}/restore`);
   },
   // --- References stage -----------------------------------------------------
   getReferences(projectId: string | number, characterId: string) {
-    return axios.get(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references`,
-      {params: tokenParams()},
-    );
+    return api.get(`${base(projectId, characterId)}/references`);
   },
   generateReference(
     projectId: string | number,
     characterId: string,
-    payload: {reference_type: ReferenceType; correction_prompt?: string; preserve_identity?: boolean},
+    payload: { reference_type: ReferenceType; correction_prompt?: string; preserve_identity?: boolean },
   ) {
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/generate`,
-      {...payload, ...tokenBody()},
+    return api.post(
+      `${base(projectId, characterId)}/references/generate`,
+      payload,
+      generationRequestConfig(`${projectId}:${characterId}:reference`, payload),
     );
   },
   generateMissingReferences(
     projectId: string | number,
     characterId: string,
-    payload: {reference_types: ReferenceType[]; only_missing?: boolean; preserve_identity?: boolean},
+    payload: { reference_types: ReferenceType[]; only_missing?: boolean; preserve_identity?: boolean },
   ) {
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/generate-missing`,
-      {...payload, ...tokenBody()},
+    return api.post(
+      `${base(projectId, characterId)}/references/generate-missing`,
+      payload,
+      generationRequestConfig(`${projectId}:${characterId}:references-missing`, payload),
     );
   },
   correctReference(
     projectId: string | number,
     characterId: string,
     referenceId: string,
-    payload: {correction_prompt: string; preserve_identity?: boolean},
+    payload: { correction_prompt: string; preserve_identity?: boolean },
   ) {
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/${referenceId}/correct`,
-      {...payload, ...tokenBody()},
+    return api.post(
+      `${base(projectId, characterId)}/references/${referenceId}/correct`,
+      payload,
+      generationRequestConfig(
+        `${projectId}:${characterId}:reference:${referenceId}:correct`,
+        payload,
+      ),
     );
   },
   uploadReference(
@@ -148,28 +299,16 @@ export const characterApi = {
     file: File,
     replaceCurrent = true,
   ) {
-    const form = new FormData();
-    form.append('file', file);
-    form.append('reference_type', referenceType);
-    form.append('replace_current', replaceCurrent ? 'true' : 'false');
-    form.append('token_user', localStorage.getItem('userId') || '');
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/upload`,
-      form,
-      {headers: {'Content-Type': 'multipart/form-data'}},
-    );
+    return upload(`${base(projectId, characterId)}/references/upload`, file, {
+      reference_type: referenceType,
+      replace_current: replaceCurrent ? 'true' : 'false',
+    });
   },
   makePrimaryReference(projectId: string | number, characterId: string, referenceId: string) {
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/${referenceId}/make-primary`,
-      tokenBody(),
-    );
+    return api.post(`${base(projectId, characterId)}/references/${referenceId}/make-primary`);
   },
   getReferencesReadiness(projectId: string | number, characterId: string) {
-    return axios.get(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/readiness`,
-      {params: tokenParams()},
-    );
+    return api.get(`${base(projectId, characterId)}/references/readiness`);
   },
   updateReferencesChecklist(
     projectId: string | number,
@@ -181,15 +320,13 @@ export const characterApi = {
       suitable_for_3d: boolean;
     }>,
   ) {
-    return axios.patch(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/checklist`,
-      {...payload, ...tokenBody()},
-    );
+    return api.patch(`${base(projectId, characterId)}/references/checklist`, payload);
   },
   proceedReferencesTo3D(projectId: string | number, characterId: string) {
-    return axios.post(
-      `${backendUrl}/api/projects/${projectId}/characters/${characterId}/references/proceed-to-3d`,
-      tokenBody(),
+    return api.post(
+      `${base(projectId, characterId)}/references/proceed-to-3d`,
+      undefined,
+      generationRequestConfig(`${projectId}:${characterId}:proceed-to-3d`, null),
     );
   },
 };

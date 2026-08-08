@@ -34,7 +34,7 @@
 
 .character-create-eyebrow {
   margin: 12px 0 8px;
-  color: #fab005;
+  color: var(--craft-accent);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0;
@@ -54,7 +54,7 @@
 
 .character-create-back-button:hover {
   border-color: rgba(250, 176, 5, 0.65) !important;
-  color: #fab005 !important;
+  color: var(--craft-accent) !important;
 }
 
 .character-create-hero h1 {
@@ -170,7 +170,7 @@
   flex: 0 0 auto;
   border-radius: 11px;
   background: rgba(250, 176, 5, 0.14);
-  color: #fab005;
+  color: var(--craft-accent);
   border: 1px solid rgba(250, 176, 5, 0.22);
   font-size: 18px;
 }
@@ -270,7 +270,7 @@
 .character-create-section .ant-input-number-focused,
 .character-create-section .ant-select-focused .ant-select-selector,
 .character-create-section textarea.ant-input:focus {
-  border-color: #fab005 !important;
+  border-color: var(--craft-accent) !important;
   box-shadow: 0 0 0 3px rgba(250, 176, 5, 0.14) !important;
 }
 
@@ -301,7 +301,7 @@
 
 .description-form-field__label span {
   margin-left: 3px;
-  color: #fab005;
+  color: var(--craft-accent);
 }
 
 .description-form-field__error,
@@ -367,7 +367,7 @@
 .description-form-control.ant-select-focused .ant-select-selector,
 .description-counter-input .ant-input:focus,
 .description-textarea:focus {
-  border-color: #fab005 !important;
+  border-color: var(--craft-accent) !important;
   box-shadow: 0 0 0 3px rgba(250, 176, 5, 0.14) !important;
 }
 
@@ -401,7 +401,7 @@
 }
 
 .description-counter-input--error .ant-input:focus {
-  border-color: #fab005 !important;
+  border-color: var(--craft-accent) !important;
 }
 
 .description-counter-input__counter {
@@ -497,7 +497,7 @@
 }
 
 .visual-style-card--selected {
-  border-color: #fab005;
+  border-color: var(--craft-accent);
   box-shadow: 0 0 0 2px rgba(250, 176, 5, 0.12);
 }
 
@@ -549,7 +549,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #fab005;
+  background: var(--craft-accent);
   color: #171a20;
   font-size: 12px;
   pointer-events: none;
@@ -589,7 +589,7 @@
   border: 1px solid rgba(250, 176, 5, 0.22);
   border-radius: 10px;
   background: rgba(250, 176, 5, 0.14);
-  color: #fab005;
+  color: var(--craft-accent);
   font-size: 18px;
 }
 
@@ -723,7 +723,7 @@
 
 .generation-toggle input:checked + span::after {
   transform: translateX(18px);
-  background: #fab005;
+  background: var(--craft-accent);
 }
 
 .generation-seed-field {
@@ -764,7 +764,7 @@
 }
 
 .generation-seed-input.ant-input:focus {
-  border-color: #fab005 !important;
+  border-color: var(--craft-accent) !important;
   box-shadow: 0 0 0 3px rgba(250, 176, 5, 0.14) !important;
 }
 
@@ -810,7 +810,7 @@
 
 .tips-list .anticon {
   margin-top: 2px;
-  color: #fab005;
+  color: var(--craft-accent);
 }
 
 .example-description {
@@ -852,7 +852,7 @@
 .character-create-button--outline {
   border-color: rgba(250, 176, 5, 0.8) !important;
   background: transparent !important;
-  color: #fab005 !important;
+  color: var(--craft-accent) !important;
 }
 
 .character-create-button--outline:hover {
@@ -861,8 +861,8 @@
 }
 
 .character-create-button--primary {
-  border-color: #fab005 !important;
-  background: #fab005 !important;
+  border-color: var(--craft-accent) !important;
+  background: var(--craft-accent) !important;
   color: #171a20 !important;
 }
 
@@ -943,10 +943,30 @@
 
 .character-studio-dropdown .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
   background: #2a2f40;
-  color: #fab005;
+  color: var(--craft-accent);
   font-weight: 600;
 }
 
 .character-studio-dropdown .ant-select-item-empty {
   color: #6f7784;
+}
+
+.character-create-generation-error {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid rgba(255, 120, 117, 0.48);
+  border-radius: 12px;
+  background: rgba(255, 77, 79, 0.08);
+  color: #f4e7e1;
+}
+
+.character-create-generation-error p {
+  margin: 6px 0 14px;
+  color: #d9c9c4;
+}
+
+.character-create-generation-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }

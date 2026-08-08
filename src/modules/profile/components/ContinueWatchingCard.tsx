@@ -17,7 +17,7 @@ const ContinueWatchingCard: React.FC<Props> = ({ items }) => {
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex-shrink-0 w-44 bg-white/3 border border-white/5 rounded-xl overflow-hidden hover:border-[#fab005]/20 transition-all cursor-pointer group"
+              className="flex-shrink-0 w-44 bg-white/3 border border-white/5 rounded-xl overflow-hidden hover:border-accent/20 transition-all cursor-pointer group"
             >
               <div className="relative h-24 bg-white/5">
                 {item.thumbnail_url ? (
@@ -33,7 +33,7 @@ const ContinueWatchingCard: React.FC<Props> = ({ items }) => {
                 <p className="text-white text-xs font-medium leading-snug line-clamp-2 mb-2">{item.title}</p>
                 <div className="w-full bg-white/10 rounded-full h-1 mb-1.5">
                   <div
-                    className="bg-[#fab005] h-1 rounded-full"
+                    className="bg-accent h-1 rounded-full"
                     style={{ width: `${item.progress_percent}%` }}
                   />
                 </div>

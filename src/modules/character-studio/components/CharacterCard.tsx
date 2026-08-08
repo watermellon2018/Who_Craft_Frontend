@@ -4,8 +4,30 @@ import {CloseOutlined, EditOutlined, LockOutlined} from '@ant-design/icons';
 import {StudioCharacter} from '../types/character.types';
 import {roleLabelMap} from './create/characterCreateOptions';
 
+// Only fall back to character assets that legitimately stand in for a portrait
+// (a generated portrait asset or the user's original uploaded reference photo).
+// Picking any recent asset of this character would surface things like clothing
+// reference uploads or zone-edit intermediate assets that aren't portraits.
+const PORTRAIT_REFERENCE_ASSET_TYPES = new Set(['portrait', 'uploaded_reference']);
+
+// Append the asset_id as a cache-buster so the gallery never shows a stale
+// browser-cached image after the user edits a portrait. The editor already
+// does the same; without it here the gallery and editor would diverge on
+// the same URL (one showing the cached old face, the other the new one).
+function withCacheBust(url: string, key?: string | null) {
+  if (!key) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}_cb=${encodeURIComponent(key)}`;
+}
+
 export default function CharacterCard({character, onEdit, onDelete}: {character: StudioCharacter; onEdit: () => void; onDelete: () => void}) {
-  const image = character.images?.portrait?.image_url || character.references?.[0]?.image_url;
+  const portraitAsset = character.images?.portrait;
+  const portraitFallback = (character.references || []).find(
+    (reference) => PORTRAIT_REFERENCE_ASSET_TYPES.has(reference.asset_type),
+  );
+  const rawImage = portraitAsset?.image_url || portraitFallback?.image_url;
+  const cacheKey = portraitAsset?.asset_id || portraitFallback?.asset_id;
+  const image = rawImage ? withCacheBust(rawImage, cacheKey) : undefined;
   return (
     <Card
       style={{position: 'relative'}}

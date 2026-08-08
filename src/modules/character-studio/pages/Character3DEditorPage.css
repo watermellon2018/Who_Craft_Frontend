@@ -1,0 +1,2001 @@
+/* ====================================================================
+   3D character editor — cinematic dark Sims-like interface.
+   Scoped under .c3d-page so tokens don't bleed into other pages.
+   Palette matches the project: gold/amber accent on charcoal surfaces,
+   with active states drawn as gold border + text + subtle glow rather
+   than filled gradients.
+   ==================================================================== */
+
+.c3d-page {
+  --c3d-bg-deep: #07090f;
+  --c3d-bg: #0B0F16;
+  --c3d-bg-2: #0F141C;
+  --c3d-surface: rgba(20, 26, 36, 0.72);
+  --c3d-surface-2: rgba(26, 32, 43, 0.78);
+  --c3d-line: rgba(255, 255, 255, 0.08);
+  --c3d-line-strong: rgba(255, 255, 255, 0.14);
+  --c3d-text: #F5F7FA;
+  --c3d-muted: #9CA3AF;
+  --c3d-faint: #6B7280;
+  --c3d-accent: #F5B400;
+  --c3d-accent-2: #FFD15A;
+  --c3d-accent-soft: rgba(245, 180, 0, 0.12);
+  --c3d-accent-border: rgba(245, 180, 0, 0.55);
+  --c3d-accent-glow: rgba(245, 180, 0, 0.22);
+  --c3d-success: #3CCB7F;
+  --c3d-danger: #FF5C5C;
+
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+  color: var(--c3d-text);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(245, 180, 0, 0.08), transparent 36rem),
+    radial-gradient(circle at 82% 100%, rgba(245, 180, 0, 0.04), transparent 38rem),
+    linear-gradient(180deg, #07090f 0%, #0B0F16 60%, #0F141C 100%);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.005em;
+  overflow: hidden;
+}
+
+.c3d-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 64px 64px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.c3d-page > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ───── Header / stepper ─────────────────────────────────────────── */
+.c3d-header {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto minmax(160px, 1fr);
+  gap: 24px;
+  align-items: center;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--c3d-line);
+  background: rgba(11, 13, 17, 0.7);
+  backdrop-filter: blur(18px);
+}
+
+.c3d-header__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.c3d-header__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: var(--c3d-surface);
+  color: var(--c3d-text);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.c3d-header__back:hover {
+  border-color: var(--c3d-accent);
+  color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+}
+
+.c3d-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.c3d-header__mark {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: var(--c3d-accent-soft);
+  border: 1px solid var(--c3d-accent-border);
+  box-shadow: 0 0 18px var(--c3d-accent-glow);
+}
+
+.c3d-header__mark svg {
+  width: 22px;
+  height: 22px;
+}
+
+.c3d-header__title {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.c3d-header__title strong {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.c3d-header__title span {
+  font-size: 12px;
+  color: var(--c3d-muted);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.c3d-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 999px;
+  background: var(--c3d-surface);
+  list-style: none;
+}
+
+.c3d-stepper__item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.c3d-stepper__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c3d-faint);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 160ms ease;
+  white-space: nowrap;
+}
+
+.c3d-stepper__button:hover:not(:disabled) {
+  color: var(--c3d-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.c3d-stepper__button:disabled {
+  cursor: default;
+}
+
+.c3d-stepper__index {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.c3d-stepper__item--done .c3d-stepper__button {
+  color: var(--c3d-muted);
+}
+
+.c3d-stepper__item--done .c3d-stepper__index {
+  background: rgba(245, 180, 0, 0.16);
+  color: #f7d77a;
+}
+
+.c3d-stepper__item--active .c3d-stepper__button {
+  background: var(--c3d-accent-soft);
+  border: 1px solid var(--c3d-accent-border);
+  padding: 5px 13px;
+  color: var(--c3d-accent);
+  box-shadow: 0 0 18px var(--c3d-accent-glow);
+}
+
+.c3d-stepper__item--active .c3d-stepper__index {
+  background: var(--c3d-accent);
+  color: #171a20;
+}
+
+/* Done stages are navigable — show it. */
+.c3d-stepper__item--done .c3d-stepper__button {
+  cursor: pointer;
+}
+
+.c3d-stepper__item--done .c3d-stepper__button:hover {
+  color: #f7d77a;
+}
+
+/* Locked stages aren't reachable yet — dim and inert. */
+.c3d-stepper__item--locked .c3d-stepper__button {
+  color: var(--c3d-line);
+  cursor: not-allowed;
+}
+
+.c3d-stepper__item--locked .c3d-stepper__index {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--c3d-line);
+}
+
+.c3d-stepper__line {
+  width: 14px;
+  height: 1.5px;
+  margin: 0 2px;
+  background: var(--c3d-line);
+  border-radius: 999px;
+}
+
+.c3d-header__right {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.c3d-header__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 11px;
+  background: var(--c3d-surface);
+  color: var(--c3d-muted);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.c3d-header__icon:hover {
+  border-color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+}
+
+@media (max-width: 1240px) {
+  .c3d-stepper__label {
+    display: none;
+  }
+  .c3d-stepper__button {
+    padding: 6px 8px;
+  }
+}
+
+/* ───── Workspace (rail + stage) ──────────────────────────────────── */
+.c3d-workspace {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 20px;
+  padding: 20px 24px 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ───── Left category rail ────────────────────────────────────────── */
+.c3d-rail {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 8px;
+}
+
+.c3d-rail__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 10px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 24px;
+  background: rgba(13, 15, 19, 0.7);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px);
+}
+
+.c3d-rail__item {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 64px;
+  padding: 10px 4px;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--c3d-muted);
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.c3d-rail__item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--c3d-text);
+  transform: translateY(-1px);
+}
+
+.c3d-rail__item--active {
+  background: var(--c3d-accent-soft);
+  border-color: var(--c3d-accent-border);
+  color: var(--c3d-accent);
+  box-shadow: 0 0 18px var(--c3d-accent-glow);
+}
+
+.c3d-rail__icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+}
+
+.c3d-rail__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.c3d-rail__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.c3d-rail__bar {
+  position: absolute;
+  left: -12px;
+  top: 18px;
+  bottom: 18px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--c3d-accent);
+  box-shadow: 0 0 16px var(--c3d-accent-glow);
+}
+
+/* ───── Stage container ──────────────────────────────────────────── */
+.c3d-stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.c3d-generation-history {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.c3d-generation-history .generation-history__toggle {
+  min-height: 38px;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.c3d-generation-history .generation-history__body {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  bottom: calc(100% + 14px);
+  width: min(420px, calc(100vw - 48px));
+  max-height: min(300px, 45vh);
+  padding: 10px;
+  border: 1px solid var(--c3d-line-strong);
+  border-radius: 14px;
+  background: rgba(17, 21, 28, 0.98);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5);
+}
+
+/* ───── Viewport (mock 3D area) ──────────────────────────────────── */
+.c3d-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid var(--c3d-line);
+  border-radius: 28px;
+  overflow: hidden;
+  cursor: default;
+  background:
+    radial-gradient(ellipse at 50% 8%, rgba(245, 180, 0, 0.08), transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(245, 180, 0, 0.05), transparent 60%),
+    linear-gradient(180deg, #0f141c 0%, #0B0F16 100%);
+  box-shadow:
+    inset 0 0 120px rgba(0, 0, 0, 0.5),
+    0 30px 80px rgba(0, 0, 0, 0.5);
+}
+
+.c3d-viewport__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(245, 180, 0, 0.04) 0 1px, transparent 1px 80px),
+    repeating-linear-gradient(0deg, rgba(245, 180, 0, 0.04) 0 1px, transparent 1px 80px);
+  mask-image: radial-gradient(ellipse at 50% 50%, black 35%, transparent 80%);
+  opacity: 0.65;
+}
+
+.c3d-viewport__atmos {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(245, 180, 0, 0.08), transparent 38%),
+    radial-gradient(circle at 70% 20%, rgba(245, 180, 0, 0.05), transparent 38%);
+  filter: blur(40px);
+  animation: c3d-atmos 14s ease-in-out infinite alternate;
+}
+
+@keyframes c3d-atmos {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(2%, -2%) scale(1.04); }
+}
+
+.c3d-viewport__floor {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 60%;
+  height: 30%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 80% at 50% 100%, rgba(245, 180, 0, 0.2), transparent 70%);
+  filter: blur(8px);
+}
+
+.c3d-viewport__grid {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  width: 72%;
+  height: 26%;
+  transform: translateX(-50%) perspective(640px) rotateX(70deg);
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(245, 180, 0, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245, 180, 0, 0.1) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 60% 80% at 50% 0%, black 0%, transparent 80%);
+  opacity: 0.5;
+}
+
+/* ───── Three.js canvas host ─────────────────────────────────────── */
+.c3d-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* ───── Reference dock (side-by-side photo fitting) ──────────────── */
+.c3d-refdock {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 168px;
+  padding: 10px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 14px;
+  background: rgba(13, 15, 19, 0.88);
+  backdrop-filter: blur(10px);
+}
+
+/* Collapsed: a compact pill button, not the full panel. */
+.c3d-refdock--collapsed {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  padding: 8px 12px;
+  color: var(--c3d-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.c3d-refdock--collapsed:hover {
+  color: var(--c3d-accent);
+  border-color: var(--c3d-accent-border);
+}
+
+.c3d-refdock__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c3d-muted);
+}
+
+.c3d-refdock__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--c3d-muted);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.c3d-refdock__preview {
+  margin: 0;
+}
+
+/* Fixed-size frame so the dock never resizes when switching between a
+   square portrait and a tall full-body shot. The image fits inside via
+   object-fit: contain (whole image visible, no distortion or crop). */
+.c3d-refdock__preview-frame {
+  width: 100%;
+  height: 180px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.c3d-refdock__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.c3d-refdock__preview figcaption {
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--c3d-muted);
+  text-align: center;
+}
+
+.c3d-refdock__thumbs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.c3d-refdock__thumb {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  background: transparent;
+}
+
+.c3d-refdock__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.c3d-refdock__thumb--active {
+  border-color: var(--c3d-accent);
+}
+
+.c3d-refdock__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--c3d-accent-border);
+  border-radius: 999px;
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+/* Icon-only chips in the bottom bar (undo/redo/snapshot/export). */
+.c3d-bottom__chip--icon {
+  padding-left: 9px;
+  padding-right: 9px;
+}
+
+/* ───── Avatar wrapper ───────────────────────────────────────────── */
+.c3d-viewport__avatar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 88%;
+  transform: translate(-50%, -50%) translate(var(--c3d-zoom-tx, 0%), var(--c3d-zoom-ty, 0%)) scale(1);
+  transition: transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.c3d-viewport__avatar svg {
+  height: 100%;
+  width: auto;
+}
+
+.c3d-viewport__avatar--zoomed {
+  transform:
+    translate(-50%, -50%)
+    translate(var(--c3d-zoom-tx, 0%), var(--c3d-zoom-ty, 0%))
+    scale(1.55);
+}
+
+.c3d-viewport--zoomed .c3d-overlays {
+  /* Dim non-selected overlays when zoomed in to focus attention. */
+  filter: saturate(0.7);
+}
+
+/* ───── Clickable overlays ───────────────────────────────────────── */
+.c3d-overlays {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.c3d-overlays > .c3d-zone {
+  pointer-events: auto;
+}
+
+.c3d-zone {
+  position: absolute;
+  padding: 0;
+  border: 1.5px dashed transparent;
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.c3d-zone:focus-visible {
+  outline: none;
+  border-color: var(--c3d-accent);
+}
+
+.c3d-zone--hover {
+  border-color: rgba(245, 180, 0, 0.45);
+  background: rgba(245, 180, 0, 0.05);
+}
+
+.c3d-zone--ancestor {
+  border-color: rgba(245, 180, 0, 0.18);
+  border-style: dotted;
+}
+
+.c3d-zone--selected {
+  border-style: solid;
+  border-color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+  box-shadow: 0 0 22px var(--c3d-accent-glow), inset 0 0 0 1px rgba(245, 180, 0, 0.18);
+}
+
+.c3d-zone--zoomed {
+  border-color: var(--c3d-accent-2);
+  box-shadow: 0 0 30px rgba(245, 180, 0, 0.4);
+}
+
+/* The floating selection label and the zoom-mode badge were removed — both
+   covered the part being edited; the contextual panel communicates the
+   selection and zoom state. */
+
+@keyframes c3d-hint-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.c3d-empty-hint {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: 128px;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border: 1px solid rgba(245, 180, 0, 0.3);
+  border-radius: 999px;
+  background: rgba(13, 15, 19, 0.78);
+  color: var(--c3d-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+  animation: c3d-hint-in 800ms 0.2s ease both;
+}
+
+.c3d-empty-hint--model-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(520px, calc(100% - 48px));
+  border-radius: 16px;
+  text-align: center;
+}
+
+.c3d-empty-hint__copy {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.c3d-empty-hint__copy small {
+  color: var(--c3d-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.c3d-model-progress {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.c3d-model-progress > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 3%;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--c3d-accent), var(--c3d-accent-2));
+  box-shadow: 0 0 14px var(--c3d-accent-glow);
+  transition: width 500ms ease;
+}
+
+.c3d-model-progress > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.55), transparent 80%);
+  animation: c3d-model-progress-shimmer 1.4s linear infinite;
+}
+
+@keyframes c3d-model-progress-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.c3d-empty-hint__retry {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid rgba(245, 180, 0, 0.55);
+  border-radius: 999px;
+  background: rgba(245, 180, 0, 0.14);
+  color: var(--c3d-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.c3d-empty-hint__retry:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.c3d-empty-hint__close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c3d-muted);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.c3d-empty-hint__close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--c3d-text);
+}
+
+/* ───── Contextual inspector (right) ─────────────────────────────── */
+/*
+ * Layout contract:
+ *   .c3d-inspector-slot   — absolute positioner inside .c3d-stage.
+ *                           Bounded by `max-height` so it never exceeds the
+ *                           viewport. Itself a flex column so its child can
+ *                           use `height: 100%` and shrink as needed.
+ *   .c3d-inspector        — the visible card. Grid `auto 1fr auto` so the
+ *                           header and footer stay fixed and the body
+ *                           absorbs the remaining height.
+ *   .c3d-inspector__body  — the only scrollable region. `min-height: 0` so
+ *                           it actually shrinks inside the grid.
+ *   .c3d-inspector__footer— pinned to the bottom of the panel, always
+ *                           visible regardless of body content height.
+ *
+ * The slot itself has `overflow: visible` so the dotted leader line that
+ * extends to the left of the card isn't clipped. Clipping lives on the
+ * inspector instead, scoped to the rounded corners.
+ */
+.c3d-inspector-slot {
+  position: absolute;
+  top: 28px;
+  right: 28px;
+  bottom: 28px;
+  width: min(340px, 90%);
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  transform: translateX(24px);
+  opacity: 0;
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 220ms ease;
+  z-index: 5;
+}
+
+.c3d-inspector-slot--visible {
+  pointer-events: auto;
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.c3d-inspector {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid rgba(245, 180, 0, 0.22);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(20, 23, 28, 0.96), rgba(13, 15, 19, 0.96));
+  backdrop-filter: blur(16px);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.42),
+    0 0 28px rgba(245, 180, 0, 0.08);
+  overflow: hidden;
+}
+
+.c3d-inspector::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 100% 0%, rgba(245, 180, 0, 0.08), transparent 60%);
+  opacity: 0.9;
+  z-index: 0;
+}
+
+.c3d-inspector > * {
+  position: relative;
+  z-index: 1;
+}
+
+.c3d-inspector__leader {
+  position: absolute;
+  top: 24px;
+  left: -240px;
+  width: 240px;
+  height: 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.c3d-inspector__leader svg {
+  width: 100%;
+  height: 100%;
+}
+
+.c3d-inspector__header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--c3d-line);
+  background: rgba(13, 15, 19, 0.6);
+}
+
+.c3d-inspector__eyebrow {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--c3d-accent);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.c3d-inspector__title {
+  margin: 4px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.c3d-inspector__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--c3d-muted);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 160ms ease;
+}
+
+.c3d-inspector__close:hover {
+  border-color: var(--c3d-accent);
+  color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+}
+
+.c3d-inspector__body {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  padding: 16px 20px 18px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
+}
+
+.c3d-inspector__footer {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--c3d-line);
+  background: rgba(13, 15, 19, 0.78);
+  backdrop-filter: blur(10px);
+}
+
+.c3d-inspector__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 160ms ease;
+  white-space: nowrap;
+}
+
+.c3d-inspector__btn--ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c3d-muted);
+}
+
+.c3d-inspector__btn--ghost:hover {
+  color: var(--c3d-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.c3d-inspector__btn--secondary {
+  border: 1px solid var(--c3d-line);
+  background: var(--c3d-surface);
+  color: var(--c3d-text);
+}
+
+.c3d-inspector__btn--secondary:hover:not(:disabled) {
+  border-color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+}
+
+.c3d-inspector__btn--secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.c3d-inspector__btn--primary {
+  border: 1px solid var(--c3d-accent-border);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+  box-shadow: 0 0 14px var(--c3d-accent-glow);
+}
+
+.c3d-inspector__btn--primary:hover {
+  background: rgba(245, 180, 0, 0.18);
+  border-color: var(--c3d-accent);
+  color: var(--c3d-accent-2);
+}
+
+/* ───── Breadcrumbs ──────────────────────────────────────────────── */
+.c3d-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: -4px 0 -2px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.c3d-breadcrumbs__item {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c3d-muted);
+  cursor: default;
+  transition: all 140ms ease;
+}
+
+.c3d-breadcrumbs__item--link {
+  cursor: pointer;
+}
+
+.c3d-breadcrumbs__item--link:hover {
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+}
+
+.c3d-breadcrumbs__item--current {
+  color: var(--c3d-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.c3d-breadcrumbs__sep {
+  color: var(--c3d-faint);
+  user-select: none;
+}
+
+/* ───── Subzone list ─────────────────────────────────────────────── */
+.c3d-subzone-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.c3d-subzone-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: rgba(11, 13, 17, 0.55);
+  color: var(--c3d-text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 160ms ease;
+}
+
+.c3d-subzone-item:hover {
+  border-color: var(--c3d-accent-border);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+}
+
+.c3d-subzone-item__label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.c3d-subzone-item__hint {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--c3d-muted);
+  text-transform: uppercase;
+}
+
+.c3d-subzone-item__arrow {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--c3d-faint);
+}
+
+.c3d-subzone-item:hover .c3d-subzone-item__arrow {
+  color: var(--c3d-accent);
+  transform: translateX(2px);
+}
+
+/* ───── Section head with secondary link ─────────────────────────── */
+.c3d-panel-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.c3d-section-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--c3d-muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 140ms ease;
+}
+
+.c3d-section-link:hover {
+  color: var(--c3d-accent);
+}
+
+/* ───── Parameter list & rows ────────────────────────────────────── */
+.c3d-param-list {
+  display: grid;
+  gap: 10px;
+}
+
+.c3d-param-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: rgba(11, 13, 17, 0.55);
+}
+
+.c3d-param-row__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c3d-muted);
+}
+
+.c3d-param-row__label strong {
+  color: var(--c3d-text);
+  font-size: 13.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.c3d-param-row__hint {
+  font-size: 10.5px;
+  color: var(--c3d-faint);
+  letter-spacing: 0.02em;
+}
+
+/* Native range styled to match the project. */
+.c3d-param-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.c3d-param-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--c3d-accent) 0%,
+    var(--c3d-accent) var(--c3d-slider-fill, 50%),
+    rgba(255, 255, 255, 0.08) var(--c3d-slider-fill, 50%),
+    rgba(255, 255, 255, 0.08) 100%
+  );
+}
+
+.c3d-param-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.c3d-param-slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--c3d-accent);
+}
+
+.c3d-param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--c3d-accent);
+  border: 2px solid #0b0d11;
+  box-shadow: 0 0 0 1px var(--c3d-accent-border), 0 0 12px rgba(245, 180, 0, 0.32);
+  cursor: grab;
+}
+
+.c3d-param-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--c3d-accent);
+  border: 2px solid #0b0d11;
+  box-shadow: 0 0 0 1px var(--c3d-accent-border), 0 0 12px rgba(245, 180, 0, 0.32);
+  cursor: grab;
+}
+
+.c3d-param-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+/* ───── Toggle (symmetry / boolean params) ───────────────────────── */
+.c3d-param-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: rgba(11, 13, 17, 0.55);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.c3d-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--c3d-line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.c3d-toggle__knob {
+  position: absolute;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--c3d-muted);
+  transition: all 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.c3d-toggle--on {
+  border-color: var(--c3d-accent-border);
+  background: var(--c3d-accent-soft);
+}
+
+.c3d-toggle--on .c3d-toggle__knob {
+  left: 18px;
+  background: var(--c3d-accent);
+  box-shadow: 0 0 10px var(--c3d-accent-glow);
+}
+
+/* ───── Symmetry section ─────────────────────────────────────────── */
+.c3d-symmetry {
+  padding: 0;
+}
+
+.c3d-symmetry__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--c3d-accent-border);
+  border-radius: 12px;
+  background: var(--c3d-accent-soft);
+}
+
+.c3d-symmetry__copy {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.c3d-symmetry__copy strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--c3d-accent);
+  letter-spacing: -0.005em;
+}
+
+.c3d-symmetry__copy small {
+  font-size: 11.5px;
+  color: var(--c3d-muted);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Side selector shown when symmetry is off. */
+.c3d-symmetry__sides {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.c3d-symmetry__hint {
+  font-size: 11px;
+  color: var(--c3d-muted);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Small "editing side" badge next to the parameters section title. */
+.c3d-panel-section__badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--c3d-accent-border);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* ───── Zoom toggle button ───────────────────────────────────────── */
+.c3d-zoom-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--c3d-accent-border);
+  border-radius: 12px;
+  background: rgba(11, 13, 17, 0.55);
+  color: var(--c3d-accent);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  transition: all 160ms ease;
+}
+
+.c3d-zoom-button:hover {
+  background: var(--c3d-accent-soft);
+  box-shadow: 0 0 16px var(--c3d-accent-glow);
+}
+
+.c3d-zoom-button em {
+  margin-left: auto;
+  font-style: normal;
+  font-weight: 600;
+  font-size: 11.5px;
+  color: var(--c3d-muted);
+}
+
+/* ───── Inspector inner sections / controls ──────────────────────── */
+.c3d-panel-section {
+  display: grid;
+  gap: 10px;
+}
+
+.c3d-panel-section__title {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c3d-muted);
+}
+
+.c3d-panel-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--c3d-muted);
+}
+
+/* Color swatches */
+.c3d-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.c3d-swatch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 3px;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.c3d-swatch:hover {
+  border-color: rgba(245, 180, 0, 0.5);
+}
+
+.c3d-swatch--active {
+  border-color: var(--c3d-accent);
+  box-shadow: 0 0 0 2px var(--c3d-accent-soft), 0 0 14px var(--c3d-accent-glow);
+}
+
+.c3d-swatch__dot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Segment + icon grids */
+.c3d-segment {
+  display: inline-flex;
+  width: 100%;
+  padding: 4px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: rgba(11, 13, 17, 0.6);
+}
+
+.c3d-segment__item {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c3d-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 160ms ease;
+}
+
+.c3d-segment__item:hover {
+  color: var(--c3d-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.c3d-segment__item--active {
+  color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+  border: 1px solid var(--c3d-accent-border);
+  box-shadow: 0 0 14px var(--c3d-accent-glow);
+}
+
+.c3d-length-glyph {
+  display: inline-flex;
+  flex-direction: column;
+  width: 5px;
+  align-items: center;
+  justify-content: flex-end;
+  height: 30px;
+}
+
+.c3d-length-glyph span {
+  display: block;
+  width: 100%;
+  background: currentColor;
+  border-radius: 4px 4px 0 0;
+}
+
+.c3d-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.c3d-icon-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 6px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: rgba(11, 13, 17, 0.55);
+  color: var(--c3d-muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  transition: all 160ms ease;
+}
+
+.c3d-icon-card:hover {
+  border-color: rgba(245, 180, 0, 0.45);
+  color: var(--c3d-text);
+  background: rgba(245, 180, 0, 0.1);
+}
+
+.c3d-icon-card--active {
+  border-color: var(--c3d-accent-border);
+  color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+  box-shadow: 0 0 16px var(--c3d-accent-glow);
+}
+
+.c3d-glyph {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  justify-self: center;
+  color: currentColor;
+}
+
+/* Stat rows (body / face / eyes nudge controls) */
+.c3d-stat-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.c3d-stat-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: rgba(11, 13, 17, 0.55);
+}
+
+.c3d-stat-row__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c3d-muted);
+}
+
+.c3d-stat-row__label strong {
+  color: var(--c3d-text);
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.c3d-stat-row__label em {
+  font-style: normal;
+  margin-left: 3px;
+  color: var(--c3d-muted);
+  font-weight: 600;
+}
+
+.c3d-stat-row__nudge {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 10px;
+}
+
+.c3d-stat-row__nudge button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 8px;
+  background: rgba(11, 13, 17, 0.6);
+  color: var(--c3d-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 140ms ease;
+}
+
+.c3d-stat-row__nudge button:hover {
+  border-color: var(--c3d-accent);
+  color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+}
+
+.c3d-stat-row__bar {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.c3d-stat-row__bar span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  border-radius: 999px;
+  background: var(--c3d-accent);
+  box-shadow: 0 0 10px rgba(245, 180, 0, 0.45);
+  transition: transform 160ms ease;
+}
+
+/* Style preset list */
+.c3d-style-list {
+  display: grid;
+  gap: 8px;
+}
+
+.c3d-style-item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 14px;
+  background: rgba(11, 13, 17, 0.55);
+  color: var(--c3d-text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 160ms ease;
+}
+
+.c3d-style-item:hover {
+  border-color: rgba(245, 180, 0, 0.45);
+  background: rgba(245, 180, 0, 0.06);
+}
+
+.c3d-style-item--active {
+  border-color: var(--c3d-accent-border);
+  background: var(--c3d-accent-soft);
+  box-shadow: 0 0 18px var(--c3d-accent-glow);
+}
+
+.c3d-style-item__chip {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--c3d-surface-2);
+}
+
+.c3d-style-item__chip--realism { background: linear-gradient(135deg, #2a221a, #b88a4a); }
+.c3d-style-item__chip--stylized { background: linear-gradient(135deg, #1f2630, #6a5a3a); }
+.c3d-style-item__chip--cinematic { background: linear-gradient(135deg, #1a1d24, #8a6a2a); }
+.c3d-style-item__chip--anime { background: linear-gradient(135deg, #2a1f1a, #d97706); }
+.c3d-style-item__chip--darkFantasy { background: linear-gradient(135deg, #1a0c0a, #5a2a1a); }
+
+.c3d-style-item__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.c3d-style-item__copy strong {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.c3d-style-item__copy em {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--c3d-muted);
+}
+
+.c3d-style-item__tick {
+  color: var(--c3d-accent);
+  font-weight: 800;
+}
+
+/* ───── Bottom quick bar ─────────────────────────────────────────── */
+.c3d-bottom {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 18px;
+  margin: 0 24px 16px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 20px;
+  background: rgba(13, 15, 19, 0.78);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.4);
+}
+
+.c3d-bottom__left,
+.c3d-bottom__right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The left cluster (undo/redo, snapshot/export, camera presets, turntable and
+   the engine switch) can exceed its grid column on a narrow viewport. Without
+   this it overflowed and the last chip — the SMPL engine toggle — was clipped
+   off the right edge by `.c3d-page { overflow: hidden }` and looked missing.
+   Let it shrink and scroll horizontally instead, so every control stays
+   reachable; the scrollbar is hidden to match `.c3d-color-row`. */
+.c3d-bottom__left {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.c3d-bottom__left::-webkit-scrollbar {
+  height: 0;
+}
+
+.c3d-bottom__center {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.c3d-bottom__group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.c3d-bottom__group--muted {
+  opacity: 0.7;
+}
+
+.c3d-bottom__label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--c3d-faint);
+}
+
+.c3d-bottom__divider {
+  width: 1px;
+  height: 28px;
+  background: var(--c3d-line);
+}
+
+.c3d-bottom__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--c3d-line);
+  border-radius: 12px;
+  background: var(--c3d-surface);
+  color: var(--c3d-muted);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: all 160ms ease;
+}
+
+.c3d-bottom__chip:hover:not(:disabled) {
+  color: var(--c3d-text);
+  border-color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+}
+
+.c3d-bottom__chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Active toggle (e.g. turntable running). */
+.c3d-bottom__chip--active,
+.c3d-bottom__chip--active:hover:not(:disabled) {
+  color: var(--c3d-text);
+  border-color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+}
+
+.c3d-preset-row {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.c3d-preset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--c3d-line);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 160ms ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.c3d-preset:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 180, 0, 0.5);
+}
+
+.c3d-color-row {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  max-width: 320px;
+}
+
+.c3d-color-row::-webkit-scrollbar {
+  height: 0;
+}
+
+.c3d-color-pill {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.c3d-color-pill:hover {
+  border-color: rgba(245, 180, 0, 0.5);
+}
+
+.c3d-color-pill--active {
+  border-color: var(--c3d-accent);
+  box-shadow: 0 0 0 2px var(--c3d-accent-soft), 0 0 10px var(--c3d-accent-glow);
+}
+
+.c3d-bottom__ghost,
+.c3d-bottom__secondary,
+.c3d-bottom__primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.c3d-bottom__ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c3d-muted);
+}
+
+.c3d-bottom__ghost:hover {
+  color: var(--c3d-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.c3d-bottom__secondary {
+  border: 1px solid var(--c3d-line);
+  background: var(--c3d-surface);
+  color: var(--c3d-text);
+}
+
+.c3d-bottom__secondary:hover {
+  border-color: var(--c3d-accent);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-text);
+}
+
+.c3d-bottom__primary {
+  border: 1px solid var(--c3d-accent-border);
+  background: var(--c3d-accent-soft);
+  color: var(--c3d-accent);
+  box-shadow: 0 0 18px var(--c3d-accent-glow);
+}
+
+.c3d-bottom__primary:hover {
+  background: rgba(245, 180, 0, 0.18);
+  border-color: var(--c3d-accent);
+  color: var(--c3d-accent-2);
+}
+
+.c3d-bottom__primary svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ───── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 1366px) {
+  .c3d-inspector-slot {
+    width: 320px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .c3d-workspace {
+    grid-template-columns: 72px minmax(0, 1fr);
+    padding: 20px 18px 16px;
+    gap: 16px;
+  }
+  .c3d-rail__item { width: 56px; }
+  .c3d-bottom { margin: 0 18px 18px; padding: 10px 14px; }
+  .c3d-bottom__center { gap: 12px; }
+  .c3d-color-row { max-width: 220px; }
+}
+
+@media (max-width: 960px) {
+  .c3d-header {
+    grid-template-columns: auto auto;
+    gap: 12px;
+  }
+  .c3d-stepper { display: none; }
+  .c3d-inspector-slot {
+    position: absolute;
+    inset: auto 16px 16px 16px;
+    width: auto;
+    max-height: 60%;
+  }
+  .c3d-bottom {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .c3d-bottom__center { flex-direction: column; align-items: stretch; }
+  .c3d-bottom__divider { display: none; }
+  .c3d-bottom__right { justify-content: flex-end; }
+}
+
+/* Scrollbar override scoped to the page so we don't touch the rest. */
+.c3d-inspector__body.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 180, 0, 0.4) transparent;
+}
+
+.c3d-inspector__body.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.c3d-inspector__body.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(245, 180, 0, 0.4);
+  border-radius: 999px;
+}

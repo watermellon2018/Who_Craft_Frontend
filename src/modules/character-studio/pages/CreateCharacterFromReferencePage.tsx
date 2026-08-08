@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
 import {Button, Input, Select, message} from 'antd';
 import {
   CheckCircleOutlined,
@@ -10,22 +11,19 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import CharacterCreateHeader from '../components/create/CharacterCreateHeader';
-import GenerationSettingsPanel, {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
-import VisualStyleSelector, {VisualStyleValue} from '../components/create/VisualStyleSelector';
+import GenerationSettingsPanel, {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
+import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import VisualStyleSelector from '../components/create/VisualStyleSelector';
+import type {VisualStyleValue} from '../components/create/VisualStyleSelector';
 import {characterTypeOptions, genderApplicabilityOptions, roleOptions} from '../components/create/characterCreateOptions';
+import {characterApi} from '../api/characterApi';
+import {characterVariantsPath} from '../../../routes/pathConstant';
+import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './CharacterCreatePage.css';
 import './CreateCharacterFromReferencePage.css';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
-
-const extractedFeatures = [
-  {label: 'Форма лица', value: 'oval'},
-  {label: 'Цвет кожи', value: 'fair'},
-  {label: 'Цвет глаз', value: 'green'},
-  {label: 'Волосы', value: 'brown long'},
-  {label: 'Возраст (оценка)', value: '~20'},
-];
 
 const tips = [
   'Используйте фото с чётким лицом',
@@ -46,10 +44,6 @@ interface ReferenceUploadCardProps {
   onRemove: () => void;
 }
 
-interface ExtractedFeaturesPanelProps {
-  visible: boolean;
-}
-
 interface IdentityInfoPanelProps {
   preserveIdentity: boolean;
 }
@@ -66,7 +60,6 @@ interface ReferenceParametersCardProps {
   gender?: GenderValue;
   role: string;
   preserveIdentity: boolean;
-  autoExtractFeatures: boolean;
   showNameError: boolean;
   onNameChange: (value: string) => void;
   onNameBlur: () => void;
@@ -75,7 +68,6 @@ interface ReferenceParametersCardProps {
   onGenderChange: (value?: GenderValue) => void;
   onRoleChange: (value: string) => void;
   onPreserveIdentityChange: (checked: boolean) => void;
-  onAutoExtractFeaturesChange: (checked: boolean) => void;
 }
 
 interface FormFieldProps {
@@ -117,7 +109,7 @@ export default function CreateCharacterFromReferencePage() {
       <div className="character-create-page__inner">
         <CharacterCreateHeader
           activeMode="reference"
-          subtitle="Создайте персонажа на основе референс-изображения. Мы извлечём ключевые черты и сохраним идентичность."
+          subtitle="Загрузите референс-изображение и настройте параметры будущего персонажа."
         />
         <div className="character-create-content">
           <CreateCharacterFromReferenceContent />
@@ -128,6 +120,8 @@ export default function CreateCharacterFromReferencePage() {
 }
 
 export function CreateCharacterFromReferenceContent() {
+  const projectId = useProjectIdFromRoute();
+  const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [name, setName] = useState('');
@@ -136,12 +130,12 @@ export function CreateCharacterFromReferenceContent() {
   const [gender, setGender] = useState<GenderValue | undefined>();
   const [role, setRole] = useState('main');
   const [preserveIdentity, setPreserveIdentity] = useState(true);
-  const [autoExtractFeatures, setAutoExtractFeatures] = useState(true);
   const [style, setStyle] = useState<CharacterStyle>('cinematic_realism');
   const [refinement, setRefinement] = useState('');
   const [generationOptions, setGenerationOptions] = useState<GenerationOptions>(defaultGenerationOptions);
   const [nameTouched, setNameTouched] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (!file) {
@@ -174,13 +168,51 @@ export function CreateCharacterFromReferenceContent() {
     setFile(nextFile);
   };
 
-  const handleGenerate = () => {
-    if (!canGenerate) {
+  const handleGenerate = async () => {
+    if (!canGenerate || !file) {
       setSubmitAttempted(true);
       return;
     }
-
-    message.info(`Генерация ${generationOptions.count} вариант(ов) по референсу будет подключена на этапе интеграции API`);
+    if (!projectId) {
+      message.error('Не удалось определить проект.');
+      return;
+    }
+    try {
+      setIsGenerating(true);
+      const response = await characterApi.createFromReference(projectId, {
+        name: name.trim(),
+        entityType: characterType,
+        role,
+        lifecycleStage,
+        gender,
+        visualStyle: style,
+        refinement,
+        variantsCount: generationOptions.count,
+        preserveIdentity,
+        referenceImage: file,
+      });
+      const {character, generation_job: job} = response.data;
+      if (job?.status === 'failed') {
+        message.error(job.error_message || 'Не удалось сгенерировать варианты. Попробуйте ещё раз позже.');
+        return;
+      }
+      if (!job?.job_id) {
+        message.error('Сервер не вернул идентификатор задачи генерации.');
+        return;
+      }
+      message.success('Персонаж создан, генерация запущена.');
+      navigate(characterVariantsPath(projectId, character.character_id, job.job_id), {
+        state: {
+          characterName: character.name,
+          generationOptions,
+        },
+      });
+    } catch (error) {
+      const data = (error as {response?: {data?: {message?: string}}})?.response?.data;
+      message.error(data?.message || 'Не удалось создать персонажа по референсу.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -200,7 +232,6 @@ export function CreateCharacterFromReferenceContent() {
           gender={gender}
           role={role}
           preserveIdentity={preserveIdentity}
-          autoExtractFeatures={autoExtractFeatures}
           showNameError={showNameError}
           onNameChange={setName}
           onNameBlur={() => setNameTouched(true)}
@@ -209,7 +240,6 @@ export function CreateCharacterFromReferenceContent() {
           onGenderChange={setGender}
           onRoleChange={setRole}
           onPreserveIdentityChange={setPreserveIdentity}
-          onAutoExtractFeaturesChange={setAutoExtractFeatures}
         />
 
         <VisualStyleSelector value={style} onChange={setStyle} />
@@ -220,10 +250,11 @@ export function CreateCharacterFromReferenceContent() {
             <Button
               className="character-create-button character-create-button--primary"
               htmlType="button"
-              disabled={!canGenerate}
+              disabled={!canGenerate || isGenerating}
+              loading={isGenerating}
               onClick={handleGenerate}
             >
-              Сгенерировать
+              {isGenerating ? 'Создаём персонажа…' : 'Сгенерировать'}
             </Button>
           </div>
           <p>После генерации вы сможете доработать персонажа в редакторе.</p>
@@ -232,7 +263,6 @@ export function CreateCharacterFromReferenceContent() {
 
       <aside className="character-reference-side">
         <GenerationSettingsPanel value={generationOptions} onChange={setGenerationOptions} />
-        <ExtractedFeaturesPanel visible={Boolean(file)} />
         <IdentityInfoPanel preserveIdentity={preserveIdentity} />
         <TipsPanel />
       </aside>
@@ -362,7 +392,6 @@ function ReferenceParametersCard({
   gender,
   role,
   preserveIdentity,
-  autoExtractFeatures,
   showNameError,
   onNameChange,
   onNameBlur,
@@ -371,7 +400,6 @@ function ReferenceParametersCard({
   onGenderChange,
   onRoleChange,
   onPreserveIdentityChange,
-  onAutoExtractFeaturesChange,
 }: ReferenceParametersCardProps) {
   return (
     <section className="reference-parameters-card">
@@ -454,12 +482,6 @@ function ReferenceParametersCard({
             title="Использовать изображение как основу идентичности"
             description="Лицо и ключевые черты будут сохранены при генерации и редактировании"
             onChange={onPreserveIdentityChange}
-          />
-          <ToggleOption
-            checked={autoExtractFeatures}
-            title="Автоматически извлечь характеристики внешности"
-            description="AI проанализирует изображение и предложит параметры"
-            onChange={onAutoExtractFeaturesChange}
           />
         </div>
       </div>
@@ -569,29 +591,6 @@ function OptionalRefinementBox({value, onChange}: OptionalRefinementBoxProps) {
           {value.length} / 300
         </div>
       </div>
-    </section>
-  );
-}
-
-function ExtractedFeaturesPanel({visible}: ExtractedFeaturesPanelProps) {
-  if (!visible) {
-    return null;
-  }
-
-  return (
-    <section className="create-side-card">
-      <div className="create-side-card__header">
-        <h2>Извлечённые характеристики</h2>
-      </div>
-
-      <dl className="extracted-features-list">
-        {extractedFeatures.map((feature) => (
-          <div className="extracted-features-list__row" key={feature.label}>
-            <dt>{feature.label}</dt>
-            <dd>{feature.value}</dd>
-          </div>
-        ))}
-      </dl>
     </section>
   );
 }

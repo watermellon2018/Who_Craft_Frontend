@@ -1,25 +1,30 @@
-import axios from 'axios';
+import {sanitizeApiError} from '../errors';
+import api, {setStoredUserTokens} from '../http';
 
-const backendUrl = process.env.REACT_APP_BACKEND_URL;
-
-async function register(values: any): Promise<any> {
-    const config = {
-        headers: {
-            "Content-Type": "application/json",
-        },
-    };
-    const body = JSON.stringify(values);
-
-    try {
-        const res = await axios.post(`${backendUrl}api/auth/register/`, body, config);
-        const userId = res.data.token;
-        localStorage.setItem('userId', userId);
-
-        return res;
-    } catch (err: any) {
-        throw err.response.data;
-    }
+interface RegisterRequest {
+  username: string;
+  password: string;
+  email?: string;
 }
 
-export {register}
+interface RegisterResponse {
+  access: string;
+  refresh: string;
+  token: string;
+}
 
+async function register(values: RegisterRequest): Promise<RegisterResponse> {
+  try {
+    const response = await api.post<RegisterResponse>('api/auth/register/', values);
+    if (response.data.access && response.data.refresh) {
+      setStoredUserTokens(response.data.access, response.data.refresh);
+    }
+    return response.data;
+  } catch (error: unknown) {
+    // Never expose an AxiosError: it embeds request headers/body (password).
+    throw sanitizeApiError(error, 'registration_failed');
+  }
+}
+
+export {register};
+export type {RegisterRequest, RegisterResponse};
