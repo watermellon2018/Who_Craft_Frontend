@@ -6,13 +6,36 @@ export type VisualInspectorTab = 'main' | 'appearance' | 'relations';
 
 export type VisualRelationKind = 'character' | 'scene' | 'location' | 'reference';
 
-export interface LocalVisualVariant {
+interface GeneratedVisualAsset {
+  createdAt: string;
+  id: string;
+  imageUrl: string;
+  jobId: string;
+  name: string;
+  prompt?: string;
+  source: 'generated';
+  variantId: string;
+}
+
+export interface GeneratedVisualPreview extends GeneratedVisualAsset {
+  isSavedToDrafts: false;
+}
+
+export type VisualReferenceDraft = GeneratedVisualAsset;
+
+export interface UploadedVisualImage {
   file: File;
   id: string;
+  imageUrl: string;
   name: string;
-  previewUrl: string;
+  source: 'uploaded';
   uploaded: boolean;
 }
+
+export type VisualCanvasImage =
+  | GeneratedVisualPreview
+  | UploadedVisualImage
+  | VisualReferenceDraft;
 
 export interface VisualRelation {
   id: string;

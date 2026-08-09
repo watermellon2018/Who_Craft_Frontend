@@ -8,6 +8,7 @@
 :root {
   --craft-accent: #fab005;
   --craft-accent-hover: #fcc419;
+  --craft-accent-disabled: #d7aa45;
   --craft-accent-soft: rgba(250, 176, 5, 0.12);
   --craft-accent-border: rgba(250, 176, 5, 0.4);
   --craft-bg-deep: #07111d;
@@ -32,7 +33,7 @@
   --craft-danger-border: rgba(255, 123, 114, 0.38);
   --craft-disabled-bg: #152536;
   --craft-disabled-text: #718196;
-  --craft-on-accent: #111827;
+  --craft-on-accent: #000000;
   --craft-on-primary-disabled: #000000;
   --craft-accent-deep: rgba(110, 76, 12, 0.22);
   --craft-overlay: rgba(9, 21, 34, 0.9);
@@ -41,10 +42,33 @@
   --craft-scrollbar-hover: #3a5872;
 }
 
-.ant-btn-primary:disabled,
-.ant-btn-primary.ant-btn-disabled,
-.ant-btn-primary[disabled] {
+/* One project-wide source of truth for Ant Design primary buttons. */
+.ant-btn-primary:not(.ant-btn-dangerous) {
+  color: var(--craft-on-accent) !important;
+  border-color: var(--craft-accent) !important;
+  background: var(--craft-accent) !important;
+  box-shadow: none !important;
+}
+
+.ant-btn-primary:not(.ant-btn-dangerous):hover:not(:disabled):not(.ant-btn-disabled),
+.ant-btn-primary:not(.ant-btn-dangerous):focus-visible:not(:disabled):not(.ant-btn-disabled) {
+  color: var(--craft-on-accent) !important;
+  border-color: var(--craft-accent-hover) !important;
+  background: var(--craft-accent-hover) !important;
+}
+
+.ant-btn-primary:not(.ant-btn-dangerous):focus-visible:not(:disabled):not(.ant-btn-disabled) {
+  outline: 2px solid var(--craft-accent-border);
+  outline-offset: 2px;
+}
+
+.ant-btn-primary:not(.ant-btn-dangerous):disabled,
+.ant-btn-primary:not(.ant-btn-dangerous).ant-btn-disabled,
+.ant-btn-primary:not(.ant-btn-dangerous)[disabled] {
   color: var(--craft-on-primary-disabled) !important;
+  border-color: var(--craft-accent-border) !important;
+  background: var(--craft-accent-disabled) !important;
+  box-shadow: none !important;
   opacity: 1;
 }
 

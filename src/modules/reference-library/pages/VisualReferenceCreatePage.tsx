@@ -1,27 +1,28 @@
-import {Alert, Result} from 'antd';
+import {Alert, message, Result} from 'antd';
 import React, {useEffect, useRef, useState} from 'react';
 import {flushSync} from 'react-dom';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 
-import {
-  referenceDetailPath,
-  referenceEditPath,
-  referenceJobPath,
-} from '../../../routes/pathConstant';
+import {backendAssetUrl} from '../../../api/http';
+import {referenceEditPath} from '../../../routes/pathConstant';
 import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
 import {newReferenceIdempotencyKey, referenceApi} from '../api/referenceApi';
 import VisualReferenceCanvas from '../components/visual-editor/VisualReferenceCanvas';
 import VisualReferenceHeader from '../components/visual-editor/VisualReferenceHeader';
 import VisualReferenceInspector from '../components/visual-editor/VisualReferenceInspector';
 import type {
-  LocalVisualVariant,
+  GeneratedVisualPreview,
+  UploadedVisualImage,
+  VisualCanvasImage,
   VisualInspectorTab,
+  VisualReferenceDraft,
   VisualReferenceType,
   VisualRelation,
 } from '../components/visual-editor/types';
 import ReferenceLibraryShell from '../components/ReferenceLibraryShell';
 import {referenceErrorDescriptor} from '../errors';
+import {useReferenceGenerationJob} from '../hooks/useReferenceGenerationJob';
 import type {
   ReferenceBrief,
   ReferenceCapabilities,
@@ -42,7 +43,11 @@ interface DraftIdentity {
   version: number;
 }
 
-type SaveDestination = 'detail' | 'edit';
+type CanvasSelection =
+  | {kind: 'draft'; id: string}
+  | {kind: 'generated-preview'}
+  | {kind: 'uploaded'}
+  | null;
 
 function VisualReferenceCreateEditor() {
   const {t} = useTranslation();
@@ -57,27 +62,36 @@ function VisualReferenceCreateEditor() {
   const [description, setDescription] = useState('');
   const [brief, setBrief] = useState<ReferenceBrief>(EMPTY_BRIEF);
   const [activeTab, setActiveTab] = useState<VisualInspectorTab>('main');
-  const [variants, setVariants] = useState<LocalVisualVariant[]>([]);
-  const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
-  const [primaryVariantId, setPrimaryVariantId] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<VisualReferenceDraft[]>([]);
+  const [generatedPreview, setGeneratedPreview] = useState<GeneratedVisualPreview | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<UploadedVisualImage | null>(null);
+  const [canvasSelection, setCanvasSelection] = useState<CanvasSelection>(null);
+  const [primaryImageId, setPrimaryImageId] = useState<string | null>(null);
   const [relations, setRelations] = useState<VisualRelation[]>([]);
-  const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [addingToDrafts, setAddingToDrafts] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftIdentity, setDraftIdentity] = useState<DraftIdentity | null>(null);
-  const localVariantSequence = useRef(0);
+  const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const mounted = useRef(true);
   const actionController = useRef<AbortController | null>(null);
+  const addingToDraftsRef = useRef(false);
+  const handledGenerationJob = useRef<string>();
   const persistedDraftFingerprint = useRef<string>();
   const generationIntent = useRef<{fingerprint: string; key: string}>();
+  const generationPrompts = useRef(new Map<string, string>());
   const previewUrls = useRef(new Set<string>());
   const {allowNextNavigation} = useUnsavedChangesGuard(
     dirty,
     t('referenceLibrary.unsaved.description'),
+  );
+  const generation = useReferenceGenerationJob(
+    projectId,
+    draftIdentity?.id,
+    generationJobId ?? undefined,
   );
 
   useEffect(() => {
@@ -116,13 +130,66 @@ function VisualReferenceCreateEditor() {
     };
   }, []);
 
+  useEffect(() => {
+    const job = generation.job;
+    if (!job || handledGenerationJob.current === job.id) return;
+    if (job.status === 'failed' || job.status === 'cancelled') {
+      handledGenerationJob.current = job.id;
+      setError(job.error
+        ? referenceErrorDescriptor(job.error).message
+        : t('referenceLibrary.editor.generate.failed'));
+      return;
+    }
+    if (job.status !== 'completed') return;
+
+    handledGenerationJob.current = job.id;
+    const variant = job.variants.find((item) => (
+      item.status === 'generated' && Boolean(item.imageUrl || item.thumbnailUrl)
+    ));
+    if (!variant) {
+      setError(t('referenceLibrary.editor.generate.noResult'));
+      return;
+    }
+    const imageUrl = backendAssetUrl(variant.imageUrl || variant.thumbnailUrl || '');
+    setGeneratedPreview({
+      createdAt: job.completedAt || job.createdAt,
+      id: `generated:${job.id}:${variant.id}`,
+      imageUrl,
+      isSavedToDrafts: false,
+      jobId: job.id,
+      name: t('referenceLibrary.editor.drafts.generatedName', {number: drafts.length + 1}),
+      prompt: generationPrompts.current.get(job.id),
+      source: 'generated',
+      variantId: variant.id,
+    });
+    setCanvasSelection({kind: 'generated-preview'});
+    setZoom(1);
+  }, [drafts.length, generation.job, t]);
+
+  useEffect(() => {
+    if (generation.errorMessage) setError(generation.errorMessage);
+  }, [generation.errorMessage]);
+
   const canEdit = capabilities?.permissions.canEdit ?? false;
   const canGenerate = Boolean(
     capabilities?.permissions.canRunGeneration
     && capabilities.generation.canGenerate,
   );
-  const busy = saving || creating || generating;
+  const generationInProgress = generating || Boolean(
+    generationJobId
+    && !generation.errorMessage
+    && (!generation.job || !generation.isTerminal),
+  );
+  const busy = saving || generationInProgress || addingToDrafts;
   const accept = capabilities?.upload.mimeTypes.join(',') || DEFAULT_ACCEPT;
+  const activeImage: VisualCanvasImage | null = (() => {
+    if (canvasSelection?.kind === 'generated-preview') return generatedPreview;
+    if (canvasSelection?.kind === 'uploaded') return uploadedImage;
+    if (canvasSelection?.kind === 'draft') {
+      return drafts.find(({id}) => id === canvasSelection.id) ?? null;
+    }
+    return null;
+  })();
 
   const markDirty = () => setDirty(true);
   const assertMounted = () => {
@@ -142,10 +209,6 @@ function VisualReferenceCreateEditor() {
     if (requirePrompt && !brief.description?.trim()) {
       setActiveTab('main');
       setError(t('referenceLibrary.editor.generate.promptRequired'));
-      return false;
-    }
-    if (variants.length > 0 && !rightsConfirmed) {
-      setError(t('referenceLibrary.editor.errors.uploadRights'));
       return false;
     }
     return true;
@@ -182,65 +245,70 @@ function VisualReferenceCreateEditor() {
     return created;
   };
 
-  const persistLocalVariants = async (
+  const persistUploadedImage = async (
     draft: DraftIdentity,
     signal: AbortSignal,
   ): Promise<DraftIdentity> => {
-    if (!capabilities) return draft;
-    const pending = variants.filter(({uploaded}) => !uploaded);
-    const ordered = [...pending].sort((left, right) => {
-      if (left.id === primaryVariantId) return 1;
-      if (right.id === primaryVariantId) return -1;
-      return 0;
-    });
-    let current = draft;
-    for (const variant of ordered) {
-      const response = await referenceApi.uploadVersion(
-        projectId,
-        current.id,
-        variant.file,
-        current.version,
-        capabilities.upload.rightsStatementVersion,
-        signal,
-      );
-      assertMounted();
-      current = {id: current.id, version: response.data.referenceVersion};
-      setDraftIdentity(current);
-      setVariants((items) => items.map((item) => (
-        item.id === variant.id ? {...item, uploaded: true} : item
-      )));
-    }
+    if (!capabilities || !uploadedImage || uploadedImage.uploaded) return draft;
+    const response = await referenceApi.uploadVersion(
+      projectId,
+      draft.id,
+      uploadedImage.file,
+      draft.version,
+      capabilities.upload.rightsStatementVersion,
+      signal,
+    );
+    assertMounted();
+    const current = {id: draft.id, version: response.data.referenceVersion};
+    setDraftIdentity(current);
+    setUploadedImage((image) => image ? {...image, uploaded: true} : image);
     return current;
   };
 
-  const finishNavigation = (draft: DraftIdentity, destination: SaveDestination) => {
+  const persistGeneratedPrimary = async (
+    draft: DraftIdentity,
+  ): Promise<DraftIdentity> => {
+    const primaryDraft = drafts.find(({id}) => id === primaryImageId);
+    if (!primaryDraft) return draft;
+    const response = await referenceApi.applyVariant(
+      projectId,
+      draft.id,
+      primaryDraft.jobId,
+      primaryDraft.variantId,
+      draft.version,
+    );
+    assertMounted();
+    const current = {id: draft.id, version: response.data.referenceVersion};
+    setDraftIdentity(current);
+    return current;
+  };
+
+  const finishNavigation = (draft: DraftIdentity) => {
     if (!mounted.current) return;
     flushSync(() => setDirty(false));
     allowNextNavigation();
-    navigate(destination === 'edit'
-      ? referenceEditPath(projectId, draft.id)
-      : referenceDetailPath(projectId, draft.id));
+    navigate(referenceEditPath(projectId, draft.id));
   };
 
-  const saveReference = async (destination: SaveDestination) => {
+  const saveReference = async () => {
     if (!validateBeforeCreate()) return;
-    const setLoading = destination === 'edit' ? setSaving : setCreating;
     const controller = new AbortController();
     actionController.current = controller;
-    setLoading(true);
+    setSaving(true);
     setError(null);
     try {
       const draft = await persistDraft();
-      const saved = await persistLocalVariants(draft, controller.signal);
+      const withUpload = await persistUploadedImage(draft, controller.signal);
+      const saved = await persistGeneratedPrimary(withUpload);
       assertMounted();
-      finishNavigation(saved, destination);
+      finishNavigation(saved);
     } catch (requestError: unknown) {
       if (mounted.current && requestError !== EDITOR_DISPOSED) {
         setError(referenceErrorDescriptor(requestError).message);
       }
     } finally {
       if (actionController.current === controller) actionController.current = null;
-      if (mounted.current) setLoading(false);
+      if (mounted.current) setSaving(false);
     }
   };
 
@@ -252,9 +320,9 @@ function VisualReferenceCreateEditor() {
     setError(null);
     try {
       const draft = await persistDraft();
-      const saved = await persistLocalVariants(draft, controller.signal);
+      const saved = await persistUploadedImage(draft, controller.signal);
       const variantCounts = capabilities.generation.generateVariantCounts;
-      const variantCount = variantCounts.includes(4) ? 4 : variantCounts[0] ?? 1;
+      const variantCount = variantCounts.includes(1) ? 1 : variantCounts[0] ?? 1;
       const jobPayload = {
         brief,
         expectedReferenceVersion: saved.version,
@@ -275,9 +343,10 @@ function VisualReferenceCreateEditor() {
         intent.key,
       );
       assertMounted();
-      flushSync(() => setDirty(false));
-      allowNextNavigation();
-      navigate(referenceJobPath(projectId, saved.id, response.data.id));
+      generationPrompts.current.set(response.data.id, brief.description?.trim() ?? '');
+      generationIntent.current = undefined;
+      handledGenerationJob.current = undefined;
+      setGenerationJobId(response.data.id);
     } catch (requestError: unknown) {
       if (mounted.current && requestError !== EDITOR_DISPOSED) {
         setError(referenceErrorDescriptor(requestError).message);
@@ -288,7 +357,7 @@ function VisualReferenceCreateEditor() {
     }
   };
 
-  const addLocalVariant = (file: File, replaceVariantId?: string) => {
+  const handleUpload = (file: File) => {
     if (capabilities && file.size > capabilities.upload.maxBytes) {
       setError(t('referenceLibrary.editor.errors.fileTooLarge'));
       return;
@@ -299,39 +368,75 @@ function VisualReferenceCreateEditor() {
     }
     const previewUrl = URL.createObjectURL(file);
     previewUrls.current.add(previewUrl);
-    const replacedVariant = replaceVariantId
-      ? variants.find(({id}) => id === replaceVariantId)
-      : undefined;
-    if (replacedVariant) {
-      previewUrls.current.delete(replacedVariant.previewUrl);
-      URL.revokeObjectURL(replacedVariant.previewUrl);
-      setVariants((items) => items.map((item) => (
-        item.id === replaceVariantId
-          ? {...item, file, name: file.name, previewUrl, uploaded: false}
-          : item
-      )));
-      setActiveVariantId(replaceVariantId ?? null);
-      setRightsConfirmed(false);
-      setZoom(1);
-      setError(null);
-      markDirty();
-      return;
+    if (uploadedImage) {
+      previewUrls.current.delete(uploadedImage.imageUrl);
+      URL.revokeObjectURL(uploadedImage.imageUrl);
     }
-    localVariantSequence.current += 1;
-    const id = `local-variant-${localVariantSequence.current}`;
-    const variant: LocalVisualVariant = {
+    const image: UploadedVisualImage = {
       file,
-      id,
+      id: uploadedImage?.id ?? 'uploaded-image',
+      imageUrl: previewUrl,
       name: file.name,
-      previewUrl,
+      source: 'uploaded',
       uploaded: false,
     };
-    setVariants((items) => [...items, variant]);
-    setActiveVariantId(id);
-    setPrimaryVariantId((current) => current ?? id);
-    setRightsConfirmed(false);
+    setUploadedImage(image);
+    setCanvasSelection({kind: 'uploaded'});
+    setPrimaryImageId((current) => current ?? image.id);
     setZoom(1);
     setError(null);
+    markDirty();
+  };
+
+  const handleAddToDrafts = async () => {
+    if (!generatedPreview || addingToDraftsRef.current) return;
+    if (drafts.some(({id}) => id === generatedPreview.id)) return;
+    addingToDraftsRef.current = true;
+    setAddingToDrafts(true);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    if (!mounted.current) return;
+
+    const draft: VisualReferenceDraft = {
+      createdAt: generatedPreview.createdAt,
+      id: generatedPreview.id,
+      imageUrl: generatedPreview.imageUrl,
+      jobId: generatedPreview.jobId,
+      name: generatedPreview.name,
+      prompt: generatedPreview.prompt,
+      source: 'generated',
+      variantId: generatedPreview.variantId,
+    };
+    setDrafts((items) => [...items, draft]);
+    setGeneratedPreview(null);
+    setCanvasSelection({id: draft.id, kind: 'draft'});
+    setZoom(1);
+    markDirty();
+    message.success(t('referenceLibrary.editor.drafts.added'));
+    addingToDraftsRef.current = false;
+    setAddingToDrafts(false);
+  };
+
+  const handleSelectDraft = (draftId: string) => {
+    setCanvasSelection({id: draftId, kind: 'draft'});
+    setZoom(1);
+  };
+
+  const handleSetPrimary = (imageId: string) => {
+    setPrimaryImageId(imageId);
+    markDirty();
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    const remaining = drafts.filter(({id}) => id !== draftId);
+    setDrafts(remaining);
+    if (primaryImageId === draftId) setPrimaryImageId(null);
+    if (canvasSelection?.kind === 'draft' && canvasSelection.id === draftId) {
+      if (generatedPreview) setCanvasSelection({kind: 'generated-preview'});
+      else if (uploadedImage) setCanvasSelection({kind: 'uploaded'});
+      else if (remaining[0]) setCanvasSelection({id: remaining[0].id, kind: 'draft'});
+      else setCanvasSelection(null);
+      setZoom(1);
+    }
     markDirty();
   };
 
@@ -346,15 +451,11 @@ function VisualReferenceCreateEditor() {
     >
       <main className="visual-reference-editor">
         <VisualReferenceHeader
-          canCreate={canEdit && !busy}
-          canSave={canEdit && dirty && !busy}
-          creating={creating}
+          canSave={canEdit && !busy}
           disabled={!canEdit || busy}
-          dirty={dirty}
           saving={saving}
           title={title}
-          onCreate={() => void saveReference('detail')}
-          onSave={() => void saveReference('edit')}
+          onSave={() => void saveReference()}
           onTitleChange={changeTitle}
         />
 
@@ -374,34 +475,39 @@ function VisualReferenceCreateEditor() {
         <div className="visual-reference-editor__workspace">
           <VisualReferenceCanvas
             accept={accept}
-            activeVariantId={activeVariantId}
+            activeImage={activeImage}
+            addingToDrafts={addingToDrafts}
             canGenerate={canGenerate}
             disabled={!canEdit || busy}
-            generating={generating}
-            primaryVariantId={primaryVariantId}
+            generatedPreview={generatedPreview}
+            generating={generationInProgress}
+            primaryImageId={primaryImageId}
             prompt={brief.description ?? ''}
-            rightsConfirmed={rightsConfirmed}
-            variants={variants}
             zoom={zoom}
-            onFileSelect={addLocalVariant}
+            onAddToDrafts={() => void handleAddToDrafts()}
             onGenerate={() => void generateReference()}
-            onPrimaryChange={setPrimaryVariantId}
+            onPrimaryChange={handleSetPrimary}
             onPromptChange={(prompt) => changeBrief({...brief, description: prompt})}
-            onRightsChange={(checked) => { setRightsConfirmed(checked); markDirty(); }}
-            onVariantSelect={(id) => { setActiveVariantId(id); setZoom(1); }}
+            onUpload={handleUpload}
             onZoomChange={setZoom}
           />
           <VisualReferenceInspector
             activeTab={activeTab}
+            activeImageId={activeImage?.id ?? null}
             brief={brief}
             category={category}
             description={description}
             disabled={!canEdit || busy}
+            drafts={drafts}
+            primaryImageId={primaryImageId}
             relations={relations}
             onBriefChange={changeBrief}
             onCategoryChange={changeCategory}
             onDescriptionChange={changeDescription}
+            onDeleteDraft={handleDeleteDraft}
+            onPrimaryChange={handleSetPrimary}
             onRelationsChange={setRelations}
+            onSelectDraft={handleSelectDraft}
             onTabChange={setActiveTab}
           />
         </div>

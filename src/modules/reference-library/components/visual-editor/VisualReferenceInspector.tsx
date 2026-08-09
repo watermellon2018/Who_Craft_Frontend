@@ -11,6 +11,7 @@ import React, {useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 
 import type {ReferenceBrief} from '../../types';
+import VisualReferenceDrafts from './VisualReferenceDrafts';
 import {
   CONTINUITY_LABEL_KEYS,
   MOCK_RELATION_CANDIDATES,
@@ -18,6 +19,7 @@ import {
 } from './types';
 import type {
   VisualInspectorTab,
+  VisualReferenceDraft,
   VisualReferenceType,
   VisualRelation,
   VisualRelationKind,
@@ -250,10 +252,16 @@ function RelationsSettingsTab({
 
 interface VisualReferenceInspectorProps extends MainSettingsTabProps {
   activeTab: VisualInspectorTab;
+  activeImageId: string | null;
   brief: ReferenceBrief;
+  drafts: VisualReferenceDraft[];
+  primaryImageId: string | null;
   relations: VisualRelation[];
   onBriefChange: (brief: ReferenceBrief) => void;
+  onDeleteDraft: (draftId: string) => void;
+  onPrimaryChange: (draftId: string) => void;
   onRelationsChange: (relations: VisualRelation[]) => void;
+  onSelectDraft: (draftId: string) => void;
   onTabChange: (tab: VisualInspectorTab) => void;
 }
 
@@ -263,27 +271,34 @@ function isInspectorTab(value: string): value is VisualInspectorTab {
 
 export default function VisualReferenceInspector({
   activeTab,
+  activeImageId,
   brief,
   category,
   description,
   disabled,
+  drafts,
+  primaryImageId,
   relations,
   onBriefChange,
   onCategoryChange,
   onDescriptionChange,
+  onDeleteDraft,
+  onPrimaryChange,
   onRelationsChange,
+  onSelectDraft,
   onTabChange,
 }: VisualReferenceInspectorProps) {
   const {t} = useTranslation();
 
   return (
     <aside className="visual-reference-inspector">
-      <Tabs
-        activeKey={activeTab}
-        onChange={(value) => {
-          if (isInspectorTab(value)) onTabChange(value);
-        }}
-        items={[
+      <div className="visual-reference-inspector__properties">
+        <Tabs
+          activeKey={activeTab}
+          onChange={(value) => {
+            if (isInspectorTab(value)) onTabChange(value);
+          }}
+          items={[
           {
             key: 'main',
             label: t('referenceLibrary.editor.tabs.main'),
@@ -320,7 +335,17 @@ export default function VisualReferenceInspector({
               />
             ),
           },
-        ]}
+          ]}
+        />
+      </div>
+      <VisualReferenceDrafts
+        activeImageId={activeImageId}
+        disabled={disabled}
+        drafts={drafts}
+        primaryImageId={primaryImageId}
+        onDeleteDraft={onDeleteDraft}
+        onPrimaryChange={onPrimaryChange}
+        onSelectDraft={onSelectDraft}
       />
     </aside>
   );

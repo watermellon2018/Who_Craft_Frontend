@@ -1,70 +1,69 @@
 import {
   FullscreenOutlined,
   PictureOutlined,
-  PlusOutlined,
   ReloadOutlined,
+  SaveOutlined,
   UploadOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons';
-import {Alert, Button, Checkbox, Input, Tooltip} from 'antd';
+import {Alert, Button, Input, Tooltip} from 'antd';
 import React, {useRef} from 'react';
 import {useTranslation} from 'react-i18next';
 
-import type {LocalVisualVariant} from './types';
+import type {
+  GeneratedVisualPreview,
+  VisualCanvasImage,
+} from './types';
 
 const TOOLTIP_ROOT_CLASS_NAME = 'visual-reference-tooltip';
 
 interface VisualReferenceCanvasProps {
   accept: string;
-  activeVariantId: string | null;
+  activeImage: VisualCanvasImage | null;
+  addingToDrafts: boolean;
   canGenerate: boolean;
   disabled: boolean;
+  generatedPreview: GeneratedVisualPreview | null;
   generating: boolean;
-  primaryVariantId: string | null;
+  primaryImageId: string | null;
   prompt: string;
-  rightsConfirmed: boolean;
-  variants: LocalVisualVariant[];
   zoom: number;
-  onFileSelect: (file: File, replaceVariantId?: string) => void;
+  onAddToDrafts: () => void;
   onGenerate: () => void;
-  onPrimaryChange: (variantId: string) => void;
+  onPrimaryChange: (imageId: string) => void;
   onPromptChange: (prompt: string) => void;
-  onRightsChange: (checked: boolean) => void;
-  onVariantSelect: (variantId: string) => void;
+  onUpload: (file: File) => void;
   onZoomChange: (zoom: number) => void;
 }
 
 export default function VisualReferenceCanvas({
   accept,
-  activeVariantId,
+  activeImage,
+  addingToDrafts,
   canGenerate,
   disabled,
+  generatedPreview,
   generating,
-  primaryVariantId,
+  primaryImageId,
   prompt,
-  rightsConfirmed,
-  variants,
   zoom,
-  onFileSelect,
+  onAddToDrafts,
   onGenerate,
   onPrimaryChange,
   onPromptChange,
-  onRightsChange,
-  onVariantSelect,
+  onUpload,
   onZoomChange,
 }: VisualReferenceCanvasProps) {
   const {t} = useTranslation();
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const replaceVariantIdRef = useRef<string>();
-  const activeVariant = variants.find(({id}) => id === activeVariantId) ?? variants[0];
   const generationDisabled = disabled || !canGenerate || !prompt.trim();
+  const isUnsavedGeneratedPreview = Boolean(
+    generatedPreview && activeImage?.id === generatedPreview.id,
+  );
 
-  const chooseFile = (replaceVariantId?: string) => {
-    replaceVariantIdRef.current = replaceVariantId;
-    fileInputRef.current?.click();
-  };
+  const openUploadPicker = () => fileInputRef.current?.click();
   const enterFullscreen = () => {
     const fullscreenRequest = canvasRef.current?.requestFullscreen?.();
     void fullscreenRequest?.catch(() => undefined);
@@ -74,20 +73,20 @@ export default function VisualReferenceCanvas({
     <section className="visual-reference-stage" aria-label={t('referenceLibrary.editor.canvas.label')}>
       <input
         ref={fileInputRef}
+        aria-label={t('referenceLibrary.editor.empty.upload')}
         className="visual-reference-file-input"
         type="file"
         accept={accept}
         disabled={disabled}
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) onFileSelect(file, replaceVariantIdRef.current);
-          replaceVariantIdRef.current = undefined;
+          if (file) onUpload(file);
           event.target.value = '';
         }}
       />
 
       <div ref={canvasRef} className="visual-reference-canvas">
-        {activeVariant ? (
+        {activeImage ? (
           <>
             <div className="visual-reference-canvas__toolbar">
               <Tooltip
@@ -123,26 +122,50 @@ export default function VisualReferenceCanvas({
                 />
               </Tooltip>
             </div>
+            {isUnsavedGeneratedPreview && (
+              <span className="visual-reference-canvas__unsaved">
+                {t('referenceLibrary.editor.drafts.unsaved')}
+              </span>
+            )}
             <div className="visual-reference-canvas__image-wrap">
               <img
-                src={activeVariant.previewUrl}
-                alt={activeVariant.name}
+                src={activeImage.imageUrl}
+                alt={activeImage.name}
                 style={{transform: `scale(${zoom})`}}
               />
             </div>
             <div className="visual-reference-canvas__image-actions">
               <Button
                 icon={<UploadOutlined />}
+                aria-label={t(activeImage.source === 'uploaded'
+                  ? 'referenceLibrary.editor.canvas.replace'
+                  : 'referenceLibrary.editor.empty.upload')}
                 disabled={disabled}
-                onClick={() => chooseFile(activeVariant.id)}
+                onClick={openUploadPicker}
               >
-                {t('referenceLibrary.editor.canvas.replace')}
+                {t(activeImage.source === 'uploaded'
+                  ? 'referenceLibrary.editor.canvas.replace'
+                  : 'referenceLibrary.editor.empty.upload')}
               </Button>
-              {primaryVariantId !== activeVariant.id && (
+              {isUnsavedGeneratedPreview ? (
                 <Button
+                  key="add-to-drafts"
+                  className="visual-reference-add-draft"
+                  icon={<SaveOutlined />}
+                  aria-label={t('referenceLibrary.editor.drafts.add')}
+                  disabled={disabled || addingToDrafts}
+                  loading={addingToDrafts}
+                  onClick={onAddToDrafts}
+                >
+                  {t('referenceLibrary.editor.drafts.add')}
+                </Button>
+              ) : primaryImageId !== activeImage.id && (
+                <Button
+                  key="set-primary"
                   type="primary"
+                  aria-label={t('referenceLibrary.editor.canvas.setPrimary')}
                   disabled={disabled}
-                  onClick={() => onPrimaryChange(activeVariant.id)}
+                  onClick={() => onPrimaryChange(activeImage.id)}
                 >
                   {t('referenceLibrary.editor.canvas.setPrimary')}
                 </Button>
@@ -174,109 +197,74 @@ export default function VisualReferenceCanvas({
               </Tooltip>
               <Button
                 icon={<UploadOutlined />}
+                aria-label={t('referenceLibrary.editor.empty.upload')}
                 disabled={disabled}
-                onClick={() => chooseFile()}
+                onClick={openUploadPicker}
               >
                 {t('referenceLibrary.editor.empty.upload')}
               </Button>
             </div>
           </div>
         )}
+        {generating && (
+          <span className="visual-reference-canvas__generation-status" role="status">
+            <ReloadOutlined spin />
+            {t('referenceLibrary.editor.generate.loading')}
+          </span>
+        )}
       </div>
 
       <div className="visual-reference-prompt-editor">
-        <label htmlFor="visual-reference-generation-prompt">
+        <label
+          className="visual-reference-prompt-editor__label"
+          htmlFor="visual-reference-generation-prompt"
+        >
           {t('referenceLibrary.editor.fields.prompt')}
         </label>
         <Input.TextArea
+          autoSize={{minRows: 2, maxRows: 4}}
+          className="visual-reference-prompt-editor__input"
           id="visual-reference-generation-prompt"
           disabled={disabled}
           maxLength={4000}
           placeholder={t('referenceLibrary.editor.placeholders.prompt')}
-          rows={4}
           value={prompt}
           onChange={(event) => onPromptChange(event.target.value)}
         />
-        <div className="visual-reference-prompt-editor__footer">
-          {!canGenerate && (
-            <Alert
-              type="info"
-              showIcon
-              message={t('referenceLibrary.editor.generate.unavailable')}
-            />
-          )}
-          <Tooltip
-            rootClassName={TOOLTIP_ROOT_CLASS_NAME}
-            title={!prompt.trim()
-              ? t('referenceLibrary.editor.generate.promptRequired')
-              : undefined}
-          >
-            <span>
-              <Button
-                className="visual-reference-generate-button"
-                icon={activeVariant ? <ReloadOutlined /> : undefined}
-                disabled={generationDisabled}
-                loading={generating}
-                onClick={onGenerate}
-              >
-                {t(activeVariant
-                  ? 'referenceLibrary.editor.generate.again'
-                  : 'referenceLibrary.editor.generate.action')}
-              </Button>
-            </span>
-          </Tooltip>
-        </div>
-      </div>
-
-      <div className="visual-reference-variants-heading">
-        <h2>{t('referenceLibrary.editor.variants.title')}</h2>
-        <span>{variants.length}</span>
-      </div>
-      <div
-        className="visual-reference-variants"
-        aria-label={t('referenceLibrary.editor.variants.title')}
-      >
-        {variants.map((variant, index) => {
-          const selected = variant.id === activeVariant?.id;
-          const primary = variant.id === primaryVariantId;
-          return (
-            <button
-              key={variant.id}
-              type="button"
-              className={`visual-reference-variant${selected ? ' is-selected' : ''}`}
-              aria-label={t('referenceLibrary.editor.variants.item', {
-                name: variant.name,
-                number: index + 1,
-              })}
-              aria-pressed={selected}
-              onClick={() => onVariantSelect(variant.id)}
+        <Tooltip
+          rootClassName={TOOLTIP_ROOT_CLASS_NAME}
+          title={!prompt.trim()
+            ? t('referenceLibrary.editor.generate.promptRequired')
+            : undefined}
+        >
+          <span className="visual-reference-prompt-editor__action-wrap">
+            <Button
+              type="primary"
+              className="visual-reference-generate-button"
+              icon={activeImage ? <ReloadOutlined /> : undefined}
+              aria-label={t(activeImage
+                ? 'referenceLibrary.editor.generate.again'
+                : 'referenceLibrary.editor.generate.action')}
+              disabled={generationDisabled}
+              loading={generating}
+              onClick={onGenerate}
             >
-              <img src={variant.previewUrl} alt="" />
-              {primary && <span>{t('referenceLibrary.editor.variants.primary')}</span>}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          className="visual-reference-variant visual-reference-variant--create"
-          disabled={disabled}
-          onClick={() => chooseFile()}
-        >
-          <PlusOutlined />
-          <span>{t('referenceLibrary.editor.variants.create')}</span>
-        </button>
+              {t(activeImage
+                ? 'referenceLibrary.editor.generate.again'
+                : 'referenceLibrary.editor.generate.action')}
+            </Button>
+          </span>
+        </Tooltip>
+        {!canGenerate && (
+          <Alert
+            className="visual-reference-prompt-editor__notice"
+            type="info"
+            showIcon
+            message={t('referenceLibrary.editor.generate.unavailable')}
+          />
+        )}
       </div>
 
-      {variants.length > 0 && (
-        <Checkbox
-          className="visual-reference-rights"
-          checked={rightsConfirmed}
-          disabled={disabled}
-          onChange={(event) => onRightsChange(event.target.checked)}
-        >
-          {t('referenceLibrary.upload.rights')}
-        </Checkbox>
-      )}
     </section>
   );
 }
