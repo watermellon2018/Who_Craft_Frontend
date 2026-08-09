@@ -143,6 +143,10 @@ beforeEach(() => {
       rightsStatementVersion: 'reference-upload-v1',
     },
   }} as never);
+  mockedApi.getLinkOptions.mockResolvedValue({data: {
+    characters: [{id: 'character-anna', name: 'Анна'}],
+    locations: [{id: 17, name: 'Квартира Анны'}],
+  }} as never);
   mockedApi.create.mockResolvedValue({data: {
     activeVersion: null,
     id: 'ref-1',
@@ -285,6 +289,36 @@ test('binds only characters and locations through the compact inspector controls
   expect(screen.getByLabelText('Удалить привязку к «Квартира Анны»')).toBeInTheDocument();
 });
 
+test('saves character and location bindings with the reference settings', async () => {
+  renderPage();
+  await waitForEditor();
+  fireEvent.change(screen.getByLabelText('Название визуальной опоры'), {
+    target: {value: 'Медальон Анны'},
+  });
+  fireEvent.click(screen.getByRole('tab', {name: 'Привязка'}));
+
+  const relationSelect = screen.getByRole('combobox', {name: 'Объект привязки'});
+  fireEvent.mouseDown(relationSelect);
+  fireEvent.click(await screen.findByText('Анна'));
+  fireEvent.click(screen.getByRole('button', {name: 'Добавить'}));
+  await screen.findByLabelText('Удалить привязку к «Анна»');
+
+  fireEvent.click(within(screen.getByLabelText('Тип привязки')).getByText('Локация'));
+  fireEvent.mouseDown(screen.getByRole('combobox', {name: 'Объект привязки'}));
+  fireEvent.click(await screen.findByText('Квартира Анны'));
+  fireEvent.click(screen.getByRole('button', {name: 'Добавить'}));
+  await screen.findByLabelText('Удалить привязку к «Квартира Анны»');
+
+  fireEvent.click(screen.getByRole('button', {name: 'Сохранить'}));
+  expect(await screen.findByText('reference editor')).toBeInTheDocument();
+  expect(mockedApi.create).toHaveBeenCalledWith('7', expect.objectContaining({
+    category: 'location',
+    characterLinks: [{characterId: 'character-anna', relation: 'associated'}],
+    locationId: 17,
+    title: 'Медальон Анны',
+  }));
+});
+
 test('file picker opens only from an explicitly named upload action', async () => {
   const {container} = renderPage();
   await waitForEditor();
@@ -328,6 +362,40 @@ test('previews and persists an uploaded image without adding it to generated dra
     'reference-upload-v1',
     expect.any(AbortSignal),
   );
+});
+
+test('adds an uploaded image to drafts and saves it as the primary version', async () => {
+  const {container} = renderPage();
+  await waitForEditor();
+  fireEvent.change(screen.getByLabelText('Название визуальной опоры'), {
+    target: {value: 'Реальная квартира Анны'},
+  });
+  const file = new File(['real-location'], 'anna-real-apartment.png', {type: 'image/png'});
+  const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+  fireEvent.change(input as HTMLInputElement, {target: {files: [file]}});
+
+  expect(screen.getByText('Результат ещё не сохранён')).toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Добавить в черновики'})).toBeEnabled();
+  await addCurrentPreview();
+
+  expect(screen.getByRole('button', {
+    name: 'Черновик 1: anna-real-apartment.png',
+  })).toBeInTheDocument();
+  expect(screen.queryByText('Основная')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {name: 'Сделать основной версией'}));
+  expect(screen.getByText('Основная')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', {name: 'Сохранить'}));
+  expect(await screen.findByText('reference editor')).toBeInTheDocument();
+  expect(mockedApi.uploadVersion).toHaveBeenCalledWith(
+    '7',
+    'ref-1',
+    file,
+    1,
+    'reference-upload-v1',
+    expect.any(AbortSignal),
+  );
+  expect(mockedApi.applyVariant).not.toHaveBeenCalled();
 });
 
 test('replaces the uploaded preview without creating an image draft', async () => {

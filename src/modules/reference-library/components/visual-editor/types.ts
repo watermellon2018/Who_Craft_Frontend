@@ -21,9 +21,8 @@ export interface GeneratedVisualPreview extends GeneratedVisualAsset {
   isSavedToDrafts: false;
 }
 
-export type VisualReferenceDraft = GeneratedVisualAsset;
-
 export interface UploadedVisualImage {
+  createdAt: string;
   file: File;
   id: string;
   imageUrl: string;
@@ -32,10 +31,9 @@ export interface UploadedVisualImage {
   uploaded: boolean;
 }
 
-export type VisualCanvasImage =
-  | GeneratedVisualPreview
-  | UploadedVisualImage
-  | VisualReferenceDraft;
+export type VisualReferenceDraft = GeneratedVisualAsset | UploadedVisualImage;
+
+export type VisualCanvasImage = GeneratedVisualPreview | VisualReferenceDraft;
 
 export interface VisualRelation {
   id: string;
@@ -46,7 +44,7 @@ export interface VisualRelation {
 export interface VisualRelationCandidate {
   id: string;
   kind: VisualRelationKind;
-  nameKey: string;
+  name: string;
 }
 
 export const VISUAL_REFERENCE_TYPE_ORDER: VisualReferenceType[] = [
@@ -75,8 +73,3 @@ export const CONTINUITY_LABEL_KEYS: Record<VisualReferenceType, string> = {
   vehicle: 'referenceLibrary.editor.fields.vehicleDetails',
   wardrobe: 'referenceLibrary.editor.fields.wardrobeDetails',
 };
-
-export const MOCK_RELATION_CANDIDATES: VisualRelationCandidate[] = [
-  {id: 'mock-character-anna', kind: 'character', nameKey: 'referenceLibrary.editor.relations.candidates.anna'},
-  {id: 'mock-location-anna-flat', kind: 'location', nameKey: 'referenceLibrary.editor.relations.candidates.annaFlat'},
-];

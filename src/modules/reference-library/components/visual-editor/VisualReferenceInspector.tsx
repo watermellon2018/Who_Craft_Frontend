@@ -12,7 +12,6 @@ import type {ReferenceBrief} from '../../types';
 import VisualReferenceDrafts from './VisualReferenceDrafts';
 import {
   CONTINUITY_LABEL_KEYS,
-  MOCK_RELATION_CANDIDATES,
   VISUAL_REFERENCE_TYPE_ORDER,
 } from './types';
 import type {
@@ -20,6 +19,7 @@ import type {
   VisualReferenceDraft,
   VisualReferenceType,
   VisualRelation,
+  VisualRelationCandidate,
   VisualRelationKind,
 } from './types';
 
@@ -148,6 +148,7 @@ function AppearanceSettingsTab({
 
 interface RelationsSettingsTabProps {
   disabled: boolean;
+  relationCandidates: VisualRelationCandidate[];
   relations: VisualRelation[];
   onRelationsChange: (relations: VisualRelation[]) => void;
 }
@@ -159,6 +160,7 @@ const RELATION_ICONS: Record<VisualRelationKind, React.ReactNode> = {
 
 function RelationsSettingsTab({
   disabled,
+  relationCandidates,
   relations,
   onRelationsChange,
 }: RelationsSettingsTabProps) {
@@ -166,11 +168,13 @@ function RelationsSettingsTab({
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<VisualRelationKind>('character');
   const [candidateId, setCandidateId] = useState<string>();
+  const hasLocationRelation = relations.some((relation) => relation.kind === 'location');
   const candidates = useMemo(() => (
-    MOCK_RELATION_CANDIDATES.filter((candidate) => (
+    relationCandidates.filter((candidate) => (
       candidate.kind === kind && !relations.some(({id}) => id === candidate.id)
+      && (kind !== 'location' || !hasLocationRelation)
     ))
-  ), [kind, relations]);
+  ), [hasLocationRelation, kind, relationCandidates, relations]);
 
   const selectedCandidate = candidates.find(({id}) => id === candidateId);
   const addRelation = async () => {
@@ -182,7 +186,7 @@ function RelationsSettingsTab({
       onRelationsChange([...relations, {
         id: candidate.id,
         kind: candidate.kind,
-        name: t(candidate.nameKey),
+        name: candidate.name,
       }]);
       setCandidateId(undefined);
       message.success(t('referenceLibrary.editor.relations.added'));
@@ -211,7 +215,7 @@ function RelationsSettingsTab({
             }
           }}
         />
-        <Tooltip title={selectedCandidate ? t(selectedCandidate.nameKey) : undefined}>
+        <Tooltip title={selectedCandidate?.name}>
           <Select
             className="visual-reference-relations__select"
             aria-label={t('referenceLibrary.editor.relations.item')}
@@ -221,7 +225,7 @@ function RelationsSettingsTab({
             popupMatchSelectWidth
             value={candidateId}
             placeholder={t(`referenceLibrary.editor.relations.choose.${kind}`)}
-            options={candidates.map(({id, nameKey}) => ({label: t(nameKey), value: id}))}
+            options={candidates.map(({id, name}) => ({label: name, value: id}))}
             optionRender={(option) => (
               <Tooltip title={String(option.label)}>
                 <span className="visual-reference-relation-option">{option.label}</span>
@@ -276,6 +280,7 @@ interface VisualReferenceInspectorProps extends MainSettingsTabProps {
   brief: ReferenceBrief;
   drafts: VisualReferenceDraft[];
   primaryImageId: string | null;
+  relationCandidates: VisualRelationCandidate[];
   relations: VisualRelation[];
   onBriefChange: (brief: ReferenceBrief) => void;
   onDeleteDraft: (draftId: string) => void;
@@ -298,6 +303,7 @@ export default function VisualReferenceInspector({
   disabled,
   drafts,
   primaryImageId,
+  relationCandidates,
   relations,
   onBriefChange,
   onCategoryChange,
@@ -350,6 +356,7 @@ export default function VisualReferenceInspector({
             children: (
               <RelationsSettingsTab
                 disabled={disabled}
+                relationCandidates={relationCandidates}
                 relations={relations}
                 onRelationsChange={onRelationsChange}
               />

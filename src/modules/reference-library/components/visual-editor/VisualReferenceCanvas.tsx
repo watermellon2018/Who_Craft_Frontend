@@ -11,10 +11,7 @@ import {Alert, Button, Input, Tooltip} from 'antd';
 import React, {useRef} from 'react';
 import {useTranslation} from 'react-i18next';
 
-import type {
-  GeneratedVisualPreview,
-  VisualCanvasImage,
-} from './types';
+import type {VisualCanvasImage} from './types';
 
 const TOOLTIP_ROOT_CLASS_NAME = 'visual-reference-tooltip';
 
@@ -23,8 +20,8 @@ interface VisualReferenceCanvasProps {
   activeImage: VisualCanvasImage | null;
   addingToDrafts: boolean;
   canGenerate: boolean;
+  canAddActiveToDrafts: boolean;
   disabled: boolean;
-  generatedPreview: GeneratedVisualPreview | null;
   generating: boolean;
   primaryImageId: string | null;
   prompt: string;
@@ -42,8 +39,8 @@ export default function VisualReferenceCanvas({
   activeImage,
   addingToDrafts,
   canGenerate,
+  canAddActiveToDrafts,
   disabled,
-  generatedPreview,
   generating,
   primaryImageId,
   prompt,
@@ -59,9 +56,7 @@ export default function VisualReferenceCanvas({
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const generationDisabled = disabled || !canGenerate || !prompt.trim();
-  const isUnsavedGeneratedPreview = Boolean(
-    generatedPreview && activeImage?.id === generatedPreview.id,
-  );
+  const isUnsavedPreview = Boolean(activeImage && canAddActiveToDrafts);
 
   const openUploadPicker = () => fileInputRef.current?.click();
   const enterFullscreen = () => {
@@ -122,7 +117,7 @@ export default function VisualReferenceCanvas({
                 />
               </Tooltip>
             </div>
-            {isUnsavedGeneratedPreview && (
+            {isUnsavedPreview && (
               <span className="visual-reference-canvas__unsaved">
                 {t('referenceLibrary.editor.drafts.unsaved')}
               </span>
@@ -147,7 +142,7 @@ export default function VisualReferenceCanvas({
                   ? 'referenceLibrary.editor.canvas.replace'
                   : 'referenceLibrary.editor.empty.upload')}
               </Button>
-              {isUnsavedGeneratedPreview ? (
+              {isUnsavedPreview ? (
                 <Button
                   key="add-to-drafts"
                   type="primary"

@@ -74,7 +74,7 @@ export function referenceWorkspaceRouteMode(pathname: string): 'create' | 'detai
 
 export function referenceWorkspaceCreateCategory(search: string): ReferenceCategory {
   const requestedCategory = new URLSearchParams(search).get('category');
-  return FALLBACK_CATEGORIES.find((category) => category === requestedCategory) ?? 'prop';
+  return FALLBACK_CATEGORIES.find((category) => category === requestedCategory) ?? 'location';
 }
 
 export default function ReferenceWorkspacePage() {

@@ -87,7 +87,7 @@ export default function VisualReferenceDrafts({
               <article key={draft.id} className="visual-reference-draft-card">
                 <Tooltip
                   rootClassName={TOOLTIP_ROOT_CLASS_NAME}
-                  title={draft.prompt || undefined}
+                  title={draft.source === 'generated' ? draft.prompt : draft.name}
                 >
                   <button
                     type="button"
