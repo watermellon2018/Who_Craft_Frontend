@@ -131,11 +131,14 @@ test('restores paginated filters from the URL and renders the compact gallery', 
 test('combines search with the selected category and resets pagination', async () => {
   mockedApi.list.mockImplementation(async (_projectId, params) => ({data: {
     items: params.category === 'vehicle'
-      ? [referenceItem({category: 'vehicle', categoryLabel: 'Транспорт', id: 'ref-2', title: 'Ретро-автомобиль'})]
-      : [referenceItem()],
+      ? [
+        referenceItem({title: 'Авто-медальон'}),
+        referenceItem({category: 'vehicle', categoryLabel: 'Транспорт', id: 'ref-2', title: 'Ретро-автомобиль'}),
+      ]
+      : [referenceItem({title: 'Авто-медальон'})],
     page: 1,
     pageSize: 24,
-    total: 1,
+    total: params.category === 'vehicle' ? 2 : 1,
   }} as never));
 
   render(
@@ -146,29 +149,37 @@ test('combines search with the selected category and resets pagination', async (
     </MemoryRouter>,
   );
 
-  expect(await screen.findByText('Красный медальон')).toBeInTheDocument();
+  expect(await screen.findByText('Авто-медальон')).toBeInTheDocument();
   fireEvent.mouseDown(screen.getByRole('combobox', {
     name: translation('referenceLibrary.filters.categories'),
   }));
   fireEvent.click(await screen.findByText(translation('referenceLibrary.category.vehicle')));
 
   expect(await screen.findByText('Ретро-автомобиль')).toBeInTheDocument();
-  expect(screen.queryByText('Красный медальон')).not.toBeInTheDocument();
+  expect(screen.queryByText('Авто-медальон')).not.toBeInTheDocument();
   await waitFor(() => expect(mockedApi.list).toHaveBeenLastCalledWith(
     '7',
     expect.objectContaining({category: 'vehicle', page: 1, search: 'авто'}),
     expect.any(AbortSignal),
   ));
+  expect(mockedApi.list).not.toHaveBeenCalledWith(
+    '7',
+    expect.objectContaining({category: 'vehicle', page: 2}),
+    expect.any(AbortSignal),
+  );
 });
 
 test('hides stale cards immediately and ignores stale category responses', async () => {
   const vehicleRequest = deferred<ListApiResponse>();
   const locationRequest = deferred<ListApiResponse>();
-  const staleCardsAtFilteredCommit: string[] = [];
+  const irrelevantCardsAtFilteredCommit: string[] = [];
   const captureFilteredCommit = (locationSearch: string) => {
-    if (!locationSearch.includes('category=')) return;
-    for (const title of ['Красный медальон', 'Старый город']) {
-      if (document.body.textContent?.includes(title)) staleCardsAtFilteredCommit.push(title);
+    const selectedCategory = new URLSearchParams(locationSearch).get('category');
+    const irrelevantTitles = selectedCategory === 'vehicle'
+      ? ['Красный медальон', 'Старый город']
+      : ['Красный медальон'];
+    for (const title of irrelevantTitles) {
+      if (document.body.textContent?.includes(title)) irrelevantCardsAtFilteredCommit.push(title);
     }
   };
   mockedApi.list.mockImplementation(async (_projectId, params) => {
@@ -186,12 +197,14 @@ test('hides stale cards immediately and ignores stale category responses', async
   });
 
   render(
-    <MemoryRouter initialEntries={['/project/7/references']}>
-      <LocationCommitObserver onCommit={captureFilteredCommit} />
-      <Routes>
-        <Route path="/project/:projectId/references" element={<ReferenceLibraryPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <React.StrictMode>
+      <MemoryRouter initialEntries={['/project/7/references']}>
+        <LocationCommitObserver onCommit={captureFilteredCommit} />
+        <Routes>
+          <Route path="/project/:projectId/references" element={<ReferenceLibraryPage />} />
+        </Routes>
+      </MemoryRouter>
+    </React.StrictMode>,
   );
 
   expect(await screen.findByText('Красный медальон')).toBeInTheDocument();
@@ -204,13 +217,19 @@ test('hides stale cards immediately and ignores stale category responses', async
 
   expect(screen.queryByText('Красный медальон')).not.toBeInTheDocument();
   expect(screen.queryByText('Старый город')).not.toBeInTheDocument();
-  expect(screen.getByLabelText(translation('referenceLibrary.loading'))).toBeInTheDocument();
-  expect(staleCardsAtFilteredCommit).toEqual([]);
+  expect(screen.getByText(translation('referenceLibrary.empty.filtered'))).toBeInTheDocument();
+  expect(screen.queryByLabelText(translation('referenceLibrary.loading'))).not.toBeInTheDocument();
+  expect(irrelevantCardsAtFilteredCommit).toEqual([]);
 
   fireEvent.mouseDown(screen.getByRole('combobox', {
     name: translation('referenceLibrary.filters.categories'),
   }));
   fireEvent.click(await screen.findByText(translation('referenceLibrary.category.location')));
+
+  expect(screen.getByText('Старый город')).toBeInTheDocument();
+  expect(screen.queryByText('Красный медальон')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText(translation('referenceLibrary.loading'))).not.toBeInTheDocument();
+  expect(irrelevantCardsAtFilteredCommit).toEqual([]);
 
   await act(async () => {
     locationRequest.resolve({data: {

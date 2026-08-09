@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
@@ -33,6 +33,7 @@ interface ReferenceListRequestState {
   data: ReferenceListResponse | null;
   error: string | null;
   loading: boolean;
+  projectId: string;
   requestKey: string;
 }
 
@@ -52,6 +53,8 @@ export default function ReferenceLibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const listRequestIdRef = useRef(0);
   const [searchValue, setSearchValue] = useState(searchParams.get('search') ?? '');
+  const categoryFromUrl = referenceCategory(searchParams.get('category'));
+  const [category, setCategory] = useState<ReferenceCategory | undefined>(categoryFromUrl);
   const [capabilities, setCapabilities] = useState<ReferenceCapabilities | null>(null);
   const [capabilitiesError, setCapabilitiesError] = useState<string | null>(null);
   const [listState, setListState] = useState<ReferenceListRequestState | null>(null);
@@ -60,9 +63,12 @@ export default function ReferenceLibraryPage() {
 
   const page = positiveInteger(searchParams.get('page'), 1);
   const pageSize = Math.min(100, positiveInteger(searchParams.get('pageSize'), DEFAULT_PAGE_SIZE));
-  const category = referenceCategory(searchParams.get('category'));
   const search = searchParams.get('search')?.trim() || undefined;
   const listRequestKey = JSON.stringify({category, page, pageSize, projectId, revision, search});
+
+  useLayoutEffect(() => {
+    setCategory((current) => current === categoryFromUrl ? current : categoryFromUrl);
+  }, [categoryFromUrl]);
 
   useEffect(() => {
     setSearchValue(searchParams.get('search') ?? '');
@@ -101,7 +107,13 @@ export default function ReferenceLibraryPage() {
     if (!projectId) return;
     const controller = new AbortController();
     const requestId = ++listRequestIdRef.current;
-    setListState({data: null, error: null, loading: true, requestKey: listRequestKey});
+    setListState((current) => ({
+      data: current?.projectId === projectId ? current.data : null,
+      error: null,
+      loading: true,
+      projectId,
+      requestKey: listRequestKey,
+    }));
     referenceApi.list(projectId, {
       category,
       page,
@@ -110,16 +122,23 @@ export default function ReferenceLibraryPage() {
     }, controller.signal)
       .then((response) => {
         if (controller.signal.aborted || listRequestIdRef.current !== requestId) return;
-        setListState({data: response.data, error: null, loading: false, requestKey: listRequestKey});
+        setListState({
+          data: response.data,
+          error: null,
+          loading: false,
+          projectId,
+          requestKey: listRequestKey,
+        });
       })
       .catch((requestError: unknown) => {
         if (controller.signal.aborted || listRequestIdRef.current !== requestId) return;
-        setListState({
-          data: null,
-          error: referenceErrorDescriptor(requestError).message,
-          loading: false,
-          requestKey: listRequestKey,
-        });
+        setListState((current) => current?.requestKey === listRequestKey
+          ? {
+            ...current,
+            error: referenceErrorDescriptor(requestError).message,
+            loading: false,
+          }
+          : current);
       });
     return () => controller.abort();
   }, [category, listRequestKey, page, pageSize, projectId, search]);
@@ -139,10 +158,38 @@ export default function ReferenceLibraryPage() {
     }, {replace: true});
   };
 
+  const handleCategoryChange = (value: ReferenceCategory | 'all') => {
+    const nextCategory = value === 'all' ? undefined : value;
+    setCategory(nextCategory);
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (nextCategory) next.set('category', nextCategory);
+      else next.delete('category');
+      next.delete('page');
+      return next;
+    }, {replace: true});
+  };
+
   const activeListState = listState?.requestKey === listRequestKey ? listState : null;
-  const data = activeListState?.data ?? null;
+  const data = listState?.projectId === projectId ? listState.data : null;
+  const items = data?.items;
   const error = capabilitiesError ?? activeListState?.error ?? null;
-  const loading = activeListState?.loading ?? true;
+  const loading = !data && (activeListState?.loading ?? true);
+  const visibleItems = useMemo(() => {
+    const normalizedSearch = search?.toLocaleLowerCase() ?? '';
+    return (items ?? []).filter((item) => {
+      const matchesCategory = !category || item.category === category;
+      const matchesSearch = !normalizedSearch
+        || item.title.toLocaleLowerCase().includes(normalizedSearch);
+      return matchesCategory && matchesSearch;
+    });
+  }, [category, items, search]);
+
+  const resetFilters = () => {
+    setCategory(undefined);
+    setSearchValue('');
+    setSearchParams({}, {replace: true});
+  };
 
   const confirmDelete = (item: ReferenceListItem) => {
     Modal.confirm({
@@ -185,7 +232,7 @@ export default function ReferenceLibraryPage() {
           </div>
           <div className="reference-page-heading__actions">
             <Button
-              value="medium"
+              size="middle"
               className="craft-action-button craft-action-button--secondary"
               icon={<ArrowLeftOutlined />}
               aria-label={t('common.back')}
@@ -195,7 +242,7 @@ export default function ReferenceLibraryPage() {
             </Button>
             {canEdit && (
               <Button
-                value="medium"
+                size="middle"
                 type="primary"
                 className="craft-action-button"
                 icon={<PlusOutlined />}
@@ -221,7 +268,7 @@ export default function ReferenceLibraryPage() {
               ...categories.map(({key, label}) => ({label, value: key})),
             ]}
             onChange={(value: ReferenceCategory | 'all') => {
-              updateFilter('category', value === 'all' ? undefined : value);
+              handleCategoryChange(value);
             }}
           />
           <Input
@@ -253,10 +300,10 @@ export default function ReferenceLibraryPage() {
               </div>
             ))}
           </div>
-        ) : data && data.items.length > 0 ? (
+        ) : data && visibleItems.length > 0 ? (
           <>
             <div className="reference-grid">
-              {data.items.map((item) => (
+              {visibleItems.map((item) => (
                 <ReferenceCard
                   compact
                   deleting={deletingReferenceId === item.id}
@@ -286,7 +333,7 @@ export default function ReferenceLibraryPage() {
               : t('referenceLibrary.empty.description')}
           >
             {hasFilters ? (
-              <Button onClick={() => setSearchParams({}, {replace: true})}>
+              <Button onClick={resetFilters}>
                 {t('referenceLibrary.empty.reset')}
               </Button>
             ) : canEdit ? (

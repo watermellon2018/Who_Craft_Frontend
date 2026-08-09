@@ -78,10 +78,6 @@
 
 /* Shared project action buttons: use these for prominent page-level actions. */
 .craft-action-button.ant-btn {
-  min-height: 52px;
-  padding-inline: 22px;
-  border-radius: 12px;
-  font-size: 16px;
   font-weight: 700;
 }
 
