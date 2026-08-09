@@ -43,7 +43,7 @@
 .reference-page-heading__actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex: 0 0 auto;
 }
 
@@ -219,10 +219,20 @@
   transform: translateY(0);
 }
 
-.reference-card__delete.ant-btn:hover:not(:disabled),
-.reference-card__delete.ant-btn:focus-visible:not(:disabled) {
-  color: var(--craft-text);
-  background: transparent;
+.reference-card__delete.ant-btn:hover:not(:disabled) {
+  color: var(--craft-text) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: translateY(0) scale(1.12);
+}
+
+.reference-card__delete.ant-btn:focus-visible:not(:disabled),
+.reference-card__delete.ant-btn:active:not(:disabled) {
+  color: var(--craft-text) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .reference-card__delete.ant-btn .anticon {

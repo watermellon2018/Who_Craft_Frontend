@@ -86,7 +86,6 @@ export default function ReferenceCard({
       </button>
       {onDelete && (
         <Button
-          danger
           type="text"
           className={`reference-card__delete${deleting ? ' reference-card__delete--loading' : ''}`}
           icon={<DeleteOutlined />}
