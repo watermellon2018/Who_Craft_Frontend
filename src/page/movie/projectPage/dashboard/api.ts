@@ -358,12 +358,17 @@ const STAT_DEFS: Array<{
   },
   {
     key: 'locations',
-    label: 'Локации',
+    label: 'Визуальная библиотека',
     iconKey: 'locations',
     accent: 'yellow',
     total: 'locationsTotal',
     sub: 'locationsCreated',
-    subLabel: (n) => `${n} ${plural(n, 'создана', 'создано', 'создано')}`,
+    subLabel: (n) => `${n} ${plural(
+      n,
+      'готовый материал',
+      'готовых материала',
+      'готовых материалов',
+    )}`,
   },
 ];
 

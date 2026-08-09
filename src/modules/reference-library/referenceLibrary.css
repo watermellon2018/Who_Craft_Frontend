@@ -1,13 +1,13 @@
 .reference-library-shell {
-  --reference-bg: #09131d;
-  --reference-panel: #0d1b26;
-  --reference-panel-raised: #11222e;
-  --reference-border: rgba(255, 255, 255, 0.11);
-  --reference-muted: #9aa8b8;
+  --reference-bg: var(--craft-bg-deep);
+  --reference-panel: var(--craft-surface);
+  --reference-panel-raised: var(--craft-surface-raised);
+  --reference-border: var(--craft-border);
+  --reference-muted: var(--craft-text-muted);
   min-width: 0;
   min-height: calc(100vh - 64px);
   background: var(--reference-bg);
-  color: #f8fafc;
+  color: var(--craft-text);
 }
 
 .reference-library-page,

@@ -9,7 +9,7 @@ import PathConstants, {
   musicStudioPath,
   musicTrackPath,
   projectEditPath,
-  referenceLocationCreatePath,
+  referenceDetailPath,
   referenceLibraryPath,
 } from '../../../../routes/pathConstant';
 import withAuth from '../../../../utils/auth/check_auth';
@@ -18,6 +18,7 @@ import ProjectHero from './ProjectHero';
 import ProjectStats from './ProjectStats';
 import CharactersSection from './CharactersSection';
 import ProjectPipeline from './ProjectPipeline';
+import ProjectVisualLibrary from './ProjectVisualLibrary';
 import ProjectMusic from './ProjectMusic';
 import RightProjectPanel from './RightProjectPanel';
 import type {
@@ -85,13 +86,13 @@ function buildEmptyViewModel(): ViewModel {
       { key: 'characters', label: 'Персонажи', value: 0, subtitle: '—', iconKey: 'characters', accent: 'purple' },
       { key: 'scenes', label: 'Сцены', value: 0, subtitle: '—', iconKey: 'scenes', accent: 'blue' },
       { key: 'music', label: 'Музыка', value: 0, subtitle: '—', iconKey: 'music', accent: 'green' },
-      { key: 'locations', label: 'Локации', value: 0, subtitle: '—', iconKey: 'locations', accent: 'yellow' },
+      { key: 'locations', label: 'Визуальная библиотека', value: 0, subtitle: '—', iconKey: 'locations', accent: 'yellow' },
     ],
     characters: [],
     pipeline: [
       { key: 'script', label: 'Сценарий', progress: 0, subtitle: '—', iconKey: 'script', accent: 'yellow' },
       { key: 'storyboard', label: 'Сториборд', progress: 0, subtitle: '—', iconKey: 'storyboard', accent: 'purple' },
-      { key: 'reference', label: 'Референсы', progress: 0, subtitle: '—', iconKey: 'reference', accent: 'blue' },
+      { key: 'reference', label: 'Визуальная библиотека', progress: 0, subtitle: '—', iconKey: 'reference', accent: 'blue' },
       { key: '3d', label: '3D', progress: 0, subtitle: '—', iconKey: 'model3d', accent: 'green' },
       { key: 'video', label: 'Видео', progress: 0, subtitle: '—', iconKey: 'video', accent: 'red' },
     ],
@@ -106,7 +107,7 @@ function buildEmptyViewModel(): ViewModel {
     quickActions: [
       { key: 'new_scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
       { key: 'generate_video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
-      { key: 'create_location', label: 'Создать локацию', iconKey: 'newLocation', accent: 'yellow' },
+      { key: 'create_location', label: 'Открыть визуальную библиотеку', iconKey: 'newLocation', accent: 'yellow' },
       { key: 'create_character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
       { key: 'create_track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
     ],
@@ -220,7 +221,8 @@ export const ProjectDashboardPage: React.FC = () => {
   }, [navigate, projectId]);
   const handleStat = useCallback((key: string) => {
     if (key === 'music') handleOpenMusic();
-  }, [handleOpenMusic]);
+    if (key === 'locations' && projectId) navigate(referenceLibraryPath(projectId));
+  }, [handleOpenMusic, navigate, projectId]);
 
   const handleContinue = handleOpenScript;
   const handleCreateCharacter = () => {
@@ -243,16 +245,14 @@ export const ProjectDashboardPage: React.FC = () => {
   );
   const handleQuickAction = (key: string) => {
     if (key === 'new_scene') handleOpenScript();
-    if (key === 'create_location' && projectId) navigate(referenceLocationCreatePath(projectId));
+    if (key === 'create_location' && projectId) navigate(referenceLibraryPath(projectId));
     if (key === 'create_character' && projectId) navigate(characterCreatePath(projectId));
     if (key === 'create_track') handleCreateMusic();
   };
   const isQuickActionEnabled = (key: string) =>
     key === 'new_scene'
-    || (
-      (key === 'create_location' || key === 'create_character')
-      && Boolean(view.project.permissions?.canEdit)
-    )
+    || key === 'create_location'
+    || (key === 'create_character' && Boolean(view.project.permissions?.canEdit))
     || (key === 'create_track' && Boolean(view.project.permissions?.canRunGeneration));
 
   const handlePipelineStep = (key: string) => {
@@ -595,6 +595,15 @@ export const ProjectDashboardPage: React.FC = () => {
                   onStep={handlePipelineStep}
                   isStepEnabled={isPipelineStepEnabled}
                 />
+                {projectId && (
+                  <ProjectVisualLibrary
+                    projectId={projectId}
+                    onOpenLibrary={() => navigate(referenceLibraryPath(projectId))}
+                    onOpenReference={(referenceId) => (
+                      navigate(referenceDetailPath(projectId, referenceId))
+                    )}
+                  />
+                )}
                 <ProjectMusic
                   tracks={view.music}
                   onAdd={view.project.permissions?.canRunGeneration ? handleCreateMusic : undefined}
