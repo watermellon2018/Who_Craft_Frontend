@@ -72,6 +72,11 @@ export function referenceWorkspaceRouteMode(pathname: string): 'create' | 'detai
   return 'detail';
 }
 
+export function referenceWorkspaceCreateCategory(search: string): ReferenceCategory {
+  const requestedCategory = new URLSearchParams(search).get('category');
+  return FALLBACK_CATEGORIES.find((category) => category === requestedCategory) ?? 'prop';
+}
+
 export default function ReferenceWorkspacePage() {
   const {t} = useTranslation();
   const navigate = useNavigate();
@@ -90,7 +95,9 @@ export default function ReferenceWorkspacePage() {
   const [loading, setLoading] = useState(!isCreateRoute);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<ReferenceCategory>('prop');
+  const [category, setCategory] = useState<ReferenceCategory>(() => (
+    isCreateRoute ? referenceWorkspaceCreateCategory(location.search) : 'prop'
+  ));
   const [description, setDescription] = useState('');
   const [brief, setBrief] = useState<ReferenceBrief>(EMPTY_BRIEF);
   const [tags, setTags] = useState<string[]>([]);

@@ -4,11 +4,12 @@ import DashboardHeader from '../../../../modules/profile/components/DashboardHea
 import { fetchDashboard } from '../../../../modules/profile/api/profileApi';
 import type { ProfileUser } from '../../../../modules/profile/types';
 import PathConstants, {
+  characterCreatePath,
   musicStudioCreatePath,
   musicStudioPath,
   musicTrackPath,
   projectEditPath,
-  referenceCreatePath,
+  referenceLocationCreatePath,
   referenceLibraryPath,
 } from '../../../../routes/pathConstant';
 import withAuth from '../../../../utils/auth/check_auth';
@@ -72,6 +73,7 @@ function buildEmptyViewModel(): ViewModel {
       status: 'work',
       statusLabel: '',
       isFavorite: false,
+      coverImageUrl: null,
       coverGradient: 'linear-gradient(135deg, #131722 0%, #1a1f2c 100%)',
       genres: [],
       description: '',
@@ -105,6 +107,8 @@ function buildEmptyViewModel(): ViewModel {
       { key: 'new_scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
       { key: 'generate_video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
       { key: 'create_location', label: 'Создать локацию', iconKey: 'newLocation', accent: 'yellow' },
+      { key: 'create_character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
+      { key: 'create_track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
     ],
     activity: [],
   };
@@ -239,11 +243,17 @@ export const ProjectDashboardPage: React.FC = () => {
   );
   const handleQuickAction = (key: string) => {
     if (key === 'new_scene') handleOpenScript();
-    if (key === 'upload_reference' && projectId) navigate(referenceCreatePath(projectId));
+    if (key === 'create_location' && projectId) navigate(referenceLocationCreatePath(projectId));
+    if (key === 'create_character' && projectId) navigate(characterCreatePath(projectId));
+    if (key === 'create_track') handleCreateMusic();
   };
   const isQuickActionEnabled = (key: string) =>
     key === 'new_scene'
-    || (key === 'upload_reference' && Boolean(view.project.permissions?.canEdit));
+    || (
+      (key === 'create_location' || key === 'create_character')
+      && Boolean(view.project.permissions?.canEdit)
+    )
+    || (key === 'create_track' && Boolean(view.project.permissions?.canRunGeneration));
 
   const handlePipelineStep = (key: string) => {
     if (key === 'script') {

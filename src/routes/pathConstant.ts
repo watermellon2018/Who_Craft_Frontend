@@ -88,6 +88,10 @@ export function referenceCreatePath(projectId: string | number): string {
     return PathConstants.REFERENCE_LIBRARY_CREATE.replace(':projectId', String(projectId));
 }
 
+export function referenceLocationCreatePath(projectId: string | number): string {
+    return `${referenceCreatePath(projectId)}?category=location`;
+}
+
 export function referenceDetailPath(
     projectId: string | number,
     referenceId: string,

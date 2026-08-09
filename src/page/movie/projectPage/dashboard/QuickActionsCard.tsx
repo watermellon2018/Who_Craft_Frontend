@@ -1,10 +1,12 @@
 import React from 'react';
 import {
+  EnvironmentOutlined,
   PlusOutlined,
+  RightOutlined,
+  SoundOutlined,
   ThunderboltOutlined,
   UploadOutlined,
-  EnvironmentOutlined,
-  RightOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
 import {ACCENT_HEX} from './mocks';
 import type {QuickActionMock} from './mocks';
@@ -14,6 +16,8 @@ const ICONS: Record<QuickActionMock['iconKey'], React.ReactNode> = {
   genVideo: <ThunderboltOutlined />,
   upload: <UploadOutlined />,
   newLocation: <EnvironmentOutlined />,
+  newCharacter: <UserAddOutlined />,
+  newTrack: <SoundOutlined />,
 };
 
 interface Props {
