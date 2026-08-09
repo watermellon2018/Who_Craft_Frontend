@@ -84,6 +84,10 @@
   flex: 0 0 auto;
 }
 
+.visual-reference-header__save-wrap {
+  display: inline-flex;
+}
+
 .visual-reference-header__actions .ant-btn {
   min-height: 42px;
   padding-inline: 20px;
@@ -1188,6 +1192,10 @@
   }
 
   .visual-reference-header__actions {
+    width: 100%;
+  }
+
+  .visual-reference-header__save-wrap {
     width: 100%;
   }
 

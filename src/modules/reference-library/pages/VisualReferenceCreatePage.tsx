@@ -203,6 +203,9 @@ function VisualReferenceCreateEditor() {
     && (!generation.job || !generation.isTerminal),
   );
   const busy = saving || generationInProgress || addingToDrafts;
+  const hasPrimaryImage = Boolean(
+    primaryImageId && drafts.some(({id}) => id === primaryImageId),
+  );
   const accept = capabilities?.upload.mimeTypes.join(',') || DEFAULT_ACCEPT;
   const activeImage: VisualCanvasImage | null = (() => {
     if (canvasSelection?.kind === 'generated-preview') return generatedPreview;
@@ -342,6 +345,10 @@ function VisualReferenceCreateEditor() {
 
   const saveReference = async () => {
     if (!validateBeforeCreate()) return;
+    if (!hasPrimaryImage) {
+      setError(t('referenceLibrary.validation.primaryImage'));
+      return;
+    }
     const controller = new AbortController();
     actionController.current = controller;
     setSaving(true);
@@ -513,8 +520,11 @@ function VisualReferenceCreateEditor() {
     >
       <main className="visual-reference-editor">
         <VisualReferenceHeader
-          canSave={canEdit && !busy}
+          canSave={canEdit && !busy && hasPrimaryImage}
           disabled={!canEdit || busy}
+          saveDisabledReason={canEdit && !busy && !hasPrimaryImage
+            ? t('referenceLibrary.validation.primaryImage')
+            : undefined}
           saving={saving}
           title={title}
           onSave={() => void saveReference()}

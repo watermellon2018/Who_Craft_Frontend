@@ -113,6 +113,17 @@ async function addCurrentPreview() {
   ).not.toBeInTheDocument(), {timeout: 3_000});
 }
 
+async function addUploadedPrimary(container: HTMLElement, fileName = 'primary.png') {
+  const input = container.querySelector<HTMLInputElement>('input[type="file"]');
+  const file = new File(['primary-image'], fileName, {type: 'image/png'});
+  fireEvent.change(input as HTMLInputElement, {target: {files: [file]}});
+  await addCurrentPreview();
+  fireEvent.click(screen.getByRole('button', {name: 'Сделать основной версией'}));
+  await waitFor(() => expect(
+    screen.getByRole('button', {name: 'Сохранить'}),
+  ).toBeEnabled());
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockedIdempotencyKey.mockReturnValue('reference:test-generation');
@@ -186,8 +197,9 @@ beforeEach(() => {
   });
 });
 
-test('opens as a location editor and delays required errors until submit', async () => {
+test('keeps saving disabled until a primary image is selected', async () => {
   renderPage();
+  await waitForEditor();
 
   expect(screen.getByLabelText('Название визуальной опоры')).toBeInTheDocument();
   expect(screen.queryByText('Укажите название опоры')).not.toBeInTheDocument();
@@ -195,10 +207,15 @@ test('opens as a location editor and delays required errors until submit', async
 
   await waitFor(() => expect(
     screen.getByRole('button', {name: 'Сохранить'}),
-  ).toBeEnabled());
-  fireEvent.click(screen.getByRole('button', {name: 'Сохранить'}));
-
-  expect(await screen.findAllByText('Укажите название опоры')).not.toHaveLength(0);
+  ).toBeDisabled());
+  expect(screen.getByRole('button', {name: 'Сохранить'}).parentElement).toHaveAttribute(
+    'aria-label',
+    'Выберите основное изображение перед сохранением',
+  );
+  expect(screen.getByRole('button', {name: 'Сохранить'}).parentElement).toHaveAttribute(
+    'tabindex',
+    '0',
+  );
   expect(mockedApi.create).not.toHaveBeenCalled();
 });
 
@@ -290,7 +307,7 @@ test('binds only characters and locations through the compact inspector controls
 });
 
 test('saves character and location bindings with the reference settings', async () => {
-  renderPage();
+  const {container} = renderPage();
   await waitForEditor();
   fireEvent.change(screen.getByLabelText('Название визуальной опоры'), {
     target: {value: 'Медальон Анны'},
@@ -309,6 +326,7 @@ test('saves character and location bindings with the reference settings', async 
   fireEvent.click(screen.getByRole('button', {name: 'Добавить'}));
   await screen.findByLabelText('Удалить привязку к «Квартира Анны»');
 
+  await addUploadedPrimary(container, 'relations-primary.png');
   fireEvent.click(screen.getByRole('button', {name: 'Сохранить'}));
   expect(await screen.findByText('reference editor')).toBeInTheDocument();
   expect(mockedApi.create).toHaveBeenCalledWith('7', expect.objectContaining({
@@ -336,7 +354,7 @@ test('file picker opens only from an explicitly named upload action', async () =
   expect(clickPicker).toHaveBeenCalledTimes(1);
 });
 
-test('previews and persists an uploaded image without adding it to generated drafts', async () => {
+test('does not save an uploaded preview until it is selected as primary', async () => {
   const {container} = renderPage();
   await waitForEditor();
   fireEvent.change(screen.getByLabelText('Название визуальной опоры'), {
@@ -351,17 +369,9 @@ test('previews and persists an uploaded image without adding it to generated dra
     'blob:visual-reference-preview-1',
   );
   expect(screen.getByText('Черновиков пока нет')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', {name: 'Сохранить'}));
-
-  expect(await screen.findByText('reference editor')).toBeInTheDocument();
-  expect(mockedApi.uploadVersion).toHaveBeenCalledWith(
-    '7',
-    'ref-1',
-    file,
-    1,
-    'reference-upload-v1',
-    expect.any(AbortSignal),
-  );
+  expect(screen.getByRole('button', {name: 'Сохранить'})).toBeDisabled();
+  expect(mockedApi.create).not.toHaveBeenCalled();
+  expect(mockedApi.uploadVersion).not.toHaveBeenCalled();
 });
 
 test('adds an uploaded image to drafts and saves it as the primary version', async () => {
@@ -607,11 +617,12 @@ test('does not navigate back when a save request finishes after leaving the edit
   mockedApi.create.mockImplementation(() => new Promise((resolve) => {
     resolveCreate = resolve;
   }) as never);
-  renderPage();
+  const {container} = renderPage();
   await waitForEditor();
   fireEvent.change(screen.getByLabelText('Название визуальной опоры'), {
     target: {value: 'Квартира Анны'},
   });
+  await addUploadedPrimary(container, 'late-primary.png');
   fireEvent.click(screen.getByRole('button', {name: 'Сохранить'}));
   fireEvent.click(screen.getByRole('button', {name: 'switch project'}));
   await waitForEditor();

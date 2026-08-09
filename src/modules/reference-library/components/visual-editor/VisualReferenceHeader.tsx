@@ -1,11 +1,12 @@
 import {SaveOutlined} from '@ant-design/icons';
-import {Button, Input} from 'antd';
+import {Button, Input, Tooltip} from 'antd';
 import React from 'react';
 import {useTranslation} from 'react-i18next';
 
 interface VisualReferenceHeaderProps {
   canSave: boolean;
   disabled: boolean;
+  saveDisabledReason?: string;
   saving: boolean;
   title: string;
   onSave: () => void;
@@ -15,6 +16,7 @@ interface VisualReferenceHeaderProps {
 export default function VisualReferenceHeader({
   canSave,
   disabled,
+  saveDisabledReason,
   saving,
   title,
   onSave,
@@ -36,16 +38,27 @@ export default function VisualReferenceHeader({
         />
       </div>
       <div className="visual-reference-header__actions">
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          aria-label={t('referenceLibrary.editor.actions.save')}
-          disabled={!canSave}
-          loading={saving}
-          onClick={onSave}
+        <Tooltip
+          rootClassName="visual-reference-tooltip"
+          title={saveDisabledReason}
         >
-          {t('referenceLibrary.editor.actions.save')}
-        </Button>
+          <span
+            className="visual-reference-header__save-wrap"
+            aria-label={saveDisabledReason}
+            tabIndex={saveDisabledReason ? 0 : undefined}
+          >
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              aria-label={t('referenceLibrary.editor.actions.save')}
+              disabled={!canSave}
+              loading={saving}
+              onClick={onSave}
+            >
+              {t('referenceLibrary.editor.actions.save')}
+            </Button>
+          </span>
+        </Tooltip>
       </div>
     </header>
   );
