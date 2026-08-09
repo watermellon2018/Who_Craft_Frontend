@@ -1,12 +1,10 @@
 import {
   CloseOutlined,
   EnvironmentOutlined,
-  LinkOutlined,
   PlusOutlined,
   TeamOutlined,
-  VideoCameraOutlined,
 } from '@ant-design/icons';
-import {Alert, Button, ColorPicker, Form, Input, Select, Tabs} from 'antd';
+import {Button, ColorPicker, Form, Input, message, Segmented, Select, Tabs, Tooltip} from 'antd';
 import React, {useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 
@@ -25,7 +23,7 @@ import type {
   VisualRelationKind,
 } from './types';
 
-const RELATION_KINDS: VisualRelationKind[] = ['character', 'scene', 'location', 'reference'];
+const RELATION_KINDS: VisualRelationKind[] = ['character', 'location'];
 const SELECT_POPUP_CLASS_NAME = 'visual-reference-select-popup';
 
 interface MainSettingsTabProps {
@@ -157,8 +155,6 @@ interface RelationsSettingsTabProps {
 const RELATION_ICONS: Record<VisualRelationKind, React.ReactNode> = {
   character: <TeamOutlined />,
   location: <EnvironmentOutlined />,
-  reference: <LinkOutlined />,
-  scene: <VideoCameraOutlined />,
 };
 
 function RelationsSettingsTab({
@@ -167,6 +163,7 @@ function RelationsSettingsTab({
   onRelationsChange,
 }: RelationsSettingsTabProps) {
   const {t} = useTranslation();
+  const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<VisualRelationKind>('character');
   const [candidateId, setCandidateId] = useState<string>();
   const candidates = useMemo(() => (
@@ -175,67 +172,90 @@ function RelationsSettingsTab({
     ))
   ), [kind, relations]);
 
-  const addRelation = () => {
+  const selectedCandidate = candidates.find(({id}) => id === candidateId);
+  const addRelation = async () => {
     const candidate = candidates.find(({id}) => id === candidateId);
     if (!candidate) return;
-    onRelationsChange([...relations, {
-      id: candidate.id,
-      kind: candidate.kind,
-      name: t(candidate.nameKey),
-    }]);
-    setCandidateId(undefined);
+    setAdding(true);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    try {
+      onRelationsChange([...relations, {
+        id: candidate.id,
+        kind: candidate.kind,
+        name: t(candidate.nameKey),
+      }]);
+      setCandidateId(undefined);
+      message.success(t('referenceLibrary.editor.relations.added'));
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
     <div className="visual-reference-relations">
-      <Alert
-        type="info"
-        showIcon
-        message={t('referenceLibrary.editor.relations.mockNotice')}
-      />
       <div className="visual-reference-relations__add">
-        <Select
+        <Segmented
+          block
+          className="visual-reference-relations__kind"
           aria-label={t('referenceLibrary.editor.relations.kind')}
           disabled={disabled}
-          popupClassName={SELECT_POPUP_CLASS_NAME}
           value={kind}
           options={RELATION_KINDS.map((value) => ({
-            label: t(`referenceLibrary.editor.relations.kinds.${value}`),
+            label: t(`referenceLibrary.editor.relations.types.${value}`),
             value,
           }))}
           onChange={(value) => {
-            setKind(value);
-            setCandidateId(undefined);
+            if (value === 'character' || value === 'location') {
+              setKind(value);
+              setCandidateId(undefined);
+            }
           }}
         />
-        <Select
-          aria-label={t('referenceLibrary.editor.relations.item')}
-          disabled={disabled}
-          popupClassName={SELECT_POPUP_CLASS_NAME}
-          value={candidateId}
-          placeholder={t('referenceLibrary.editor.relations.choose')}
-          options={candidates.map(({id, nameKey}) => ({label: t(nameKey), value: id}))}
-          onChange={setCandidateId}
-        />
+        <Tooltip title={selectedCandidate ? t(selectedCandidate.nameKey) : undefined}>
+          <Select
+            className="visual-reference-relations__select"
+            aria-label={t('referenceLibrary.editor.relations.item')}
+            disabled={disabled}
+            notFoundContent={t(`referenceLibrary.editor.relations.none.${kind}`)}
+            popupClassName={SELECT_POPUP_CLASS_NAME}
+            popupMatchSelectWidth
+            value={candidateId}
+            placeholder={t(`referenceLibrary.editor.relations.choose.${kind}`)}
+            options={candidates.map(({id, nameKey}) => ({label: t(nameKey), value: id}))}
+            optionRender={(option) => (
+              <Tooltip title={String(option.label)}>
+                <span className="visual-reference-relation-option">{option.label}</span>
+              </Tooltip>
+            )}
+            onChange={setCandidateId}
+          />
+        </Tooltip>
         <Button
+          aria-label={t('referenceLibrary.editor.relations.add')}
           icon={<PlusOutlined />}
-          disabled={disabled || !candidateId}
-          onClick={addRelation}
+          disabled={disabled || adding || !candidateId}
+          loading={adding}
+          onClick={() => void addRelation()}
         >
           {t('referenceLibrary.editor.relations.add')}
         </Button>
       </div>
       <div className="visual-reference-relations__list">
         {relations.length === 0 && (
-          <p>{t('referenceLibrary.editor.relations.empty')}</p>
+          <div className="visual-reference-relations__empty">
+            <strong>{t('referenceLibrary.editor.relations.empty')}</strong>
+            <p>{t('referenceLibrary.editor.relations.emptyDescription')}</p>
+          </div>
         )}
         {relations.map((relation) => (
           <article key={relation.id} className="visual-reference-relation">
             <span className="visual-reference-relation__icon">{RELATION_ICONS[relation.kind]}</span>
-            <div>
-              <strong>{relation.name}</strong>
-              <small>{t(`referenceLibrary.editor.relations.kinds.${relation.kind}`)}</small>
-            </div>
+            <Tooltip title={relation.name}>
+              <div>
+                <small>{t(`referenceLibrary.editor.relations.types.${relation.kind}`)}</small>
+                <strong>{relation.name}</strong>
+              </div>
+            </Tooltip>
             <Button
               type="text"
               icon={<CloseOutlined />}

@@ -4,7 +4,7 @@ export type VisualReferenceType = ReferenceCategory;
 
 export type VisualInspectorTab = 'main' | 'appearance' | 'relations';
 
-export type VisualRelationKind = 'character' | 'scene' | 'location' | 'reference';
+export type VisualRelationKind = 'character' | 'location';
 
 interface GeneratedVisualAsset {
   createdAt: string;
@@ -78,8 +78,5 @@ export const CONTINUITY_LABEL_KEYS: Record<VisualReferenceType, string> = {
 
 export const MOCK_RELATION_CANDIDATES: VisualRelationCandidate[] = [
   {id: 'mock-character-anna', kind: 'character', nameKey: 'referenceLibrary.editor.relations.candidates.anna'},
-  {id: 'mock-scene-4', kind: 'scene', nameKey: 'referenceLibrary.editor.relations.candidates.scene4'},
-  {id: 'mock-scene-11', kind: 'scene', nameKey: 'referenceLibrary.editor.relations.candidates.scene11'},
   {id: 'mock-location-anna-flat', kind: 'location', nameKey: 'referenceLibrary.editor.relations.candidates.annaFlat'},
-  {id: 'mock-reference-medallion', kind: 'reference', nameKey: 'referenceLibrary.editor.relations.candidates.medallion'},
 ];

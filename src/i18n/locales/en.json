@@ -742,7 +742,7 @@
       "unsaved": "Unsaved changes",
       "savedLocally": "No unsaved changes",
       "actions": {"save": "Save", "create": "Create reference"},
-      "tabs": {"main": "Main", "appearance": "Appearance", "relations": "Relations"},
+      "tabs": {"main": "Main", "appearance": "Appearance", "relations": "Binding"},
       "fields": {"type": "Type", "title": "Title", "description": "Description", "prompt": "Prompt", "features": "Distinctive features", "materials": "Materials", "palette": "Color palette", "condition": "Condition", "dimensions": "Scale and dimensions", "continuity": "Visual continuity notes", "locationDetails": "Lighting, time of day, and atmosphere", "wardrobeDetails": "Silhouette, seasonality, and details", "vehicleDetails": "Model, class, and distinctive details"},
       "placeholders": {
         "title": {"location": "For example, Anna's apartment", "prop": "For example, an antique medallion", "wardrobe": "For example, a red evening dress", "vehicle": "For example, a black vintage car", "symbol": "For example, a family crest", "other": "For example, an important scene detail"},
@@ -760,7 +760,7 @@
       "generate": {"action": "Generate", "again": "Generate again", "loading": "Generating image…", "failed": "Could not create the image", "noResult": "Generation finished without an available image.", "promptRequired": "Add a generation prompt first", "unavailable": "Image generation is unavailable for your role or is not configured for this project."},
       "conditions": {"new": "New", "old": "Old", "damaged": "Damaged", "wet": "Wet", "dirty": "Dirty"},
       "palette": {"add": "Add color", "remove": "Remove color {{color}}"},
-      "relations": {"mockNotice": "Relations currently work as a local prototype and are not sent to the project.", "kind": "Relation type", "item": "Related item", "choose": "Choose an item", "add": "Add relation", "empty": "No relations yet", "remove": "Remove relation to “{{name}}”", "kinds": {"character": "Related characters", "scene": "Used in scenes", "location": "Related location", "reference": "Related visual references"}, "candidates": {"anna": "Anna", "scene4": "Scene 4", "scene11": "Scene 11", "annaFlat": "Anna's apartment", "medallion": "Antique medallion"}},
+      "relations": {"kind": "Binding type", "item": "Binding target", "add": "Add", "added": "Binding added", "empty": "This reference is not bound to anything yet", "emptyDescription": "Choose a character or location related to this reference.", "remove": "Remove binding to “{{name}}”", "types": {"character": "Character", "location": "Location"}, "choose": {"character": "Choose a character", "location": "Choose a location"}, "none": {"character": "This project has no characters yet", "location": "This project has no locations yet"}, "candidates": {"anna": "Anna", "annaFlat": "Anna's apartment"}},
       "errors": {"uploadRights": "Confirm that you have the right to use the selected images.", "fileTooLarge": "The image exceeds the allowed size.", "fileType": "Choose an image in a supported format."}
     },
     "breadcrumbs": {"allProjects": "All projects", "project": "Project"},

@@ -1,5 +1,5 @@
 import React from 'react';
-import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {MemoryRouter, Route, Routes, useNavigate} from 'react-router-dom';
 
 import {newReferenceIdempotencyKey, referenceApi} from '../api/referenceApi';
@@ -234,6 +234,57 @@ test('opens the color picker without adding the previous color', async () => {
   expect(screen.queryByRole('button', {name: /Удалить цвет/})).not.toBeInTheDocument();
 });
 
+test('binds only characters and locations through the compact inspector controls', async () => {
+  renderPage();
+  await waitForEditor();
+  fireEvent.click(screen.getByRole('tab', {name: 'Привязка'}));
+
+  const kindSwitcher = screen.getByLabelText('Тип привязки');
+  expect(within(kindSwitcher).getByText('Персонаж')).toBeInTheDocument();
+  expect(within(kindSwitcher).getByText('Локация')).toBeInTheDocument();
+  expect(screen.queryByText(/локальный прототип/i)).not.toBeInTheDocument();
+  expect(screen.queryByText('Используется в сценах')).not.toBeInTheDocument();
+  expect(screen.queryByText('Связанные визуальные опоры')).not.toBeInTheDocument();
+  expect(screen.getByText('Опора пока ни к чему не привязана')).toBeInTheDocument();
+  expect(screen.getByText('Черновики изображений')).toBeInTheDocument();
+
+  const relationSelect = screen.getByRole('combobox', {name: 'Объект привязки'});
+  const addButton = screen.getByRole('button', {name: 'Добавить'});
+  expect(screen.getByText('Выберите персонажа')).toBeInTheDocument();
+  expect(addButton).toBeDisabled();
+
+  fireEvent.mouseDown(relationSelect);
+  fireEvent.click(await screen.findByText('Анна'));
+  fireEvent.click(within(kindSwitcher).getByText('Локация'));
+  expect(relationSelect).toHaveValue('');
+  expect(screen.getByText('Выберите локацию')).toBeInTheDocument();
+  fireEvent.click(within(kindSwitcher).getByText('Персонаж'));
+  fireEvent.mouseDown(relationSelect);
+  fireEvent.click(await screen.findByText('Анна'));
+  fireEvent.click(addButton);
+  expect(addButton).toHaveClass('ant-btn-loading');
+  expect(await screen.findByLabelText('Удалить привязку к «Анна»')).toBeInTheDocument();
+  expect(relationSelect).toHaveValue('');
+
+  fireEvent.click(within(kindSwitcher).getByText('Локация'));
+  expect(screen.getByText('Выберите локацию')).toBeInTheDocument();
+  fireEvent.mouseDown(screen.getByRole('combobox', {name: 'Объект привязки'}));
+  fireEvent.click(await screen.findByText('Квартира Анны'));
+  fireEvent.click(screen.getByRole('button', {name: 'Добавить'}));
+  expect(await screen.findByLabelText(
+    'Удалить привязку к «Квартира Анны»',
+  )).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('tab', {name: 'Основное'}));
+  fireEvent.click(screen.getByRole('tab', {name: 'Привязка'}));
+  expect(screen.getByLabelText('Удалить привязку к «Анна»')).toBeInTheDocument();
+  expect(screen.getByLabelText('Удалить привязку к «Квартира Анны»')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByLabelText('Удалить привязку к «Анна»'));
+  expect(screen.queryByLabelText('Удалить привязку к «Анна»')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Удалить привязку к «Квартира Анны»')).toBeInTheDocument();
+});
+
 test('file picker opens only from an explicitly named upload action', async () => {
   const {container} = renderPage();
   await waitForEditor();
@@ -309,6 +360,9 @@ test('shows a generated result as unsaved preview before adding it to drafts', a
   expect(screen.getByText('Результат ещё не сохранён')).toBeInTheDocument();
   expect(screen.getByText('Черновиков пока нет')).toBeInTheDocument();
   expect(screen.getByRole('button', {name: 'Добавить в черновики'})).toBeEnabled();
+  expect(screen.getByRole('button', {name: 'Добавить в черновики'})).toHaveClass(
+    'ant-btn-primary',
+  );
   expect(screen.getByLabelText('Название визуальной опоры')).toBeInTheDocument();
   expect(mockedApi.enqueueJob).toHaveBeenCalledWith(
     '7',

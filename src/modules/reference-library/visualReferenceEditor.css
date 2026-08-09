@@ -234,19 +234,6 @@
   flex-wrap: wrap;
 }
 
-.visual-reference-canvas__image-actions .visual-reference-add-draft.ant-btn {
-  color: var(--craft-text);
-  border-color: var(--craft-ai);
-  background: var(--craft-ai-soft);
-}
-
-.visual-reference-canvas__image-actions .visual-reference-add-draft.ant-btn:hover:not(:disabled),
-.visual-reference-canvas__image-actions .visual-reference-add-draft.ant-btn:focus-visible:not(:disabled) {
-  color: var(--craft-text);
-  border-color: var(--craft-ai-hover);
-  background: var(--craft-ai);
-}
-
 .visual-reference-empty {
   display: grid;
   width: min(100% - 40px, 620px);
@@ -821,28 +808,99 @@
 
 .visual-reference-relations {
   display: grid;
-  gap: 16px;
+  min-width: 0;
+  gap: 14px;
 }
 
 .visual-reference-relations__add {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
+.visual-reference-relations__kind.ant-segmented {
+  width: 100%;
+  padding: 3px;
+  color: var(--craft-text-muted);
+  border: 1px solid var(--craft-border);
+  border-radius: 9px;
+  background: var(--craft-field);
+}
+
+.visual-reference-relations__kind .ant-segmented-group {
+  width: 100%;
+}
+
+.visual-reference-relations__kind .ant-segmented-item {
+  min-width: 0;
+  flex: 1;
+}
+
+.visual-reference-relations__kind .ant-segmented-item-label {
+  overflow: visible;
+  padding-inline: 8px;
+  text-overflow: clip;
+}
+
+.visual-reference-relations__kind .ant-segmented-item-selected {
+  color: var(--craft-text);
+  background: var(--craft-surface-raised);
+  box-shadow: inset 0 -2px 0 var(--craft-accent);
+}
+
+.visual-reference-relations__kind .ant-segmented-item:focus-within {
+  outline: 2px solid var(--craft-ai);
+  outline-offset: 1px;
+}
+
+.visual-reference-relations__select {
+  width: 100%;
+  min-width: 0;
+}
+
+.visual-reference-relations__select .ant-select-selection-item {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .visual-reference-relations__add .ant-btn {
-  grid-column: 1 / -1;
+  width: 100%;
 }
 
 .visual-reference-relations__list {
   display: grid;
+  min-width: 0;
+  max-height: 220px;
+  padding-right: 2px;
   gap: 9px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: var(--craft-border-strong) transparent;
+  scrollbar-width: thin;
 }
 
-.visual-reference-relations__list > p {
-  margin: 10px 0;
-  color: var(--reference-muted);
+.visual-reference-relations__empty {
+  padding: 12px;
+  color: var(--craft-text-muted);
+  border: 1px dashed var(--craft-border);
+  border-radius: 9px;
   text-align: center;
+}
+
+.visual-reference-relations__empty strong {
+  display: block;
+  color: var(--craft-text);
+  font-size: 13px;
+}
+
+.visual-reference-relations__empty p {
+  margin: 4px 0 0;
+  color: var(--craft-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .visual-reference-relation {
@@ -875,12 +933,24 @@
 .visual-reference-relation strong {
   overflow: hidden;
   color: var(--craft-text);
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .visual-reference-relation small {
   color: var(--reference-muted);
+  font-size: 11px;
+}
+
+.visual-reference-relation-option {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .visual-reference-relation .ant-btn {
@@ -889,8 +959,8 @@
 
 .visual-reference-relation .ant-btn:hover:not(:disabled),
 .visual-reference-relation .ant-btn:focus-visible:not(:disabled) {
-  color: var(--craft-ai-hover);
-  background: var(--craft-ai-soft);
+  color: var(--craft-danger);
+  background: var(--craft-danger-soft);
 }
 
 .visual-reference-relations__add .ant-btn-default {
@@ -905,6 +975,23 @@
   color: var(--craft-text);
   border-color: var(--craft-ai);
   background: var(--craft-surface);
+}
+
+.visual-reference-relations__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.visual-reference-relations__list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.visual-reference-relations__list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--craft-border-strong);
+}
+
+.visual-reference-relations__list::-webkit-scrollbar-thumb:hover {
+  background: var(--craft-scrollbar-hover);
 }
 
 .visual-reference-palette .visual-reference-palette__add:disabled,

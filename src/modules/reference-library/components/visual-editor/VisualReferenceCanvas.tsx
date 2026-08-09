@@ -150,6 +150,7 @@ export default function VisualReferenceCanvas({
               {isUnsavedGeneratedPreview ? (
                 <Button
                   key="add-to-drafts"
+                  type="primary"
                   className="visual-reference-add-draft"
                   icon={<SaveOutlined />}
                   aria-label={t('referenceLibrary.editor.drafts.add')}
