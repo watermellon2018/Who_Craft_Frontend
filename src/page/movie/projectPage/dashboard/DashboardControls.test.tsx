@@ -4,7 +4,9 @@ import ProjectHero from './ProjectHero';
 import ProjectMusic from './ProjectMusic';
 import ProjectPipeline from './ProjectPipeline';
 import QuickActionsCard from './QuickActionsCard';
-import {musicMock, pipelineMock, projectMock} from './mocks';
+import {adaptProject} from './api';
+import {musicMock, pipelineMock} from './mocks';
+import type {DashboardProject} from './api';
 
 jest.mock('../../../../api/http', () => ({
   backendAssetUrl: (path: string) => 'https://backend.test' + path,
@@ -12,11 +14,26 @@ jest.mock('../../../../api/http', () => ({
 
 const noop = () => undefined;
 
-test('Continue is functional while project preview is explicitly unavailable', () => {
+test('renders the dashboard cover image and keeps Continue functional', () => {
   const onContinue = jest.fn();
+  const project = adaptProject({
+    id: 42,
+    title: 'Тестовый проект',
+    subtitle: 'Страница проекта',
+    description: '',
+    status: 'in_progress',
+    statusLabel: 'В работе',
+    coverImageUrl: '/media/project-cover.jpg',
+    isFavorite: false,
+    updatedAt: null,
+    updatedAtLabel: '',
+    tags: [],
+    teamMembers: [],
+    currentUserRole: 'owner',
+  } satisfies DashboardProject);
   render(
     <ProjectHero
-      project={projectMock}
+      project={project}
       onContinue={onContinue}
       onOpenScript={noop}
       onStatusChange={noop}
@@ -29,6 +46,10 @@ test('Continue is functional while project preview is explicitly unavailable', (
 
   fireEvent.click(screen.getByRole('button', {name: 'Продолжить'}));
   expect(onContinue).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('img', {name: 'Обложка проекта «Тестовый проект»'})).toHaveAttribute(
+    'src',
+    'https://backend.test/media/project-cover.jpg',
+  );
   expect(screen.getByRole('button', {name: 'Превью пока недоступно'})).toBeDisabled();
 });
 

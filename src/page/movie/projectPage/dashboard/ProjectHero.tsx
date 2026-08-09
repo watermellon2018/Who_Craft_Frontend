@@ -1,10 +1,11 @@
 import React from 'react';
 import {
-  StarFilled,
-  PlayCircleFilled,
   ClockCircleOutlined,
+  PlayCircleFilled,
+  StarFilled,
   TeamOutlined,
 } from '@ant-design/icons';
+import {backendAssetUrl} from '../../../../api/http';
 import type {ProjectMock, ProjectStatusKey} from './mocks';
 import StatusDropdown from './StatusDropdown';
 import ProjectActionsMenu from './ProjectActionsMenu';
@@ -44,6 +45,13 @@ const ProjectHero: React.FC<Props> = ({
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,420px)_1fr] gap-6">
         {/* Cover */}
         <div className="proj-hero-cover" style={{ background: project.coverGradient }}>
+          {project.coverImageUrl && (
+            <img
+              className="proj-hero-cover-image"
+              src={backendAssetUrl(project.coverImageUrl)}
+              alt={`Обложка проекта «${project.title}»`}
+            />
+          )}
           <button
             type="button"
             className="proj-hero-cover-play"

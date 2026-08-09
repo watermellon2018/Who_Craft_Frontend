@@ -40,6 +40,7 @@ export interface ProjectMock {
   statusKey?: ProjectStatusKey;
   statusLabel: string;
   isFavorite: boolean;
+  coverImageUrl: string | null;
   coverGradient: string;
   genres: string[];
   description: string;
@@ -65,6 +66,7 @@ export const projectMock: ProjectMock = {
   statusLabel: 'В работе',
   currentUserRole: 'owner',
   isFavorite: true,
+  coverImageUrl: null,
   coverGradient:
     'radial-gradient(120% 100% at 0% 0%, rgba(139,92,246,0.55) 0%, rgba(139,92,246,0) 55%), radial-gradient(120% 100% at 100% 100%, rgba(236,72,153,0.55) 0%, rgba(236,72,153,0) 55%), linear-gradient(135deg, #0b1024 0%, #1a0b2e 50%, #2a0b3a 100%)',
   genres: ['Научная фантастика', 'Киберпанк', 'Драма'],
@@ -221,7 +223,7 @@ export const progressLegendMock: ProgressLegendItem[] = [
 export interface QuickActionMock {
   key: string;
   label: string;
-  iconKey: 'newScene' | 'genVideo' | 'upload' | 'newLocation';
+  iconKey: 'newScene' | 'genVideo' | 'upload' | 'newLocation' | 'newCharacter' | 'newTrack';
   accent: AccentColor;
 }
 
@@ -230,6 +232,8 @@ export const quickActionsMock: QuickActionMock[] = [
   { key: 'gen-video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
   { key: 'upload-ref', label: 'Загрузить референс', iconKey: 'upload', accent: 'purple' },
   { key: 'new-location', label: 'Создать локацию', iconKey: 'newLocation', accent: 'yellow' },
+  { key: 'new-character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
+  { key: 'new-track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
 ];
 
 export interface ActivityItemMock {

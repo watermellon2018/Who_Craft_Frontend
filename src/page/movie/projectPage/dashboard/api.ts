@@ -287,6 +287,7 @@ export function adaptProject(api: DashboardProject): ProjectMock {
     currentUserRole: role,
     roleLabel: api.currentUserRoleLabel,
     isFavorite: !!api.isFavorite,
+    coverImageUrl: api.coverImageUrl,
     coverGradient: PROJECT_COVER_GRADIENT,
     genres: api.tags || [],
     description: api.description || '',
@@ -461,6 +462,8 @@ const QUICK_ACTION_VISUALS: Record<string, { iconKey: QuickActionMock['iconKey']
   generate_video: { iconKey: 'genVideo', accent: 'red' },
   upload_reference: { iconKey: 'upload', accent: 'purple' },
   create_location: { iconKey: 'newLocation', accent: 'yellow' },
+  create_character: { iconKey: 'newCharacter', accent: 'purple' },
+  create_track: { iconKey: 'newTrack', accent: 'green' },
 };
 
 export function adaptQuickActions(list: DashboardQuickAction[]): QuickActionMock[] {
