@@ -214,13 +214,15 @@ export default function VisualReferenceCanvas({
         )}
       </div>
 
-      <div className="visual-reference-prompt-editor">
-        <label
-          className="visual-reference-prompt-editor__label"
-          htmlFor="visual-reference-generation-prompt"
-        >
-          {t('referenceLibrary.editor.fields.prompt')}
-        </label>
+      <fieldset className="visual-reference-prompt-editor">
+        <legend className="visual-reference-prompt-editor__legend">
+          <label
+            className="visual-reference-prompt-editor__label"
+            htmlFor="visual-reference-generation-prompt"
+          >
+            {t('referenceLibrary.editor.fields.prompt')}
+          </label>
+        </legend>
         <Input.TextArea
           autoSize={{minRows: 2, maxRows: 4}}
           className="visual-reference-prompt-editor__input"
@@ -263,7 +265,7 @@ export default function VisualReferenceCanvas({
             message={t('referenceLibrary.editor.generate.unavailable')}
           />
         )}
-      </div>
+      </fieldset>
 
     </section>
   );

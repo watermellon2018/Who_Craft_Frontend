@@ -320,8 +320,9 @@
   min-width: 0;
   width: 100%;
   min-height: 64px;
-  padding: 10px 12px;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  margin: 0;
+  padding: 6px 12px 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   border: 1px solid var(--craft-border);
@@ -329,10 +330,20 @@
   background: var(--craft-surface);
 }
 
+.visual-reference-prompt-editor__legend {
+  width: auto;
+  margin: 0 0 0 8px;
+  padding-inline: 6px;
+  line-height: 18px;
+}
+
 .visual-reference-prompt-editor__label {
+  display: block;
   color: var(--craft-text-muted);
+  background: transparent;
   font-size: 14px;
   font-weight: 500;
+  line-height: inherit;
   white-space: nowrap;
 }
 
@@ -387,7 +398,7 @@
 
 .visual-reference-prompt-editor__notice {
   min-width: 0;
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
 }
 
 .visual-reference-generate-button.ant-btn {
