@@ -17,7 +17,11 @@ import WCraftBrand from '../../components/WCraftBrand';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
 import {useUnsavedChangesGuard} from '../../utils/useUnsavedChangesGuard';
-import PathConstants, {musicStudioCreatePath, projectDashboardPath} from '../../routes/pathConstant';
+import PathConstants, {
+  musicStudioCreatePath,
+  projectDashboardPath,
+  referenceLibraryPath,
+} from '../../routes/pathConstant';
 import {sceneToPlainText} from './api';
 import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
 import CardsView from './CardsView';
@@ -32,7 +36,7 @@ const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNo
   {mode: 'screenplay', label: 'Сценарий', icon: <FileTextOutlined />},
   {mode: 'cards', label: 'Карточки', icon: <AppstoreOutlined />},
   {mode: 'characters', label: 'Персонажи', icon: <TeamOutlined />},
-  {mode: 'locations', label: 'Локации', icon: <EnvironmentOutlined />},
+  {mode: 'locations', label: 'Визуальная библиотека', icon: <EnvironmentOutlined />},
 ];
 
 const formatDuration = (seconds: number) => {
@@ -159,7 +163,13 @@ export default function ScriptPage() {
             aria-label={item.label}
             className={workspace.mode === item.mode ? 'is-active' : ''}
             title={item.label}
-            onClick={() => void workspace.changeMode(item.mode)}
+            onClick={() => {
+              if (item.mode === 'locations') {
+                navigate(referenceLibraryPath(projectId));
+                return;
+              }
+              void workspace.changeMode(item.mode);
+            }}
           >
             {item.icon}
             <span>{item.label}</span>
@@ -232,7 +242,9 @@ export default function ScriptPage() {
         onSelect={(sceneId) => void workspace.selectScene(sceneId)}
       />}
       {workspace.mode === 'characters' && <CharactersView characters={workspace.characters} />}
-      {workspace.mode === 'locations' && <LocationsPlaceholder />}
+      {workspace.mode === 'locations' && (
+        <LocationsPlaceholder onOpen={() => navigate(referenceLibraryPath(projectId))} />
+      )}
     </section>
   </div>;
 }

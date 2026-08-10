@@ -116,6 +116,11 @@ export interface ReferenceListResponse {
   total: number;
 }
 
+export interface ReferenceLinkOptions {
+  characters: Array<{id: string; name: string}>;
+  locations: Array<{id: number; name: string}>;
+}
+
 export interface ReferenceListParams {
   category?: ReferenceCategory;
   ordering?: '-updatedAt' | 'title' | 'updatedAt';
@@ -130,6 +135,7 @@ export interface ReferenceCreateRequest {
   category: ReferenceCategory;
   characterLinks?: ReferenceCharacterLink[];
   description: string;
+  locationId?: number | null;
   tags: string[];
   title: string;
 }
@@ -142,7 +148,6 @@ export interface ReferenceCreateResponse {
 }
 
 export interface ReferenceUpdateRequest extends Partial<ReferenceCreateRequest> {
-  locationId?: number | null;
   version: number;
 }
 

@@ -1,6 +1,7 @@
 import React from 'react';
-import { PlusOutlined, MoreOutlined } from '@ant-design/icons';
-import { CharacterMock } from './mocks';
+import { MoreOutlined, PlusOutlined } from '@ant-design/icons';
+
+import type { CharacterMock } from './mocks';
 
 interface CharacterCardProps {
   character: CharacterMock;
@@ -91,10 +92,12 @@ const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterC
   return (
     <section className="proj-card p-5 sm:p-6">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        {characters.map((c) => (
-          <CharacterCard key={c.id} character={c} onClick={onCharacterClick} />
-        ))}
-        <button type="button" className="proj-create-card" onClick={onCreate}>
+        <button
+          type="button"
+          className="proj-create-card"
+          onClick={onCreate}
+          aria-label="Создать персонажа"
+        >
           <span
             className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{
@@ -106,6 +109,9 @@ const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterC
           </span>
           <span className="text-sm font-medium">Создать персонажа</span>
         </button>
+        {characters.map((c) => (
+          <CharacterCard key={c.id} character={c} onClick={onCharacterClick} />
+        ))}
       </div>
     </section>
   );

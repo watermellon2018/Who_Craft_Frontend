@@ -8,8 +8,133 @@
 :root {
   --craft-accent: #fab005;
   --craft-accent-hover: #fcc419;
+  --craft-accent-disabled: #d7aa45;
   --craft-accent-soft: rgba(250, 176, 5, 0.12);
   --craft-accent-border: rgba(250, 176, 5, 0.4);
+  --craft-bg-deep: #07111d;
+  --craft-bg-elevated: #091522;
+  --craft-surface: #0d1b2a;
+  --craft-surface-raised: #102132;
+  --craft-field: #0b1926;
+  --craft-canvas: #08131e;
+  --craft-border: #22364a;
+  --craft-border-strong: #2d4962;
+  --craft-text: #f3f6fa;
+  --craft-text-muted: #a5b2c2;
+  --craft-placeholder: #64778d;
+  --craft-ai: #1d4ed8;
+  --craft-ai-hover: #2563eb;
+  --craft-ai-soft: rgba(37, 99, 235, 0.18);
+  --craft-ai-border: rgba(59, 130, 246, 0.52);
+  --craft-ai-selected: rgba(37, 99, 235, 0.26);
+  --craft-ai-canvas-glow: rgba(59, 130, 246, 0.035);
+  --craft-danger: #ff7b72;
+  --craft-danger-soft: rgba(255, 123, 114, 0.12);
+  --craft-danger-border: rgba(255, 123, 114, 0.38);
+  --craft-disabled-bg: #152536;
+  --craft-disabled-text: #718196;
+  --craft-on-accent: rgba(0, 0, 0, 0.7);
+  --craft-on-primary-disabled: rgba(0, 0, 0, 0.7);
+  --craft-accent-deep: rgba(110, 76, 12, 0.22);
+  --craft-overlay: rgba(9, 21, 34, 0.9);
+  --craft-overlay-raised: rgba(16, 33, 50, 0.97);
+  --craft-shadow: rgba(2, 8, 16, 0.42);
+  --craft-scrollbar-hover: #3a5872;
+  --craft-action-primary: #fbbf24;
+  --craft-action-primary-hover: #fcd34d;
+  --craft-action-secondary-text: #cbd5e1;
+  --craft-action-secondary-border: #334155;
+  --craft-action-secondary-border-hover: #475569;
+  --craft-action-secondary-hover: rgba(148, 163, 184, 0.05);
+  --craft-action-disabled: #475569;
+  --craft-font-size-body: 14px;
+  --craft-font-size-h1: 28px;
+  --craft-font-size-h2: 18px;
+}
+
+/* One project-wide source of truth for Ant Design primary buttons. */
+.ant-btn-primary:not(.ant-btn-dangerous) {
+  color: var(--craft-on-accent) !important;
+  border-color: var(--craft-accent) !important;
+  background: var(--craft-accent) !important;
+  font-weight: 700;
+  box-shadow: none !important;
+}
+
+.ant-btn-primary:not(.ant-btn-dangerous):hover:not(:disabled):not(.ant-btn-disabled),
+.ant-btn-primary:not(.ant-btn-dangerous):focus-visible:not(:disabled):not(.ant-btn-disabled) {
+  color: var(--craft-on-accent) !important;
+  border-color: var(--craft-accent-hover) !important;
+  background: var(--craft-accent-hover) !important;
+}
+
+.ant-btn-primary:not(.ant-btn-dangerous):focus-visible:not(:disabled):not(.ant-btn-disabled) {
+  outline: 2px solid var(--craft-accent-border);
+  outline-offset: 2px;
+}
+
+.ant-btn-primary:not(.ant-btn-dangerous):disabled,
+.ant-btn-primary:not(.ant-btn-dangerous).ant-btn-disabled,
+.ant-btn-primary:not(.ant-btn-dangerous)[disabled] {
+  color: var(--craft-on-primary-disabled) !important;
+  border-color: var(--craft-accent-border) !important;
+  background: var(--craft-accent-disabled) !important;
+  box-shadow: none !important;
+  opacity: 1;
+}
+
+/* Shared project action buttons: use these for prominent page-level actions. */
+.craft-action-button.ant-btn {
+  height: 44px;
+  padding: 10px 20px;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: var(--craft-font-size-body);
+  transition: all 0.15s ease;
+}
+
+.craft-action-button.ant-btn-primary:not(.ant-btn-dangerous) {
+  color: var(--craft-on-accent) !important;
+  border-color: var(--craft-action-primary) !important;
+  background: var(--craft-action-primary) !important;
+  font-weight: 600;
+}
+
+.craft-action-button.ant-btn-primary:not(.ant-btn-dangerous):hover:not(:disabled):not(.ant-btn-disabled),
+.craft-action-button.ant-btn-primary:not(.ant-btn-dangerous):focus-visible:not(:disabled):not(.ant-btn-disabled) {
+  color: var(--craft-on-accent) !important;
+  border-color: var(--craft-action-primary-hover) !important;
+  background: var(--craft-action-primary-hover) !important;
+}
+
+.craft-action-button.ant-btn-primary:not(.ant-btn-dangerous):disabled,
+.craft-action-button.ant-btn-primary:not(.ant-btn-dangerous).ant-btn-disabled {
+  color: var(--craft-on-primary-disabled) !important;
+  border-color: var(--craft-action-disabled) !important;
+  background: var(--craft-action-disabled) !important;
+  opacity: 0.7;
+}
+
+.craft-action-button--secondary.ant-btn {
+  color: var(--craft-action-secondary-text);
+  border-color: var(--craft-action-secondary-border);
+  background: transparent;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.craft-action-button--secondary.ant-btn:hover:not(:disabled):not(.ant-btn-disabled),
+.craft-action-button--secondary.ant-btn:focus-visible:not(:disabled):not(.ant-btn-disabled) {
+  color: var(--craft-action-secondary-text);
+  border-color: var(--craft-action-secondary-border-hover);
+  background: var(--craft-action-secondary-hover);
+}
+
+.craft-action-button--secondary.ant-btn:focus-visible:not(:disabled):not(.ant-btn-disabled) {
+  outline: 2px solid var(--craft-border-strong);
+  outline-offset: 2px;
 }
 
 html,
@@ -35,9 +160,22 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
+  font-size: var(--craft-font-size-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+h1 {
+  font-size: var(--craft-font-size-h1);
+}
+
+h2 {
+  font-size: var(--craft-font-size-h2);
+}
+
+p {
+  font-size: var(--craft-font-size-body);
 }
 
 code {

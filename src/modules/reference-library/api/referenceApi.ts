@@ -9,6 +9,7 @@ import type {
   ReferenceDetail,
   ReferenceEnqueueRequest,
   ReferenceGenerationJob,
+  ReferenceLinkOptions,
   ReferenceListParams,
   ReferenceListResponse,
   ReferenceUpdateRequest,
@@ -79,6 +80,9 @@ export const referenceApi = {
       `${referenceBase(projectId, referenceId)}/generation-jobs/${encodeURIComponent(jobId)}/`,
       {signal},
     );
+  },
+  getLinkOptions(projectId: ProjectId, signal?: AbortSignal) {
+    return api.get<ReferenceLinkOptions>(`${base(projectId)}/link-options/`, {signal});
   },
   getReference(projectId: ProjectId, referenceId: string, signal?: AbortSignal) {
     return api.get<ReferenceDetail>(`${referenceBase(projectId, referenceId)}/`, {signal});

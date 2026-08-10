@@ -38,6 +38,16 @@ test('uses the project-scoped paginated list contract', async () => {
   );
 });
 
+test('loads project-scoped character and location link options', async () => {
+  const controller = new AbortController();
+  await referenceApi.getLinkOptions('7', controller.signal);
+
+  expect(mockedGet).toHaveBeenCalledWith(
+    'api/projects/7/references/link-options/',
+    {signal: controller.signal},
+  );
+});
+
 test('forwards a submit-scoped idempotency key to generation enqueue', async () => {
   await referenceApi.enqueueJob('7', 'ref-1', enqueuePayload, 'reference:submit-1');
   expect(mockedPost).toHaveBeenCalledWith(
