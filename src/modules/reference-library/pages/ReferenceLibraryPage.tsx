@@ -12,7 +12,7 @@ import {useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import {
   projectDashboardPath,
   referenceCreatePath,
-  referenceDetailPath,
+  referenceEditPath,
 } from '../../../routes/pathConstant';
 import {referenceApi} from '../api/referenceApi';
 import ReferenceCard from '../components/ReferenceCard';
@@ -310,7 +310,7 @@ export default function ReferenceLibraryPage() {
                   key={item.id}
                   item={item}
                   onDelete={canEdit ? () => confirmDelete(item) : undefined}
-                  onOpen={() => navigate(referenceDetailPath(projectId, item.id))}
+                  onOpen={() => navigate(referenceEditPath(projectId, item.id))}
                 />
               ))}
             </div>

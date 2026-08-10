@@ -4,12 +4,13 @@ import {
   PlusOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import {Button, ColorPicker, Form, Input, message, Segmented, Select, Tabs, Tooltip} from 'antd';
+import {Button, ColorPicker, Form, Input, message, Segmented, Select, Tooltip} from 'antd';
 import React, {useMemo, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 
 import type {ReferenceBrief} from '../../types';
 import VisualReferenceDrafts from './VisualReferenceDrafts';
+import VisualInspectorShell from './VisualInspectorShell';
 import {
   CONTINUITY_LABEL_KEYS,
   VISUAL_REFERENCE_TYPE_ORDER,
@@ -26,7 +27,7 @@ import type {
 const RELATION_KINDS: VisualRelationKind[] = ['character', 'location'];
 const SELECT_POPUP_CLASS_NAME = 'visual-reference-select-popup';
 
-interface MainSettingsTabProps {
+export interface MainSettingsTabProps {
   category: VisualReferenceType;
   description: string;
   disabled: boolean;
@@ -34,7 +35,7 @@ interface MainSettingsTabProps {
   onDescriptionChange: (description: string) => void;
 }
 
-function MainSettingsTab({
+export function MainSettingsTab({
   category,
   description,
   disabled,
@@ -73,14 +74,14 @@ function MainSettingsTab({
   );
 }
 
-interface AppearanceSettingsTabProps {
+export interface AppearanceSettingsTabProps {
   brief: ReferenceBrief;
   category: VisualReferenceType;
   disabled: boolean;
   onBriefChange: (brief: ReferenceBrief) => void;
 }
 
-function AppearanceSettingsTab({
+export function AppearanceSettingsTab({
   brief,
   category,
   disabled,
@@ -317,14 +318,12 @@ export default function VisualReferenceInspector({
   const {t} = useTranslation();
 
   return (
-    <aside className="visual-reference-inspector">
-      <div className="visual-reference-inspector__properties">
-        <Tabs
-          activeKey={activeTab}
-          onChange={(value) => {
-            if (isInspectorTab(value)) onTabChange(value);
-          }}
-          items={[
+    <VisualInspectorShell
+      activeTab={activeTab}
+      onTabChange={(value) => {
+        if (isInspectorTab(value)) onTabChange(value);
+      }}
+      items={[
           {
             key: 'main',
             label: t('referenceLibrary.editor.tabs.main'),
@@ -362,10 +361,8 @@ export default function VisualReferenceInspector({
               />
             ),
           },
-          ]}
-        />
-      </div>
-      <VisualReferenceDrafts
+      ]}
+      bottomContent={<VisualReferenceDrafts
         activeImageId={activeImageId}
         disabled={disabled}
         drafts={drafts}
@@ -373,7 +370,7 @@ export default function VisualReferenceInspector({
         onDeleteDraft={onDeleteDraft}
         onPrimaryChange={onPrimaryChange}
         onSelectDraft={onSelectDraft}
-      />
-    </aside>
+      />}
+    />
   );
 }

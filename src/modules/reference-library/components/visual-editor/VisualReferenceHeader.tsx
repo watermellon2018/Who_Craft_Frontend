@@ -4,6 +4,7 @@ import React from 'react';
 import {useTranslation} from 'react-i18next';
 
 interface VisualReferenceHeaderProps {
+  beforeSaveActions?: React.ReactNode;
   canSave: boolean;
   disabled: boolean;
   saveDisabledReason?: string;
@@ -14,6 +15,7 @@ interface VisualReferenceHeaderProps {
 }
 
 export default function VisualReferenceHeader({
+  beforeSaveActions,
   canSave,
   disabled,
   saveDisabledReason,
@@ -38,6 +40,7 @@ export default function VisualReferenceHeader({
         />
       </div>
       <div className="visual-reference-header__actions">
+        {beforeSaveActions}
         <Tooltip
           rootClassName="visual-reference-tooltip"
           title={saveDisabledReason}

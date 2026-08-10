@@ -128,6 +128,27 @@ test('restores paginated filters from the URL and renders the compact gallery', 
   expect(container.querySelector('.ant-pagination')).toBeInTheDocument();
 });
 
+test('opens a reference card directly in the editor', async () => {
+  render(
+    <MemoryRouter initialEntries={['/project/7/references']}>
+      <Routes>
+        <Route path="/project/:projectId/references" element={<ReferenceLibraryPage />} />
+        <Route
+          path="/project/:projectId/references/:referenceId/edit"
+          element={<output data-testid="editor-route">editor</output>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  await screen.findByText('Красный медальон');
+  fireEvent.click(screen.getByRole('button', {
+    name: i18n.t('referenceLibrary.card.open', {title: 'Красный медальон'}) as string,
+  }));
+
+  expect(await screen.findByTestId('editor-route')).toBeInTheDocument();
+});
+
 test('combines search with the selected category and resets pagination', async () => {
   mockedApi.list.mockImplementation(async (_projectId, params) => ({data: {
     items: params.category === 'vehicle'

@@ -8,6 +8,162 @@
   gap: 18px;
 }
 
+.visual-reference-edit-page {
+  height: calc(100vh - 108px);
+  height: calc(100dvh - 108px);
+  min-height: 620px;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.visual-reference-edit-page__top,
+.visual-reference-edit-page__messages {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.visual-reference-edit-stage__actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.visual-reference-edit-page .visual-reference-header__title.ant-input {
+  font-size: var(--craft-font-size-h1);
+}
+
+.visual-reference-edit-page .visual-reference-editor__workspace {
+  min-height: 0;
+  grid-template-columns: minmax(0, 2fr) minmax(360px, 400px);
+  align-items: stretch;
+}
+
+.visual-reference-edit-stage {
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+}
+
+.visual-reference-edit-canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+.visual-reference-edit-canvas .visual-reference-canvas__image-wrap img {
+  object-fit: contain;
+}
+
+.visual-reference-edit-canvas .visual-reference-canvas__image-wrap.is-loading img,
+.visual-reference-edit-canvas .visual-reference-canvas__image-wrap.is-error img {
+  opacity: 0;
+}
+
+.visual-reference-edit-canvas__state {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  padding: 24px;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  color: var(--craft-text-muted);
+  background: var(--craft-canvas);
+  text-align: center;
+}
+
+.visual-reference-edit-canvas__state > .anticon {
+  color: var(--craft-accent);
+  font-size: 30px;
+}
+
+.visual-reference-edit-canvas__version {
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  bottom: 14px;
+  padding: 4px 9px;
+  color: var(--craft-text);
+  border: 1px solid var(--craft-border-strong);
+  border-radius: 999px;
+  background: var(--craft-overlay);
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.visual-reference-edit-stage__actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.visual-reference-edit-stage__actions .ant-btn {
+  min-height: 40px;
+  border-radius: 8px;
+  font-weight: 650;
+}
+
+.visual-reference-edit-stage__actions .ant-btn-default {
+  color: var(--craft-text-muted);
+  border-color: var(--craft-border-strong);
+  background: var(--craft-surface);
+  box-shadow: none;
+}
+
+.visual-reference-edit-stage__actions .ant-btn-default:hover:not(:disabled),
+.visual-reference-edit-stage__actions .ant-btn-default:focus-visible:not(:disabled) {
+  color: var(--craft-text);
+  border-color: var(--craft-ai);
+  background: var(--craft-surface-raised);
+}
+
+.visual-reference-edit-stage__job {
+  min-width: 0;
+  max-height: 210px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.visual-reference-edit-stage__job .reference-card-panel {
+  padding: 14px;
+  box-shadow: none;
+}
+
+.visual-reference-edit-page .visual-reference-inspector {
+  position: static;
+  height: 100%;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.visual-reference-edit-page .visual-reference-inspector__properties {
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.visual-reference-edit-page .visual-reference-inspector__drafts {
+  min-height: 0;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.visual-reference-edit-page .visual-reference-drafts__list {
+  overflow: visible;
+}
+
+.visual-reference-version-card__empty {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--craft-text-muted);
+  font-size: 24px;
+  font-style: normal;
+}
+
 .visual-reference-header {
   display: flex;
   min-width: 0;
@@ -1155,14 +1311,30 @@
 }
 
 @media (max-width: 1100px) {
+  .visual-reference-edit-page {
+    height: auto;
+    min-height: calc(100vh - 108px);
+    min-height: calc(100dvh - 108px);
+    overflow: visible;
+  }
+
   .visual-reference-editor__workspace {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .visual-reference-edit-stage {
+    min-height: 560px;
   }
 
   .visual-reference-inspector {
     position: static;
     height: auto;
     max-height: none;
+    overflow: visible;
+  }
+
+  .visual-reference-edit-page .visual-reference-inspector {
+    height: auto;
     overflow: visible;
   }
 
@@ -1189,6 +1361,10 @@
   .visual-reference-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .visual-reference-edit-stage {
+    min-height: 430px;
   }
 
   .visual-reference-header__actions {

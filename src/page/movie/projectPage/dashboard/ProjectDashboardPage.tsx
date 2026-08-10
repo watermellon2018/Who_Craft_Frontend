@@ -9,7 +9,7 @@ import PathConstants, {
   musicStudioPath,
   musicTrackPath,
   projectEditPath,
-  referenceDetailPath,
+  referenceEditPath,
   referenceLibraryPath,
 } from '../../../../routes/pathConstant';
 import withAuth from '../../../../utils/auth/check_auth';
@@ -600,7 +600,7 @@ export const ProjectDashboardPage: React.FC = () => {
                     projectId={projectId}
                     onOpenLibrary={() => navigate(referenceLibraryPath(projectId))}
                     onOpenReference={(referenceId) => (
-                      navigate(referenceDetailPath(projectId, referenceId))
+                      navigate(referenceEditPath(projectId, referenceId))
                     )}
                   />
                 )}

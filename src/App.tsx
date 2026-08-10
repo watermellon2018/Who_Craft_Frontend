@@ -34,6 +34,7 @@ import Character3DEditorPage from "./modules/character-studio/pages/Character3DE
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
+import ReferenceDetailRedirect from "./modules/reference-library/pages/ReferenceDetailRedirect";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
 import withAuth from "./utils/auth/check_auth";
@@ -57,6 +58,7 @@ const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
 const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
+const ProtectedReferenceDetailRedirect = withAuth(ReferenceDetailRedirect);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
 const ProtectedVisualReferenceCreatePage = withAuth(VisualReferenceCreatePage);
 const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
@@ -206,7 +208,7 @@ function App() {
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },
         { key: 'referenceLibraryEdit', path: PathConstants.REFERENCE_LIBRARY_EDIT, component: <ProtectedReferenceWorkspacePage /> },
-        { key: 'referenceLibraryDetail', path: PathConstants.REFERENCE_LIBRARY_DETAIL, component: <ProtectedReferenceWorkspacePage /> },
+        { key: 'referenceLibraryDetail', path: PathConstants.REFERENCE_LIBRARY_DETAIL, component: <ProtectedReferenceDetailRedirect /> },
         { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <ProtectedCharacterStudioShell><CharacterGalleryPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <ProtectedCharacterStudioShell><CharacterCreatePage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <ProtectedCharacterStudioShell><CharacterCreatePage activeMode="reference" /></ProtectedCharacterStudioShell> },
