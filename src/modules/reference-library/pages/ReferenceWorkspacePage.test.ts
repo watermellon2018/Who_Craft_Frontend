@@ -15,8 +15,8 @@ test.each([
 test.each([
   ['?category=location', 'location'],
   ['?category=vehicle', 'vehicle'],
-  ['?category=unknown', 'prop'],
-  ['', 'prop'],
+  ['?category=unknown', 'location'],
+  ['', 'location'],
 ])('derives the create category from %s', (search, category) => {
   expect(referenceWorkspaceCreateCategory(search)).toBe(category);
 });

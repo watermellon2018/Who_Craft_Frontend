@@ -1,15 +1,18 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {
+  ArrowLeftOutlined,
   EditOutlined,
   InboxOutlined,
   PictureOutlined,
   ReloadOutlined,
   SaveOutlined,
   UndoOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import {
   Alert,
   Button,
+  Checkbox,
   Form,
   Input,
   message,
@@ -26,7 +29,6 @@ import {useLocation, useNavigate, useParams} from 'react-router-dom';
 
 import {backendAssetUrl} from '../../../api/http';
 import {
-  referenceDetailPath,
   referenceEditPath,
   referenceJobPath,
   referenceLibraryPath,
@@ -40,6 +42,13 @@ import ReferenceStatusTag from '../components/ReferenceStatusTag';
 import ReferenceUpload from '../components/ReferenceUpload';
 import ReferenceVariantGrid from '../components/ReferenceVariantGrid';
 import ReferenceVersionHistory from '../components/ReferenceVersionHistory';
+import VisualInspectorShell from '../components/visual-editor/VisualInspectorShell';
+import {
+  AppearanceSettingsTab,
+  MainSettingsTab,
+} from '../components/visual-editor/VisualReferenceInspector';
+import VisualReferenceHeader from '../components/visual-editor/VisualReferenceHeader';
+import VisualReferenceVersions from '../components/visual-editor/VisualReferenceVersions';
 import {referenceErrorDescriptor} from '../errors';
 import {useReferenceGenerationJob} from '../hooks/useReferenceGenerationJob';
 import type {
@@ -51,6 +60,10 @@ import type {
   ReferenceVersion,
 } from '../types';
 import '../referenceLibrary.css';
+import '../visualReferenceEditor.css';
+
+type EditInspectorTab = 'main' | 'appearance';
+type PreviewLoadState = 'empty' | 'error' | 'loading' | 'ready';
 
 const FALLBACK_CATEGORIES: ReferenceCategory[] = ['location', 'prop', 'wardrobe', 'vehicle', 'symbol', 'other'];
 const EMPTY_BRIEF: ReferenceBrief = {
@@ -74,7 +87,7 @@ export function referenceWorkspaceRouteMode(pathname: string): 'create' | 'detai
 
 export function referenceWorkspaceCreateCategory(search: string): ReferenceCategory {
   const requestedCategory = new URLSearchParams(search).get('category');
-  return FALLBACK_CATEGORIES.find((category) => category === requestedCategory) ?? 'prop';
+  return FALLBACK_CATEGORIES.find((category) => category === requestedCategory) ?? 'location';
 }
 
 export default function ReferenceWorkspacePage() {
@@ -89,8 +102,10 @@ export default function ReferenceWorkspacePage() {
   const routeMode = referenceWorkspaceRouteMode(location.pathname);
   const isCreateRoute = routeMode === 'create';
   const isEditRoute = routeMode === 'edit';
+  const isReferenceEditorRoute = isEditRoute || Boolean(jobId);
   const [capabilities, setCapabilities] = useState<ReferenceCapabilities | null>(null);
   const [reference, setReference] = useState<ReferenceDetail | null>(null);
+  const usesEditLayout = isReferenceEditorRoute && reference?.category === 'location';
   const [versions, setVersions] = useState<ReferenceVersion[]>([]);
   const [loading, setLoading] = useState(!isCreateRoute);
   const [error, setError] = useState<string | null>(null);
@@ -111,9 +126,17 @@ export default function ReferenceWorkspacePage() {
   const [variantCount, setVariantCount] = useState(1);
   const [editInstruction, setEditInstruction] = useState('');
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [activeInspectorTab, setActiveInspectorTab] = useState<EditInspectorTab>('main');
+  const [previewLoadState, setPreviewLoadState] = useState<PreviewLoadState>('empty');
+  const [previewReloadKey, setPreviewReloadKey] = useState(0);
+  const [pendingUploadFile, setPendingUploadFile] = useState<File | null>(null);
+  const [uploadRightsConfirmed, setUploadRightsConfirmed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const enqueueIntentRef = useRef<{fingerprint: string; key: string} | null>(null);
+  const initializedGenerationJobRef = useRef<string | null>(null);
   const {allowNextNavigation} = useUnsavedChangesGuard(
-    (isCreateRoute || isEditRoute) && dirty,
+    (isCreateRoute || isReferenceEditorRoute) && dirty,
     t('referenceLibrary.unsaved.description'),
   );
   const generation = useReferenceGenerationJob(projectId, referenceId, jobId);
@@ -141,6 +164,7 @@ export default function ReferenceWorkspacePage() {
     if (!projectId || !referenceId) {
       setReference(null);
       setVersions([]);
+      setSelectedVersionId(null);
       setLoading(false);
       return;
     }
@@ -154,7 +178,16 @@ export default function ReferenceWorkspacePage() {
       .then(([referenceResponse, versionsResponse]) => {
         const nextReference = referenceResponse.data;
         setReference(nextReference);
-        setVersions(versionsResponse.data.items);
+        const nextVersions = versionsResponse.data.items;
+        setVersions(nextVersions);
+        setSelectedVersionId((current) => (
+          current && (
+            nextVersions.some(({id}) => id === current)
+            || (Boolean(jobId) && current.startsWith('variant:'))
+          )
+            ? current
+            : nextReference.activeVersion?.id ?? nextVersions[0]?.id ?? null
+        ));
         setTitle(nextReference.title);
         setCategory(nextReference.category);
         setDescription(nextReference.description ?? '');
@@ -169,17 +202,27 @@ export default function ReferenceWorkspacePage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [jobId, projectId, referenceId, revision]);
+  }, [jobId, projectId, referenceId, revision, routeMode]);
 
   useEffect(() => {
     setSelectedVariantId(null);
+    setSelectedVersionId(null);
   }, [jobId]);
 
   useEffect(() => {
-    if (generation.job?.status !== 'completed' || selectedVariantId) return;
+    if (!jobId) {
+      initializedGenerationJobRef.current = null;
+      return;
+    }
+    if (
+      generation.job?.status !== 'completed'
+      || initializedGenerationJobRef.current === jobId
+    ) return;
+    initializedGenerationJobRef.current = jobId;
     const firstGenerated = generation.job.variants.find((variant) => variant.status === 'generated');
     setSelectedVariantId(firstGenerated?.id ?? null);
-  }, [generation.job, selectedVariantId]);
+    if (firstGenerated) setSelectedVersionId(`variant:${firstGenerated.id}`);
+  }, [generation.job, jobId]);
 
   const categories = useMemo(
     () => (capabilities?.categories.map(({key}) => key) ?? FALLBACK_CATEGORIES).map((key) => ({
@@ -191,8 +234,24 @@ export default function ReferenceWorkspacePage() {
   const canEdit = capabilities?.permissions.canEdit ?? false;
   const canGenerate = capabilities?.permissions.canRunGeneration
     && capabilities.generation.canGenerate;
-  const editable = (isCreateRoute || isEditRoute) && canEdit;
-  const activeImage = reference?.activeVersion?.imageUrl || reference?.activeVersion?.thumbnailUrl || '';
+  const editable = (isCreateRoute || isReferenceEditorRoute) && canEdit;
+  const selectedGeneratedVariant = generation.job?.variants.find((variant) => (
+    `variant:${variant.id}` === selectedVersionId && variant.status === 'generated'
+  )) ?? null;
+  const selectedVersion = versions.find(({id}) => id === selectedVersionId)
+    ?? (selectedGeneratedVariant ? null : reference?.activeVersion)
+    ?? null;
+  const activeImage = usesEditLayout
+    ? selectedGeneratedVariant?.imageUrl
+      || selectedGeneratedVariant?.thumbnailUrl
+      || selectedVersion?.imageUrl
+      || selectedVersion?.thumbnailUrl
+      || ''
+    : reference?.activeVersion?.imageUrl || reference?.activeVersion?.thumbnailUrl || '';
+
+  useEffect(() => {
+    setPreviewLoadState(activeImage ? 'loading' : 'empty');
+  }, [activeImage, previewReloadKey]);
 
   const markDirty = () => setDirty(true);
   const handleTitleChange = (value: string) => { setTitle(value); markDirty(); };
@@ -200,10 +259,25 @@ export default function ReferenceWorkspacePage() {
   const handleDescriptionChange = (value: string) => { setDescription(value); markDirty(); };
   const handleBriefChange = (value: ReferenceBrief) => { setBrief(value); markDirty(); };
   const handleTagsChange = (value: string[]) => { setTags(value); markDirty(); };
+  const handlePreviewSelect = (value: string) => {
+    setSelectedVersionId(value);
+    setSelectedVariantId(value.startsWith('variant:') ? value.slice('variant:'.length) : null);
+  };
+  const cancelEdit = () => {
+    if (!reference) return;
+    setTitle(reference.title);
+    setCategory(reference.category);
+    setDescription(reference.description ?? '');
+    setBrief(reference.brief ?? EMPTY_BRIEF);
+    setTags(reference.tags ?? []);
+    setDirty(false);
+    setError(null);
+  };
 
   const save = async () => {
     const validationKey = requiredTitle(title);
     if (validationKey) {
+      setActiveInspectorTab('main');
       setError(t(`referenceLibrary.validation.${validationKey}`));
       return;
     }
@@ -241,28 +315,40 @@ export default function ReferenceWorkspacePage() {
     }
   };
 
-  const upload = async (file: File) => {
-    if (!referenceId || !reference || !capabilities) return;
+  const upload = async (file: File): Promise<boolean> => {
+    if (!referenceId || !reference || !capabilities) return false;
     if (dirty) {
       setError(t('referenceLibrary.validation.saveBeforeMediaAction'));
-      return;
+      return false;
     }
     setUploading(true);
     setError(null);
     try {
-      await referenceApi.uploadVersion(
+      const response = await referenceApi.uploadVersion(
         projectId,
         referenceId,
         file,
         reference.version,
         capabilities.upload.rightsStatementVersion,
       );
+      setSelectedVersionId(response.data.activeVersion.id);
       message.success(t('referenceLibrary.upload.success'));
       setRevision((value) => value + 1);
+      return true;
     } catch (requestError: unknown) {
       setError(referenceErrorDescriptor(requestError).message);
+      return false;
     } finally {
       setUploading(false);
+    }
+  };
+
+  const confirmUpload = async () => {
+    if (!pendingUploadFile || !uploadRightsConfirmed) return;
+    const uploaded = await upload(pendingUploadFile);
+    if (uploaded) {
+      setPendingUploadFile(null);
+      setUploadRightsConfirmed(false);
     }
   };
 
@@ -357,7 +443,7 @@ export default function ReferenceWorkspacePage() {
           message.success(t('referenceLibrary.variants.applied', {
             version: response.data.activeVersion.number,
           }));
-          navigate(referenceDetailPath(projectId, referenceId), {replace: true});
+          navigate(referenceEditPath(projectId, referenceId), {replace: true});
         } catch (requestError: unknown) {
           setError(referenceErrorDescriptor(requestError).message);
           throw requestError;
@@ -407,10 +493,63 @@ export default function ReferenceWorkspacePage() {
   const titleForBreadcrumb = isCreateRoute
     ? t('referenceLibrary.create.title')
     : reference?.title || t('referenceLibrary.detail.title');
+  const generationInProgress = Boolean(jobId && !generation.errorMessage && !generation.isTerminal);
+  const busy = saving || uploading || actionLoading || generationInProgress;
+  const editDisabled = !editable || busy;
+  const persistedVersionItems = versions.map((version) => {
+    const imageUrl = version.thumbnailUrl || version.imageUrl || '';
+    return {
+      id: version.id,
+      imageUrl: imageUrl ? backendAssetUrl(imageUrl) : '',
+      label: `v${version.number} · ${t(`referenceLibrary.versions.origin.${version.origin ?? 'upload'}`)}`,
+      primary: version.id === reference?.activeVersion?.id,
+    };
+  });
+  const generatedVersionItems = generation.job?.status === 'completed'
+    ? generation.job.variants.flatMap((variant, index) => {
+      const imageUrl = variant.thumbnailUrl || variant.imageUrl || '';
+      return variant.status === 'generated' && imageUrl ? [{
+        id: `variant:${variant.id}`,
+        imageUrl: backendAssetUrl(imageUrl),
+        label: t('referenceLibrary.variants.item', {number: index + 1}),
+      }] : [];
+    })
+    : [];
+  const versionItems = [...persistedVersionItems, ...generatedVersionItems];
+  const editInspectorItems = [
+    {
+      key: 'main',
+      label: t('referenceLibrary.editor.tabs.main'),
+      children: (
+        <MainSettingsTab
+          category={category}
+          description={description}
+          disabled={editDisabled}
+          onCategoryChange={handleCategoryChange}
+          onDescriptionChange={handleDescriptionChange}
+        />
+      ),
+    },
+    {
+      key: 'appearance',
+      label: t('referenceLibrary.editor.tabs.appearance'),
+      children: (
+        <AppearanceSettingsTab
+          brief={brief}
+          category={category}
+          disabled={editDisabled}
+          onBriefChange={handleBriefChange}
+        />
+      ),
+    },
+  ];
 
   return (
     <ReferenceLibraryShell projectId={projectId} currentTitle={titleForBreadcrumb}>
-      <main className="reference-workspace">
+      <main className={usesEditLayout
+        ? 'visual-reference-editor visual-reference-edit-page'
+        : 'reference-workspace'}
+      >
         {loading ? (
           <div className="reference-workspace__loading"><Skeleton active paragraph={{rows: 10}} /></div>
         ) : error && !reference && !isCreateRoute ? (
@@ -420,6 +559,229 @@ export default function ReferenceWorkspacePage() {
             subTitle={error}
             extra={<Button icon={<ReloadOutlined />} onClick={() => setRevision((value) => value + 1)}>{t('common.retry')}</Button>}
           />
+        ) : usesEditLayout && reference && referenceId ? (
+          <>
+            <div className="visual-reference-edit-page__top">
+              <VisualReferenceHeader
+                beforeSaveActions={(
+                  <>
+                  <Button
+                    size="middle"
+                    className="craft-action-button craft-action-button--secondary"
+                    icon={<ArrowLeftOutlined />}
+                    aria-label={t('common.back')}
+                    onClick={() => navigate(referenceLibraryPath(projectId))}
+                  >
+                    {t('common.back')}
+                  </Button>
+                  <Button
+                    size="middle"
+                    className="craft-action-button craft-action-button--secondary"
+                    disabled={busy}
+                    onClick={cancelEdit}
+                  >
+                    {t('common.clear')}
+                  </Button>
+                  </>
+                )}
+                canSave={editable && dirty && !busy}
+                disabled={!editable || busy}
+                saving={saving}
+                title={title}
+                onSave={() => void save()}
+                onTitleChange={handleTitleChange}
+              />
+
+              {(error || (!canEdit && capabilities)) && (
+                <div className="visual-reference-edit-page__messages">
+                {!canEdit && capabilities && (
+                  <Alert type="info" showIcon message={t('referenceLibrary.readOnly')} />
+                )}
+                {error && (
+                  <Alert
+                    type="error"
+                    showIcon
+                    closable
+                    message={error}
+                    onClose={() => setError(null)}
+                  />
+                )}
+                </div>
+              )}
+            </div>
+
+            <div className="visual-reference-editor__workspace">
+              <section
+                className="visual-reference-stage visual-reference-edit-stage"
+                aria-label={t('referenceLibrary.editor.canvas.label')}
+              >
+                <input
+                  ref={fileInputRef}
+                  className="visual-reference-file-input"
+                  type="file"
+                  accept={capabilities?.upload.mimeTypes.join(',')}
+                  disabled={editDisabled || dirty}
+                  aria-label={t('referenceLibrary.editor.empty.upload')}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      setPendingUploadFile(file);
+                      setUploadRightsConfirmed(false);
+                    }
+                    event.target.value = '';
+                  }}
+                />
+
+                <div className="visual-reference-canvas visual-reference-edit-canvas">
+                  {activeImage ? (
+                    <>
+                      <div className={`visual-reference-canvas__image-wrap is-${previewLoadState}`}>
+                        <img
+                          key={`${activeImage}:${previewReloadKey}`}
+                          src={backendAssetUrl(activeImage)}
+                          alt={t('referenceLibrary.preview.alt', {title})}
+                          onLoad={() => setPreviewLoadState('ready')}
+                          onError={() => setPreviewLoadState('error')}
+                        />
+                      </div>
+                      {previewLoadState === 'loading' && (
+                        <div className="visual-reference-edit-canvas__state" role="status">
+                          <ReloadOutlined spin />
+                          <span>{t('common.loading')}</span>
+                        </div>
+                      )}
+                      {previewLoadState === 'error' && (
+                        <div className="visual-reference-edit-canvas__state" role="alert">
+                          <PictureOutlined />
+                          <span>{t('referenceLibrary.errors.loadDetail')}</span>
+                          <Button
+                            icon={<ReloadOutlined />}
+                            onClick={() => setPreviewReloadKey((value) => value + 1)}
+                          >
+                            {t('common.retry')}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="visual-reference-empty">
+                      <span className="visual-reference-empty__icon"><PictureOutlined /></span>
+                      <h2>{t('referenceLibrary.preview.empty')}</h2>
+                    </div>
+                  )}
+                  {selectedVersion && (
+                    <span className="visual-reference-edit-canvas__version">v{selectedVersion.number}</span>
+                  )}
+                  {!selectedVersion && selectedGeneratedVariant && (
+                    <span className="visual-reference-edit-canvas__version">
+                      {t('referenceLibrary.variants.item', {
+                        number: selectedGeneratedVariant.index + 1,
+                      })}
+                    </span>
+                  )}
+                </div>
+
+                <div className="visual-reference-edit-stage__actions">
+                  <Button
+                    type="primary"
+                    size="middle"
+                    icon={<ReloadOutlined />}
+                    aria-label={t('referenceLibrary.editor.generate.more')}
+                    disabled={!canGenerate || dirty || reference.status === 'archived' || busy}
+                    loading={actionLoading}
+                    onClick={() => void enqueue()}
+                  >
+                    {t('referenceLibrary.editor.generate.more')}
+                  </Button>
+                  <Button
+                    size="middle"
+                    icon={<UploadOutlined />}
+                    aria-label={t('referenceLibrary.editor.empty.upload')}
+                    disabled={editDisabled || dirty}
+                    loading={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {t('referenceLibrary.editor.empty.upload')}
+                  </Button>
+                  {selectedGeneratedVariant && generation.job?.status === 'completed' && (
+                    <Button
+                      type="primary"
+                      size="middle"
+                      disabled={!canEdit || applying}
+                      loading={applying}
+                      onClick={applySelected}
+                    >
+                      {t('referenceLibrary.variants.apply')}
+                    </Button>
+                  )}
+                </div>
+
+                {jobId && generation.loading && (
+                  <div className="visual-reference-edit-stage__job"><Skeleton active paragraph={{rows: 2}} /></div>
+                )}
+                {jobId && generation.errorMessage && (
+                  <div className="visual-reference-edit-stage__job">
+                    <Alert
+                      type="error"
+                      showIcon
+                      message={generation.errorMessage}
+                      action={<Button onClick={generation.refresh}>{t('common.retry')}</Button>}
+                    />
+                  </div>
+                )}
+                {generation.job && (
+                  <div className="visual-reference-edit-stage__job">
+                    <ReferenceJobState
+                      actionLoading={actionLoading}
+                      job={generation.job}
+                      onCancel={() => void cancelJob()}
+                      onRetry={() => void retryJob()}
+                    />
+                  </div>
+                )}
+              </section>
+
+              <VisualInspectorShell
+                activeTab={activeInspectorTab}
+                items={editInspectorItems}
+                onTabChange={(value) => {
+                  if (value === 'main' || value === 'appearance') setActiveInspectorTab(value);
+                }}
+                bottomContent={(
+                  <VisualReferenceVersions
+                    items={versionItems}
+                    selectedId={selectedVersionId}
+                    onSelect={handlePreviewSelect}
+                  />
+                )}
+              />
+            </div>
+            <Modal
+              open={Boolean(pendingUploadFile)}
+              title={t('referenceLibrary.upload.title')}
+              okText={t('referenceLibrary.upload.action')}
+              cancelText={t('common.cancel')}
+              confirmLoading={uploading}
+              okButtonProps={{disabled: !uploadRightsConfirmed}}
+              onCancel={() => {
+                if (uploading) return;
+                setPendingUploadFile(null);
+                setUploadRightsConfirmed(false);
+              }}
+              onOk={() => void confirmUpload()}
+            >
+              <p>{t('referenceLibrary.upload.helper', {
+                maxMb: Math.round((capabilities?.upload.maxBytes ?? 0) / 1024 / 1024),
+              })}</p>
+              <Checkbox
+                checked={uploadRightsConfirmed}
+                disabled={uploading}
+                onChange={(event) => setUploadRightsConfirmed(event.target.checked)}
+              >
+                {t('referenceLibrary.upload.rights')}
+              </Checkbox>
+            </Modal>
+          </>
         ) : (
           <>
             <header className="reference-page-heading reference-workspace__heading">
@@ -623,7 +985,7 @@ export default function ReferenceWorkspacePage() {
                         {isCreateRoute ? t('referenceLibrary.actions.createDraft') : t('referenceLibrary.actions.save')}
                       </Button>
                       {!isCreateRoute && referenceId && (
-                        <Button onClick={() => navigate(referenceDetailPath(projectId, referenceId))}>
+                        <Button onClick={cancelEdit}>
                           {t('common.cancel')}
                         </Button>
                       )}
@@ -634,9 +996,11 @@ export default function ReferenceWorkspacePage() {
             </div>
           </>
         )}
-        <Button className="reference-back-link" onClick={() => navigate(referenceLibraryPath(projectId))}>
-          {t('referenceLibrary.actions.backToLibrary')}
-        </Button>
+        {!usesEditLayout && (
+          <Button className="reference-back-link" onClick={() => navigate(referenceLibraryPath(projectId))}>
+            {t('referenceLibrary.actions.backToLibrary')}
+          </Button>
+        )}
       </main>
     </ReferenceLibraryShell>
   );

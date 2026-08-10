@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   EnvironmentOutlined,
+  PictureOutlined,
   PlusOutlined,
   RightOutlined,
   SoundOutlined,
@@ -16,6 +17,7 @@ const ICONS: Record<QuickActionMock['iconKey'], React.ReactNode> = {
   genVideo: <ThunderboltOutlined />,
   upload: <UploadOutlined />,
   newLocation: <EnvironmentOutlined />,
+  newReference: <PictureOutlined />,
   newCharacter: <UserAddOutlined />,
   newTrack: <SoundOutlined />,
 };

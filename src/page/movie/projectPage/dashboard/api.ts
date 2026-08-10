@@ -358,12 +358,17 @@ const STAT_DEFS: Array<{
   },
   {
     key: 'locations',
-    label: 'Локации',
+    label: 'Визуальная библиотека',
     iconKey: 'locations',
     accent: 'yellow',
     total: 'locationsTotal',
     sub: 'locationsCreated',
-    subLabel: (n) => `${n} ${plural(n, 'создана', 'создано', 'создано')}`,
+    subLabel: (n) => `${n} ${plural(
+      n,
+      'готовый материал',
+      'готовых материала',
+      'готовых материалов',
+    )}`,
   },
 ];
 
@@ -461,7 +466,7 @@ const QUICK_ACTION_VISUALS: Record<string, { iconKey: QuickActionMock['iconKey']
   new_scene: { iconKey: 'newScene', accent: 'blue' },
   generate_video: { iconKey: 'genVideo', accent: 'red' },
   upload_reference: { iconKey: 'upload', accent: 'purple' },
-  create_location: { iconKey: 'newLocation', accent: 'yellow' },
+  create_location: { iconKey: 'newReference', accent: 'yellow' },
   create_character: { iconKey: 'newCharacter', accent: 'purple' },
   create_track: { iconKey: 'newTrack', accent: 'green' },
 };

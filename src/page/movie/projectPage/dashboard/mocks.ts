@@ -95,7 +95,7 @@ export const statsMock: StatMock[] = [
   { key: 'characters', label: 'Персонажи', value: 12, subtitle: '8 активных', iconKey: 'characters', accent: 'purple' },
   { key: 'scenes', label: 'Сцены', value: 24, subtitle: '12 завершено', iconKey: 'scenes', accent: 'blue' },
   { key: 'music', label: 'Музыка', value: 18, subtitle: '6 треков используется', iconKey: 'music', accent: 'green' },
-  { key: 'locations', label: 'Локации', value: 9, subtitle: '6 создано', iconKey: 'locations', accent: 'yellow' },
+  { key: 'locations', label: 'Визуальная библиотека', value: 9, subtitle: '6 готовых материалов', iconKey: 'locations', accent: 'yellow' },
 ];
 
 export interface CharacterMock {
@@ -223,7 +223,7 @@ export const progressLegendMock: ProgressLegendItem[] = [
 export interface QuickActionMock {
   key: string;
   label: string;
-  iconKey: 'newScene' | 'genVideo' | 'upload' | 'newLocation' | 'newCharacter' | 'newTrack';
+  iconKey: 'newScene' | 'genVideo' | 'upload' | 'newLocation' | 'newReference' | 'newCharacter' | 'newTrack';
   accent: AccentColor;
 }
 
@@ -231,7 +231,7 @@ export const quickActionsMock: QuickActionMock[] = [
   { key: 'new-scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
   { key: 'gen-video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
   { key: 'upload-ref', label: 'Загрузить референс', iconKey: 'upload', accent: 'purple' },
-  { key: 'new-location', label: 'Создать локацию', iconKey: 'newLocation', accent: 'yellow' },
+  { key: 'new-location', label: 'Создать визуальную опору', iconKey: 'newReference', accent: 'yellow' },
   { key: 'new-character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
   { key: 'new-track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
 ];

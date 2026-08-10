@@ -1,6 +1,6 @@
 import React from 'react';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
-import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {MemoryRouter, Route, Routes} from 'react-router-dom';
 
 jest.mock('../../../../modules/profile/components/DashboardHeader', () =>
   function MockDashboardHeader() {
@@ -9,6 +9,10 @@ jest.mock('../../../../modules/profile/components/DashboardHeader', () =>
 );
 jest.mock('../../../../modules/profile/api/profileApi');
 jest.mock('./api');
+jest.mock('./ProjectVisualLibrary', () => ({
+  __esModule: true,
+  default: () => <section data-testid="visual-library-section">Визуальная библиотека проекта</section>,
+}));
 
 import {fetchDashboard} from '../../../../modules/profile/api/profileApi';
 import {
@@ -34,16 +38,6 @@ const mockedAdaptProgress = adaptProgress as jest.MockedFunction<typeof adaptPro
 const mockedAdaptProject = adaptProject as jest.MockedFunction<typeof adaptProject>;
 const mockedAdaptQuickActions = adaptQuickActions as jest.MockedFunction<typeof adaptQuickActions>;
 const mockedAdaptStats = adaptStats as jest.MockedFunction<typeof adaptStats>;
-
-const LocationCreationDestination = () => {
-  const location = useLocation();
-  return (
-    <>
-      <div>Создание локации по опоре</div>
-      <div data-testid="location-search">{location.search}</div>
-    </>
-  );
-};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -140,14 +134,14 @@ it('opens Music Studio from the dashboard music statistic', async () => {
   expect(await screen.findByText('Музыкальная студия проекта')).toBeInTheDocument();
 });
 
-it('opens location reference creation for editors and disables it for viewers', async () => {
+it('opens visual reference creation from quick actions for editors only', async () => {
   mockedFetchProjectDashboard.mockResolvedValue({} as never);
   mockedAdaptQuickActions.mockReturnValue([
     {
       accent: 'yellow',
-      iconKey: 'newLocation',
+      iconKey: 'newReference',
       key: 'create_location',
-      label: 'Создать локацию',
+      label: 'Создать визуальную опору',
     },
   ] as never);
 
@@ -155,14 +149,13 @@ it('opens location reference creation for editors and disables it for viewers', 
     <MemoryRouter initialEntries={['/projects/42']}>
       <Routes>
         <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
-        <Route path="/project/:projectId/references/create" element={<LocationCreationDestination />} />
+        <Route path="/project/:projectId/references/create" element={<div>Создание визуальной опоры</div>} />
       </Routes>
     </MemoryRouter>,
   );
 
-  fireEvent.click(await screen.findByRole('button', {name: 'Создать локацию'}));
-  expect(await screen.findByText('Создание локации по опоре')).toBeInTheDocument();
-  expect(screen.getByTestId('location-search')).toHaveTextContent('?category=location');
+  fireEvent.click(await screen.findByRole('button', {name: 'Создать визуальную опору'}));
+  expect(await screen.findByText('Создание визуальной опоры')).toBeInTheDocument();
   unmount();
 
   const viewerProject = mockedAdaptProject({} as never);
@@ -176,11 +169,32 @@ it('opens location reference creation for editors and disables it for viewers', 
     <MemoryRouter initialEntries={['/projects/42']}>
       <Routes>
         <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/project/:projectId/references/create" element={<div>Недоступное создание</div>} />
       </Routes>
     </MemoryRouter>,
   );
 
-  expect(await screen.findByRole('button', {name: /Создать локацию/})).toBeDisabled();
+  const viewerAction = await screen.findByRole('button', {name: /Создать визуальную опору/});
+  expect(viewerAction).toBeDisabled();
+  expect(screen.queryByText('Недоступное создание')).not.toBeInTheDocument();
+});
+
+it('places the visual library before Music Studio', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({} as never);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  const library = await screen.findByTestId('visual-library-section');
+  const music = screen.getByRole('heading', {name: 'Музыкальная студия'}).closest('section');
+  expect(music).not.toBeNull();
+  expect(library.compareDocumentPosition(music as Node) & Node.DOCUMENT_POSITION_FOLLOWING)
+    .toBeTruthy();
 });
 
 it.each([
@@ -215,7 +229,9 @@ it.each([
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', {name: label}));
+    const quickActions = screen.getByRole('heading', {name: 'Быстрые действия'}).closest('.proj-card');
+    expect(quickActions).not.toBeNull();
+    fireEvent.click(await within(quickActions as HTMLElement).findByRole('button', {name: label}));
     expect(await screen.findByText(destinationLabel)).toBeInTheDocument();
   },
 );
