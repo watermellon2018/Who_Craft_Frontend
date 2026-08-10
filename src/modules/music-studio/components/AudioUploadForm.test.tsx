@@ -97,6 +97,22 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+test('shows title and description fields before the file upload area', () => {
+  render(<ControlledUpload />);
+
+  const title = screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder'));
+  const description = screen.getByPlaceholderText(
+    i18n.t('musicStudio.upload.descriptionPlaceholder'),
+  );
+  const dropzone = screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.dropzoneLabel'),
+  });
+
+  expect(title.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(description.compareDocumentPosition(dropzone) & Node.DOCUMENT_POSITION_FOLLOWING)
+    .toBeTruthy();
+});
+
 test('rejects files whose extension is not listed in the capabilities', () => {
   const {container} = render(<ControlledUpload />);
 

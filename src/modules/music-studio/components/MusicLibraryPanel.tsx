@@ -19,7 +19,6 @@ interface MusicLibraryPanelProps {
   loading: boolean;
   mode: 'library' | 'history';
   onCreate: () => void;
-  onFilterChange: (filter: 'active' | 'archived') => void;
   onModeChange: (mode: 'library' | 'history') => void;
   onOpenJob: (jobId: string) => void;
   onOpenTrack: (trackId: number) => void;
@@ -29,7 +28,6 @@ interface MusicLibraryPanelProps {
   query: string;
   selectedJobId?: string;
   selectedTrackId?: number;
-  statusFilter: 'active' | 'archived';
   total: number;
 }
 
@@ -47,7 +45,6 @@ export default function MusicLibraryPanel({
   loading,
   mode,
   onCreate,
-  onFilterChange,
   onModeChange,
   onOpenJob,
   onOpenTrack,
@@ -57,7 +54,6 @@ export default function MusicLibraryPanel({
   query,
   selectedJobId,
   selectedTrackId,
-  statusFilter,
   total,
 }: MusicLibraryPanelProps) {
   const {t} = useTranslation();
@@ -107,27 +103,15 @@ export default function MusicLibraryPanel({
       />
 
       {mode === 'library' && (
-        <>
-          <Input
-            allowClear
-            className="music-library__search"
-            aria-label={t('musicStudio.library.search')}
-            prefix={<SearchOutlined />}
-            placeholder={t('musicStudio.library.searchPlaceholder')}
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-          />
-          <Segmented
-            block
-            className="music-library__status-filter"
-            value={statusFilter}
-            options={[
-              {label: t('musicStudio.library.active'), value: 'active'},
-              {label: t('musicStudio.library.archived'), value: 'archived'},
-            ]}
-            onChange={(value) => onFilterChange(value as 'active' | 'archived')}
-          />
-        </>
+        <Input
+          allowClear
+          className="music-library__search"
+          aria-label={t('musicStudio.library.search')}
+          prefix={<SearchOutlined />}
+          placeholder={t('musicStudio.library.searchPlaceholder')}
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
       )}
 
       {loading ? (
@@ -142,11 +126,7 @@ export default function MusicLibraryPanel({
         <div className="music-library__error" role="alert">{error}</div>
       ) : mode === 'library' ? (
         items.length === 0 ? (
-          <Empty
-            description={statusFilter === 'active'
-              ? t('musicStudio.library.empty')
-              : t('musicStudio.library.emptyArchived')}
-          />
+          <Empty description={t('musicStudio.library.empty')} />
         ) : (
           <div className="music-library__list">
             {items.map((track) => (

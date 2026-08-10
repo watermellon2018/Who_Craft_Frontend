@@ -211,6 +211,44 @@ test('fingerprints reference, target, expected version, and brief changes as new
   expect(musicEnqueueIntentFingerprint(payload, 4)).not.toBe(original);
 });
 
+test('loads only active tracks and toggles the library sidebar', async () => {
+  const listLibrary = musicApi.listLibrary as jest.MockedFunction<typeof musicApi.listLibrary>;
+  renderPage('/project/7/music/create');
+
+  await waitFor(() => expect(listLibrary).toHaveBeenCalledWith(
+    '7',
+    expect.objectContaining({status: 'active'}),
+    expect.any(AbortSignal),
+  ));
+  expect(document.querySelector('.music-library__status-filter')).toBeNull();
+
+  const library = await screen.findByRole('complementary', {
+    name: i18n.t('musicStudio.library.title'),
+  });
+  const region = library.closest('.music-studio-library-region');
+  const content = library.closest('.music-studio-library-content');
+  expect(region).toHaveClass('music-studio-library-region--open');
+  expect(content).toHaveAttribute('aria-hidden', 'false');
+
+  const libraryTrigger = screen.getByRole('button', {name: i18n.t('musicStudio.library.hide')});
+  expect(libraryTrigger).toHaveClass('music-studio-library-trigger');
+  expect(libraryTrigger.parentElement).toBe(region);
+
+  fireEvent.click(libraryTrigger);
+  expect(region).not.toHaveClass('music-studio-library-region--open');
+  expect(content).toHaveAttribute('aria-hidden', 'true');
+
+  const collapsedLibraryTrigger = screen.getByRole('button', {
+    name: i18n.t('musicStudio.library.show'),
+  });
+  expect(collapsedLibraryTrigger).toBe(libraryTrigger);
+  expect(collapsedLibraryTrigger.parentElement).toBe(region);
+
+  fireEvent.click(collapsedLibraryTrigger);
+  expect(region).toHaveClass('music-studio-library-region--open');
+  expect(content).toHaveAttribute('aria-hidden', 'false');
+});
+
 test('preserves AI and upload drafts while switching creation modes', async () => {
   const getCapabilities = musicApi.getCapabilities as jest.MockedFunction<
     typeof musicApi.getCapabilities
@@ -246,10 +284,11 @@ test('preserves AI and upload drafts while switching creation modes', async () =
   });
   expect((await screen.findAllByText('reference.mp3')).length).toBeGreaterThan(0);
   fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
-  expect(screen.getAllByRole('heading', {name: i18n.t('musicStudio.format.title')})).toHaveLength(1);
-  expect(screen.getByRole('radio', {
+  expect(screen.queryByRole('heading', {name: i18n.t('musicStudio.format.title')}))
+    .not.toBeInTheDocument();
+  expect(screen.queryByRole('radio', {
     name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
-  })).toHaveAttribute('aria-checked', 'true');
+  })).not.toBeInTheDocument();
 
   const file = new File(['audio'], 'scene-theme.mp3', {type: 'audio/mpeg'});
   fireEvent.change(await screen.findByLabelText(i18n.t('musicStudio.upload.fileInputLabel')), {
@@ -343,21 +382,15 @@ test('confirms discarding an upload draft before starting AI generation', async 
   ));
 });
 
-test('does not treat the shared format as an upload-file draft', async () => {
+test('does not treat visiting upload mode as an upload-file draft', async () => {
   const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
     jobId: 'job-after-format-change',
   }} as never);
   renderPage('/project/7/music/create');
 
   fireEvent.click(await screen.findByText(i18n.t('musicStudio.create.mode.upload')));
-  const songFormat = screen.getByRole('radio', {
-    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
-  });
-  await waitFor(() => expect(songFormat).not.toBeDisabled());
-  fireEvent.click(songFormat);
-  fireEvent.click(screen.getByRole('radio', {
-    name: new RegExp(i18n.t('musicStudio.brief.mode.instrumental')),
-  }));
+  expect(screen.queryByRole('heading', {name: i18n.t('musicStudio.format.title')}))
+    .not.toBeInTheDocument();
   fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
   fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.brief.title')), {
     target: {value: 'AI generation after format change'},

@@ -166,6 +166,29 @@ export default function AudioUploadForm({
         }}
       />
 
+      <div className="music-upload__fields">
+        <label className="music-upload__field">
+          <span>{t('musicStudio.upload.titleLabel')}</span>
+          <Input
+            maxLength={TITLE_MAX_LENGTH}
+            placeholder={t('musicStudio.upload.titlePlaceholder')}
+            value={value.title}
+            disabled={effectiveDisabled}
+            onChange={(event) => onChange({...value, title: event.target.value})}
+          />
+        </label>
+        <label className="music-upload__field">
+          <span>{t('musicStudio.upload.descriptionLabel')}</span>
+          <Input.TextArea
+            maxLength={DESCRIPTION_MAX_LENGTH}
+            placeholder={t('musicStudio.upload.descriptionPlaceholder')}
+            value={value.description}
+            disabled={effectiveDisabled}
+            onChange={(event) => onChange({...value, description: event.target.value})}
+          />
+        </label>
+      </div>
+
       {!value.file && (
         <div
           role="button"
@@ -293,28 +316,6 @@ export default function AudioUploadForm({
         </div>
       )}
 
-      <div className="music-upload__fields">
-        <label className="music-upload__field">
-          <span>{t('musicStudio.upload.titleLabel')}</span>
-          <Input
-            maxLength={TITLE_MAX_LENGTH}
-            placeholder={t('musicStudio.upload.titlePlaceholder')}
-            value={value.title}
-            disabled={effectiveDisabled}
-            onChange={(event) => onChange({...value, title: event.target.value})}
-          />
-        </label>
-        <label className="music-upload__field">
-          <span>{t('musicStudio.upload.descriptionLabel')}</span>
-          <Input.TextArea
-            maxLength={DESCRIPTION_MAX_LENGTH}
-            placeholder={t('musicStudio.upload.descriptionPlaceholder')}
-            value={value.description}
-            disabled={effectiveDisabled}
-            onChange={(event) => onChange({...value, description: event.target.value})}
-          />
-        </label>
-      </div>
     </section>
   );
 }

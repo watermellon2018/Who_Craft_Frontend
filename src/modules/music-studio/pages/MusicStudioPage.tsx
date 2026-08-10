@@ -134,7 +134,6 @@ export default function MusicStudioPage() {
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [libraryMode, setLibraryMode] = useState<'library' | 'history'>('library');
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active');
   const [dataRevision, setDataRevision] = useState(0);
   const [track, setTrack] = useState<MusicTrackDetail | null>(null);
   const [targetTrack, setTargetTrack] = useState<MusicTrackDetail | null>(null);
@@ -220,7 +219,7 @@ export default function MusicStudioPage() {
             limit: 30,
             offset: 0,
             q: query.trim() || undefined,
-            status: statusFilter,
+            status: 'active',
           }, controller.signal),
           musicApi.listJobs(projectId, {limit: 30, offset: 0}, controller.signal),
         ]);
@@ -238,7 +237,7 @@ export default function MusicStudioPage() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [dataRevision, projectId, query, statusFilter]);
+  }, [dataRevision, projectId, query]);
 
   useEffect(() => {
     if (!projectId || !trackId) {
@@ -617,7 +616,6 @@ export default function MusicStudioPage() {
       <div className="music-page-heading">
         <div>
           <h1>{t('musicStudio.title')}</h1>
-          <p>{t('musicStudio.create.subtitle')}</p>
         </div>
       </div>
       <Segmented
@@ -639,14 +637,14 @@ export default function MusicStudioPage() {
         ]}
         onChange={(mode) => setCreationMode(mode as MusicCreationMode)}
       />
-      <MusicFormatSelector
-        capabilities={capabilities}
-        disabled={creationMode === 'ai'
-          ? !permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)
-          : !permissions.canEdit}
-        value={brief}
-        onChange={changeBrief}
-      />
+      {creationMode === 'ai' && (
+        <MusicFormatSelector
+          capabilities={capabilities}
+          disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
+          value={brief}
+          onChange={changeBrief}
+        />
+      )}
       {targetTrackLoading && <Spin size="small" />}
       {targetTrackError && <Alert type="error" showIcon message={targetTrackError} />}
       {targetTrack && (
@@ -878,10 +876,8 @@ export default function MusicStudioPage() {
             query={query}
             selectedJobId={jobId}
             selectedTrackId={trackId ?? undefined}
-            statusFilter={statusFilter}
             total={libraryTotal}
             onCreate={() => navigate(musicStudioCreatePath(projectId))}
-            onFilterChange={setStatusFilter}
             onModeChange={setLibraryMode}
             onOpenJob={(id) => navigate(musicJobPath(projectId, id))}
             onOpenTrack={(id) => navigate(musicTrackPath(projectId, id))}

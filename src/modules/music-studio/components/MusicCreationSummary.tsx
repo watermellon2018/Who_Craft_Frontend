@@ -146,14 +146,6 @@ export default function MusicCreationSummary({
         </div>
       </section>
 
-      {mode === 'upload' && (
-        <Alert
-          showIcon
-          type="info"
-          message={t('musicStudio.upload.backendUnavailableTitle')}
-          description={t('musicStudio.upload.backendUnavailableDescription')}
-        />
-      )}
       {!canChangeScene && <Alert showIcon type="info" message={t('musicStudio.readOnly')} />}
 
       <div className="music-summary__action">

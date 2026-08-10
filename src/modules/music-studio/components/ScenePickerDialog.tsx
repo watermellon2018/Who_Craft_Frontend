@@ -84,6 +84,7 @@ export default function ScenePickerDialog({
   return (
     <Modal
       className="music-scene-picker"
+      rootClassName="music-scene-picker-root"
       open={open}
       title={mode === 'multiple'
         ? t('musicStudio.scene.assignTitle')
