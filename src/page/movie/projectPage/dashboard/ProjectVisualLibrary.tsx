@@ -1,4 +1,4 @@
-import {ArrowRightOutlined, PictureOutlined} from '@ant-design/icons';
+import {ArrowRightOutlined, PictureOutlined, PlusOutlined} from '@ant-design/icons';
 import React, {useEffect, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 
@@ -8,15 +8,19 @@ import type {ReferenceListItem} from '../../../../modules/reference-library/type
 
 import '../../../../modules/reference-library/referenceLibrary.css';
 
-const DASHBOARD_PAGE_SIZE = 4;
+const DASHBOARD_PAGE_SIZE = 5;
 
 interface Props {
+  canCreate?: boolean;
+  onCreate?: () => void;
   onOpenLibrary: () => void;
   onOpenReference: (referenceId: string) => void;
   projectId: string;
 }
 
 const ProjectVisualLibrary: React.FC<Props> = ({
+  canCreate = false,
+  onCreate,
   onOpenLibrary,
   onOpenReference,
   projectId,
@@ -46,6 +50,12 @@ const ProjectVisualLibrary: React.FC<Props> = ({
 
     return () => controller.abort();
   }, [projectId]);
+
+  const showCreateCard = canCreate && Boolean(onCreate);
+  const visibleItems = items.slice(
+    0,
+    showCreateCard ? DASHBOARD_PAGE_SIZE - 1 : DASHBOARD_PAGE_SIZE,
+  );
 
   return (
     <section className="proj-card proj-visual-library p-5 sm:p-6">
@@ -80,9 +90,24 @@ const ProjectVisualLibrary: React.FC<Props> = ({
         </div>
       )}
 
-      {!loading && !error && items.length > 0 && (
+      {!loading && !error && (showCreateCard || visibleItems.length > 0) && (
         <div className="proj-reference-grid">
-          {items.map((item) => (
+          {showCreateCard && onCreate && (
+            <button
+              type="button"
+              className="proj-create-card proj-reference-create-card"
+              onClick={onCreate}
+              aria-label={t('referenceLibrary.dashboard.create')}
+            >
+              <span className="proj-reference-create-card__icon">
+                <PlusOutlined />
+              </span>
+              <span className="proj-reference-create-card__label">
+                {t('referenceLibrary.dashboard.create')}
+              </span>
+            </button>
+          )}
+          {visibleItems.map((item) => (
             <ReferenceCard
               item={item}
               key={item.id}
@@ -92,7 +117,7 @@ const ProjectVisualLibrary: React.FC<Props> = ({
         </div>
       )}
 
-      {!loading && (error || items.length === 0) && (
+      {!loading && (error || (!showCreateCard && items.length === 0)) && (
         <div className="proj-visual-library__state" role={error ? 'alert' : undefined}>
           <PictureOutlined />
           <span>

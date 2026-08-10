@@ -734,7 +734,7 @@
     "subtitle": "Environments, props, and recurring details that keep a consistent look from scene to scene.",
     "readOnly": "You have view-only access.",
     "loading": "Loading the visual library",
-    "dashboard": {"subtitle": "Environments, props, and recurring project details", "viewAll": "View all", "loading": "Loading materials", "empty": "There are no ready images in the library yet", "error": "Could not load materials"},
+    "dashboard": {"subtitle": "Environments, props, and recurring project details", "viewAll": "View all", "create": "Create visual reference", "loading": "Loading materials", "empty": "There are no ready images in the library yet", "error": "Could not load materials"},
     "editor": {
       "newTitle": "New visual reference",
       "headerTitle": "Visual reference title",

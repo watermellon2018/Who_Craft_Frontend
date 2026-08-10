@@ -32,7 +32,7 @@ beforeEach(() => {
   mockedReferenceApi.list.mockResolvedValue({data: {
     items: [readyReference],
     page: 1,
-    pageSize: 4,
+    pageSize: 5,
     total: 1,
   }} as never);
 });
@@ -55,7 +55,7 @@ it('shows the latest ready images and opens the library or a reference', async (
     {
       ordering: '-updatedAt',
       page: 1,
-      pageSize: 4,
+      pageSize: 5,
       status: 'ready',
     },
     expect.any(AbortSignal),
@@ -64,6 +64,8 @@ it('shows the latest ready images and opens the library or a reference', async (
     'src',
     expect.stringContaining('market-thumb.png'),
   );
+  expect(screen.getByText('Готово')).toBeInTheDocument();
+  expect(screen.getByText('3 сцены')).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', {name: 'Смотреть все'}));
   expect(onOpenLibrary).toHaveBeenCalledTimes(1);
@@ -76,7 +78,7 @@ it('shows a compact empty state when there are no ready images', async () => {
   mockedReferenceApi.list.mockResolvedValue({data: {
     items: [],
     page: 1,
-    pageSize: 4,
+    pageSize: 5,
     total: 0,
   }} as never);
 
@@ -89,4 +91,30 @@ it('shows a compact empty state when there are no ready images', async () => {
   );
 
   expect(await screen.findByText('В библиотеке пока нет готовых изображений')).toBeInTheDocument();
+});
+
+it('shows a create card for editors and opens visual reference creation', async () => {
+  mockedReferenceApi.list.mockResolvedValue({data: {
+    items: [],
+    page: 1,
+    pageSize: 5,
+    total: 0,
+  }} as never);
+  const onCreate = jest.fn();
+
+  render(
+    <ProjectVisualLibrary
+      canCreate
+      projectId="42"
+      onCreate={onCreate}
+      onOpenLibrary={jest.fn()}
+      onOpenReference={jest.fn()}
+    />,
+  );
+
+  const createCard = await screen.findByRole('button', {name: 'Создать визуальную опору'});
+  fireEvent.click(createCard);
+
+  expect(onCreate).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText('В библиотеке пока нет готовых изображений')).not.toBeInTheDocument();
 });

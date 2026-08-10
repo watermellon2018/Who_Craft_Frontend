@@ -1,5 +1,5 @@
 import React from 'react';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
 
 jest.mock('../../../../modules/profile/components/DashboardHeader', () =>
@@ -134,14 +134,14 @@ it('opens Music Studio from the dashboard music statistic', async () => {
   expect(await screen.findByText('Музыкальная студия проекта')).toBeInTheDocument();
 });
 
-it('opens the visual library from quick actions for editors and viewers', async () => {
+it('opens visual reference creation from quick actions for editors only', async () => {
   mockedFetchProjectDashboard.mockResolvedValue({} as never);
   mockedAdaptQuickActions.mockReturnValue([
     {
       accent: 'yellow',
-      iconKey: 'newLocation',
+      iconKey: 'newReference',
       key: 'create_location',
-      label: 'Открыть визуальную библиотеку',
+      label: 'Создать визуальную опору',
     },
   ] as never);
 
@@ -149,13 +149,13 @@ it('opens the visual library from quick actions for editors and viewers', async 
     <MemoryRouter initialEntries={['/projects/42']}>
       <Routes>
         <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
-        <Route path="/project/:projectId/references" element={<div>Вся визуальная библиотека</div>} />
+        <Route path="/project/:projectId/references/create" element={<div>Создание визуальной опоры</div>} />
       </Routes>
     </MemoryRouter>,
   );
 
-  fireEvent.click(await screen.findByRole('button', {name: 'Открыть визуальную библиотеку'}));
-  expect(await screen.findByText('Вся визуальная библиотека')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', {name: 'Создать визуальную опору'}));
+  expect(await screen.findByText('Создание визуальной опоры')).toBeInTheDocument();
   unmount();
 
   const viewerProject = mockedAdaptProject({} as never);
@@ -169,15 +169,14 @@ it('opens the visual library from quick actions for editors and viewers', async 
     <MemoryRouter initialEntries={['/projects/42']}>
       <Routes>
         <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
-        <Route path="/project/:projectId/references" element={<div>Библиотека для просмотра</div>} />
+        <Route path="/project/:projectId/references/create" element={<div>Недоступное создание</div>} />
       </Routes>
     </MemoryRouter>,
   );
 
-  const viewerAction = await screen.findByRole('button', {name: /Открыть визуальную библиотеку/});
-  expect(viewerAction).toBeEnabled();
-  fireEvent.click(viewerAction);
-  expect(await screen.findByText('Библиотека для просмотра')).toBeInTheDocument();
+  const viewerAction = await screen.findByRole('button', {name: /Создать визуальную опору/});
+  expect(viewerAction).toBeDisabled();
+  expect(screen.queryByText('Недоступное создание')).not.toBeInTheDocument();
 });
 
 it('places the visual library before Music Studio', async () => {
@@ -230,7 +229,9 @@ it.each([
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', {name: label}));
+    const quickActions = screen.getByRole('heading', {name: 'Быстрые действия'}).closest('.proj-card');
+    expect(quickActions).not.toBeNull();
+    fireEvent.click(await within(quickActions as HTMLElement).findByRole('button', {name: label}));
     expect(await screen.findByText(destinationLabel)).toBeInTheDocument();
   },
 );

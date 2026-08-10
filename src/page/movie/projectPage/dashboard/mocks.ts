@@ -223,7 +223,7 @@ export const progressLegendMock: ProgressLegendItem[] = [
 export interface QuickActionMock {
   key: string;
   label: string;
-  iconKey: 'newScene' | 'genVideo' | 'upload' | 'newLocation' | 'newCharacter' | 'newTrack';
+  iconKey: 'newScene' | 'genVideo' | 'upload' | 'newLocation' | 'newReference' | 'newCharacter' | 'newTrack';
   accent: AccentColor;
 }
 
@@ -231,7 +231,7 @@ export const quickActionsMock: QuickActionMock[] = [
   { key: 'new-scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
   { key: 'gen-video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
   { key: 'upload-ref', label: 'Загрузить референс', iconKey: 'upload', accent: 'purple' },
-  { key: 'new-location', label: 'Открыть визуальную библиотеку', iconKey: 'newLocation', accent: 'yellow' },
+  { key: 'new-location', label: 'Создать визуальную опору', iconKey: 'newReference', accent: 'yellow' },
   { key: 'new-character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
   { key: 'new-track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
 ];

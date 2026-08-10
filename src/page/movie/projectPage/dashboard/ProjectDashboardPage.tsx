@@ -9,6 +9,7 @@ import PathConstants, {
   musicStudioPath,
   musicTrackPath,
   projectEditPath,
+  referenceCreatePath,
   referenceEditPath,
   referenceLibraryPath,
 } from '../../../../routes/pathConstant';
@@ -107,7 +108,7 @@ function buildEmptyViewModel(): ViewModel {
     quickActions: [
       { key: 'new_scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
       { key: 'generate_video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
-      { key: 'create_location', label: 'Открыть визуальную библиотеку', iconKey: 'newLocation', accent: 'yellow' },
+      { key: 'create_location', label: 'Создать визуальную опору', iconKey: 'newReference', accent: 'yellow' },
       { key: 'create_character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
       { key: 'create_track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
     ],
@@ -245,13 +246,13 @@ export const ProjectDashboardPage: React.FC = () => {
   );
   const handleQuickAction = (key: string) => {
     if (key === 'new_scene') handleOpenScript();
-    if (key === 'create_location' && projectId) navigate(referenceLibraryPath(projectId));
+    if (key === 'create_location' && projectId) navigate(referenceCreatePath(projectId));
     if (key === 'create_character' && projectId) navigate(characterCreatePath(projectId));
     if (key === 'create_track') handleCreateMusic();
   };
   const isQuickActionEnabled = (key: string) =>
     key === 'new_scene'
-    || key === 'create_location'
+    || (key === 'create_location' && Boolean(view.project.permissions?.canEdit))
     || (key === 'create_character' && Boolean(view.project.permissions?.canEdit))
     || (key === 'create_track' && Boolean(view.project.permissions?.canRunGeneration));
 
@@ -597,7 +598,9 @@ export const ProjectDashboardPage: React.FC = () => {
                 />
                 {projectId && (
                   <ProjectVisualLibrary
+                    canCreate={Boolean(view.project.permissions?.canEdit)}
                     projectId={projectId}
+                    onCreate={() => navigate(referenceCreatePath(projectId))}
                     onOpenLibrary={() => navigate(referenceLibraryPath(projectId))}
                     onOpenReference={(referenceId) => (
                       navigate(referenceEditPath(projectId, referenceId))
