@@ -534,11 +534,6 @@ export interface ReferencePage {
   total: number;
 }
 
-export interface ReferenceLinkOptions {
-  characters: Array<{ id: string; name: string; }>;
-  locations: Array<{ id: number; name: string; }>;
-}
-
 export interface ReferenceCreateRequest {
   title: string;
   category: ReferenceCategory;
