@@ -1,4 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {Button} from 'antd';
+import {MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 
 import {fetch_project} from '../../../api/projects/properties/project';
@@ -23,6 +25,7 @@ export default function MusicStudioShell({
 }: MusicStudioShellProps) {
   const {t} = useTranslation();
   const [projectTitle, setProjectTitle] = useState(projectTitleCache.get(projectId) ?? '');
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   useEffect(() => {
     const cached = projectTitleCache.get(projectId);
@@ -59,7 +62,22 @@ export default function MusicStudioShell({
     <>
       <DashboardHeader breadcrumbItems={breadcrumbs} />
       <div className="music-studio-shell">
-        {library}
+        <div className="music-studio-mobile-toolbar">
+          <Button
+            icon={libraryOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            aria-expanded={libraryOpen}
+            onClick={() => setLibraryOpen((open) => !open)}
+          >
+            {libraryOpen
+              ? t('musicStudio.library.hide')
+              : t('musicStudio.library.show')}
+          </Button>
+        </div>
+        <div className={libraryOpen
+          ? 'music-studio-library-region music-studio-library-region--open'
+          : 'music-studio-library-region'}>
+          {library}
+        </div>
         <main className="music-studio-main">{center}</main>
         <aside className="music-studio-inspector" aria-label={t('musicStudio.scene.context')}>
           {inspector}

@@ -38,7 +38,7 @@ import ReferenceDetailRedirect from "./modules/reference-library/pages/Reference
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
 import withAuth from "./utils/auth/check_auth";
-import {CRAFT_ACCENT} from './constants/theme';
+import {CRAFT_ACCENT, CRAFT_ACCENT_HOVER} from './constants/theme';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import NotFoundPage from './page/errors/NotFoundPage';
 import {AUTH_EXPIRED_EVENT} from './api/http';
@@ -154,7 +154,15 @@ const theme = {
             "selectorBg": "#141820",
         },
         "Checkbox": {
-            "colorText": "rgb(27, 29, 34)",
+            "colorText": "#f3f6fa",
+            "colorTextDisabled": "#718196",
+            "colorBgContainer": "#0b1926",
+            "colorBgContainerDisabled": "#152536",
+            "colorBorder": "rgba(255, 255, 255, 0.62)",
+            "colorPrimary": CRAFT_ACCENT,
+            "colorPrimaryHover": CRAFT_ACCENT_HOVER,
+            "colorPrimaryBorder": "rgba(250, 176, 5, 0.4)",
+            "colorWhite": "rgba(0, 0, 0, 0.7)",
         },
         "Radio": {
             "colorText": "rgb(27, 29, 34)",

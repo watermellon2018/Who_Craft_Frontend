@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {fireEvent, render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
 
 import type {MusicBrief, MusicCapabilities, MusicLyricsSection} from '../types';
 import LyricsSectionEditor from './LyricsSectionEditor';
@@ -55,16 +55,6 @@ function ControlledBrief() {
   );
 }
 
-const songDraft: Extract<MusicBrief['content'], {mode: 'song'}> = {
-  lyricsLanguage: 'ru',
-  mode: 'song',
-  sections: [
-    {label: 'Verse 1', text: 'First line\nSecond line', type: 'verse'},
-    {label: 'Chorus', text: 'Keep this chorus', type: 'chorus'},
-  ],
-  vocalStyle: {delivery: 'soft', density: 'sparse', timbre: 'warm'},
-};
-
 function SeedBrief({supportsSeed}: {supportsSeed: boolean}) {
   const [brief, setBrief] = useState<MusicBrief>({...initialBrief, seed: 123});
   return (
@@ -81,47 +71,56 @@ function SeedBrief({supportsSeed}: {supportsSeed: boolean}) {
   );
 }
 
-function DraftPreservingBrief() {
-  const [brief, setBrief] = useState<MusicBrief>({
-    ...initialBrief,
-    content: songDraft,
-    purpose: 'song',
-  });
-  return (
-    <>
-      <MusicBriefForm
-        capabilities={capabilities}
-        value={brief}
-        variantCount={2}
-        onChange={setBrief}
-        onVariantCountChange={() => undefined}
-      />
-      <output data-testid="content-value">{JSON.stringify(brief.content)}</output>
-    </>
-  );
-}
-
-test('keeps every core Sound control visible in instrumental and song modes', () => {
+test('keeps the track controls in Track character and removes Sound', () => {
   render(<ControlledBrief />);
-  for (const label of ['Жанр', 'Длительность', 'Настроение', 'Инструменты', 'Динамика', 'Темп', 'Комментарий']) {
-    expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
+  const characterSection = screen.getByRole('heading', {name: 'Характер трека'}).closest('section');
+  expect(characterSection).not.toBeNull();
+
+  for (const label of [
+    'Название',
+    'Назначение',
+    'Жанр',
+    'Длительность (сек)',
+    'Настроение',
+    'Темп',
+    'Инструменты',
+    'Динамика',
+    'Желаемое звучание',
+  ]) {
+    expect(within(characterSection as HTMLElement).getAllByLabelText(label).length)
+      .toBeGreaterThan(0);
   }
 
-  fireEvent.click(screen.getByText('Песня с текстом'));
-  expect(screen.getAllByLabelText('Жанр').length).toBeGreaterThan(0);
-  expect(screen.getAllByLabelText('Комментарий').length).toBeGreaterThan(0);
+  const instruments = within(characterSection as HTMLElement)
+    .getAllByLabelText('Инструменты')[0]
+    .closest('.ant-form-item');
+  const energy = within(characterSection as HTMLElement)
+    .getAllByLabelText('Динамика')[0]
+    .closest('.ant-form-item');
+  expect(instruments?.nextElementSibling).toBe(energy);
+  expect(instruments).not.toHaveClass('music-form-grid__wide');
+  expect(energy).not.toHaveClass('music-form-grid__wide');
+  expect(screen.queryByRole('heading', {name: 'Звучание'})).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Дополнительные настройки')).toBeInTheDocument();
 });
 
-test('restores the exact song draft after temporarily switching to instrumental mode', () => {
-  render(<DraftPreservingBrief />);
+test('offers up to five generation variants', () => {
+  const onVariantCountChange = jest.fn();
+  render(
+    <MusicBriefForm
+      capabilities={capabilities}
+      value={initialBrief}
+      variantCount={2}
+      onChange={() => undefined}
+      onVariantCountChange={onVariantCountChange}
+    />,
+  );
 
-  fireEvent.click(screen.getByText('Инструментал'));
-  expect(JSON.parse(screen.getByTestId('content-value').textContent ?? '')).toEqual({
-    mode: 'instrumental',
-  });
-
-  fireEvent.click(screen.getByText('Песня с текстом'));
-  expect(JSON.parse(screen.getByTestId('content-value').textContent ?? '')).toEqual(songDraft);
+  fireEvent.click(screen.getByText('Дополнительные настройки'));
+  const variantControl = screen.getByLabelText('Количество вариантов');
+  expect(within(variantControl).getByText('5')).toBeInTheDocument();
+  fireEvent.click(within(variantControl).getByText('5'));
+  expect(onVariantCountChange).toHaveBeenCalledWith(5);
 });
 
 test('shows and keeps seed in the brief only when the capability is enabled', () => {

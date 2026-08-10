@@ -98,6 +98,17 @@ const track: MusicTrackDetail = {
   }],
 };
 
+const referenceAsset = {
+  assetId: 'reference-1',
+  audioUrl: '/media/reference.mp3',
+  audioUrlExpiresAt: null,
+  durationSeconds: 12,
+  localVerificationStatus: 'accepted' as const,
+  mimeType: 'audio/mpeg',
+  name: 'reference.mp3',
+  providerModerationStatus: 'pending' as const,
+};
+
 function completedTargetJob(): MusicGenerationJob {
   return {
     attempts: 1,
@@ -199,6 +210,173 @@ test('fingerprints reference, target, expected version, and brief changes as new
   }, null)).not.toBe(original);
   expect(musicEnqueueIntentFingerprint(payload, 4)).not.toBe(original);
 });
+
+test('preserves AI and upload drafts while switching creation modes', async () => {
+  const getCapabilities = musicApi.getCapabilities as jest.MockedFunction<
+    typeof musicApi.getCapabilities
+  >;
+  getCapabilities.mockResolvedValue({data: {
+    ...capabilities,
+    audioReference: {...capabilities.audioReference, supported: true},
+  }} as never);
+  jest.spyOn(musicApi, 'uploadReference').mockResolvedValue({data: referenceAsset} as never);
+  const pauseSpy = jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation();
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: jest.fn(() => 'blob:page-upload-preview'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: jest.fn(),
+  });
+  renderPage('/project/7/music/create');
+
+  const aiTitle = await screen.findByLabelText(i18n.t('musicStudio.brief.title'));
+  await waitFor(() => expect(screen.getByRole('button', {
+    name: i18n.t('musicStudio.scene.choose'),
+  })).not.toBeDisabled());
+  fireEvent.change(aiTitle, {target: {value: 'Preserved AI draft'}});
+  const songFormat = screen.getByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
+  });
+  fireEvent.click(songFormat);
+  expect(songFormat).toHaveAttribute('aria-checked', 'true');
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.reference.choose')), {
+    target: {files: [new File(['reference'], 'reference.mp3', {type: 'audio/mpeg'})]},
+  });
+  expect((await screen.findAllByText('reference.mp3')).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  expect(screen.getAllByRole('heading', {name: i18n.t('musicStudio.format.title')})).toHaveLength(1);
+  expect(screen.getByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
+  })).toHaveAttribute('aria-checked', 'true');
+
+  const file = new File(['audio'], 'scene-theme.mp3', {type: 'audio/mpeg'});
+  fireEvent.change(await screen.findByLabelText(i18n.t('musicStudio.upload.fileInputLabel')), {
+    target: {files: [file]},
+  });
+  fireEvent.change(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')), {
+    target: {value: 'Preserved upload draft'},
+  });
+  fireEvent.play(await screen.findByLabelText(i18n.t('musicStudio.upload.previewLabel')));
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  expect(pauseSpy).toHaveBeenCalled();
+  expect(await screen.findByLabelText(i18n.t('musicStudio.brief.title'))).toHaveValue(
+    'Preserved AI draft',
+  );
+  expect(screen.getAllByText('reference.mp3').length).toBeGreaterThan(0);
+  expect(screen.getByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
+  })).toHaveAttribute('aria-checked', 'true');
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  expect((await screen.findAllByText('scene-theme.mp3')).length).toBeGreaterThan(0);
+  expect(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder'))).toHaveValue(
+    'Preserved upload draft',
+  );
+});
+
+test.each([
+  {aiDisabled: false, canEdit: false, canRunGeneration: true, uploadDisabled: true},
+  {aiDisabled: true, canEdit: true, canRunGeneration: false, uploadDisabled: false},
+])('uses the matching permission for scene context %#', async ({
+  aiDisabled,
+  canEdit,
+  canRunGeneration,
+  uploadDisabled,
+}) => {
+  const listLibrary = musicApi.listLibrary as jest.MockedFunction<typeof musicApi.listLibrary>;
+  listLibrary.mockResolvedValue({data: {
+    items: [],
+    page: {limit: 30, offset: 0, total: 0},
+    permissions: {canEdit, canRunGeneration},
+  }} as never);
+  renderPage('/project/7/music/create');
+
+  const sceneButtonName = i18n.t('musicStudio.scene.choose');
+  await waitFor(() => {
+    const button = screen.getByRole('button', {name: sceneButtonName});
+    if (aiDisabled) expect(button).toBeDisabled();
+    else expect(button).not.toBeDisabled();
+  });
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  await waitFor(() => {
+    const button = screen.getByRole('button', {name: sceneButtonName});
+    if (uploadDisabled) expect(button).toBeDisabled();
+    else expect(button).not.toBeDisabled();
+  });
+});
+
+test('confirms discarding an upload draft before starting AI generation', async () => {
+  const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
+    jobId: 'job-after-upload-draft',
+  }} as never);
+  renderPage('/project/7/music/create');
+
+  fireEvent.click(await screen.findByText(i18n.t('musicStudio.create.mode.upload')));
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.upload.fileInputLabel')), {
+    target: {files: [new File(['audio'], 'local-draft.mp3', {type: 'audio/mpeg'})]},
+  });
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.brief.title')), {
+    target: {value: 'AI generation after draft'},
+  });
+
+  const generate = screen.getByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  });
+  await waitFor(() => expect(generate).not.toBeDisabled());
+  fireEvent.click(generate);
+
+  expect(enqueue).not.toHaveBeenCalled();
+  expect(await screen.findByText(i18n.t('musicStudio.upload.discardDraftTitle')))
+    .toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.discardDraftConfirm'),
+  }));
+
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    '/project/7/music/jobs/job-after-upload-draft',
+  ));
+});
+
+test('does not treat the shared format as an upload-file draft', async () => {
+  const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
+    jobId: 'job-after-format-change',
+  }} as never);
+  renderPage('/project/7/music/create');
+
+  fireEvent.click(await screen.findByText(i18n.t('musicStudio.create.mode.upload')));
+  const songFormat = screen.getByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
+  });
+  await waitFor(() => expect(songFormat).not.toBeDisabled());
+  fireEvent.click(songFormat);
+  fireEvent.click(screen.getByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.instrumental')),
+  }));
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.brief.title')), {
+    target: {value: 'AI generation after format change'},
+  });
+
+  const generate = screen.getByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  });
+  await waitFor(() => expect(generate).not.toBeDisabled());
+  fireEvent.click(generate);
+
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText(i18n.t('musicStudio.upload.discardDraftTitle')))
+    .not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    '/project/7/music/jobs/job-after-format-change',
+  ));
+});
+
 test('starts a new-version job from track detail with the exact target snapshot', async () => {
   const getTrack = musicApi.getTrack as jest.MockedFunction<typeof musicApi.getTrack>;
   getTrack

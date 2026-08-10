@@ -6,6 +6,7 @@ import {useTranslation} from 'react-i18next';
 import type {MusicLyricsSection, MusicLyricsSectionType} from '../types';
 
 interface LyricsSectionEditorProps {
+  disabled?: boolean;
   languages: string[];
   maxChars: number;
   onLanguageChange: (language: string) => void;
@@ -21,6 +22,7 @@ function nextLabel(type: MusicLyricsSectionType, sections: MusicLyricsSection[],
 }
 
 export default function LyricsSectionEditor({
+  disabled = false,
   languages,
   maxChars,
   onLanguageChange,
@@ -72,6 +74,7 @@ export default function LyricsSectionEditor({
       <Select
         id="music-lyrics-language"
         aria-label={t('musicStudio.lyrics.language')}
+        disabled={disabled}
         value={selectedLanguage}
         onChange={onLanguageChange}
         options={languages.map((language) => ({
@@ -86,6 +89,7 @@ export default function LyricsSectionEditor({
             <div className="music-lyrics__section-toolbar">
               <Select
                 aria-label={t('musicStudio.lyrics.sectionType')}
+                disabled={disabled}
                 value={section.type}
                 onChange={(type: MusicLyricsSectionType) => updateSection(index, {
                   label: t(`musicStudio.lyrics.types.${type}`),
@@ -98,26 +102,27 @@ export default function LyricsSectionEditor({
               />
               <Input
                 aria-label={t('musicStudio.lyrics.sectionLabel')}
+                disabled={disabled}
                 value={section.label}
                 onChange={(event) => updateSection(index, {label: event.target.value})}
               />
               <Space size={4}>
                 <Button
                   aria-label={t('musicStudio.lyrics.moveUp')}
-                  disabled={index === 0}
+                  disabled={disabled || index === 0}
                   icon={<UpOutlined />}
                   onClick={() => move(index, -1)}
                 />
                 <Button
                   aria-label={t('musicStudio.lyrics.moveDown')}
-                  disabled={index === sections.length - 1}
+                  disabled={disabled || index === sections.length - 1}
                   icon={<DownOutlined />}
                   onClick={() => move(index, 1)}
                 />
                 <Button
                   aria-label={t('musicStudio.lyrics.removeSection')}
                   danger
-                  disabled={sections.length === 1}
+                  disabled={disabled || sections.length === 1}
                   icon={<DeleteOutlined />}
                   onClick={() => onSectionsChange(sections.filter((_, itemIndex) => itemIndex !== index))}
                 />
@@ -126,6 +131,7 @@ export default function LyricsSectionEditor({
             <Input.TextArea
               aria-label={`${section.label} — ${t('musicStudio.lyrics.text')}`}
               autoSize={{minRows: 3, maxRows: 12}}
+              disabled={disabled}
               maxLength={maxChars}
               placeholder={t('musicStudio.lyrics.placeholder')}
               value={section.text}
@@ -137,7 +143,12 @@ export default function LyricsSectionEditor({
 
       <Space wrap>
         {sectionTypes.map((type) => (
-          <Button key={type} icon={<PlusOutlined />} onClick={() => addSection(type)}>
+          <Button
+            key={type}
+            disabled={disabled}
+            icon={<PlusOutlined />}
+            onClick={() => addSection(type)}
+          >
             {t(`musicStudio.lyrics.add.${type}`)}
           </Button>
         ))}
