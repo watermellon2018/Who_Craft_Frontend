@@ -734,6 +734,24 @@
       "lyrics": "Add lyrics to every song section",
       "lyricsLength": "Lyrics exceed the allowed length"
     },
+    "audioEditor": {
+      "open": "Edit audio",
+      "pageTitle": "Audio track editor",
+      "back": "Back",
+      "save": "Save new version",
+      "saving": "Saving a new version",
+      "duration": "Duration {{duration}}",
+      "source": {"ai": "Created with AI", "uploaded": "Uploaded", "legacy": "Previously added"},
+      "undo": "Undo action",
+      "redo": "Redo action",
+      "tools": {"label": "Editing tools", "select": "Selection", "trim": "Trim to selection", "split": "Split at playhead", "delete": "Delete selection", "fadeIn": "Fade in", "fadeOut": "Fade out", "volume": "Selection volume", "zoomIn": "Zoom in", "zoomOut": "Zoom out"},
+      "timeline": {"label": "Audio track timeline", "loading": "Building the waveform from the audio file…", "hint": "Drag across the waveform to select a range. Click to move the playhead."},
+      "selection": {"title": "Selected range parameters", "empty": "Select a section of the track to edit it", "start": "Start", "end": "End", "duration": "Duration", "gain": "Volume", "fadeIn": "Fade in", "fadeOut": "Fade out"},
+      "transport": {"label": "Playback controls", "toStart": "Go to start", "toEnd": "Go to end", "play": "Play", "pause": "Pause", "masterVolume": "Master volume", "zoom": "Zoom {{zoom}}%"},
+      "status": {"readOnly": "The editor is open in view-only mode. Tools and saving are unavailable."},
+      "errors": {"loadTitle": "Could not open the audio track", "notFoundTitle": "Track not found", "notFoundDescription": "The track may have been deleted or you may not have access to it.", "noAudioTitle": "This track has no audio file", "noAudioDescription": "Choose another version or return to Sound Studio.", "decodeTitle": "Could not read the audio file", "decodeDescription": "The browser may not support the format, the file may be damaged, or its temporary link may have expired.", "retry": "Retry", "returnStudio": "Return to Sound Studio", "saveTitle": "The new version cannot be saved yet", "saveDescription": "The edit is kept locally and does not change the original. Rendering and saving a new version requires a backend API."},
+      "unsaved": {"title": "You have unsaved changes", "description": "Leaving will discard the audio edit.", "leave": "Leave without saving", "stay": "Stay in the editor"}
+    },
     "unsaved": {
       "title": "You have an unsaved draft",
       "description": "Leaving will discard changes to the brief, lyrics, or selected audio file.",

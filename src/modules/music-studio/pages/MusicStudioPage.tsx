@@ -8,8 +8,10 @@ import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router
 import {
   musicJobPath,
   musicStudioCreatePath,
+  musicTrackEditorPath,
   musicTrackPath,
 } from '../../../routes/pathConstant';
+import {currentReturnTo} from '../../../utils/auth/returnTo';
 import type {AppliedTrackContext} from '../api/musicApi';
 import {musicApi, newMusicIdempotencyKey} from '../api/musicApi';
 import AudioReferenceField from '../components/AudioReferenceField';
@@ -839,6 +841,9 @@ export default function MusicStudioPage() {
         musicStudioCreatePath(projectId),
         {expectedTrackVersion: track.version, targetTrackId: track.id},
       ))}
+      onEdit={() => navigate(musicTrackEditorPath(projectId, track.id), {
+        state: {returnTo: currentReturnTo(location)},
+      })}
       onSignedUrlExpired={refreshTrackSignedUrl}
     />
   ) : <Empty />;

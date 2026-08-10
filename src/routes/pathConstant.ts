@@ -26,6 +26,7 @@ const PathConstants = {
     MUSIC_STUDIO_CREATE: '/project/:projectId/music/create',
     MUSIC_STUDIO_JOB: '/project/:projectId/music/jobs/:jobId',
     MUSIC_STUDIO_TRACK: '/project/:projectId/music/tracks/:trackId',
+    MUSIC_STUDIO_TRACK_EDITOR: '/project/:projectId/music/tracks/:trackId/edit',
 
     REFERENCE_LIBRARY: '/project/:projectId/references',
     REFERENCE_LIBRARY_CREATE: '/project/:projectId/references/create',
@@ -76,6 +77,15 @@ export function musicJobPath(projectId: string | number, jobId: string): string 
 
 export function musicTrackPath(projectId: string | number, trackId: string | number): string {
     return PathConstants.MUSIC_STUDIO_TRACK
+        .replace(':projectId', String(projectId))
+        .replace(':trackId', encodeURIComponent(String(trackId)));
+}
+
+export function musicTrackEditorPath(
+    projectId: string | number,
+    trackId: string | number,
+): string {
+    return PathConstants.MUSIC_STUDIO_TRACK_EDITOR
         .replace(':projectId', String(projectId))
         .replace(':trackId', encodeURIComponent(String(trackId)));
 }

@@ -33,6 +33,7 @@ import CharacterReferencesPage from "./modules/character-studio/pages/CharacterR
 import Character3DEditorPage from "./modules/character-studio/pages/Character3DEditorPage";
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
+import AudioTrackEditorPage from "./modules/music-studio/pages/AudioTrackEditorPage";
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
 import ReferenceDetailRedirect from "./modules/reference-library/pages/ReferenceDetailRedirect";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
@@ -57,6 +58,7 @@ const ProtectedProjectPage = withAuth(ProjectPage);
 const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
+const ProtectedAudioTrackEditorPage = withAuth(AudioTrackEditorPage);
 const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
 const ProtectedReferenceDetailRedirect = withAuth(ReferenceDetailRedirect);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
@@ -212,6 +214,7 @@ function App() {
         { key: 'musicStudioCreate', path: PathConstants.MUSIC_STUDIO_CREATE, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioTrack', path: PathConstants.MUSIC_STUDIO_TRACK, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioTrackEditor', path: PathConstants.MUSIC_STUDIO_TRACK_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
         { key: 'referenceLibrary', path: PathConstants.REFERENCE_LIBRARY, component: <ProtectedReferenceLibraryPage /> },
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },

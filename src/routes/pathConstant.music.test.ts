@@ -2,6 +2,7 @@ import {
   musicJobPath,
   musicStudioCreatePath,
   musicStudioPath,
+  musicTrackEditorPath,
   musicTrackPath,
 } from './pathConstant';
 
@@ -10,4 +11,5 @@ test('builds canonical Music Studio routes', () => {
   expect(musicStudioCreatePath(7, 42)).toBe('/project/7/music/create?sceneId=42');
   expect(musicJobPath(7, 'job/a')).toBe('/project/7/music/jobs/job%2Fa');
   expect(musicTrackPath(7, 18)).toBe('/project/7/music/tracks/18');
+  expect(musicTrackEditorPath(7, 18)).toBe('/project/7/music/tracks/18/edit');
 });
