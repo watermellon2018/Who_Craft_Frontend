@@ -78,7 +78,8 @@ export default function CharacterPreview({
   const isGeneratingCurrent =
     generatingImageType === imageType || (imageType !== 'portrait' && isSecondaryActive);
   const hasImage = !!reference && !imageBroken;
-  const canZoneEdit = hasImage && !generatingImageType;
+  const canInteractWithImage = hasImage && !isGeneratingCurrent && !isSecondaryFailed;
+  const canZoneEdit = canInteractWithImage && !generatingImageType;
 
   // --- Drawing state (transient — not yet committed) ---
   const subjectRef = useRef<HTMLDivElement | null>(null);
@@ -284,17 +285,25 @@ export default function CharacterPreview({
         {activeViewMode === 'scene' && <SceneBackdrop />}
         <div
           ref={subjectRef}
-          className={`character-preview-subject character-preview-subject--${activeViewMode}${zoneEditOpen && hasImage ? ' character-preview-subject--zone-edit' : ''}`}
-          onPointerDown={zoneEditOpen && hasImage ? handlePointerDown : undefined}
-          onPointerMove={zoneEditOpen && hasImage ? handlePointerMove : undefined}
-          onPointerUp={zoneEditOpen && hasImage ? handlePointerUp : undefined}
+          className={`character-preview-subject character-preview-subject--${activeViewMode}${zoneEditOpen && canInteractWithImage ? ' character-preview-subject--zone-edit' : ''}`}
+          onPointerDown={zoneEditOpen && canInteractWithImage ? handlePointerDown : undefined}
+          onPointerMove={zoneEditOpen && canInteractWithImage ? handlePointerMove : undefined}
+          onPointerUp={zoneEditOpen && canInteractWithImage ? handlePointerUp : undefined}
           style={
-            zoneEditOpen && hasImage
+            zoneEditOpen && canInteractWithImage
               ? {position: 'relative', cursor: 'crosshair', userSelect: 'none', touchAction: 'none'}
               : {position: 'relative'}
           }
         >
-          {reference && !imageBroken && activeViewMode === 'fullBody' ? (
+          {isGeneratingCurrent ? (
+            <GeneratingState viewMode={activeViewMode} progress={jobProgress ?? currentSecondaryJob?.progress} />
+          ) : isSecondaryFailed ? (
+            <FailedState
+              viewMode={activeViewMode}
+              errorMessage={currentSecondaryJob?.errorMessage}
+              onRetry={() => onRetrySecondary?.(imageType)}
+            />
+          ) : reference && !imageBroken && activeViewMode === 'fullBody' ? (
             <FullBodyCanvas
               imageUrl={reference}
               onImageError={() => setImageBroken(true)}
@@ -306,14 +315,6 @@ export default function CharacterPreview({
               alt={t('characterStudio.preview.altCharacterPreview')}
               preview={false}
               onError={() => setImageBroken(true)}
-            />
-          ) : isGeneratingCurrent ? (
-            <GeneratingState viewMode={activeViewMode} progress={jobProgress ?? currentSecondaryJob?.progress} />
-          ) : isSecondaryFailed ? (
-            <FailedState
-              viewMode={activeViewMode}
-              errorMessage={currentSecondaryJob?.errorMessage}
-              onRetry={() => onRetrySecondary?.(imageType)}
             />
           ) : (
             <div className={`character-preview-empty character-preview-empty--${activeViewMode}`}>
@@ -778,12 +779,13 @@ function getTabStatus(
   generatingImageType?: CharacterImageType | null,
 ): TabStatus {
   if (generatingImageType === imageType) return 'generating';
-  if (character?.images?.[imageType]?.image_url) return 'ready';
   const job = secondaryJobs?.[imageType];
-  if (!job) return 'idle';
-  if (job.status === 'queued' || job.status === 'processing') return 'generating';
-  if (job.status === 'failed') return 'failed';
-  if (job.status === 'completed') return 'ready';
+  if (job) {
+    if (job.status === 'queued' || job.status === 'processing') return 'generating';
+    if (job.status === 'failed') return 'failed';
+    if (job.status === 'completed') return 'ready';
+  }
+  if (character?.images?.[imageType]?.image_url) return 'ready';
   return 'idle';
 }
 

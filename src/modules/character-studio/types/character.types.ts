@@ -388,6 +388,7 @@ export interface CreateCharacterFromReferencePayload {
   refinement?: string;
   variantsCount?: number;
   preserveIdentity?: boolean;
+  imageModel?: string;
   referenceImage: File;
 }
 
@@ -395,4 +396,38 @@ export interface CreateCharacterFromReferenceResponse {
   character: StudioCharacter;
   reference: CharacterAsset;
   generation_job: GenerationJob;
+}
+
+export interface ImageModelCatalogEntry {
+  key: string;
+  label: string;
+  description?: string | null;
+  backend: string;
+  model_id: string;
+  mode: string;
+  supports_generate: boolean;
+  supports_edit: boolean;
+  supports_reference: boolean;
+  supported_parameters: Record<string, ImageModelParameterDescriptor>;
+  input_modalities: string[];
+  output_modalities: string[];
+  default: boolean;
+  configured: boolean;
+  requires_env: string[];
+}
+
+export interface ImageModelParameterDescriptor {
+  type: 'boolean' | 'enum' | 'range' | string;
+  values?: string[];
+  min?: number;
+  max?: number;
+  [key: string]: unknown;
+}
+
+export interface ImageModelCatalog {
+  current: string;
+  source: string;
+  configured: boolean;
+  stored: string | null;
+  available: ImageModelCatalogEntry[];
 }

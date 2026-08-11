@@ -67,6 +67,9 @@ beforeEach(() => {
   mockedApi.generateEdit.mockResolvedValue(makeJobResponse('queued') as never);
   mockedApi.getJob.mockResolvedValue(makeJobResponse('queued') as never);
   mockedApi.applyVariant.mockResolvedValue({data: {}} as never);
+  mockedApi.retryGenerationJob.mockResolvedValue({
+    data: {job_id: 'job-retry', status: 'queued'},
+  } as never);
 });
 
 afterEach(() => {
@@ -128,6 +131,7 @@ describe('useCharacterAssetJobs - explicit launch only', () => {
       'var-sync',
       expect.any(String),
       'full_body',
+      null,
     );
     expect(onCompleted).toHaveBeenCalledTimes(1);
   });
@@ -155,7 +159,8 @@ describe('useCharacterAssetJobs - explicit launch only', () => {
     expect(onCompleted).toHaveBeenCalledTimes(1);
   });
 
-  it('retry reuses the original revision and idempotency key', async () => {
+  it('retries a backend job by its job id', async () => {
+    mockedApi.generateEdit.mockResolvedValue(makeJobResponse('failed', 'job-original') as never);
     const {result} = renderHook(() =>
       useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter()),
     );
@@ -164,13 +169,32 @@ describe('useCharacterAssetJobs - explicit launch only', () => {
       await result.current.launchJob('full_body', REVISION_ID);
       await Promise.resolve();
     });
-    mockedApi.generateEdit.mockClear();
+    await act(async () => {
+      await result.current.retry('full_body');
+    });
+
+    expect(mockedApi.retryGenerationJob).toHaveBeenCalledWith('job-original');
+    expect(result.current.jobs.full_body?.jobId).toBe('job-retry');
+    expect(result.current.jobs.full_body?.status).toBe('queued');
+  });
+
+  it('relaunches by revision when a failed request never received a job id', async () => {
+    mockedApi.generateEdit.mockRejectedValueOnce(new Error('Server error'));
+    const {result} = renderHook(() =>
+      useCharacterAssetJobs(PROJECT_ID, CHARACTER_ID, makeCharacter()),
+    );
+
+    await act(async () => {
+      await result.current.launchJob('full_body', REVISION_ID);
+    });
+    mockedApi.generateEdit.mockResolvedValue(makeJobResponse('queued', 'job-relaunch') as never);
 
     await act(async () => {
       await result.current.retry('full_body');
     });
 
-    expect(mockedApi.generateEdit).toHaveBeenCalledWith(
+    expect(mockedApi.retryGenerationJob).not.toHaveBeenCalled();
+    expect(mockedApi.generateEdit).toHaveBeenLastCalledWith(
       PROJECT_ID,
       CHARACTER_ID,
       expect.objectContaining({image_type: 'full_body'}),

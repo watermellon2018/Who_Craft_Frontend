@@ -39,7 +39,7 @@ import ReferenceDetailRedirect from "./modules/reference-library/pages/Reference
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
 import withAuth from "./utils/auth/check_auth";
-import {CRAFT_ACCENT, CRAFT_ACCENT_HOVER} from './constants/theme';
+import {CRAFT_ACCENT, CRAFT_ACCENT_HOVER, CRAFT_PLACEHOLDER} from './constants/theme';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import NotFoundPage from './page/errors/NotFoundPage';
 import {AUTH_EXPIRED_EVENT} from './api/http';
@@ -101,6 +101,7 @@ const theme = {
         "colorInfo": CRAFT_ACCENT,
         "colorBgBase": "#1b1d22",
         "colorTextBase": "#ffffff",
+        "colorTextPlaceholder": CRAFT_PLACEHOLDER,
         "fontSize": 16,
         "sizeStep": 3,
         "sizeUnit": 3,
@@ -127,7 +128,7 @@ const theme = {
             },
         },
         "Input": {
-            "colorTextPlaceholder": "rgba(250, 176, 5, 0.55)",
+            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
             "colorBorder": "rgb(250, 176, 5)",
             "colorBgContainer": "rgb(27, 29, 34)"
         },
@@ -141,14 +142,14 @@ const theme = {
             "colorPrimaryBorder": "rgb(27, 29, 34)",
         },
         "InputNumber": {
-            "colorTextPlaceholder": "rgb(250, 176, 5, 0.55)",
+            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
             "colorBorder": "rgb(250, 176, 5)",
         },
         "Select": {
             "colorBgContainer": "#141820",
             "colorBgElevated": "#1b2029",
             "colorText": "rgba(255, 255, 255, 0.88)",
-            "colorTextPlaceholder": "#6f7784",
+            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
             "colorBorder": "#3b414d",
             "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
             "optionSelectedColor": CRAFT_ACCENT,

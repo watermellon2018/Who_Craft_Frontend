@@ -2,7 +2,8 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Empty} from 'antd';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
-import DashboardHeader, {BreadcrumbItem} from '../../profile/components/DashboardHeader';
+import DashboardHeader from '../../profile/components/DashboardHeader';
+import type {BreadcrumbItem} from '../../profile/components/DashboardHeader';
 import PathConstants, {characterCreatePath, projectDashboardPath} from '../../../routes/pathConstant';
 import {fetch_project} from '../../../api/projects/properties/project';
 import CharacterTreeSidebar from './CharacterTreeSidebar';
@@ -87,6 +88,8 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
   }, [projectIdKey]);
 
   const {character} = useCharacter(projectId ?? undefined, characterId);
+  const characterName = character?.name;
+  const canOpenCharacterEditor = Boolean(character && character.status !== 'draft');
   const trailing = useTrailingSegment(location.pathname);
   const newCharacterLabel = t('characterStudio.breadcrumbs.newCharacter');
 
@@ -102,24 +105,27 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
     ];
     if (characterId) {
       items.push({
-        label: character?.name || '…',
+        label: characterName || '…',
       });
       if (trailing && trailing !== newCharacterLabel) {
-        // Make the character name clickable (back to its editor) once we have one more level beneath it.
-        const lastIdx = items.length - 1;
-        items[lastIdx] = {
-          ...items[lastIdx],
-          to: PathConstants.CHARACTER_STUDIO_EDITOR
-            .replace(':projectId', String(projectId))
-            .replace(':characterId', String(characterId)),
-        };
+        // Drafts have no confirmed portrait yet, so their breadcrumb must not
+        // open the editor before the user applies an initial variant.
+        if (canOpenCharacterEditor) {
+          const lastIdx = items.length - 1;
+          items[lastIdx] = {
+            ...items[lastIdx],
+            to: PathConstants.CHARACTER_STUDIO_EDITOR
+              .replace(':projectId', String(projectId))
+              .replace(':characterId', String(characterId)),
+          };
+        }
         items.push({label: trailing});
       }
     } else if (trailing) {
       items.push({label: trailing});
     }
     return items;
-  }, [projectId, projectTitle, characterId, character?.name, t, trailing, newCharacterLabel]);
+  }, [canOpenCharacterEditor, characterId, characterName, newCharacterLabel, projectId, projectTitle, t, trailing]);
 
   if (!projectId) {
     return (

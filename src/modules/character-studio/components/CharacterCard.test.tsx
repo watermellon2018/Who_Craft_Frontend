@@ -12,17 +12,32 @@ const character: StudioCharacter = {
   references: [{asset_id: 'asset-1', image_url: 'https://example.com/mira.png', asset_type: 'portrait'}],
 };
 
-test('renders character data and calls edit action', () => {
+test('opens editing from the whole card without rendering a separate Edit button', () => {
   const onEdit = jest.fn();
   const onDelete = jest.fn();
 
   render(<CharacterCard character={character} onEdit={onEdit} onDelete={onDelete} />);
-  fireEvent.click(screen.getByRole('button', {name: /edit/i}));
+  const card = screen.getByRole('button', {name: /редактировать персонажа/i});
+  fireEvent.click(card);
   fireEvent.click(screen.getByRole('button', {name: /удалить персонажа/i}));
 
   expect(screen.getByText('Mira')).toBeInTheDocument();
   expect(screen.getByText('Главный герой')).toBeInTheDocument();
   expect(screen.getByText('locked')).toBeInTheDocument();
+  expect(screen.queryByText('Edit')).not.toBeInTheDocument();
   expect(onEdit).toHaveBeenCalledTimes(1);
   expect(onDelete).toHaveBeenCalledTimes(1);
+});
+
+test('uses a native keyboard-focusable control for editing', () => {
+  const onEdit = jest.fn();
+
+  render(<CharacterCard character={character} onEdit={onEdit} onDelete={jest.fn()} />);
+  const editControl = screen.getByRole('button', {name: /редактировать персонажа/i});
+  editControl.focus();
+  fireEvent.click(editControl);
+
+  expect(editControl.tagName).toBe('BUTTON');
+  expect(editControl).toHaveFocus();
+  expect(onEdit).toHaveBeenCalledTimes(1);
 });

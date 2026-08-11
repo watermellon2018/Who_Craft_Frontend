@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, PlusOutlined } from '@ant-design/icons';
 
 import type { CharacterMock } from './mocks';
 
@@ -58,18 +58,6 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onClick }) => 
             Главная
           </span>
         )}
-
-        <button
-          type="button"
-          className="absolute top-2.5 right-2.5 w-7 h-7 rounded-md flex items-center justify-center text-white/80 hover:text-white"
-          style={{ background: 'rgba(0,0,0,0.35)' }}
-          onClick={(e) => {
-            e.stopPropagation();
-          }}
-          aria-label="More"
-        >
-          <MoreOutlined />
-        </button>
       </div>
       <div className="px-4 py-3.5">
         <div className="text-white text-sm font-semibold leading-tight truncate">
@@ -86,11 +74,24 @@ interface Props {
   characters: CharacterMock[];
   onCreate: () => void;
   onCharacterClick?: (characterId: string) => void;
+  onViewAll: () => void;
 }
 
-const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterClick }) => {
+const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterClick, onViewAll }) => {
   return (
     <section className="proj-card p-5 sm:p-6">
+      <div className="proj-section-header">
+        <h3 className="proj-section-title">Персонажи</h3>
+        <button
+          type="button"
+          className="proj-btn proj-btn-secondary"
+          onClick={onViewAll}
+          aria-label="Смотреть все"
+        >
+          Смотреть все
+          <ArrowRightOutlined />
+        </button>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <button
           type="button"

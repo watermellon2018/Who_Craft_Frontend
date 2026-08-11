@@ -47,12 +47,23 @@ const PAGE_STATE = {
   characterId: CHARACTER_ID,
   characterName: 'Hero',
   sourceTreeNodeId: 'tree-1',
-  generationOptions: {count: 2 as const, creativity: 'balanced' as const, lockSeed: false, seed: ''},
+  generationOptions: {
+    count: 2 as const,
+    creativity: 'balanced' as const,
+    imageModel: 'openrouter-images:openai/gpt-image-1',
+    lockSeed: false,
+    seed: '',
+  },
 };
 
 function CreatePageProbe() {
   const location = useLocation();
   return <><div>Create page</div><pre>{JSON.stringify({path: `${location.pathname}${location.search}`, state: location.state})}</pre></>;
+}
+
+function EditPageProbe() {
+  const location = useLocation();
+  return <><div>Edit page</div><pre>{JSON.stringify(location.state)}</pre></>;
 }
 
 function renderPage(
@@ -74,7 +85,7 @@ function renderPage(
           element={<CharacterVariantsPage />}
         />
         <Route path="/project/:projectId/characters/create" element={<CreatePageProbe />} />
-        <Route path="/project/:projectId/characters/:characterId/edit" element={<div>Edit page</div>} />
+        <Route path="/project/:projectId/characters/:characterId/edit" element={<EditPageProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -82,7 +93,7 @@ function renderPage(
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockedApi.applyVariant.mockResolvedValue({data: {}} as never);
+  mockedApi.applyVariant.mockResolvedValue({data: {revision_id: 'revision-1'}} as never);
   mockedApi.get.mockResolvedValue({data: {
     character_id: CHARACTER_ID,
     project_id: 1,
@@ -100,6 +111,12 @@ beforeEach(() => {
   mockedApi.generateInitial.mockResolvedValue({
     data: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []},
   } as never);
+  mockedApi.generateEdit.mockImplementation(async (_projectId, _characterId, payload) => ({
+    data: {
+      job_id: payload.image_type === 'full_body' ? 'full-body-job' : 'scene-job',
+      status: 'queued',
+    },
+  }) as never);
   mockedApi.listGenerationJobs.mockResolvedValue({data: {jobs: []}} as never);
   mockedApi.requestGenerationJobCancellation.mockResolvedValue({
     data: {job_id: 'job-1', status: 'cancellation_requested', progress: 40, variants: []},
@@ -149,6 +166,7 @@ describe('CharacterVariantsPage – initial state', () => {
         request_payload: {
           variant_count: 2,
           creativity: 'balanced',
+          image_model: 'openrouter-images:black-forest-labs/flux.2-pro',
           visual_style: 'cinematic_realism',
           appearance_description: 'Recovered hero',
           character_type: 'human',
@@ -159,7 +177,7 @@ describe('CharacterVariantsPage – initial state', () => {
       errorMessage: null,
     } as never);
 
-    renderPage({} as never);
+    renderPage({generationOptions: PAGE_STATE.generationOptions} as never);
 
     expect(screen.getByRole('img', {name: 'Вариант 1'})).toBeInTheDocument();
     await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith(PROJECT_ID, CHARACTER_ID));
@@ -167,6 +185,7 @@ describe('CharacterVariantsPage – initial state', () => {
     await waitFor(() => expect(mockedApi.generateInitial).toHaveBeenCalledTimes(1));
     expect(mockedApi.generateInitial.mock.calls[0][2]).toEqual(expect.objectContaining({
       appearance_description: 'Recovered hero',
+      image_model: 'openrouter-images:black-forest-labs/flux.2-pro',
       variant_count: 2,
     }));
   });
@@ -179,14 +198,18 @@ describe('CharacterVariantsPage – initial state', () => {
         status: 'completed',
         progress: 100,
         variants: VARIANTS,
-        request_payload: {variant_count: 2, appearance_description: 'Recovered hero'},
+        request_payload: {
+          variant_count: 2,
+          appearance_description: 'Recovered hero',
+          image_model: 'openrouter-images:google/gemini-2.5-flash-image',
+        },
       },
       loading: false,
       errorStatus: null,
       errorMessage: null,
     } as never);
 
-    renderPage({} as never, 'job-1', 'tree-1');
+    renderPage({generationOptions: PAGE_STATE.generationOptions} as never, 'job-1', 'tree-1');
     await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith(PROJECT_ID, CHARACTER_ID));
     await waitFor(() => expect(screen.getByRole('button', {name: /изменить параметры/i})).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', {name: /изменить параметры/i}));
@@ -196,6 +219,7 @@ describe('CharacterVariantsPage – initial state', () => {
     expect(screen.getByText(/"role":"main"/)).toBeInTheDocument();
     expect(screen.getByText(/"gender":"female"/)).toBeInTheDocument();
     expect(screen.getByText(/"personality_description":"Recovered personality"/)).toBeInTheDocument();
+    expect(screen.getByText(/"imageModel":"openrouter-images:google\/gemini-2.5-flash-image"/)).toBeInTheDocument();
   });
 
   it('uses the URL tree node when Apply follows a refresh', async () => {
@@ -297,6 +321,7 @@ describe('CharacterVariantsPage – Regenerate button', () => {
     expect((payload as Record<string, unknown>).visual_style).toBe('cinematic_realism');
     expect((payload as Record<string, unknown>).appearance_description).toBe('A warrior');
     expect((payload as Record<string, unknown>).image_type).toBe('portrait');
+    expect((payload as Record<string, unknown>).image_model).toBe('openrouter-images:openai/gpt-image-1');
     expect((payload as Record<string, unknown>).variant_count).toBe(2);
   });
 
@@ -433,5 +458,18 @@ describe('CharacterVariantsPage – Continue button', () => {
 
     await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
     expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts full-body and scene generation after applying the portrait', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+
+    await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(2));
+    expect(mockedApi.generateEdit.mock.calls.map((call) => call[2])).toEqual([
+      expect.objectContaining({image_type: 'full_body', region: 'body'}),
+      expect.objectContaining({image_type: 'scene', region: 'style'}),
+    ]);
+    expect(await screen.findByText(/"full_body":"full-body-job"/)).toBeInTheDocument();
+    expect(screen.getByText(/"scene":"scene-job"/)).toBeInTheDocument();
   });
 });

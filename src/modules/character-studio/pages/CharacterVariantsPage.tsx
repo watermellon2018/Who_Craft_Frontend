@@ -8,9 +8,16 @@ import {getApiStatus} from '../../../api/errors';
 import { characterApi } from '../api/characterApi';
 import { notifyCharacterListUpdated, notifyCharacterTreeUpdated } from '../events';
 import { useGenerationJob } from '../hooks/useGenerationJob';
-import {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
+import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
 import GenerationJobHistory from '../components/GenerationJobHistory';
-import type {CharacterVariant, GenerationJob, StudioCharacter} from '../types/character.types';
+import type {
+    CharacterImageType,
+    CharacterRegion,
+    CharacterVariant,
+    GenerationJob,
+    StudioCharacter,
+} from '../types/character.types';
 import {characterToFormValues} from '../types/characterForm';
 import {characterCreatePath} from '../../../routes/pathConstant';
 import './CharacterVariantsPage.css';
@@ -21,6 +28,13 @@ interface VariantsPageState {
   characterName?: string;
   generationOptions?: GenerationOptions;
 }
+const INITIAL_SECONDARY_ASSETS: Array<{
+    imageType: CharacterImageType;
+    region: CharacterRegion;
+}> = [
+    {imageType: 'full_body', region: 'body'},
+    {imageType: 'scene', region: 'style'},
+];
 const VARIANT_GENERATION_JOB_TYPES = ['initial_variants', 'reference_variants'] as const;
 const CANCELLATION_REQUESTED_LABEL = '\u041e\u0442\u043c\u0435\u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u0430';
 const CANCELLATION_REQUESTED_NOTICE = '\u0423\u0436\u0435 \u043d\u0430\u0447\u0430\u0442\u0430\u044f \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c\u0441\u044f, \u043d\u043e \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043d\u0435 \u0431\u0443\u0434\u0435\u0442 \u043f\u0440\u0438\u043c\u0435\u043d\u0451\u043d.';
@@ -38,6 +52,7 @@ function generationOptionsFromJob(job: GenerationJob | null): GenerationOptions 
     return {
         count,
         creativity,
+        imageModel: typeof payload.image_model === 'string' ? payload.image_model : '',
         lockSeed: Boolean(payload.lock_seed),
         seed: payload.seed == null ? '' : String(payload.seed),
     };
@@ -80,7 +95,13 @@ function CharacterVariantsPageContent() {
     const effectiveFormValues = hasFormContext
         ? {...recoveredCharacterValues, ...state.formValues, ...job?.request_payload}
         : undefined;
-    const effectiveGenerationOptions = state.generationOptions ?? generationOptionsFromJob(job);
+    const durableGenerationOptions = generationOptionsFromJob(job);
+    const hasDurableGenerationOptions = Boolean(
+        job?.request_payload && Object.keys(job.request_payload).length > 0,
+    );
+    const effectiveGenerationOptions = hasDurableGenerationOptions
+        ? durableGenerationOptions
+        : {...durableGenerationOptions, ...state.generationOptions};
     const contextMismatch = Boolean(
         job && (
             (job.character_id && String(job.character_id) !== characterId)
@@ -206,6 +227,7 @@ function CharacterVariantsPageContent() {
             const payload = {
                 variant_count: opts.count,
                 image_type: 'portrait',
+                image_model: opts.imageModel,
                 creativity: opts.creativity,
                 seed: opts.lockSeed && opts.seed ? Number(opts.seed) : undefined,
                 lock_seed: opts.lockSeed,
@@ -251,7 +273,13 @@ function CharacterVariantsPageContent() {
         if (!variantId) return;
         setApplying(true);
         try {
-            await characterApi.applyVariant(projectId, characterId, variantId, t('characterStudio.variants.portaitSelected'), 'portrait');
+            const appliedRevision = await characterApi.applyVariant(
+                projectId,
+                characterId,
+                variantId,
+                t('characterStudio.variants.portaitSelected'),
+                'portrait',
+            );
 
             // Tree node creation and list notifications are deferred here so that
             // draft characters never appear in UI lists before the user confirms a variant.
@@ -263,7 +291,43 @@ function CharacterVariantsPageContent() {
             notifyCharacterTreeUpdated();
             notifyCharacterListUpdated();
 
-            navigate(`/project/${projectId}/characters/${characterId}/edit`);
+            const revisionId = appliedRevision.data?.revision_id;
+            let secondaryLaunchFailed = false;
+            const launchedJobs = revisionId
+                ? await Promise.all(INITIAL_SECONDARY_ASSETS.map(async ({imageType, region}) => {
+                    try {
+                        const response = await characterApi.generateEdit(
+                            projectId,
+                            characterId,
+                            {
+                                region,
+                                image_type: imageType,
+                                controls: {},
+                                preserve: {identity: true},
+                                variant_count: 1,
+                                activate_image: true,
+                            },
+                            `${characterId}:${imageType}:${revisionId}`,
+                        );
+                        const nextJobId = response.data?.job_id;
+                        if (!nextJobId) secondaryLaunchFailed = true;
+                        return nextJobId ? [imageType, nextJobId] as const : null;
+                    } catch {
+                        secondaryLaunchFailed = true;
+                        return null;
+                    }
+                }))
+                : [];
+            const secondaryJobIds = Object.fromEntries(
+                launchedJobs.filter((entry): entry is readonly [CharacterImageType, string] => entry !== null),
+            );
+            if (!revisionId || secondaryLaunchFailed) {
+                message.warning(t('characterStudio.editor.generationError'));
+            }
+
+            navigate(`/project/${projectId}/characters/${characterId}/edit`, {
+                state: {secondaryJobIds},
+            });
         } catch {
             message.error(t('characterStudio.variants.selectError'));
         } finally {
