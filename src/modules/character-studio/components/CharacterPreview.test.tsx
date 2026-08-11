@@ -117,6 +117,28 @@ describe('CharacterPreview – fullBody tab', () => {
     expect(img.src).toBe('http://example.com/fb.png');
   });
 
+  it('shows a new queued generation instead of a stale full-body image', () => {
+    const character = makeCharacter({
+      full_body: {image_id: 'i2', image_type: 'full_body', image_url: 'http://example.com/old-fb.png', is_active: true},
+    });
+    const jobs = makeJobs({full_body: {status: 'queued', jobId: 'j2'}});
+    renderPreview({activeViewMode: 'fullBody', character, secondaryJobs: jobs});
+
+    expect(screen.getByText('Генерируем полный рост…')).toBeInTheDocument();
+    expect(screen.queryByAltText('Полный рост персонажа')).toBeNull();
+  });
+
+  it('shows a new generation failure instead of a stale full-body image', () => {
+    const character = makeCharacter({
+      full_body: {image_id: 'i2', image_type: 'full_body', image_url: 'http://example.com/old-fb.png', is_active: true},
+    });
+    const jobs = makeJobs({full_body: {status: 'failed', jobId: 'j2'}});
+    renderPreview({activeViewMode: 'fullBody', character, secondaryJobs: jobs});
+
+    expect(screen.getByText('Ошибка генерации')).toBeInTheDocument();
+    expect(screen.queryByAltText('Полный рост персонажа')).toBeNull();
+  });
+
   it('shows FailedState when full_body job failed', () => {
     const jobs = makeJobs({full_body: {status: 'failed', jobId: 'j1', errorMessage: 'Провайдер не ответил'}});
     renderPreview({activeViewMode: 'fullBody', character: makeCharacter(), secondaryJobs: jobs});
@@ -195,6 +217,16 @@ describe('CharacterPreview – tab status indicators', () => {
     renderPreview({activeViewMode: 'portrait', character: makeCharacter(), secondaryJobs: jobs});
     const dot = document.querySelector('.character-preview-tabs__status--generating');
     expect(dot).not.toBeNull();
+  });
+
+  it('queued job has priority over the ready dot from a stale image', () => {
+    const character = makeCharacter({
+      full_body: {image_id: 'i2', image_type: 'full_body', image_url: 'http://example.com/old-fb.png', is_active: true},
+    });
+    const jobs = makeJobs({full_body: {status: 'queued', jobId: 'j2'}});
+    renderPreview({activeViewMode: 'portrait', character, secondaryJobs: jobs});
+
+    expect(document.querySelector('.character-preview-tabs__status--generating')).not.toBeNull();
   });
 
   it('full_body tab has failed status dot when job failed', () => {

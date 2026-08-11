@@ -148,6 +148,7 @@ export function useCharacterAssetJobs(
             variants[0].variant_id,
             `Автогенерация ${type}`,
             type,
+            null,
           );
         } catch (_) {}
       }
@@ -288,14 +289,50 @@ export function useCharacterAssetJobs(
   }, [activeJobsKey, disabled, handleJobCompleted, ownerKey, updateJob]);
 
   const retry = useCallback(
-    (type: CharacterImageType) => {
-      const revisionId =
-        jobsRef.current.ownerKey === ownerKey
-          ? jobsRef.current.jobs[type]?.revisionId
+    async (type: CharacterImageType): Promise<string | undefined> => {
+      const requestOwnerKey = ownerKey;
+      const currentJob =
+        jobsRef.current.ownerKey === requestOwnerKey
+          ? jobsRef.current.jobs[type]
           : undefined;
-      return revisionId ? launchJob(type, revisionId) : Promise.resolve(undefined);
+      if (currentJob?.jobId) {
+        updateJob(
+          type,
+          {status: 'queued', progress: 0, errorMessage: undefined},
+          requestOwnerKey,
+        );
+        try {
+          const response = await characterApi.retryGenerationJob(currentJob.jobId);
+          if (activeOwnerKeyRef.current !== requestOwnerKey) return undefined;
+          const retryJobId = response.data.job_id;
+          updateJob(
+            type,
+            {
+              jobId: retryJobId,
+              status: mapBackendStatus(response.data.status),
+              progress: 0,
+              errorMessage: undefined,
+            },
+            requestOwnerKey,
+          );
+          return retryJobId;
+        } catch (_) {
+          updateJob(
+            type,
+            {
+              status: 'failed',
+              errorMessage: i18n.t('characterStudio.errors.assetGenerationFailed') as string,
+            },
+            requestOwnerKey,
+          );
+          return undefined;
+        }
+      }
+      return currentJob?.revisionId
+        ? launchJob(type, currentJob.revisionId)
+        : undefined;
     },
-    [launchJob, ownerKey],
+    [launchJob, ownerKey, updateJob],
   );
 
   const markPending = useCallback(

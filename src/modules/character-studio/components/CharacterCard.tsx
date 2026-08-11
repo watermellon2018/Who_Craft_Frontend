@@ -1,6 +1,6 @@
 import React from 'react';
 import {Button, Card, Tag} from 'antd';
-import {CloseOutlined, EditOutlined, LockOutlined} from '@ant-design/icons';
+import {CloseOutlined, LockOutlined} from '@ant-design/icons';
 import {StudioCharacter} from '../types/character.types';
 import {roleLabelMap} from './create/characterCreateOptions';
 
@@ -29,10 +29,32 @@ export default function CharacterCard({character, onEdit, onDelete}: {character:
   const cacheKey = portraitAsset?.asset_id || portraitFallback?.asset_id;
   const image = rawImage ? withCacheBust(rawImage, cacheKey) : undefined;
   return (
-    <Card
-      style={{position: 'relative'}}
-      cover={image ? <img src={image} alt={character.name} style={{height: 220, objectFit: 'cover'}} /> : <div style={{height: 220, display: 'grid', placeItems: 'center', background: '#111318'}}>No image</div>}
-    >
+    <div style={{position: 'relative'}}>
+      <Card
+        style={{position: 'relative'}}
+        cover={image ? <img src={image} alt={character.name} style={{height: 220, objectFit: 'cover'}} /> : <div style={{height: 220, display: 'grid', placeItems: 'center', background: '#111318'}}>No image</div>}
+      >
+        <Card.Meta title={character.name} description={character.role ? (roleLabelMap[character.role] ?? character.role) : 'Роль не указана'} />
+        {character.identity_locked && (
+          <div style={{marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+            <Tag icon={<LockOutlined />} color="gold">locked</Tag>
+          </div>
+        )}
+      </Card>
+      <button
+        aria-label={`Редактировать персонажа «${character.name}»`}
+        onClick={onEdit}
+        type="button"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1,
+          border: 0,
+          borderRadius: 8,
+          background: 'transparent',
+          cursor: 'pointer',
+        }}
+      />
       <Button
         aria-label="Удалить персонажа"
         icon={<CloseOutlined />}
@@ -40,21 +62,8 @@ export default function CharacterCard({character, onEdit, onDelete}: {character:
         size="small"
         type="primary"
         danger
-        style={{position: 'absolute', top: 8, right: 8, zIndex: 1}}
+        style={{position: 'absolute', top: 8, right: 8, zIndex: 2}}
       />
-      <Card.Meta title={character.name} description={character.role ? (roleLabelMap[character.role] ?? character.role) : 'Роль не указана'} />
-      {character.identity_locked && (
-        <div style={{marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap'}}>
-          <Tag icon={<LockOutlined />} color="gold">locked</Tag>
-        </div>
-      )}
-      <Button
-        icon={<EditOutlined />}
-        onClick={onEdit}
-        style={{marginTop: 14, color: '#111318', borderColor: '#111318', fontWeight: 600}}
-      >
-        Edit
-      </Button>
-    </Card>
+    </div>
   );
 }
