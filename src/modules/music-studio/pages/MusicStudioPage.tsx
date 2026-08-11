@@ -489,7 +489,12 @@ export default function MusicStudioPage() {
     returnSearch.set('uploadDraftId', editorDraft.draftId);
     const returnQuery = returnSearch.toString();
     const returnTo = [musicStudioCreatePath(projectId), returnQuery].filter(Boolean).join('?');
-    navigate(musicUploadDraftEditorPath(projectId, editorDraft.draftId), {
+    const editorPath = musicUploadDraftEditorPath(projectId, editorDraft.draftId);
+    flushSync(() => {
+      setAiDirty(false);
+      setUploadDirty(false);
+    });
+    navigate(editorPath, {
       state: {returnTo},
     });
   };

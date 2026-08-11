@@ -1,7 +1,7 @@
 import React, {useEffect, useId, useRef, useState} from 'react';
 import type {DragEvent, KeyboardEvent} from 'react';
 import {DeleteOutlined, EditOutlined, UploadOutlined} from '@ant-design/icons';
-import {Alert, Button, Input} from 'antd';
+import {Alert, Button, Input, Tag} from 'antd';
 import {useTranslation} from 'react-i18next';
 
 import type {MusicCapabilities} from '../types';
@@ -21,7 +21,9 @@ interface AudioUploadError {
 export interface AudioUploadDraft {
   description: string;
   durationSeconds: number | null;
+  edited?: boolean;
   file: File | null;
+  originalFile?: File | null;
   status: 'checking' | 'empty' | 'invalid' | 'ready';
   title: string;
 }
@@ -120,7 +122,14 @@ export default function AudioUploadForm({
     }
 
     setError(null);
-    onChange({...value, durationSeconds: null, file, status: 'checking'});
+    onChange({
+      ...value,
+      durationSeconds: null,
+      edited: false,
+      file,
+      originalFile: file,
+      status: 'checking',
+    });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -140,7 +149,14 @@ export default function AudioUploadForm({
   const removeFile = () => {
     setError(null);
     if (inputRef.current) inputRef.current.value = '';
-    onChange({...value, durationSeconds: null, file: null, status: 'empty'});
+    onChange({
+      ...value,
+      durationSeconds: null,
+      edited: false,
+      file: null,
+      originalFile: null,
+      status: 'empty',
+    });
   };
 
   const duration = formatDuration(value.durationSeconds);
@@ -234,7 +250,11 @@ export default function AudioUploadForm({
           <dl className="music-upload__metadata">
             <div>
               <dt>{t('musicStudio.upload.meta.name')}</dt>
-              <dd>{value.file.name}</dd>
+              <dd>
+                {value.file.name}
+                {' · '}
+                {value.edited && <Tag color="#fbbf24" style={{ color: '#000000' }}>{t('musicStudio.upload.edited')}</Tag>}
+              </dd>
             </div>
             <div>
               <dt>{t('musicStudio.upload.meta.format')}</dt>

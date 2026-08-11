@@ -6,7 +6,11 @@ import i18n from '../../../i18n';
 import PathConstants, {musicUploadDraftEditorPath} from '../../../routes/pathConstant';
 import {audioEditorSaveAdapter} from '../api/audioEditorSaveAdapter';
 import {musicApi} from '../api/musicApi';
-import {saveMusicUploadEditorDraft} from '../editor/musicUploadDraftStore';
+import {
+  getMusicUploadEditorDraft,
+  saveMusicUploadEditorDraft,
+} from '../editor/musicUploadDraftStore';
+import * as audioEditRenderer from '../editor/renderAudioEditFile';
 import type {AudioWaveformState} from '../hooks/useAudioWaveform';
 import {useAudioWaveform} from '../hooks/useAudioWaveform';
 import type {MusicTrackDetail} from '../types';
@@ -188,6 +192,39 @@ test('opens the same editor for a validated local upload without fetching or cop
   expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
 });
 
+test('renders a local edit, updates the upload draft, and returns to the form', async () => {
+  const editedFile = new File(['rendered audio'], 'local-theme-edited.wav', {type: 'audio/wav'});
+  const renderAudioEditFile = jest.spyOn(audioEditRenderer, 'renderAudioEditFile')
+    .mockResolvedValue({durationSeconds: 7.8, file: editedFile});
+  const saveNewVersion = jest.spyOn(audioEditorSaveAdapter, 'saveNewVersion');
+  const {draft} = renderUploadDraftEditor();
+  const timeline = await screen.findByText('waveform');
+
+  fireEvent.click(timeline);
+  fireEvent.click(screen.getByRole('button', {
+    name: new RegExp(i18n.t('musicStudio.audioEditor.tools.trim')),
+  }));
+  fireEvent.click(screen.getByRole('button', {
+    name: new RegExp(i18n.t('musicStudio.audioEditor.save')),
+  }));
+
+  expect(await screen.findByText('upload form')).toBeInTheDocument();
+  const updated = getMusicUploadEditorDraft('7', draft.draftId)?.snapshot.uploadDraft;
+  expect(renderAudioEditFile).toHaveBeenCalledWith(
+    draft.snapshot.uploadDraft.file,
+    expect.any(Object),
+    expect.any(AbortSignal),
+  );
+  expect(saveNewVersion).not.toHaveBeenCalled();
+  expect(updated).toMatchObject({
+    durationSeconds: 7.8,
+    edited: true,
+    file: editedFile,
+    originalFile: draft.snapshot.uploadDraft.file,
+    status: 'ready',
+  });
+});
+
 test('explains how to recover when an in-memory upload draft is lost after refresh', async () => {
   const router = createMemoryRouter([
     {path: PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR, element: <AudioTrackEditorPage />},
@@ -204,7 +241,7 @@ test('explains how to recover when an in-memory upload draft is lost after refre
   expect(URL.createObjectURL).not.toHaveBeenCalled();
 });
 
-test('enables range edits, undo, and honest save failure without mutating the source', async () => {
+test('enables range edits and undo without faking a saved backend version', async () => {
   const saveNewVersion = jest.spyOn(audioEditorSaveAdapter, 'saveNewVersion');
   renderEditor(createTrack());
   const timeline = await screen.findByText('waveform');
@@ -227,7 +264,6 @@ test('enables range edits, undo, and honest save failure without mutating the so
 
   fireEvent.click(saveButton);
   await waitFor(() => expect(saveNewVersion).toHaveBeenCalledTimes(1));
-  expect(screen.getAllByText(i18n.t('musicStudio.audioEditor.errors.saveTitle'))).not.toHaveLength(0);
   expect(screen.queryByText(i18n.t('musicStudio.apply.saved'))).not.toBeInTheDocument();
 
   fireEvent.click(undoButton);

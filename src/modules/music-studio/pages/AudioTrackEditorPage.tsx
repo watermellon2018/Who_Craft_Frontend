@@ -17,7 +17,7 @@ import {
   ZoomInOutlined,
   ZoomOutOutlined,
 } from '@ant-design/icons';
-import {Alert, Button, Empty, InputNumber, Result, Skeleton, Slider, Spin} from 'antd';
+import {Alert, Button, Empty, InputNumber, message, Result, Skeleton, Slider, Spin} from 'antd';
 import React, {
   useCallback,
   useEffect,
@@ -25,6 +25,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import {flushSync} from 'react-dom';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 
@@ -43,7 +44,10 @@ import {
 import {musicApi} from '../api/musicApi';
 import AudioWaveformTimeline from '../components/AudioWaveformTimeline';
 import type {AudioWaveformPeak} from '../editor/audioWaveform';
-import {getMusicUploadEditorDraft} from '../editor/musicUploadDraftStore';
+import {
+  getMusicUploadEditorDraft,
+  saveMusicUploadEditorDraft,
+} from '../editor/musicUploadDraftStore';
 import {
   audioEditDuration,
   createAudioEditDocument,
@@ -54,6 +58,7 @@ import {
   trimAudioToSelection,
   updateSelectionEffects,
 } from '../editor/audioEditModel';
+import {renderAudioEditFile} from '../editor/renderAudioEditFile';
 import type {
   AudioEditDocument,
   AudioEditSegment,
@@ -200,7 +205,6 @@ export default function AudioTrackEditorPage() {
   const [masterVolume, setMasterVolume] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [draftGain, setDraftGain] = useState(1);
 
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -307,7 +311,6 @@ export default function AudioTrackEditorPage() {
     setBaselineFingerprint(documentFingerprint(initialDocument));
     setSelection(null);
     setCurrentTime(0);
-    setSaveError(null);
   }, [audioUrl, sourceDuration, sourceKey, waveform.duration, waveform.error, waveform.loading]);
 
   const pause = useCallback(() => {
@@ -438,7 +441,6 @@ export default function AudioTrackEditorPage() {
         present: nextDocument,
       };
     });
-    setSaveError(null);
   }, [pause]);
 
   const undo = useCallback(() => {
@@ -558,8 +560,25 @@ export default function AudioTrackEditorPage() {
     const controller = new AbortController();
     saveAbortRef.current = controller;
     setSaving(true);
-    setSaveError(null);
     try {
+      if (isUploadDraftEditor && draftId && uploadEditorDraft && uploadDraft && uploadFile) {
+        const rendered = await renderAudioEditFile(uploadFile, document, controller.signal);
+        saveMusicUploadEditorDraft(projectId, {
+          ...uploadEditorDraft.snapshot,
+          uploadDirty: true,
+          uploadDraft: {
+            ...uploadDraft,
+            durationSeconds: rendered.durationSeconds,
+            edited: true,
+            file: rendered.file,
+            originalFile: uploadDraft.originalFile ?? uploadFile,
+            status: 'ready',
+          },
+        }, draftId);
+        flushSync(() => setBaselineFingerprint(documentFingerprint(document)));
+        navigate(returnTo, {replace: true});
+        return;
+      }
       await audioEditorSaveAdapter.saveNewVersion({
         draftId: isUploadDraftEditor ? draftId : undefined,
         document,
@@ -571,7 +590,7 @@ export default function AudioTrackEditorPage() {
       }, controller.signal);
     } catch (error: unknown) {
       if (!controller.signal.aborted) {
-        setSaveError(error instanceof AudioEditSaveUnavailableError
+        void message.error(error instanceof AudioEditSaveUnavailableError
           ? t('musicStudio.audioEditor.errors.saveDescription')
           : musicErrorDescriptor(error).message);
       }
@@ -735,25 +754,6 @@ export default function AudioTrackEditorPage() {
         {!canEdit && (
           <Alert showIcon type="info" message={t('musicStudio.audioEditor.status.readOnly')} />
         )}
-        {canEdit && !audioEditorSaveAdapter.available && (
-          <Alert
-            showIcon
-            type="info"
-            message={t('musicStudio.audioEditor.errors.saveTitle')}
-            description={t('musicStudio.audioEditor.errors.saveDescription')}
-          />
-        )}
-        {saveError && (
-          <Alert
-            closable
-            showIcon
-            type="error"
-            message={t('musicStudio.audioEditor.errors.saveTitle')}
-            description={saveError}
-            onClose={() => setSaveError(null)}
-          />
-        )}
-
         <section aria-label={t('musicStudio.audioEditor.tools.label')} className="music-audio-editor__toolbar">
           <Button
             disabled={editorDisabled}

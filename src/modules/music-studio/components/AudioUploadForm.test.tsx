@@ -229,6 +229,29 @@ test('offers editing only after the selected file passes local validation', () =
   expect(onEdit).toHaveBeenCalledTimes(1);
 });
 
+test('marks a locally rendered edit as the current version', () => {
+  const editedFile = new File(['edited'], 'theme-edited.wav', {type: 'audio/wav'});
+  render(
+    <AudioUploadForm
+      capabilities={capabilities}
+      onAudioPlay={jest.fn()}
+      onChange={jest.fn()}
+      value={{
+        ...emptyDraft,
+        durationSeconds: 42,
+        edited: true,
+        file: editedFile,
+        originalFile: new File(['original'], 'theme.mp3', {type: 'audio/mpeg'}),
+        status: 'ready',
+      }}
+    />,
+  );
+
+  expect(screen.getByText('theme-edited.wav')).toBeInTheDocument();
+  expect(screen.getByText(i18n.t('musicStudio.upload.edited'))).toBeInTheDocument();
+  expect(screen.getByText('0:42')).toBeInTheDocument();
+});
+
 test('rejects an audio duration outside the advertised limits', () => {
   const {container} = render(<ControlledUpload showDraft />);
 

@@ -616,6 +616,7 @@
       "previewLabel": "Uploaded audio preview",
       "playerUnsupported": "Your browser cannot play this audio.",
       "edit": "Edit",
+      "edited": "Edited version",
       "editAria": "Edit audio file “{{name}}”",
       "editPreparing": "The audio file is being prepared for editing",
       "replace": "Replace file",

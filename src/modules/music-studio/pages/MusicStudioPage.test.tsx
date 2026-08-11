@@ -9,6 +9,7 @@ import {
   removeMusicUploadEditorDraft,
 } from '../editor/musicUploadDraftStore';
 import {useMusicGenerationJob} from '../hooks/useMusicGenerationJob';
+import {useUnsavedMusicGuard} from '../hooks/useUnsavedMusicGuard';
 import type {
   MusicBrief,
   MusicCapabilities,
@@ -27,6 +28,9 @@ jest.mock('../hooks/useUnsavedMusicGuard', () => ({
 
 const mockedUseMusicGenerationJob = useMusicGenerationJob as jest.MockedFunction<
   typeof useMusicGenerationJob
+>;
+const mockedUseUnsavedMusicGuard = useUnsavedMusicGuard as jest.MockedFunction<
+  typeof useUnsavedMusicGuard
 >;
 
 const brief: MusicBrief = {
@@ -381,10 +385,13 @@ test('restores the complete local upload form after returning from the audio edi
     name: i18n.t('musicStudio.upload.editAria', {name: 'local-theme.mp3'}),
   });
   await waitFor(() => expect(editButton).toBeEnabled());
+  const guardCallCount = mockedUseUnsavedMusicGuard.mock.calls.length;
   fireEvent.click(editButton);
   await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
     /^\/project\/7\/music\/upload-drafts\/[^/]+\/edit$/,
   ));
+  expect(mockedUseUnsavedMusicGuard.mock.calls.slice(guardCallCount))
+    .toContainEqual([false]);
   const firstEditorPath = screen.getByTestId('location').textContent;
 
   fireEvent.click(screen.getByRole('button', {name: 'browser back'}));
