@@ -8,7 +8,8 @@ import {getApiStatus} from '../../../api/errors';
 import { characterApi } from '../api/characterApi';
 import { notifyCharacterListUpdated, notifyCharacterTreeUpdated } from '../events';
 import { useGenerationJob } from '../hooks/useGenerationJob';
-import {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
+import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
 import GenerationJobHistory from '../components/GenerationJobHistory';
 import type {CharacterVariant, GenerationJob, StudioCharacter} from '../types/character.types';
 import {characterToFormValues} from '../types/characterForm';
@@ -38,6 +39,7 @@ function generationOptionsFromJob(job: GenerationJob | null): GenerationOptions 
     return {
         count,
         creativity,
+        imageModel: typeof payload.image_model === 'string' ? payload.image_model : '',
         lockSeed: Boolean(payload.lock_seed),
         seed: payload.seed == null ? '' : String(payload.seed),
     };
@@ -80,7 +82,13 @@ function CharacterVariantsPageContent() {
     const effectiveFormValues = hasFormContext
         ? {...recoveredCharacterValues, ...state.formValues, ...job?.request_payload}
         : undefined;
-    const effectiveGenerationOptions = state.generationOptions ?? generationOptionsFromJob(job);
+    const durableGenerationOptions = generationOptionsFromJob(job);
+    const hasDurableGenerationOptions = Boolean(
+        job?.request_payload && Object.keys(job.request_payload).length > 0,
+    );
+    const effectiveGenerationOptions = hasDurableGenerationOptions
+        ? durableGenerationOptions
+        : {...durableGenerationOptions, ...state.generationOptions};
     const contextMismatch = Boolean(
         job && (
             (job.character_id && String(job.character_id) !== characterId)
@@ -206,6 +214,7 @@ function CharacterVariantsPageContent() {
             const payload = {
                 variant_count: opts.count,
                 image_type: 'portrait',
+                image_model: opts.imageModel,
                 creativity: opts.creativity,
                 seed: opts.lockSeed && opts.seed ? Number(opts.seed) : undefined,
                 lock_seed: opts.lockSeed,

@@ -47,7 +47,13 @@ const PAGE_STATE = {
   characterId: CHARACTER_ID,
   characterName: 'Hero',
   sourceTreeNodeId: 'tree-1',
-  generationOptions: {count: 2 as const, creativity: 'balanced' as const, lockSeed: false, seed: ''},
+  generationOptions: {
+    count: 2 as const,
+    creativity: 'balanced' as const,
+    imageModel: 'openrouter-images:openai/gpt-image-1',
+    lockSeed: false,
+    seed: '',
+  },
 };
 
 function CreatePageProbe() {
@@ -149,6 +155,7 @@ describe('CharacterVariantsPage – initial state', () => {
         request_payload: {
           variant_count: 2,
           creativity: 'balanced',
+          image_model: 'openrouter-images:black-forest-labs/flux.2-pro',
           visual_style: 'cinematic_realism',
           appearance_description: 'Recovered hero',
           character_type: 'human',
@@ -159,7 +166,7 @@ describe('CharacterVariantsPage – initial state', () => {
       errorMessage: null,
     } as never);
 
-    renderPage({} as never);
+    renderPage({generationOptions: PAGE_STATE.generationOptions} as never);
 
     expect(screen.getByRole('img', {name: 'Вариант 1'})).toBeInTheDocument();
     await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith(PROJECT_ID, CHARACTER_ID));
@@ -167,6 +174,7 @@ describe('CharacterVariantsPage – initial state', () => {
     await waitFor(() => expect(mockedApi.generateInitial).toHaveBeenCalledTimes(1));
     expect(mockedApi.generateInitial.mock.calls[0][2]).toEqual(expect.objectContaining({
       appearance_description: 'Recovered hero',
+      image_model: 'openrouter-images:black-forest-labs/flux.2-pro',
       variant_count: 2,
     }));
   });
@@ -179,14 +187,18 @@ describe('CharacterVariantsPage – initial state', () => {
         status: 'completed',
         progress: 100,
         variants: VARIANTS,
-        request_payload: {variant_count: 2, appearance_description: 'Recovered hero'},
+        request_payload: {
+          variant_count: 2,
+          appearance_description: 'Recovered hero',
+          image_model: 'openrouter-images:google/gemini-2.5-flash-image',
+        },
       },
       loading: false,
       errorStatus: null,
       errorMessage: null,
     } as never);
 
-    renderPage({} as never, 'job-1', 'tree-1');
+    renderPage({generationOptions: PAGE_STATE.generationOptions} as never, 'job-1', 'tree-1');
     await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith(PROJECT_ID, CHARACTER_ID));
     await waitFor(() => expect(screen.getByRole('button', {name: /изменить параметры/i})).not.toBeDisabled());
     fireEvent.click(screen.getByRole('button', {name: /изменить параметры/i}));
@@ -196,6 +208,7 @@ describe('CharacterVariantsPage – initial state', () => {
     expect(screen.getByText(/"role":"main"/)).toBeInTheDocument();
     expect(screen.getByText(/"gender":"female"/)).toBeInTheDocument();
     expect(screen.getByText(/"personality_description":"Recovered personality"/)).toBeInTheDocument();
+    expect(screen.getByText(/"imageModel":"openrouter-images:google\/gemini-2.5-flash-image"/)).toBeInTheDocument();
   });
 
   it('uses the URL tree node when Apply follows a refresh', async () => {
@@ -297,6 +310,7 @@ describe('CharacterVariantsPage – Regenerate button', () => {
     expect((payload as Record<string, unknown>).visual_style).toBe('cinematic_realism');
     expect((payload as Record<string, unknown>).appearance_description).toBe('A warrior');
     expect((payload as Record<string, unknown>).image_type).toBe('portrait');
+    expect((payload as Record<string, unknown>).image_model).toBe('openrouter-images:openai/gpt-image-1');
     expect((payload as Record<string, unknown>).variant_count).toBe(2);
   });
 
