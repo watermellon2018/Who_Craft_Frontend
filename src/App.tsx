@@ -215,6 +215,7 @@ function App() {
         { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioTrack', path: PathConstants.MUSIC_STUDIO_TRACK, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioTrackEditor', path: PathConstants.MUSIC_STUDIO_TRACK_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
+        { key: 'musicStudioUploadDraftEditor', path: PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
         { key: 'referenceLibrary', path: PathConstants.REFERENCE_LIBRARY, component: <ProtectedReferenceLibraryPage /> },
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },

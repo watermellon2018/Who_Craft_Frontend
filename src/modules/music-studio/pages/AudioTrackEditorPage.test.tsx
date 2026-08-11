@@ -3,9 +3,10 @@ import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {createMemoryRouter, RouterProvider} from 'react-router-dom';
 
 import i18n from '../../../i18n';
-import PathConstants from '../../../routes/pathConstant';
+import PathConstants, {musicUploadDraftEditorPath} from '../../../routes/pathConstant';
 import {audioEditorSaveAdapter} from '../api/audioEditorSaveAdapter';
 import {musicApi} from '../api/musicApi';
+import {saveMusicUploadEditorDraft} from '../editor/musicUploadDraftStore';
 import type {AudioWaveformState} from '../hooks/useAudioWaveform';
 import {useAudioWaveform} from '../hooks/useAudioWaveform';
 import type {MusicTrackDetail} from '../types';
@@ -102,10 +103,49 @@ function renderEditor(track: MusicTrackDetail) {
   return render(<RouterProvider router={router} />);
 }
 
+function renderUploadDraftEditor() {
+  const file = new File(['local music'], 'local-theme.mp3', {type: 'audio/mpeg'});
+  const draft = saveMusicUploadEditorDraft('7', {
+    aiDirty: true,
+    brief: null,
+    canEdit: true,
+    creationMode: 'upload',
+    reference: null,
+    selectedScene: null,
+    uploadDirty: true,
+    uploadDraft: {
+      description: 'Scene opening',
+      durationSeconds: 12,
+      file,
+      status: 'ready',
+      title: 'Local theme',
+    },
+    variantCount: 3,
+  });
+  const router = createMemoryRouter([
+    {path: PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR, element: <AudioTrackEditorPage />},
+    {path: PathConstants.MUSIC_STUDIO_CREATE, element: <p>upload form</p>},
+  ], {
+    initialEntries: [{
+      pathname: musicUploadDraftEditorPath(7, draft.draftId),
+      state: {returnTo: `/project/7/music/create?uploadDraftId=${draft.draftId}`},
+    }],
+  });
+  return {draft, ...render(<RouterProvider router={router} />)};
+}
+
 beforeEach(() => {
   mockedUseAudioWaveform.mockReturnValue(waveform);
   jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
   jest.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: jest.fn(() => 'blob:local-editor-audio'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: jest.fn(),
+  });
 });
 
 afterEach(() => {
@@ -134,6 +174,34 @@ test.each([
   expect(screen.getByText(i18n.t(sourceKey))).toBeInTheDocument();
   expect(await screen.findByText('waveform')).toBeInTheDocument();
   expect(document.querySelector('.music-studio__library')).not.toBeInTheDocument();
+});
+
+test('opens the same editor for a validated local upload without fetching or copying it', async () => {
+  const getTrack = jest.spyOn(musicApi, 'getTrack');
+  renderUploadDraftEditor();
+
+  expect(await screen.findByRole('heading', {name: 'Local theme'})).toBeInTheDocument();
+  expect(screen.getByText(i18n.t('musicStudio.audioEditor.source.localDraft')))
+    .toBeInTheDocument();
+  expect(screen.getByText('waveform')).toBeInTheDocument();
+  expect(getTrack).not.toHaveBeenCalled();
+  expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+});
+
+test('explains how to recover when an in-memory upload draft is lost after refresh', async () => {
+  const router = createMemoryRouter([
+    {path: PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR, element: <AudioTrackEditorPage />},
+    {path: PathConstants.MUSIC_STUDIO_CREATE, element: <p>upload form</p>},
+  ], {initialEntries: ['/project/7/music/upload-drafts/missing/edit']});
+  render(<RouterProvider router={router} />);
+
+  expect(await screen.findByText(
+    i18n.t('musicStudio.audioEditor.errors.draftMissingTitle'),
+  )).toBeInTheDocument();
+  expect(screen.getByRole('button', {
+    name: i18n.t('musicStudio.audioEditor.errors.returnUpload'),
+  })).toBeInTheDocument();
+  expect(URL.createObjectURL).not.toHaveBeenCalled();
 });
 
 test('enables range edits, undo, and honest save failure without mutating the source', async () => {

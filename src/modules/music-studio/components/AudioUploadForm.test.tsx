@@ -26,9 +26,11 @@ const emptyDraft: AudioUploadDraft = {
 let pauseSpy: jest.SpyInstance;
 
 function ControlledUpload({
+  onEdit,
   showDraft = false,
   uploadCapabilities = capabilities,
 }: {
+  onEdit?: () => void;
   showDraft?: boolean;
   uploadCapabilities?: MusicCapabilities['audioReference'];
 }) {
@@ -39,6 +41,7 @@ function ControlledUpload({
         capabilities={uploadCapabilities}
         onAudioPlay={jest.fn()}
         onChange={setDraft}
+        onEdit={onEdit}
         value={draft}
       />
       {showDraft && (
@@ -196,6 +199,34 @@ test('selects, previews and removes a file while preserving its text metadata', 
     title: 'Opening theme',
   });
   expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:audio-upload-preview');
+});
+
+test('offers editing only after the selected file passes local validation', () => {
+  const onEdit = jest.fn();
+  const {container} = render(<ControlledUpload onEdit={onEdit} />);
+
+  expect(screen.queryByRole('button', {
+    name: i18n.t('musicStudio.upload.edit', {name: 'theme.mp3'}),
+  })).not.toBeInTheDocument();
+
+  fireEvent.change(getFileInput(container), {
+    target: {files: [new File(['music'], 'theme.mp3', {type: 'audio/mpeg'})]},
+  });
+
+  expect(screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.editPreparing'),
+  })).toBeDisabled();
+
+  const audio = screen.getByLabelText(i18n.t('musicStudio.upload.previewLabel'));
+  Object.defineProperty(audio, 'duration', {configurable: true, value: 65.4});
+  fireEvent.loadedMetadata(audio);
+
+  const editButton = screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.editAria', {name: 'theme.mp3'}),
+  });
+  expect(editButton).toBeEnabled();
+  fireEvent.click(editButton);
+  expect(onEdit).toHaveBeenCalledTimes(1);
 });
 
 test('rejects an audio duration outside the advertised limits', () => {

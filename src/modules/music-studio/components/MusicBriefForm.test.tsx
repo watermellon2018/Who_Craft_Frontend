@@ -71,6 +71,22 @@ function SeedBrief({supportsSeed}: {supportsSeed: boolean}) {
   );
 }
 
+function VariantCountBrief({onChange}: {onChange: (count: number) => void}) {
+  const [variantCount, setVariantCount] = useState(2);
+  return (
+    <MusicBriefForm
+      capabilities={capabilities}
+      value={initialBrief}
+      variantCount={variantCount}
+      onChange={() => undefined}
+      onVariantCountChange={(count) => {
+        setVariantCount(count);
+        onChange(count);
+      }}
+    />
+  );
+}
+
 test('keeps the track controls in Track character and removes Sound', () => {
   render(<ControlledBrief />);
   const characterSection = screen.getByRole('heading', {name: 'Характер трека'}).closest('section');
@@ -91,36 +107,98 @@ test('keeps the track controls in Track character and removes Sound', () => {
       .toBeGreaterThan(0);
   }
 
-  const instruments = within(characterSection as HTMLElement)
-    .getAllByLabelText('Инструменты')[0]
+  const field = (label: string) => within(characterSection as HTMLElement)
+    .getAllByLabelText(label)[0]
     .closest('.ant-form-item');
-  const energy = within(characterSection as HTMLElement)
-    .getAllByLabelText('Динамика')[0]
-    .closest('.ant-form-item');
-  expect(instruments?.nextElementSibling).toBe(energy);
-  expect(instruments).not.toHaveClass('music-form-grid__wide');
-  expect(energy).not.toHaveClass('music-form-grid__wide');
+  const title = field('Название');
+  const purpose = field('Назначение');
+  const genre = field('Жанр');
+  const tempo = field('Темп');
+  const energy = field('Динамика');
+  const duration = field('Длительность (сек)');
+  const moods = field('Настроение');
+  const instruments = field('Инструменты');
+
+  expect(title?.nextElementSibling).toBe(purpose);
+  expect(purpose?.nextElementSibling).toBe(genre);
+  expect(genre?.nextElementSibling).toBe(tempo);
+  expect(tempo?.nextElementSibling).toBe(energy);
+  expect(energy?.nextElementSibling).toBe(duration);
+  expect(duration?.nextElementSibling).toBe(moods);
+  expect(moods?.nextElementSibling).toBe(instruments);
+  for (const item of [title, purpose, genre, tempo, energy, duration]) {
+    expect(item).toHaveClass('music-character-grid__third');
+  }
+  for (const item of [moods, instruments]) {
+    expect(item).toHaveClass('music-character-grid__half');
+  }
   expect(screen.queryByRole('heading', {name: 'Звучание'})).not.toBeInTheDocument();
   expect(screen.getByLabelText('Дополнительные настройки')).toBeInTheDocument();
 });
 
-test('offers up to five generation variants', () => {
-  const onVariantCountChange = jest.fn();
+test('shows the song vocal controls in Track character before the sound description', () => {
+  const songBrief: MusicBrief = {
+    ...initialBrief,
+    content: {
+      lyricsLanguage: 'ru',
+      mode: 'song',
+      sections: [{label: 'Куплет 1', text: 'Текст', type: 'verse'}],
+      vocalStyle: {delivery: 'soft', timbre: 'warm'},
+    },
+  };
   render(
     <MusicBriefForm
       capabilities={capabilities}
-      value={initialBrief}
+      value={songBrief}
       variantCount={2}
       onChange={() => undefined}
-      onVariantCountChange={onVariantCountChange}
+      onVariantCountChange={() => undefined}
     />,
   );
+  const characterSection = screen.getByRole('heading', {name: 'Характер трека'}).closest('section');
+  const advancedSection = screen.getByLabelText('Дополнительные настройки');
+  const field = (label: string) => within(characterSection as HTMLElement)
+    .getAllByLabelText(label)[0]
+    .closest('.ant-form-item');
+  const timbre = field('Тембр вокала');
+  const delivery = field('Манера исполнения');
+  const comment = field('Желаемое звучание');
+
+  expect(timbre).toHaveClass('music-character-grid__half');
+  expect(delivery).toHaveClass('music-character-grid__half');
+  expect(timbre?.nextElementSibling).toBe(delivery);
+  expect(delivery?.nextElementSibling).toBe(comment);
+  expect(within(advancedSection).queryByLabelText('Тембр вокала')).not.toBeInTheDocument();
+  expect(within(advancedSection).queryByLabelText('Манера исполнения')).not.toBeInTheDocument();
+});
+
+test('does not duplicate the song format in the Purpose field', () => {
+  render(<ControlledBrief />);
+
+  fireEvent.mouseDown(screen.getByRole('combobox', {name: 'Назначение'}));
+
+  expect(screen.getByRole('option', {name: 'Фоновая музыка'})).toBeInTheDocument();
+  expect(screen.queryByRole('option', {name: 'Песня'})).not.toBeInTheDocument();
+});
+
+test('offers up to five generation variants', () => {
+  const onVariantCountChange = jest.fn();
+  render(<VariantCountBrief onChange={onVariantCountChange} />);
 
   fireEvent.click(screen.getByText('Дополнительные настройки'));
   const variantControl = screen.getByLabelText('Количество вариантов');
+  expect(variantControl).toHaveClass('music-variant-count');
+  const optionTwo = within(variantControl).getByText('2').closest('.ant-segmented-item');
+  const optionFive = within(variantControl).getByText('5').closest('.ant-segmented-item');
   expect(within(variantControl).getByText('5')).toBeInTheDocument();
-  fireEvent.click(within(variantControl).getByText('5'));
+  expect(optionTwo).toHaveClass('ant-segmented-item-selected');
+  expect(optionFive).not.toHaveClass('ant-segmented-item-selected');
+
+  fireEvent.click(optionFive as HTMLElement);
+
   expect(onVariantCountChange).toHaveBeenCalledWith(5);
+  expect(optionTwo).not.toHaveClass('ant-segmented-item-selected');
+  expect(optionFive).toHaveClass('ant-segmented-item-selected');
 });
 
 test('shows and keeps seed in the brief only when the capability is enabled', () => {

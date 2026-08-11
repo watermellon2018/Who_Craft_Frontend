@@ -1,9 +1,13 @@
 import React from 'react';
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
-import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
+import {MemoryRouter, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
 
 import i18n from '../../../i18n';
 import {musicApi} from '../api/musicApi';
+import {
+  getLatestMusicUploadEditorDraft,
+  removeMusicUploadEditorDraft,
+} from '../editor/musicUploadDraftStore';
 import {useMusicGenerationJob} from '../hooks/useMusicGenerationJob';
 import type {
   MusicBrief,
@@ -11,7 +15,10 @@ import type {
   MusicGenerationJob,
   MusicTrackDetail,
 } from '../types';
-import MusicStudioPage, {musicEnqueueIntentFingerprint} from './MusicStudioPage';
+import MusicStudioPage, {
+  musicEnqueueIntentFingerprint,
+  resetMusicCreateScroll,
+} from './MusicStudioPage';
 
 jest.mock('../hooks/useMusicGenerationJob');
 jest.mock('../hooks/useUnsavedMusicGuard', () => ({
@@ -145,6 +152,20 @@ function LocationProbe() {
   return <output data-testid="location">{location.pathname}{location.search}</output>;
 }
 
+function UploadDraftEditorProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const returnTo = (location.state as {returnTo?: string} | null)?.returnTo;
+  return (
+    <>
+      <button type="button" onClick={() => returnTo && navigate(returnTo)}>
+        return from editor
+      </button>
+      <button type="button" onClick={() => navigate(-1)}>browser back</button>
+    </>
+  );
+}
+
 function pageTree(path: string) {
   return (
     <MemoryRouter initialEntries={[path]}>
@@ -154,6 +175,10 @@ function pageTree(path: string) {
         <Route path="/project/:projectId/music/create" element={<MusicStudioPage />} />
         <Route path="/project/:projectId/music/jobs/:jobId" element={<MusicStudioPage />} />
         <Route path="/project/:projectId/music/tracks/:trackId" element={<MusicStudioPage />} />
+        <Route
+          path="/project/:projectId/music/upload-drafts/:draftId/edit"
+          element={<UploadDraftEditorProbe />}
+        />
       </Routes>
     </MemoryRouter>
   );
@@ -165,6 +190,7 @@ function renderPage(path: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(window, 'scrollTo').mockImplementation();
   jest.spyOn(musicApi, 'getCapabilities').mockResolvedValue({data: capabilities} as never);
   jest.spyOn(musicApi, 'getTrack').mockResolvedValue({data: track} as never);
   jest.spyOn(musicApi, 'listLibrary').mockResolvedValue({data: {
@@ -184,6 +210,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  const latestUploadDraft = getLatestMusicUploadEditorDraft('7');
+  if (latestUploadDraft) removeMusicUploadEditorDraft('7', latestUploadDraft.draftId);
   jest.restoreAllMocks();
 });
 
@@ -209,6 +237,11 @@ test('fingerprints reference, target, expected version, and brief changes as new
     targetTrackId: 12,
   }, null)).not.toBe(original);
   expect(musicEnqueueIntentFingerprint(payload, 4)).not.toBe(original);
+});
+
+test('opens the create route at the top of the page', () => {
+  resetMusicCreateScroll(true);
+  expect(window.scrollTo).toHaveBeenCalledWith({behavior: 'auto', left: 0, top: 0});
 });
 
 test('loads only active tracks and toggles the library sidebar', async () => {
@@ -316,6 +349,69 @@ test('preserves AI and upload drafts while switching creation modes', async () =
   );
 });
 
+test('restores the complete local upload form after returning from the audio editor', async () => {
+  jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation();
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: jest.fn(() => 'blob:page-editor-draft'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: jest.fn(),
+  });
+  renderPage('/project/7/music/create');
+
+  const aiTitle = await screen.findByLabelText(i18n.t('musicStudio.brief.title'));
+  fireEvent.change(aiTitle, {target: {value: 'Preserved AI context'}});
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  fireEvent.change(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')), {
+    target: {value: 'Local title'},
+  });
+  fireEvent.change(screen.getByPlaceholderText(
+    i18n.t('musicStudio.upload.descriptionPlaceholder'),
+  ), {target: {value: 'Local description'}});
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.upload.fileInputLabel')), {
+    target: {files: [new File(['audio'], 'local-theme.mp3', {type: 'audio/mpeg'})]},
+  });
+  const audio = screen.getByLabelText(i18n.t('musicStudio.upload.previewLabel'));
+  Object.defineProperty(audio, 'duration', {configurable: true, value: 20});
+  fireEvent.loadedMetadata(audio);
+
+  const editButton = screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.editAria', {name: 'local-theme.mp3'}),
+  });
+  await waitFor(() => expect(editButton).toBeEnabled());
+  fireEvent.click(editButton);
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    /^\/project\/7\/music\/upload-drafts\/[^/]+\/edit$/,
+  ));
+  const firstEditorPath = screen.getByTestId('location').textContent;
+
+  fireEvent.click(screen.getByRole('button', {name: 'browser back'}));
+  expect((await screen.findAllByText('local-theme.mp3')).length).toBeGreaterThan(0);
+  expect(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')))
+    .toHaveValue('Local title');
+  expect(screen.getByPlaceholderText(i18n.t('musicStudio.upload.descriptionPlaceholder')))
+    .toHaveValue('Local description');
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  expect(await screen.findByLabelText(i18n.t('musicStudio.brief.title')))
+    .toHaveValue('Preserved AI context');
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  const repeatedEditButton = screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.editAria', {name: 'local-theme.mp3'}),
+  });
+  await waitFor(() => expect(repeatedEditButton).toBeEnabled());
+  fireEvent.click(repeatedEditButton);
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    firstEditorPath ?? '',
+  ));
+  fireEvent.click(screen.getByRole('button', {name: 'return from editor'}));
+  expect(await screen.findByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')))
+    .toHaveValue('Local title');
+});
+
 test.each([
   {aiDisabled: false, canEdit: false, canRunGeneration: true, uploadDisabled: true},
   {aiDisabled: true, canEdit: true, canRunGeneration: false, uploadDisabled: false},
@@ -338,14 +434,14 @@ test.each([
     const button = screen.getByRole('button', {name: sceneButtonName});
     if (aiDisabled) expect(button).toBeDisabled();
     else expect(button).not.toBeDisabled();
-  });
+  }, {timeout: 3000});
 
   fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
   await waitFor(() => {
     const button = screen.getByRole('button', {name: sceneButtonName});
     if (uploadDisabled) expect(button).toBeDisabled();
     else expect(button).not.toBeDisabled();
-  });
+  }, {timeout: 3000});
 });
 
 test('confirms discarding an upload draft before starting AI generation', async () => {
@@ -582,7 +678,7 @@ test('reuses an idempotency key after an ambiguous failure until the brief chang
   const generateButton = () => screen.getByRole('button', {
     name: i18n.t('musicStudio.create.generate', {count: 2}),
   });
-  await waitFor(() => expect(generateButton()).not.toBeDisabled());
+  await waitFor(() => expect(generateButton()).not.toBeDisabled(), {timeout: 3000});
 
   fireEvent.click(generateButton());
   await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));

@@ -55,6 +55,7 @@ function ControlledFormat() {
     <>
       <MusicFormatSelector capabilities={capabilities} value={brief} onChange={setBrief} />
       <output data-testid="brief-content">{JSON.stringify(brief.content)}</output>
+      <output data-testid="brief-purpose">{brief.purpose}</output>
     </>
   );
 }
@@ -73,6 +74,7 @@ test('selects one format and restores the existing song draft', () => {
 
   fireEvent.click(instrumental);
   expect(instrumental).toHaveAttribute('aria-checked', 'true');
+  expect(screen.getByTestId('brief-purpose')).toHaveTextContent('underscore');
   expect(JSON.parse(screen.getByTestId('brief-content').textContent ?? '')).toEqual({
     mode: 'instrumental',
   });
@@ -80,4 +82,5 @@ test('selects one format and restores the existing song draft', () => {
   fireEvent.click(song);
   expect(song).toHaveAttribute('aria-checked', 'true');
   expect(JSON.parse(screen.getByTestId('brief-content').textContent ?? '')).toEqual(songDraft);
+  expect(screen.getByTestId('brief-purpose')).toHaveTextContent('underscore');
 });

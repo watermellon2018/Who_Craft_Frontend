@@ -34,11 +34,14 @@ export default function MusicFormatSelector({
 
   const changeMode = (mode: MusicContentMode) => {
     if (mode === value.content.mode) return;
+    const purpose = value.purpose === 'song'
+      ? capabilities.briefFields.purposes.find((item) => item !== 'song') ?? ''
+      : value.purpose;
     if (mode === 'instrumental') {
       onChange({
         ...value,
         content: {mode},
-        purpose: value.purpose === 'song' ? 'underscore' : value.purpose,
+        purpose,
       });
       return;
     }
@@ -58,7 +61,7 @@ export default function MusicFormatSelector({
           timbre: capabilities.briefFields.vocalStyles.timbres[0] ?? 'warm',
         },
       },
-      purpose: 'song',
+      purpose,
     });
   };
 

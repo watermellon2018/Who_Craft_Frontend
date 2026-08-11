@@ -322,6 +322,18 @@
   grid-column: 1 / -1;
 }
 
+.music-character-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.music-character-grid__third {
+  grid-column: span 2;
+}
+
+.music-character-grid__half {
+  grid-column: span 3;
+}
+
 .music-creation-tabs {
   padding: 4px;
   border: 1px solid var(--music-border);
@@ -331,6 +343,26 @@
 .music-creation-tabs .ant-segmented-item-selected {
   color: #111827;
   background: var(--craft-accent);
+}
+
+.music-variant-count.ant-segmented {
+  border: 1px solid var(--craft-border);
+  background: var(--craft-field);
+}
+
+.music-variant-count .ant-segmented-item {
+  color: var(--craft-text-muted);
+}
+
+.music-variant-count .ant-segmented-item-selected {
+  color: var(--craft-bg-deep);
+  background: var(--craft-accent);
+  box-shadow: 0 0 0 1px var(--craft-accent-soft);
+}
+
+.music-variant-count .ant-segmented-item-selected .ant-segmented-item-label {
+  color: inherit;
+  font-weight: 700;
 }
 
 .music-card .ant-form-item-label > label,
@@ -699,6 +731,19 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.music-upload__edit.ant-btn {
+  color: var(--craft-text);
+  border-color: var(--craft-border-strong);
+  background: transparent;
+}
+
+.music-upload__edit.ant-btn:not(:disabled):not(.ant-btn-disabled):hover,
+.music-upload__edit.ant-btn:not(:disabled):not(.ant-btn-disabled):focus-visible {
+  color: var(--craft-accent);
+  border-color: var(--craft-accent);
+  background: var(--craft-accent-soft);
 }
 
 .music-upload__fields {
@@ -1590,7 +1635,9 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .music-form-grid__wide {
+  .music-form-grid__wide,
+  .music-character-grid__third,
+  .music-character-grid__half {
     grid-column: auto;
   }
 

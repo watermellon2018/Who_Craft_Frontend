@@ -1,6 +1,6 @@
 import React, {useEffect, useId, useRef, useState} from 'react';
 import type {DragEvent, KeyboardEvent} from 'react';
-import {DeleteOutlined, UploadOutlined} from '@ant-design/icons';
+import {DeleteOutlined, EditOutlined, UploadOutlined} from '@ant-design/icons';
 import {Alert, Button, Input} from 'antd';
 import {useTranslation} from 'react-i18next';
 
@@ -31,6 +31,7 @@ interface AudioUploadFormProps {
   disabled?: boolean;
   onAudioPlay: (audio: HTMLAudioElement) => void;
   onChange: (draft: AudioUploadDraft) => void;
+  onEdit?: () => void;
   value: AudioUploadDraft;
 }
 
@@ -54,6 +55,7 @@ export default function AudioUploadForm({
   disabled = false,
   onAudioPlay,
   onChange,
+  onEdit,
   value,
 }: AudioUploadFormProps) {
   const {t} = useTranslation();
@@ -295,6 +297,20 @@ export default function AudioUploadForm({
           )}
 
           <div className="music-upload__actions">
+            {onEdit && (value.status === 'checking' || value.status === 'ready') && (
+              <Button
+                aria-label={t(value.status === 'checking'
+                  ? 'musicStudio.upload.editPreparing'
+                  : 'musicStudio.upload.editAria', {name: value.file.name})}
+                className="music-upload__edit"
+                disabled={effectiveDisabled || value.status !== 'ready'}
+                icon={<EditOutlined />}
+                loading={value.status === 'checking'}
+                onClick={onEdit}
+              >
+                {t('musicStudio.upload.edit')}
+              </Button>
+            )}
             <Button
               aria-label={t('musicStudio.upload.replace')}
               icon={<UploadOutlined />}

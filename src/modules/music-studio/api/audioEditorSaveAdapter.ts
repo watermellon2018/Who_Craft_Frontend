@@ -1,12 +1,13 @@
 import type {AudioEditDocument} from '../editor/audioEditModel';
 
 export interface SaveAudioEditInput {
+  draftId?: string;
   document: AudioEditDocument;
-  expectedTrackVersion: number;
+  expectedTrackVersion: number | null;
   makeActive: true;
   projectId: string;
   sourceVersionId: string | null;
-  trackId: number;
+  trackId: number | null;
 }
 
 export class AudioEditSaveUnavailableError extends Error {
@@ -21,9 +22,10 @@ export const audioEditorSaveAdapter = {
   async saveNewVersion(_input: SaveAudioEditInput, signal?: AbortSignal): Promise<never> {
     if (signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
 
-    // TODO(audio-editor-backend): send sourceVersionId, expectedTrackVersion, makeActive,
-    // and the ordered non-destructive segment document to an endpoint that renders and
-    // persists a new immutable track version, then returns the updated track/version.
+    // TODO(audio-editor-backend): for a saved track, send sourceVersionId, trackId,
+    // expectedTrackVersion, makeActive, and the ordered non-destructive segment document.
+    // For a local upload draft, resolve draftId to its original File and upload the rendered
+    // result once a dedicated endpoint can persist a new immutable track version.
     throw new AudioEditSaveUnavailableError();
   },
 };

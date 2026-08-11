@@ -32,6 +32,7 @@ import {backendAssetUrl} from '../../../api/http';
 import DashboardHeader from '../../profile/components/DashboardHeader';
 import PathConstants, {
   musicStudioPath,
+  musicStudioUploadCreatePath,
   musicTrackPath,
 } from '../../../routes/pathConstant';
 import {safeReturnTo} from '../../../utils/auth/returnTo';
@@ -42,6 +43,7 @@ import {
 import {musicApi} from '../api/musicApi';
 import AudioWaveformTimeline from '../components/AudioWaveformTimeline';
 import type {AudioWaveformPeak} from '../editor/audioWaveform';
+import {getMusicUploadEditorDraft} from '../editor/musicUploadDraftStore';
 import {
   audioEditDuration,
   createAudioEditDocument,
@@ -164,19 +166,32 @@ export default function AudioTrackEditorPage() {
   const {t} = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const {projectId = '', trackId: trackIdParam = ''} = useParams<{
+  const {draftId, projectId = '', trackId: trackIdParam = ''} = useParams<{
+    draftId?: string;
     projectId: string;
-    trackId: string;
+    trackId?: string;
   }>();
-  const trackId = /^\d+$/.test(trackIdParam) ? Number(trackIdParam) : null;
+  const isUploadDraftEditor = Boolean(draftId);
+  const trackId = !isUploadDraftEditor && /^\d+$/.test(trackIdParam)
+    ? Number(trackIdParam)
+    : null;
+  const uploadEditorDraft = useMemo(
+    () => getMusicUploadEditorDraft(projectId, draftId),
+    [draftId, projectId],
+  );
   const returnTo = safeReturnTo((location.state as EditorLocationState | null)?.returnTo)
-    ?? (trackId == null ? musicStudioPath(projectId) : musicTrackPath(projectId, trackId));
+    ?? (isUploadDraftEditor
+      ? musicStudioUploadCreatePath(projectId)
+      : trackId == null
+        ? musicStudioPath(projectId)
+        : musicTrackPath(projectId, trackId));
 
   const [track, setTrack] = useState<MusicTrackDetail | null>(null);
   const [trackError, setTrackError] = useState<MusicErrorDescriptor | null>(null);
-  const [trackLoading, setTrackLoading] = useState(true);
+  const [trackLoading, setTrackLoading] = useState(!isUploadDraftEditor);
   const [trackRevision, setTrackRevision] = useState(0);
   const [waveformRevision, setWaveformRevision] = useState(0);
+  const [draftAudioUrl, setDraftAudioUrl] = useState<string | null>(null);
   const [history, setHistory] = useState<DocumentHistory>(EMPTY_HISTORY);
   const [baselineFingerprint, setBaselineFingerprint] = useState('');
   const [selection, setSelection] = useState<AudioSelection | null>(null);
@@ -197,7 +212,10 @@ export default function AudioTrackEditorPage() {
   const selectionPanelRef = useRef<HTMLElement>(null);
 
   const activeVersion = track?.activeVersion ?? null;
-  const audioUrl = activeVersion?.audioUrl ? backendAssetUrl(activeVersion.audioUrl) : null;
+  const uploadDraft = uploadEditorDraft?.snapshot.uploadDraft ?? null;
+  const uploadFile = uploadDraft?.file ?? null;
+  const storedAudioUrl = activeVersion?.audioUrl ? backendAssetUrl(activeVersion.audioUrl) : null;
+  const audioUrl = isUploadDraftEditor ? draftAudioUrl : storedAudioUrl;
   const waveform = useAudioWaveform(audioUrl, waveformRevision);
   const document = history.present;
   const editedDuration = document ? audioEditDuration(document) : 0;
@@ -208,7 +226,27 @@ export default function AudioTrackEditorPage() {
 
   const dirty = Boolean(document)
     && documentFingerprint(document) !== baselineFingerprint;
-  const canEdit = track?.permissions?.canEdit ?? false;
+  const canEdit = isUploadDraftEditor
+    ? uploadEditorDraft?.snapshot.canEdit ?? false
+    : track?.permissions?.canEdit ?? false;
+  const sourceTitle = isUploadDraftEditor
+    ? uploadDraft?.title.trim() || uploadFile?.name || t('musicStudio.audioEditor.pageTitle')
+    : track?.title ?? t('musicStudio.audioEditor.pageTitle');
+  const sourceDuration = isUploadDraftEditor
+    ? uploadDraft?.durationSeconds ?? 0
+    : activeVersion?.durationSeconds ?? 0;
+  const sourceKey = isUploadDraftEditor
+    ? uploadFile && draftId
+      ? [draftId, uploadFile.name, uploadFile.size, uploadFile.lastModified].join(':')
+      : null
+    : activeVersion
+      ? activeVersion.versionId ?? [track?.id, activeVersion.audioUrl].join(':')
+      : null;
+  const sourceLabel = isUploadDraftEditor
+    ? t('musicStudio.audioEditor.source.localDraft')
+    : track
+      ? t(`musicStudio.audioEditor.source.${sourceLabelKey(track)}`)
+      : '';
   const validSelection = selection != null
     && selection.endSeconds - selection.startSeconds >= MIN_SELECTION_SECONDS;
 
@@ -221,6 +259,22 @@ export default function AudioTrackEditorPage() {
   useUnsavedMusicGuard(dirty, unsavedCopy);
 
   useEffect(() => {
+    if (!isUploadDraftEditor || !uploadFile || typeof URL.createObjectURL !== 'function') {
+      setDraftAudioUrl(null);
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(uploadFile);
+    setDraftAudioUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [isUploadDraftEditor, uploadFile]);
+
+  useEffect(() => {
+    if (isUploadDraftEditor) {
+      setTrackLoading(false);
+      setTrack(null);
+      setTrackError(null);
+      return undefined;
+    }
     if (!projectId || trackId == null) {
       setTrackLoading(false);
       setTrack(null);
@@ -239,16 +293,14 @@ export default function AudioTrackEditorPage() {
         if (!controller.signal.aborted) setTrackLoading(false);
       });
     return () => controller.abort();
-  }, [projectId, trackId, trackRevision]);
+  }, [isUploadDraftEditor, projectId, trackId, trackRevision]);
 
   useEffect(() => {
-    if (!track || !activeVersion?.audioUrl || waveform.loading || waveform.error) return;
-    const sourceDuration = waveform.duration || activeVersion.durationSeconds || 0;
-    const sourceKey = activeVersion.versionId
-      ?? [track.id, activeVersion.audioUrl].join(':');
-    if (sourceDuration <= 0 || documentSourceKeyRef.current === sourceKey) return;
+    if (!audioUrl || !sourceKey || waveform.loading || waveform.error) return;
+    const initialDuration = waveform.duration || sourceDuration;
+    if (initialDuration <= 0 || documentSourceKeyRef.current === sourceKey) return;
 
-    const initialDocument = createAudioEditDocument(sourceDuration);
+    const initialDocument = createAudioEditDocument(initialDuration);
     documentSourceKeyRef.current = sourceKey;
     signedUrlRefreshKeyRef.current = null;
     setHistory({future: [], past: [], present: initialDocument});
@@ -256,7 +308,7 @@ export default function AudioTrackEditorPage() {
     setSelection(null);
     setCurrentTime(0);
     setSaveError(null);
-  }, [activeVersion, track, waveform.duration, waveform.error, waveform.loading]);
+  }, [audioUrl, sourceDuration, sourceKey, waveform.duration, waveform.error, waveform.loading]);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
@@ -496,12 +548,12 @@ export default function AudioTrackEditorPage() {
   const retryAudio = () => {
     pause();
     setTrackError(null);
-    setTrackRevision((revision) => revision + 1);
+    if (!isUploadDraftEditor) setTrackRevision((revision) => revision + 1);
     setWaveformRevision((revision) => revision + 1);
   };
 
   const saveNewVersion = async () => {
-    if (!track || !document || !dirty || !canEdit) return;
+    if (!document || !dirty || !canEdit) return;
     saveAbortRef.current?.abort();
     const controller = new AbortController();
     saveAbortRef.current = controller;
@@ -509,12 +561,13 @@ export default function AudioTrackEditorPage() {
     setSaveError(null);
     try {
       await audioEditorSaveAdapter.saveNewVersion({
+        draftId: isUploadDraftEditor ? draftId : undefined,
         document,
-        expectedTrackVersion: track.version,
+        expectedTrackVersion: track?.version ?? null,
         makeActive: true,
         projectId,
         sourceVersionId: activeVersion?.versionId ?? null,
-        trackId: track.id,
+        trackId: track?.id ?? null,
       }, controller.signal);
     } catch (error: unknown) {
       if (!controller.signal.aborted) {
@@ -536,22 +589,39 @@ export default function AudioTrackEditorPage() {
   const breadcrumbs = [
     {label: t('musicStudio.breadcrumbs.allProjects'), to: PathConstants.PROJECTS},
     {label: t('musicStudio.title'), to: musicStudioPath(projectId)},
-    {label: track?.title ?? t('musicStudio.audioEditor.pageTitle')},
+    {label: sourceTitle},
   ];
 
   const renderReturnAction = () => (
-    <Button onClick={() => navigate(musicStudioPath(projectId))}>
-      {t('musicStudio.audioEditor.errors.returnStudio')}
+    <Button onClick={() => navigate(isUploadDraftEditor
+      ? musicStudioUploadCreatePath(projectId)
+      : musicStudioPath(projectId))}>
+      {t(isUploadDraftEditor
+        ? 'musicStudio.audioEditor.errors.returnUpload'
+        : 'musicStudio.audioEditor.errors.returnStudio')}
     </Button>
   );
 
   let content: React.ReactNode;
-  if (!projectId || trackId == null) {
+  if (!projectId || (!isUploadDraftEditor && trackId == null) || (isUploadDraftEditor && !draftId)) {
     content = (
       <Result
         status="404"
         title={t('musicStudio.audioEditor.errors.notFoundTitle')}
         subTitle={t('musicStudio.audioEditor.errors.notFoundDescription')}
+        extra={renderReturnAction()}
+      />
+    );
+  } else if (isUploadDraftEditor && (
+    !uploadEditorDraft
+    || !uploadFile
+    || uploadDraft?.status !== 'ready'
+  )) {
+    content = (
+      <Result
+        status="warning"
+        title={t('musicStudio.audioEditor.errors.draftMissingTitle')}
+        subTitle={t('musicStudio.audioEditor.errors.draftMissingDescription')}
         extra={renderReturnAction()}
       />
     );
@@ -576,7 +646,7 @@ export default function AudioTrackEditorPage() {
         ]}
       />
     );
-  } else if (!track || !activeVersion?.audioUrl) {
+  } else if (!isUploadDraftEditor && (!track || !activeVersion?.audioUrl)) {
     content = (
       <Result
         status="info"
@@ -585,6 +655,8 @@ export default function AudioTrackEditorPage() {
         extra={renderReturnAction()}
       />
     );
+  } else if (isUploadDraftEditor && !draftAudioUrl) {
+    content = <Skeleton active className="music-audio-editor__loading" paragraph={{rows: 8}} />;
   } else if (waveform.error) {
     content = (
       <Result
@@ -627,11 +699,11 @@ export default function AudioTrackEditorPage() {
             {t('musicStudio.audioEditor.back')}
           </Button>
           <div className="music-audio-editor__track-meta">
-            <h1>{track.title}</h1>
+            <h1>{sourceTitle}</h1>
             <p>
               <span>{t('musicStudio.audioEditor.duration', {duration: formatTime(editedDuration || waveform.duration)})}</span>
               <span aria-hidden="true">•</span>
-              <span>{t(`musicStudio.audioEditor.source.${sourceLabelKey(track)}`)}</span>
+              <span>{sourceLabel}</span>
             </p>
           </div>
           <div className="music-audio-editor__history-actions">
@@ -756,7 +828,7 @@ export default function AudioTrackEditorPage() {
               selection={selection}
               selectionEndLabel={t('musicStudio.audioEditor.selection.end')}
               selectionStartLabel={t('musicStudio.audioEditor.selection.start')}
-              title={track.title}
+              title={sourceTitle}
               zoom={zoom}
               onSeek={seek}
               onSelectionChange={(nextSelection) => setSelection(
@@ -827,6 +899,10 @@ export default function AudioTrackEditorPage() {
               setCurrentTime(editedDuration);
             }}
             onError={() => {
+              if (!activeVersion) {
+                setWaveformRevision((revision) => revision + 1);
+                return;
+              }
               const refreshKey = activeVersion.versionId ?? activeVersion.audioUrl ?? 'legacy';
               if (signedUrlRefreshKeyRef.current !== refreshKey) {
                 signedUrlRefreshKeyRef.current = refreshKey;
