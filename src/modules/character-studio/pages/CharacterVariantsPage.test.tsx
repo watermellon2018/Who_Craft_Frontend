@@ -61,6 +61,11 @@ function CreatePageProbe() {
   return <><div>Create page</div><pre>{JSON.stringify({path: `${location.pathname}${location.search}`, state: location.state})}</pre></>;
 }
 
+function EditPageProbe() {
+  const location = useLocation();
+  return <><div>Edit page</div><pre>{JSON.stringify(location.state)}</pre></>;
+}
+
 function renderPage(
   locationState = PAGE_STATE,
   jobId: string | null = PAGE_STATE.jobId,
@@ -80,7 +85,7 @@ function renderPage(
           element={<CharacterVariantsPage />}
         />
         <Route path="/project/:projectId/characters/create" element={<CreatePageProbe />} />
-        <Route path="/project/:projectId/characters/:characterId/edit" element={<div>Edit page</div>} />
+        <Route path="/project/:projectId/characters/:characterId/edit" element={<EditPageProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -88,7 +93,7 @@ function renderPage(
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockedApi.applyVariant.mockResolvedValue({data: {}} as never);
+  mockedApi.applyVariant.mockResolvedValue({data: {revision_id: 'revision-1'}} as never);
   mockedApi.get.mockResolvedValue({data: {
     character_id: CHARACTER_ID,
     project_id: 1,
@@ -106,6 +111,12 @@ beforeEach(() => {
   mockedApi.generateInitial.mockResolvedValue({
     data: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []},
   } as never);
+  mockedApi.generateEdit.mockImplementation(async (_projectId, _characterId, payload) => ({
+    data: {
+      job_id: payload.image_type === 'full_body' ? 'full-body-job' : 'scene-job',
+      status: 'queued',
+    },
+  }) as never);
   mockedApi.listGenerationJobs.mockResolvedValue({data: {jobs: []}} as never);
   mockedApi.requestGenerationJobCancellation.mockResolvedValue({
     data: {job_id: 'job-1', status: 'cancellation_requested', progress: 40, variants: []},
@@ -447,5 +458,18 @@ describe('CharacterVariantsPage – Continue button', () => {
 
     await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
     expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts full-body and scene generation after applying the portrait', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+
+    await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(2));
+    expect(mockedApi.generateEdit.mock.calls.map((call) => call[2])).toEqual([
+      expect.objectContaining({image_type: 'full_body', region: 'body'}),
+      expect.objectContaining({image_type: 'scene', region: 'style'}),
+    ]);
+    expect(await screen.findByText(/"full_body":"full-body-job"/)).toBeInTheDocument();
+    expect(screen.getByText(/"scene":"scene-job"/)).toBeInTheDocument();
   });
 });

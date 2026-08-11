@@ -222,10 +222,11 @@ export const characterApi = {
     variantId: string,
     notes: string,
     imageType?: string,
+    applyAs: 'current_reference' | 'canonical_reference' | null = 'current_reference',
   ) {
     return api.post(`${base(projectId, characterId)}/apply-variant`, {
       variant_id: variantId,
-      apply_as: 'current_reference',
+      apply_as: applyAs,
       image_type: imageType,
       notes,
     });

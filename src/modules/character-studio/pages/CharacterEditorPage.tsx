@@ -236,7 +236,12 @@ function CharacterEditorPageContent() {
   // Tracks which job was started by zone-edit so we can clear the zone on completion.
   const zoneEditJobRef = React.useRef<{jobId: string; imageType: CharacterImageType} | null>(null);
   const editor = useCharacterEditor(false);
-  const {jobs: secondaryJobs, retry: retrySecondaryJob, launchJob: launchSecondaryJob} = useCharacterAssetJobs(projectId, characterId, character, refresh, sequentialRunning);
+  const {
+    attachJob: attachSecondaryJob,
+    jobs: secondaryJobs,
+    launchJob: launchSecondaryJob,
+    retry: retrySecondaryJob,
+  } = useCharacterAssetJobs(projectId, characterId, character, refresh, sequentialRunning);
 
   const confirmGeneration = async (imageTypes: CharacterImageType[]) => {
     if (!character) return false;
@@ -252,11 +257,19 @@ function CharacterEditorPageContent() {
   };
 
   useEffect(() => {
-    const state = location.state as {jobId?: string} | null;
+    const state = location.state as {
+      jobId?: string;
+      secondaryJobIds?: Partial<Record<CharacterImageType, string>>;
+    } | null;
     if (state?.jobId && !jobId) {
       setJobId(state.jobId);
     }
-  }, [jobId, location.state]);
+    Object.entries(state?.secondaryJobIds ?? {}).forEach(([imageType, secondaryJobId]) => {
+      if (secondaryJobId) {
+        attachSecondaryJob(imageType as CharacterImageType, secondaryJobId);
+      }
+    });
+  }, [attachSecondaryJob, jobId, location.state]);
 
   useEffect(() => {
     if (!character || hydratedCharacterId === character.character_id) return;
@@ -377,12 +390,16 @@ function CharacterEditorPageContent() {
     const region = regionForImageType(imageType, activeTab);
     const plannedTypes = dependentImageTypes(imageType);
     if (!(await confirmGeneration(plannedTypes))) return;
+    const diff = diffControls(controlsFromCharacter(character), editor.controls);
     setGeneratingImageType(imageType);
     const persisted = await persistAllEdits();
+    if (!persisted.saved) {
+      message.error(t('characterStudio.editor.saveGeneric'));
+      setGeneratingImageType(null);
+      return;
+    }
     const generationCharacter = persisted.character ?? character;
 
-    const baseControls = controlsFromCharacter(generationCharacter);
-    const diff = diffControls(baseControls, editor.controls);
     const activeImage = generationCharacter.images?.[imageType];
     editor.setRegion(region);
     const sceneTextRefinement = imageType === 'scene' ? buildSceneRefinement(sceneSettings) : '';
@@ -493,6 +510,7 @@ function CharacterEditorPageContent() {
         variant.variant_id,
         `Применен вариант ${variant.region}`,
         imageType,
+        imageType === 'portrait' ? 'current_reference' : null,
       );
       const revisionId = appliedRevision.data?.revision_id;
       message.success(t('characterStudio.editor.variantApplied'));
@@ -600,6 +618,7 @@ function CharacterEditorPageContent() {
   const generateSequential = async () => {
     if (!character || generatingImageType || sequentialRunning) return;
     if (!(await confirmGeneration(['portrait', 'full_body', 'scene']))) return;
+    const diff = diffControls(controlsFromCharacter(character), editor.controls);
     setSequentialRunning(true);
 
     const STEPS: Array<{type: CharacterImageType; region: CharacterRegion; label: string}> = [
@@ -611,10 +630,12 @@ function CharacterEditorPageContent() {
     const msgKey = 'seq-gen';
 
     const persisted = await persistAllEdits();
+    if (!persisted.saved) {
+      message.error(t('characterStudio.editor.saveGeneric'));
+      setSequentialRunning(false);
+      return;
+    }
     let currentCharacter = persisted.character ?? character;
-
-    const baseControls = controlsFromCharacter(currentCharacter);
-    const diff = diffControls(baseControls, editor.controls);
 
     let appliedRevisionId: string | undefined;
     for (let stepIndex = 0; stepIndex < STEPS.length; stepIndex += 1) {
@@ -671,6 +692,7 @@ function CharacterEditorPageContent() {
         const appliedRevision = await characterApi.applyVariant(
           projectId, characterId, variants[0].variant_id,
           `Обновить: ${step.type}`, step.type,
+          step.type === 'portrait' ? 'current_reference' : null,
         );
         appliedRevisionId = appliedRevision.data?.revision_id;
         if (stepIndex < STEPS.length - 1 && !appliedRevisionId) {
