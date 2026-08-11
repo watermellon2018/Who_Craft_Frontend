@@ -1,4 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {Button} from 'antd';
+import {MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 
 import {fetch_project} from '../../../api/projects/properties/project';
@@ -23,6 +25,7 @@ export default function MusicStudioShell({
 }: MusicStudioShellProps) {
   const {t} = useTranslation();
   const [projectTitle, setProjectTitle] = useState(projectTitleCache.get(projectId) ?? '');
+  const [libraryOpen, setLibraryOpen] = useState(true);
 
   useEffect(() => {
     const cached = projectTitleCache.get(projectId);
@@ -58,8 +61,37 @@ export default function MusicStudioShell({
   return (
     <>
       <DashboardHeader breadcrumbItems={breadcrumbs} />
-      <div className="music-studio-shell">
-        {library}
+      <div className={libraryOpen
+        ? 'music-studio-shell'
+        : 'music-studio-shell music-studio-shell--library-closed'}>
+        <div className={libraryOpen
+          ? 'music-studio-library-region music-studio-library-region--open'
+          : 'music-studio-library-region'}>
+          <div
+            aria-hidden={!libraryOpen}
+            className="music-studio-library-content"
+            id="music-studio-library-sidebar"
+          >
+            {library}
+          </div>
+          <Button
+            block
+            aria-controls="music-studio-library-sidebar"
+            aria-label={libraryOpen
+              ? t('musicStudio.library.hide')
+              : t('musicStudio.library.show')}
+            className="music-studio-library-trigger"
+            icon={libraryOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
+            aria-expanded={libraryOpen}
+            title={libraryOpen
+              ? t('musicStudio.library.hide')
+              : t('musicStudio.library.show')}
+            type="text"
+            onClick={() => setLibraryOpen((open) => !open)}
+          >
+            {libraryOpen ? t('musicStudio.library.hide') : null}
+          </Button>
+        </div>
         <main className="music-studio-main">{center}</main>
         <aside className="music-studio-inspector" aria-label={t('musicStudio.scene.context')}>
           {inspector}

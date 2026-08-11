@@ -183,19 +183,6 @@
     color: rgba(255, 255, 255, 0.78) !important;
     font-size: 13px;
 }
-.wc-login .ant-checkbox-inner {
-    background-color: transparent !important;
-    border-color: rgba(255, 255, 255, 0.28) !important;
-    border-radius: 4px;
-}
-.wc-login .ant-checkbox-checked .ant-checkbox-inner {
-    background-color: var(--craft-accent) !important;
-    border-color: var(--craft-accent) !important;
-}
-.wc-login .ant-checkbox-checked .ant-checkbox-inner::after {
-    border-color: #1b1d22;
-}
-
 /* Row: remember + forgot */
 .wc-login__row {
     display: flex;

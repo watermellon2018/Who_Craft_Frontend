@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React from 'react';
 import {
   Checkbox,
   Collapse,
@@ -12,13 +12,9 @@ import {useTranslation} from 'react-i18next';
 
 import type {
   MusicBrief,
-  MusicBriefContent,
   MusicCapabilities,
-  MusicContentMode,
   MusicVocalStyle,
 } from '../types';
-
-type MusicSongContent = Extract<MusicBriefContent, {mode: 'song'}>;
 
 interface MusicBriefFormProps {
   capabilities: MusicCapabilities;
@@ -29,6 +25,8 @@ interface MusicBriefFormProps {
   value: MusicBrief;
   variantCount: number;
 }
+
+const VARIANT_COUNT_OPTIONS = [1, 2, 3, 4, 5];
 
 function translatedOptions(
   values: string[],
@@ -53,34 +51,9 @@ export default function MusicBriefForm({
   const {t} = useTranslation();
   const update = (patch: Partial<MusicBrief>) => onChange({...value, ...patch});
   const songContent = value.content.mode === 'song' ? value.content : null;
-  const songDraftRef = useRef<MusicSongContent | null>(songContent);
-
-  useEffect(() => {
-    if (songContent) songDraftRef.current = songContent;
-  }, [songContent]);
-
-  const changeMode = (mode: MusicContentMode) => {
-    if (mode === 'instrumental') {
-      update({content: {mode}, purpose: value.purpose === 'song' ? 'underscore' : value.purpose});
-      return;
-    }
-    update({
-      content: songDraftRef.current ?? {
-        lyricsLanguage: capabilities.lyrics.languages[0] ?? 'ru',
-        mode,
-        sections: [{
-          label: t('musicStudio.lyrics.defaultVerse'),
-          text: '',
-          type: 'verse',
-        }],
-        vocalStyle: {
-          delivery: capabilities.briefFields.vocalStyles.deliveries[0] ?? 'soft',
-          timbre: capabilities.briefFields.vocalStyles.timbres[0] ?? 'warm',
-        },
-      },
-      purpose: 'song',
-    });
-  };
+  const purposeOptions = capabilities.briefFields.purposes.filter(
+    (purpose) => purpose !== 'song',
+  );
 
   const updateVocalStyle = (patch: Partial<MusicVocalStyle>) => {
     if (!songContent) return;
@@ -115,15 +88,6 @@ export default function MusicBriefForm({
           )}
         />
       </Form.Item>
-      <Form.Item label={t('musicStudio.brief.variantCount')}>
-        <Segmented
-          aria-label={t('musicStudio.brief.variantCount')}
-          disabled={disabled}
-          options={capabilities.variantCounts}
-          value={variantCount}
-          onChange={(count) => onVariantCountChange(Number(count))}
-        />
-      </Form.Item>
       {capabilities.supportsSeed && (
         <Form.Item label={t('musicStudio.brief.seed')}>
           <InputNumber
@@ -136,36 +100,16 @@ export default function MusicBriefForm({
           />
         </Form.Item>
       )}
-      {songContent && (
-        <>
-          <Form.Item label={t('musicStudio.brief.vocalTimbre')}>
-            <Select
-              aria-label={t('musicStudio.brief.vocalTimbre')}
-              disabled={disabled}
-              value={songContent.vocalStyle.timbre}
-              onChange={(timbre) => updateVocalStyle({timbre})}
-              options={translatedOptions(
-                capabilities.briefFields.vocalStyles.timbres,
-                'musicStudio.options.vocalTimbre',
-                t,
-              )}
-            />
-          </Form.Item>
-          <Form.Item label={t('musicStudio.brief.vocalDelivery')}>
-            <Select
-              aria-label={t('musicStudio.brief.vocalDelivery')}
-              disabled={disabled}
-              value={songContent.vocalStyle.delivery}
-              onChange={(delivery) => updateVocalStyle({delivery})}
-              options={translatedOptions(
-                capabilities.briefFields.vocalStyles.deliveries,
-                'musicStudio.options.vocalDelivery',
-                t,
-              )}
-            />
-          </Form.Item>
-        </>
-      )}
+      <Form.Item label={t('musicStudio.brief.variantCount')}>
+        <Segmented
+          aria-label={t('musicStudio.brief.variantCount')}
+          className="music-variant-count"
+          disabled={disabled}
+          options={VARIANT_COUNT_OPTIONS}
+          value={variantCount}
+          onChange={(count) => onVariantCountChange(Number(count))}
+        />
+      </Form.Item>
       <Form.Item className="music-form-grid__wide">
         <Checkbox
           checked={value.loopable}
@@ -180,59 +124,52 @@ export default function MusicBriefForm({
 
   return (
     <>
-      <section className="music-card" aria-labelledby="music-mode-title">
+      <section className="music-card" aria-labelledby="music-description-title">
         <div className="music-section-heading">
           <div>
-            <h2 id="music-mode-title">{t('musicStudio.brief.modeTitle')}</h2>
-            <p>{t('musicStudio.brief.modeHelper')}</p>
+            <h2 id="music-description-title">{t('musicStudio.brief.descriptionTitle')}</h2>
+            <p>{t('musicStudio.brief.descriptionHelper')}</p>
           </div>
           {scenePrefilled && <span className="music-prefill-badge">{t('musicStudio.scene.prefilled')}</span>}
         </div>
-        <Segmented
-          block
-          aria-label={t('musicStudio.brief.modeTitle')}
-          disabled={disabled}
-          options={capabilities.contentModes.map((mode) => ({
-            label: t(`musicStudio.brief.mode.${mode}`),
-            value: mode,
-          }))}
-          value={value.content.mode}
-          onChange={(mode) => changeMode(mode as MusicContentMode)}
-        />
-      </section>
-
-      <section className="music-card" aria-labelledby="music-sound-title">
-        <div className="music-section-heading">
-          <div>
-            <h2 id="music-sound-title">{t('musicStudio.brief.soundTitle')}</h2>
-            <p>{t('musicStudio.brief.soundHelper')}</p>
-          </div>
-        </div>
-        <Form layout="vertical" requiredMark={false} component={false}>
-          <div className="music-form-grid">
-            <Form.Item label={t('musicStudio.brief.title')} required>
+        <Form layout="vertical" component="div">
+          <div className="music-form-grid music-character-grid">
+            <Form.Item
+              className="music-character-grid__third"
+              label={t('musicStudio.brief.title')}
+              required
+            >
               <Input
                 aria-label={t('musicStudio.brief.title')}
                 disabled={disabled}
                 maxLength={255}
+                placeholder={t('musicStudio.brief.titlePlaceholder')}
                 value={value.title}
                 onChange={(event) => update({title: event.target.value})}
               />
             </Form.Item>
-            <Form.Item label={t('musicStudio.brief.purpose')} required>
+            <Form.Item
+              className="music-character-grid__third"
+              label={t('musicStudio.brief.purpose')}
+              required
+            >
               <Select
                 aria-label={t('musicStudio.brief.purpose')}
                 disabled={disabled}
-                value={value.purpose}
+                value={purposeOptions.includes(value.purpose) ? value.purpose : undefined}
                 onChange={(purpose) => update({purpose})}
                 options={translatedOptions(
-                  capabilities.briefFields.purposes,
+                  purposeOptions,
                   'musicStudio.options.purpose',
                   t,
                 )}
               />
             </Form.Item>
-            <Form.Item label={t('musicStudio.brief.genre')} required>
+            <Form.Item
+              className="music-character-grid__third"
+              label={t('musicStudio.brief.genre')}
+              required
+            >
               <Select
                 aria-label={t('musicStudio.brief.genre')}
                 disabled={disabled}
@@ -245,10 +182,46 @@ export default function MusicBriefForm({
                 )}
               />
             </Form.Item>
-            <Form.Item label={t('musicStudio.brief.duration')} required>
+            <Form.Item
+              className="music-character-grid__third"
+              label={t('musicStudio.brief.tempo')}
+            >
+              <Select
+                aria-label={t('musicStudio.brief.tempo')}
+                disabled={disabled}
+                value={value.tempo.mode}
+                onChange={(mode) => update({
+                  tempo: mode === 'bpm' ? {bpm: value.tempo.bpm ?? 90, mode} : {mode},
+                })}
+                options={translatedOptions(
+                  capabilities.briefFields.tempoModes,
+                  'musicStudio.options.tempo',
+                  t,
+                )}
+              />
+            </Form.Item>
+            <Form.Item
+              className="music-character-grid__third"
+              label={t('musicStudio.brief.energy')}
+            >
+              <Select
+                aria-label={t('musicStudio.brief.energy')}
+                disabled={disabled}
+                value={value.energyCurve}
+                onChange={(energyCurve) => update({energyCurve})}
+                options={translatedOptions(
+                  capabilities.briefFields.energyCurves,
+                  'musicStudio.options.energy',
+                  t,
+                )}
+              />
+            </Form.Item>
+            <Form.Item
+              className="music-character-grid__third"
+              label={t('musicStudio.brief.duration')}
+            >
               <InputNumber
                 aria-label={t('musicStudio.brief.duration')}
-                addonAfter={t('musicStudio.units.seconds')}
                 disabled={disabled}
                 min={capabilities.duration.minSeconds}
                 max={capabilities.duration.maxSeconds}
@@ -259,6 +232,7 @@ export default function MusicBriefForm({
               />
             </Form.Item>
             <Form.Item
+              className="music-character-grid__half"
               label={t('musicStudio.brief.moods')}
               required
               extra={t('musicStudio.brief.moodsHint')}
@@ -277,6 +251,7 @@ export default function MusicBriefForm({
               />
             </Form.Item>
             <Form.Item
+              className="music-character-grid__half"
               label={t('musicStudio.brief.instruments')}
               extra={t('musicStudio.brief.instrumentsHint')}
             >
@@ -293,46 +268,70 @@ export default function MusicBriefForm({
                 )}
               />
             </Form.Item>
-            <Form.Item label={t('musicStudio.brief.energy')}>
-              <Select
-                aria-label={t('musicStudio.brief.energy')}
-                disabled={disabled}
-                value={value.energyCurve}
-                onChange={(energyCurve) => update({energyCurve})}
-                options={translatedOptions(
-                  capabilities.briefFields.energyCurves,
-                  'musicStudio.options.energy',
-                  t,
-                )}
-              />
-            </Form.Item>
-            <Form.Item label={t('musicStudio.brief.tempo')}>
-              <Select
-                aria-label={t('musicStudio.brief.tempo')}
-                disabled={disabled}
-                value={value.tempo.mode}
-                onChange={(mode) => update({
-                  tempo: mode === 'bpm' ? {bpm: value.tempo.bpm ?? 90, mode} : {mode},
-                })}
-                options={translatedOptions(
-                  capabilities.briefFields.tempoModes,
-                  'musicStudio.options.tempo',
-                  t,
-                )}
-              />
-            </Form.Item>
-            <Form.Item className="music-form-grid__wide" label={t('musicStudio.brief.comment')}>
+            {songContent && (
+              <>
+                <Form.Item
+                  className="music-character-grid__half"
+                  label={t('musicStudio.brief.vocalTimbre')}
+                >
+                  <Select
+                    aria-label={t('musicStudio.brief.vocalTimbre')}
+                    disabled={disabled}
+                    value={songContent.vocalStyle.timbre}
+                    onChange={(timbre) => updateVocalStyle({timbre})}
+                    options={translatedOptions(
+                      capabilities.briefFields.vocalStyles.timbres,
+                      'musicStudio.options.vocalTimbre',
+                      t,
+                    )}
+                  />
+                </Form.Item>
+                <Form.Item
+                  className="music-character-grid__half"
+                  label={t('musicStudio.brief.vocalDelivery')}
+                >
+                  <Select
+                    aria-label={t('musicStudio.brief.vocalDelivery')}
+                    disabled={disabled}
+                    value={songContent.vocalStyle.delivery}
+                    onChange={(delivery) => updateVocalStyle({delivery})}
+                    options={translatedOptions(
+                      capabilities.briefFields.vocalStyles.deliveries,
+                      'musicStudio.options.vocalDelivery',
+                      t,
+                    )}
+                  />
+                </Form.Item>
+              </>
+            )}
+            <Form.Item
+              className="music-form-grid__wide"
+              label={t('musicStudio.brief.comment')}
+            >
               <Input.TextArea
                 aria-label={t('musicStudio.brief.comment')}
-                autoSize={{minRows: 3, maxRows: 8}}
+                className="music-brief-comment"
                 disabled={disabled}
                 maxLength={1000}
-                showCount
+                placeholder={t('musicStudio.brief.commentPlaceholder')}
+                rows={5}
                 value={value.textRefinement}
                 onChange={(event) => update({textRefinement: event.target.value})}
               />
+              <div className="music-field-meta">
+                <span>{t('musicStudio.brief.commentHint')}</span>
+                <span className="music-counter">{value.textRefinement.length} / 1000</span>
+              </div>
             </Form.Item>
           </div>
+        </Form>
+      </section>
+
+      <section
+        aria-label={t('musicStudio.brief.advanced')}
+        className="music-card music-advanced-card"
+      >
+        <Form layout="vertical" component="div">
           <Collapse
             ghost
             items={[{

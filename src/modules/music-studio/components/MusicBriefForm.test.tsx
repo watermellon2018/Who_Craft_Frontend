@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {fireEvent, render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
 
 import type {MusicBrief, MusicCapabilities, MusicLyricsSection} from '../types';
 import LyricsSectionEditor from './LyricsSectionEditor';
@@ -55,16 +55,6 @@ function ControlledBrief() {
   );
 }
 
-const songDraft: Extract<MusicBrief['content'], {mode: 'song'}> = {
-  lyricsLanguage: 'ru',
-  mode: 'song',
-  sections: [
-    {label: 'Verse 1', text: 'First line\nSecond line', type: 'verse'},
-    {label: 'Chorus', text: 'Keep this chorus', type: 'chorus'},
-  ],
-  vocalStyle: {delivery: 'soft', density: 'sparse', timbre: 'warm'},
-};
-
 function SeedBrief({supportsSeed}: {supportsSeed: boolean}) {
   const [brief, setBrief] = useState<MusicBrief>({...initialBrief, seed: 123});
   return (
@@ -81,47 +71,134 @@ function SeedBrief({supportsSeed}: {supportsSeed: boolean}) {
   );
 }
 
-function DraftPreservingBrief() {
-  const [brief, setBrief] = useState<MusicBrief>({
-    ...initialBrief,
-    content: songDraft,
-    purpose: 'song',
-  });
+function VariantCountBrief({onChange}: {onChange: (count: number) => void}) {
+  const [variantCount, setVariantCount] = useState(2);
   return (
-    <>
-      <MusicBriefForm
-        capabilities={capabilities}
-        value={brief}
-        variantCount={2}
-        onChange={setBrief}
-        onVariantCountChange={() => undefined}
-      />
-      <output data-testid="content-value">{JSON.stringify(brief.content)}</output>
-    </>
+    <MusicBriefForm
+      capabilities={capabilities}
+      value={initialBrief}
+      variantCount={variantCount}
+      onChange={() => undefined}
+      onVariantCountChange={(count) => {
+        setVariantCount(count);
+        onChange(count);
+      }}
+    />
   );
 }
 
-test('keeps every core Sound control visible in instrumental and song modes', () => {
+test('keeps the track controls in Track character and removes Sound', () => {
   render(<ControlledBrief />);
-  for (const label of ['Жанр', 'Длительность', 'Настроение', 'Инструменты', 'Динамика', 'Темп', 'Комментарий']) {
-    expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
+  const characterSection = screen.getByRole('heading', {name: 'Характер трека'}).closest('section');
+  expect(characterSection).not.toBeNull();
+
+  for (const label of [
+    'Название',
+    'Назначение',
+    'Жанр',
+    'Длительность (сек)',
+    'Настроение',
+    'Темп',
+    'Инструменты',
+    'Динамика',
+    'Желаемое звучание',
+  ]) {
+    expect(within(characterSection as HTMLElement).getAllByLabelText(label).length)
+      .toBeGreaterThan(0);
   }
 
-  fireEvent.click(screen.getByText('Песня с текстом'));
-  expect(screen.getAllByLabelText('Жанр').length).toBeGreaterThan(0);
-  expect(screen.getAllByLabelText('Комментарий').length).toBeGreaterThan(0);
+  const field = (label: string) => within(characterSection as HTMLElement)
+    .getAllByLabelText(label)[0]
+    .closest('.ant-form-item');
+  const title = field('Название');
+  const purpose = field('Назначение');
+  const genre = field('Жанр');
+  const tempo = field('Темп');
+  const energy = field('Динамика');
+  const duration = field('Длительность (сек)');
+  const moods = field('Настроение');
+  const instruments = field('Инструменты');
+
+  expect(title?.nextElementSibling).toBe(purpose);
+  expect(purpose?.nextElementSibling).toBe(genre);
+  expect(genre?.nextElementSibling).toBe(tempo);
+  expect(tempo?.nextElementSibling).toBe(energy);
+  expect(energy?.nextElementSibling).toBe(duration);
+  expect(duration?.nextElementSibling).toBe(moods);
+  expect(moods?.nextElementSibling).toBe(instruments);
+  for (const item of [title, purpose, genre, tempo, energy, duration]) {
+    expect(item).toHaveClass('music-character-grid__third');
+  }
+  for (const item of [moods, instruments]) {
+    expect(item).toHaveClass('music-character-grid__half');
+  }
+  expect(screen.queryByRole('heading', {name: 'Звучание'})).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Дополнительные настройки')).toBeInTheDocument();
 });
 
-test('restores the exact song draft after temporarily switching to instrumental mode', () => {
-  render(<DraftPreservingBrief />);
+test('shows the song vocal controls in Track character before the sound description', () => {
+  const songBrief: MusicBrief = {
+    ...initialBrief,
+    content: {
+      lyricsLanguage: 'ru',
+      mode: 'song',
+      sections: [{label: 'Куплет 1', text: 'Текст', type: 'verse'}],
+      vocalStyle: {delivery: 'soft', timbre: 'warm'},
+    },
+  };
+  render(
+    <MusicBriefForm
+      capabilities={capabilities}
+      value={songBrief}
+      variantCount={2}
+      onChange={() => undefined}
+      onVariantCountChange={() => undefined}
+    />,
+  );
+  const characterSection = screen.getByRole('heading', {name: 'Характер трека'}).closest('section');
+  const advancedSection = screen.getByLabelText('Дополнительные настройки');
+  const field = (label: string) => within(characterSection as HTMLElement)
+    .getAllByLabelText(label)[0]
+    .closest('.ant-form-item');
+  const timbre = field('Тембр вокала');
+  const delivery = field('Манера исполнения');
+  const comment = field('Желаемое звучание');
 
-  fireEvent.click(screen.getByText('Инструментал'));
-  expect(JSON.parse(screen.getByTestId('content-value').textContent ?? '')).toEqual({
-    mode: 'instrumental',
-  });
+  expect(timbre).toHaveClass('music-character-grid__half');
+  expect(delivery).toHaveClass('music-character-grid__half');
+  expect(timbre?.nextElementSibling).toBe(delivery);
+  expect(delivery?.nextElementSibling).toBe(comment);
+  expect(within(advancedSection).queryByLabelText('Тембр вокала')).not.toBeInTheDocument();
+  expect(within(advancedSection).queryByLabelText('Манера исполнения')).not.toBeInTheDocument();
+});
 
-  fireEvent.click(screen.getByText('Песня с текстом'));
-  expect(JSON.parse(screen.getByTestId('content-value').textContent ?? '')).toEqual(songDraft);
+test('does not duplicate the song format in the Purpose field', () => {
+  render(<ControlledBrief />);
+
+  fireEvent.mouseDown(screen.getByRole('combobox', {name: 'Назначение'}));
+
+  expect(screen.getByRole('option', {name: 'Фоновая музыка'})).toBeInTheDocument();
+  expect(screen.queryByRole('option', {name: 'Песня'})).not.toBeInTheDocument();
+});
+
+test('offers up to five generation variants', () => {
+  const onVariantCountChange = jest.fn();
+  render(<VariantCountBrief onChange={onVariantCountChange} />);
+
+  fireEvent.click(screen.getByText('Дополнительные настройки'));
+  const variantControl = screen.getByLabelText('Количество вариантов');
+  expect(variantControl).toHaveClass('music-variant-count');
+  const optionTwo = within(variantControl).getByText('2').closest('.ant-segmented-item');
+  const optionFive = within(variantControl).getByText('5').closest('.ant-segmented-item');
+  expect(within(variantControl).getByText('5')).toBeInTheDocument();
+  expect(optionTwo).toHaveClass('ant-segmented-item-selected');
+  expect(optionFive).not.toHaveClass('ant-segmented-item-selected');
+
+  fireEvent.click(optionFive as HTMLElement);
+
+  expect(onVariantCountChange).toHaveBeenCalledWith(5);
+  expect(optionTwo).not.toHaveClass('ant-segmented-item-selected');
+  expect(optionFive).toHaveClass('ant-segmented-item-selected');
 });
 
 test('shows and keeps seed in the brief only when the capability is enabled', () => {

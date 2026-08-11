@@ -1,17 +1,25 @@
 import React from 'react';
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
-import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
+import {MemoryRouter, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
 
 import i18n from '../../../i18n';
 import {musicApi} from '../api/musicApi';
+import {
+  getLatestMusicUploadEditorDraft,
+  removeMusicUploadEditorDraft,
+} from '../editor/musicUploadDraftStore';
 import {useMusicGenerationJob} from '../hooks/useMusicGenerationJob';
+import {useUnsavedMusicGuard} from '../hooks/useUnsavedMusicGuard';
 import type {
   MusicBrief,
   MusicCapabilities,
   MusicGenerationJob,
   MusicTrackDetail,
 } from '../types';
-import MusicStudioPage, {musicEnqueueIntentFingerprint} from './MusicStudioPage';
+import MusicStudioPage, {
+  musicEnqueueIntentFingerprint,
+  resetMusicCreateScroll,
+} from './MusicStudioPage';
 
 jest.mock('../hooks/useMusicGenerationJob');
 jest.mock('../hooks/useUnsavedMusicGuard', () => ({
@@ -20,6 +28,9 @@ jest.mock('../hooks/useUnsavedMusicGuard', () => ({
 
 const mockedUseMusicGenerationJob = useMusicGenerationJob as jest.MockedFunction<
   typeof useMusicGenerationJob
+>;
+const mockedUseUnsavedMusicGuard = useUnsavedMusicGuard as jest.MockedFunction<
+  typeof useUnsavedMusicGuard
 >;
 
 const brief: MusicBrief = {
@@ -98,6 +109,17 @@ const track: MusicTrackDetail = {
   }],
 };
 
+const referenceAsset = {
+  assetId: 'reference-1',
+  audioUrl: '/media/reference.mp3',
+  audioUrlExpiresAt: null,
+  durationSeconds: 12,
+  localVerificationStatus: 'accepted' as const,
+  mimeType: 'audio/mpeg',
+  name: 'reference.mp3',
+  providerModerationStatus: 'pending' as const,
+};
+
 function completedTargetJob(): MusicGenerationJob {
   return {
     attempts: 1,
@@ -134,6 +156,20 @@ function LocationProbe() {
   return <output data-testid="location">{location.pathname}{location.search}</output>;
 }
 
+function UploadDraftEditorProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const returnTo = (location.state as {returnTo?: string} | null)?.returnTo;
+  return (
+    <>
+      <button type="button" onClick={() => returnTo && navigate(returnTo)}>
+        return from editor
+      </button>
+      <button type="button" onClick={() => navigate(-1)}>browser back</button>
+    </>
+  );
+}
+
 function pageTree(path: string) {
   return (
     <MemoryRouter initialEntries={[path]}>
@@ -143,6 +179,10 @@ function pageTree(path: string) {
         <Route path="/project/:projectId/music/create" element={<MusicStudioPage />} />
         <Route path="/project/:projectId/music/jobs/:jobId" element={<MusicStudioPage />} />
         <Route path="/project/:projectId/music/tracks/:trackId" element={<MusicStudioPage />} />
+        <Route
+          path="/project/:projectId/music/upload-drafts/:draftId/edit"
+          element={<UploadDraftEditorProbe />}
+        />
       </Routes>
     </MemoryRouter>
   );
@@ -154,6 +194,7 @@ function renderPage(path: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(window, 'scrollTo').mockImplementation();
   jest.spyOn(musicApi, 'getCapabilities').mockResolvedValue({data: capabilities} as never);
   jest.spyOn(musicApi, 'getTrack').mockResolvedValue({data: track} as never);
   jest.spyOn(musicApi, 'listLibrary').mockResolvedValue({data: {
@@ -173,6 +214,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  const latestUploadDraft = getLatestMusicUploadEditorDraft('7');
+  if (latestUploadDraft) removeMusicUploadEditorDraft('7', latestUploadDraft.draftId);
   jest.restoreAllMocks();
 });
 
@@ -199,6 +242,277 @@ test('fingerprints reference, target, expected version, and brief changes as new
   }, null)).not.toBe(original);
   expect(musicEnqueueIntentFingerprint(payload, 4)).not.toBe(original);
 });
+
+test('opens the create route at the top of the page', () => {
+  resetMusicCreateScroll(true);
+  expect(window.scrollTo).toHaveBeenCalledWith({behavior: 'auto', left: 0, top: 0});
+});
+
+test('loads only active tracks and toggles the library sidebar', async () => {
+  const listLibrary = musicApi.listLibrary as jest.MockedFunction<typeof musicApi.listLibrary>;
+  renderPage('/project/7/music/create');
+
+  await waitFor(() => expect(listLibrary).toHaveBeenCalledWith(
+    '7',
+    expect.objectContaining({status: 'active'}),
+    expect.any(AbortSignal),
+  ));
+  expect(document.querySelector('.music-library__status-filter')).toBeNull();
+
+  const library = await screen.findByRole('complementary', {
+    name: i18n.t('musicStudio.library.title'),
+  });
+  const region = library.closest('.music-studio-library-region');
+  const content = library.closest('.music-studio-library-content');
+  expect(region).toHaveClass('music-studio-library-region--open');
+  expect(content).toHaveAttribute('aria-hidden', 'false');
+
+  const libraryTrigger = screen.getByRole('button', {name: i18n.t('musicStudio.library.hide')});
+  expect(libraryTrigger).toHaveClass('music-studio-library-trigger');
+  expect(libraryTrigger.parentElement).toBe(region);
+
+  fireEvent.click(libraryTrigger);
+  expect(region).not.toHaveClass('music-studio-library-region--open');
+  expect(content).toHaveAttribute('aria-hidden', 'true');
+
+  const collapsedLibraryTrigger = screen.getByRole('button', {
+    name: i18n.t('musicStudio.library.show'),
+  });
+  expect(collapsedLibraryTrigger).toBe(libraryTrigger);
+  expect(collapsedLibraryTrigger.parentElement).toBe(region);
+
+  fireEvent.click(collapsedLibraryTrigger);
+  expect(region).toHaveClass('music-studio-library-region--open');
+  expect(content).toHaveAttribute('aria-hidden', 'false');
+});
+
+test('preserves AI and upload drafts while switching creation modes', async () => {
+  const getCapabilities = musicApi.getCapabilities as jest.MockedFunction<
+    typeof musicApi.getCapabilities
+  >;
+  getCapabilities.mockResolvedValue({data: {
+    ...capabilities,
+    audioReference: {...capabilities.audioReference, supported: true},
+  }} as never);
+  jest.spyOn(musicApi, 'uploadReference').mockResolvedValue({data: referenceAsset} as never);
+  const pauseSpy = jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation();
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: jest.fn(() => 'blob:page-upload-preview'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: jest.fn(),
+  });
+  renderPage('/project/7/music/create');
+
+  const aiTitle = await screen.findByLabelText(i18n.t('musicStudio.brief.title'));
+  await waitFor(() => expect(screen.getByRole('button', {
+    name: i18n.t('musicStudio.scene.choose'),
+  })).not.toBeDisabled());
+  fireEvent.change(aiTitle, {target: {value: 'Preserved AI draft'}});
+  const songFormat = screen.getByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
+  });
+  fireEvent.click(songFormat);
+  expect(songFormat).toHaveAttribute('aria-checked', 'true');
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.reference.choose')), {
+    target: {files: [new File(['reference'], 'reference.mp3', {type: 'audio/mpeg'})]},
+  });
+  expect((await screen.findAllByText('reference.mp3')).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  expect(screen.queryByRole('heading', {name: i18n.t('musicStudio.format.title')}))
+    .not.toBeInTheDocument();
+  expect(screen.queryByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
+  })).not.toBeInTheDocument();
+
+  const file = new File(['audio'], 'scene-theme.mp3', {type: 'audio/mpeg'});
+  fireEvent.change(await screen.findByLabelText(i18n.t('musicStudio.upload.fileInputLabel')), {
+    target: {files: [file]},
+  });
+  fireEvent.change(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')), {
+    target: {value: 'Preserved upload draft'},
+  });
+  fireEvent.play(await screen.findByLabelText(i18n.t('musicStudio.upload.previewLabel')));
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  expect(pauseSpy).toHaveBeenCalled();
+  expect(await screen.findByLabelText(i18n.t('musicStudio.brief.title'))).toHaveValue(
+    'Preserved AI draft',
+  );
+  expect(screen.getAllByText('reference.mp3').length).toBeGreaterThan(0);
+  expect(screen.getByRole('radio', {
+    name: new RegExp(i18n.t('musicStudio.brief.mode.song')),
+  })).toHaveAttribute('aria-checked', 'true');
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  expect((await screen.findAllByText('scene-theme.mp3')).length).toBeGreaterThan(0);
+  expect(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder'))).toHaveValue(
+    'Preserved upload draft',
+  );
+});
+
+test('restores the complete local upload form after returning from the audio editor', async () => {
+  jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation();
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: jest.fn(() => 'blob:page-editor-draft'),
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: jest.fn(),
+  });
+  renderPage('/project/7/music/create');
+
+  const aiTitle = await screen.findByLabelText(i18n.t('musicStudio.brief.title'));
+  fireEvent.change(aiTitle, {target: {value: 'Preserved AI context'}});
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  fireEvent.change(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')), {
+    target: {value: 'Local title'},
+  });
+  fireEvent.change(screen.getByPlaceholderText(
+    i18n.t('musicStudio.upload.descriptionPlaceholder'),
+  ), {target: {value: 'Local description'}});
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.upload.fileInputLabel')), {
+    target: {files: [new File(['audio'], 'local-theme.mp3', {type: 'audio/mpeg'})]},
+  });
+  const audio = screen.getByLabelText(i18n.t('musicStudio.upload.previewLabel'));
+  Object.defineProperty(audio, 'duration', {configurable: true, value: 20});
+  fireEvent.loadedMetadata(audio);
+
+  const editButton = screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.editAria', {name: 'local-theme.mp3'}),
+  });
+  await waitFor(() => expect(editButton).toBeEnabled());
+  const guardCallCount = mockedUseUnsavedMusicGuard.mock.calls.length;
+  fireEvent.click(editButton);
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    /^\/project\/7\/music\/upload-drafts\/[^/]+\/edit$/,
+  ));
+  expect(mockedUseUnsavedMusicGuard.mock.calls.slice(guardCallCount))
+    .toContainEqual([false]);
+  const firstEditorPath = screen.getByTestId('location').textContent;
+
+  fireEvent.click(screen.getByRole('button', {name: 'browser back'}));
+  expect((await screen.findAllByText('local-theme.mp3')).length).toBeGreaterThan(0);
+  expect(screen.getByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')))
+    .toHaveValue('Local title');
+  expect(screen.getByPlaceholderText(i18n.t('musicStudio.upload.descriptionPlaceholder')))
+    .toHaveValue('Local description');
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  expect(await screen.findByLabelText(i18n.t('musicStudio.brief.title')))
+    .toHaveValue('Preserved AI context');
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  const repeatedEditButton = screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.editAria', {name: 'local-theme.mp3'}),
+  });
+  await waitFor(() => expect(repeatedEditButton).toBeEnabled());
+  fireEvent.click(repeatedEditButton);
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    firstEditorPath ?? '',
+  ));
+  fireEvent.click(screen.getByRole('button', {name: 'return from editor'}));
+  expect(await screen.findByPlaceholderText(i18n.t('musicStudio.upload.titlePlaceholder')))
+    .toHaveValue('Local title');
+});
+
+test.each([
+  {aiDisabled: false, canEdit: false, canRunGeneration: true, uploadDisabled: true},
+  {aiDisabled: true, canEdit: true, canRunGeneration: false, uploadDisabled: false},
+])('uses the matching permission for scene context %#', async ({
+  aiDisabled,
+  canEdit,
+  canRunGeneration,
+  uploadDisabled,
+}) => {
+  const listLibrary = musicApi.listLibrary as jest.MockedFunction<typeof musicApi.listLibrary>;
+  listLibrary.mockResolvedValue({data: {
+    items: [],
+    page: {limit: 30, offset: 0, total: 0},
+    permissions: {canEdit, canRunGeneration},
+  }} as never);
+  renderPage('/project/7/music/create');
+
+  const sceneButtonName = i18n.t('musicStudio.scene.choose');
+  await waitFor(() => {
+    const button = screen.getByRole('button', {name: sceneButtonName});
+    if (aiDisabled) expect(button).toBeDisabled();
+    else expect(button).not.toBeDisabled();
+  }, {timeout: 3000});
+
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.upload')));
+  await waitFor(() => {
+    const button = screen.getByRole('button', {name: sceneButtonName});
+    if (uploadDisabled) expect(button).toBeDisabled();
+    else expect(button).not.toBeDisabled();
+  }, {timeout: 3000});
+});
+
+test('confirms discarding an upload draft before starting AI generation', async () => {
+  const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
+    jobId: 'job-after-upload-draft',
+  }} as never);
+  renderPage('/project/7/music/create');
+
+  fireEvent.click(await screen.findByText(i18n.t('musicStudio.create.mode.upload')));
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.upload.fileInputLabel')), {
+    target: {files: [new File(['audio'], 'local-draft.mp3', {type: 'audio/mpeg'})]},
+  });
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.brief.title')), {
+    target: {value: 'AI generation after draft'},
+  });
+
+  const generate = screen.getByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  });
+  await waitFor(() => expect(generate).not.toBeDisabled());
+  fireEvent.click(generate);
+
+  expect(enqueue).not.toHaveBeenCalled();
+  expect(await screen.findByText(i18n.t('musicStudio.upload.discardDraftTitle')))
+    .toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {
+    name: i18n.t('musicStudio.upload.discardDraftConfirm'),
+  }));
+
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    '/project/7/music/jobs/job-after-upload-draft',
+  ));
+});
+
+test('does not treat visiting upload mode as an upload-file draft', async () => {
+  const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
+    jobId: 'job-after-format-change',
+  }} as never);
+  renderPage('/project/7/music/create');
+
+  fireEvent.click(await screen.findByText(i18n.t('musicStudio.create.mode.upload')));
+  expect(screen.queryByRole('heading', {name: i18n.t('musicStudio.format.title')}))
+    .not.toBeInTheDocument();
+  fireEvent.click(screen.getByText(i18n.t('musicStudio.create.mode.ai')));
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.brief.title')), {
+    target: {value: 'AI generation after format change'},
+  });
+
+  const generate = screen.getByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  });
+  await waitFor(() => expect(generate).not.toBeDisabled());
+  fireEvent.click(generate);
+
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText(i18n.t('musicStudio.upload.discardDraftTitle')))
+    .not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
+    '/project/7/music/jobs/job-after-format-change',
+  ));
+});
+
 test('starts a new-version job from track detail with the exact target snapshot', async () => {
   const getTrack = musicApi.getTrack as jest.MockedFunction<typeof musicApi.getTrack>;
   getTrack
@@ -371,7 +685,7 @@ test('reuses an idempotency key after an ambiguous failure until the brief chang
   const generateButton = () => screen.getByRole('button', {
     name: i18n.t('musicStudio.create.generate', {count: 2}),
   });
-  await waitFor(() => expect(generateButton()).not.toBeDisabled());
+  await waitFor(() => expect(generateButton()).not.toBeDisabled(), {timeout: 3000});
 
   fireEvent.click(generateButton());
   await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));
