@@ -107,7 +107,7 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-test('keeps Auto available while loading and renders catalog details after loading', async () => {
+test('keeps Auto available without rendering redundant model details', async () => {
   let resolveCatalog: ((value: {data: ImageModelCatalog}) => void) | undefined;
   mockedApi.getImageModelCatalog.mockReturnValue(new Promise((resolve) => {
     resolveCatalog = resolve;
@@ -124,8 +124,12 @@ test('keeps Auto available while loading and renders catalog details after loadi
     resolveCatalog?.({data: catalog});
   });
 
-  expect(await screen.findByText('Авто: GPT Image 1')).toBeInTheDocument();
-  expect(screen.getByText('Точная генерация с поддержкой референса.')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeDisabled());
+  expect(screen.queryByText('Авто: GPT Image 1')).not.toBeInTheDocument();
+  expect(screen.queryByText('Точная генерация с поддержкой референса.')).not.toBeInTheDocument();
+  expect(screen.queryByText(
+    'Настройте количество вариантов и поведение генерации перед созданием персонажа.',
+  )).not.toBeInTheDocument();
   expect(screen.queryByText('SECRET_ENV_NAME')).not.toBeInTheDocument();
 });
 
@@ -160,9 +164,9 @@ test('disables seed when Auto resolves to a default model without seed support',
 
   render(<Harness />);
 
-  expect(await screen.findByText('Авто: Seedream')).toBeInTheDocument();
+  expect(await screen.findByText('Выбранная модель не поддерживает seed.')).toBeInTheDocument();
+  expect(screen.queryByText('Авто: Seedream')).not.toBeInTheDocument();
   expect(screen.getByRole('checkbox')).toBeDisabled();
-  expect(screen.getByText('Выбранная модель не поддерживает seed.')).toBeInTheDocument();
 });
 
 test('disables reference-incompatible and unconfigured models with safe reasons', async () => {

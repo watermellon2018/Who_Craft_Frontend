@@ -197,6 +197,22 @@ it('places the visual library before Music Studio', async () => {
     .toBeTruthy();
 });
 
+it('opens the full character list from the Characters section', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({} as never);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/project/:projectId/characters" element={<div>Список персонажей</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', {name: 'Смотреть все'}));
+  expect(await screen.findByText('Список персонажей')).toBeInTheDocument();
+});
+
 it.each([
   [
     'create_character',

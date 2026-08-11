@@ -121,7 +121,6 @@ export default function GenerationSettingsPanel({
         </span>
         <div>
           <h2>Параметры генерации</h2>
-          <p>Настройте количество вариантов и поведение генерации перед созданием персонажа.</p>
         </div>
       </div>
 
@@ -171,17 +170,6 @@ export default function GenerationSettingsPanel({
             <p className="generation-model-status generation-model-status--warning" role="status">
               Каталог моделей временно недоступен. Автовыбор продолжит работать.
             </p>
-          )}
-          {selectedModel && (
-            <div className="generation-model-details">
-              <strong>
-                {value.imageModel ? selectedModel.label : `Авто: ${selectedModel.label}`}
-              </strong>
-              {selectedModel.description && <p>{selectedModel.description}</p>}
-              <span>
-                {getProviderLabel(selectedModel)} · {getCapabilityHint(selectedModel)}
-              </span>
-            </div>
           )}
         </GenerationSettingGroup>
 

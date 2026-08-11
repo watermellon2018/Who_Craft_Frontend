@@ -1,7 +1,8 @@
 import React from 'react';
 import {Button, Card, Tag} from 'antd';
 import {CloseOutlined, LockOutlined} from '@ant-design/icons';
-import {StudioCharacter} from '../types/character.types';
+import {useTranslation} from 'react-i18next';
+import type {StudioCharacter} from '../types/character.types';
 import {roleLabelMap} from './create/characterCreateOptions';
 
 // Only fall back to character assets that legitimately stand in for a portrait
@@ -20,7 +21,16 @@ function withCacheBust(url: string, key?: string | null) {
   return `${url}${separator}_cb=${encodeURIComponent(key)}`;
 }
 
-export default function CharacterCard({character, onEdit, onDelete}: {character: StudioCharacter; onEdit: () => void; onDelete: () => void}) {
+interface CharacterCardProps {
+  busy?: boolean;
+  character: StudioCharacter;
+  onDelete: () => void;
+  onEdit: () => void;
+}
+
+export default function CharacterCard({busy = false, character, onEdit, onDelete}: CharacterCardProps) {
+  const {t} = useTranslation();
+  const isDraft = character.status === 'draft';
   const portraitAsset = character.images?.portrait;
   const portraitFallback = (character.references || []).find(
     (reference) => PORTRAIT_REFERENCE_ASSET_TYPES.has(reference.asset_type),
@@ -31,10 +41,23 @@ export default function CharacterCard({character, onEdit, onDelete}: {character:
   return (
     <div style={{position: 'relative'}}>
       <Card
+        loading={busy}
         style={{position: 'relative'}}
-        cover={image ? <img src={image} alt={character.name} style={{height: 220, objectFit: 'cover'}} /> : <div style={{height: 220, display: 'grid', placeItems: 'center', background: '#111318'}}>No image</div>}
+        cover={image ? <img src={image} alt={character.name} style={{height: 220, objectFit: 'cover'}} /> : <div style={{height: 220, display: 'grid', placeItems: 'center', background: '#111318'}}>{isDraft ? t('characterStudio.gallery.draftPlaceholder') : t('characterStudio.gallery.noImage')}</div>}
       >
-        <Card.Meta title={character.name} description={character.role ? (roleLabelMap[character.role] ?? character.role) : 'Роль не указана'} />
+        <Card.Meta
+          title={character.name}
+          description={isDraft
+            ? t('characterStudio.gallery.draftDescription')
+            : character.role
+              ? (roleLabelMap[character.role] ?? character.role)
+              : t('characterStudio.gallery.roleMissing')}
+        />
+        {isDraft && (
+          <div style={{marginTop: 12}}>
+            <Tag color="gold">{t('characterStudio.gallery.draftBadge')}</Tag>
+          </div>
+        )}
         {character.identity_locked && (
           <div style={{marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap'}}>
             <Tag icon={<LockOutlined />} color="gold">locked</Tag>
@@ -42,7 +65,10 @@ export default function CharacterCard({character, onEdit, onDelete}: {character:
         )}
       </Card>
       <button
-        aria-label={`Редактировать персонажа «${character.name}»`}
+        aria-label={isDraft
+          ? t('characterStudio.gallery.resumeDraftAria', {name: character.name})
+          : t('characterStudio.gallery.editCharacterAria', {name: character.name})}
+        disabled={busy}
         onClick={onEdit}
         type="button"
         style={{
@@ -52,11 +78,13 @@ export default function CharacterCard({character, onEdit, onDelete}: {character:
           border: 0,
           borderRadius: 8,
           background: 'transparent',
-          cursor: 'pointer',
+          cursor: busy ? 'wait' : 'pointer',
         }}
       />
       <Button
-        aria-label="Удалить персонажа"
+        aria-label={isDraft
+          ? t('characterStudio.gallery.deleteDraftAria', {name: character.name})
+          : t('characterStudio.gallery.deleteCharacterAria', {name: character.name})}
         icon={<CloseOutlined />}
         onClick={onDelete}
         size="small"

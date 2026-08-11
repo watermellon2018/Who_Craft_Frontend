@@ -673,28 +673,6 @@
   color: #d8b46a;
 }
 
-.generation-model-details {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid #313741;
-  border-radius: 10px;
-  background: #141820;
-}
-
-.generation-model-details strong {
-  color: #f7efe0;
-  font-size: 13px;
-}
-
-.generation-model-details p,
-.generation-model-details span {
-  margin: 0;
-  color: #929aa8;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
 .generation-segmented {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

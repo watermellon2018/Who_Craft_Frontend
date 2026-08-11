@@ -17,6 +17,34 @@
   flex: 0 0 auto;
 }
 
+.character-gallery-page__sections,
+.character-gallery-page__section {
+  display: grid;
+  gap: 16px;
+}
+
+.character-gallery-page__sections {
+  gap: 28px;
+}
+
+.character-gallery-page__section-heading h2 {
+  margin: 0;
+  color: var(--craft-text);
+  font-size: 18px;
+}
+
+.character-gallery-page__section-heading p {
+  margin: 6px 0 0;
+  color: var(--craft-text-muted);
+  font-size: 14px;
+}
+
+.character-gallery-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
 @media (max-width: 640px) {
   .character-gallery-page {
     padding: 16px !important;

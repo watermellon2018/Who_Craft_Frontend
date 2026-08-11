@@ -15,22 +15,28 @@ const character: CharacterMock = {
 
 it('places the create card before existing characters', () => {
   const onCreate = jest.fn();
+  const onViewAll = jest.fn();
 
   render(
     <CharactersSection
       characters={[character]}
       onCharacterClick={jest.fn()}
       onCreate={onCreate}
+      onViewAll={onViewAll}
     />,
   );
 
   const createCard = screen.getByRole('button', {name: 'Создать персонажа'});
   const characterCard = screen.getByRole('button', {name: 'Открыть персонажа: Анна'});
 
+  expect(screen.queryByRole('button', {name: 'More'})).not.toBeInTheDocument();
   expect(
     createCard.compareDocumentPosition(characterCard) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
 
   fireEvent.click(createCard);
   expect(onCreate).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Смотреть все'}));
+  expect(onViewAll).toHaveBeenCalledTimes(1);
 });

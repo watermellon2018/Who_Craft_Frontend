@@ -226,14 +226,12 @@ export const ProjectDashboardPage: React.FC = () => {
   }, [handleOpenMusic, navigate, projectId]);
 
   const handleContinue = handleOpenScript;
-  const handleCreateCharacter = () => {
+  const handleOpenCharacters = () => {
     if (!projectId) return;
-    // Route the "create character" CTA to the modern character studio gallery
-    // (the legacy ``/generating`` route was removed along with the legacy
-    // hero editor).
     const url = PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId));
     navigate(url);
   };
+  const handleCreateCharacter = handleOpenCharacters;
   const handleCharacterClick = useCallback(
     (characterId: string) => {
       if (!projectId) return;
@@ -590,6 +588,7 @@ export const ProjectDashboardPage: React.FC = () => {
                   characters={view.characters}
                   onCreate={handleCreateCharacter}
                   onCharacterClick={projectId ? handleCharacterClick : undefined}
+                  onViewAll={handleOpenCharacters}
                 />
                 <ProjectPipeline
                   pipeline={view.pipeline}
