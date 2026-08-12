@@ -43,8 +43,47 @@ jest.mock('../components/create/VisualStyleSelector', () => ({
 }));
 jest.mock('../components/create/GenerationSettingsPanel', () => ({
   __esModule: true,
-  default: () => null,
-  defaultGenerationOptions: {count: 1, creativity: 'balanced', lockSeed: false, seed: ''},
+  default: ({onChange}: {onChange: (value: {
+    count: 1;
+    creativity: 'balanced';
+    imageModel: string;
+    lockSeed: boolean;
+    seed: string;
+  }) => void}) => (
+    <>
+      <button
+        type="button"
+        onClick={() => onChange({
+          count: 1,
+          creativity: 'balanced',
+          imageModel: 'openrouter-images:openai/gpt-image-1',
+          lockSeed: false,
+          seed: '',
+        })}
+      >
+        Выбрать GPT Image
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange({
+          count: 1,
+          creativity: 'balanced',
+          imageModel: 'openrouter-images:black-forest-labs/flux.2-pro',
+          lockSeed: false,
+          seed: '',
+        })}
+      >
+        Выбрать FLUX
+      </button>
+    </>
+  ),
+  defaultGenerationOptions: {
+    count: 1,
+    creativity: 'balanced',
+    imageModel: '',
+    lockSeed: false,
+    seed: '',
+  },
 }));
 jest.mock('./CreateCharacterFromReferencePage', () => ({
   CreateCharacterFromReferenceContent: () => null,
@@ -201,4 +240,62 @@ test('clears a legacy navigation-state character id when deleting the draft', as
   expect(mockedApi.create).not.toHaveBeenCalled();
   expect(mockedApi.update).toHaveBeenCalledTimes(1);
   expect(mockedApi.delete).toHaveBeenCalledWith('proj-1', 'char-1');
+});
+
+test('includes the selected image model in the generation payload and navigation state', async () => {
+  mockedApi.generateInitial.mockReset().mockResolvedValue({
+    data: {job_id: 'job-selected-model', status: 'queued'},
+  } as never);
+  renderPage();
+
+  fireEvent.click(screen.getByRole('button', {name: 'Выбрать GPT Image'}));
+  fireEvent.change(screen.getByLabelText('character-name'), {target: {value: 'Hero'}});
+  fireEvent.change(screen.getByLabelText('appearance-description'), {target: {value: 'Tall warrior'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Сгенерировать'}));
+
+  await waitFor(() => expect(mockedApi.generateInitial).toHaveBeenCalledTimes(1));
+  expect(mockedApi.generateInitial.mock.calls[0][2]).toEqual(expect.objectContaining({
+    image_model: 'openrouter-images:openai/gpt-image-1',
+  }));
+  expect(await screen.findByTestId('location-state')).toHaveTextContent(
+    '"imageModel":"openrouter-images:openai/gpt-image-1"',
+  );
+});
+
+test('retries and navigates with the exact options used by the failed attempt', async () => {
+  mockedApi.generateInitial
+    .mockReset()
+    .mockResolvedValueOnce({
+      data: {job_id: 'job-failed', status: 'failed', error_message: 'provider failed'},
+    } as never)
+    .mockResolvedValueOnce({
+      data: {job_id: 'job-retry', status: 'queued'},
+    } as never);
+  renderPage();
+
+  fireEvent.click(screen.getByRole('button', {name: 'Выбрать GPT Image'}));
+  fireEvent.change(screen.getByLabelText('character-name'), {target: {value: 'Hero'}});
+  fireEvent.change(screen.getByLabelText('appearance-description'), {target: {value: 'Tall warrior'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Сгенерировать'}));
+  expect(await screen.findByText('provider failed')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', {name: 'Выбрать FLUX'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Повторить генерацию'}));
+
+  await waitFor(() => expect(mockedApi.generateInitial).toHaveBeenCalledTimes(2));
+  expect(mockedApi.generateInitial.mock.calls[0][2]).toEqual(expect.objectContaining({
+    image_model: 'openrouter-images:openai/gpt-image-1',
+  }));
+  expect(mockedApi.generateInitial.mock.calls[1][2]).toEqual(expect.objectContaining({
+    image_model: 'openrouter-images:openai/gpt-image-1',
+  }));
+  expect(await screen.findByText(
+    '/project/proj-1/characters/char-1/variants?jobId=job-retry&treeNodeId=tree-node-1',
+  )).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('location-state')).toHaveTextContent(
+    '"imageModel":"openrouter-images:openai/gpt-image-1"',
+  ));
+  expect(screen.getByTestId('location-state')).not.toHaveTextContent(
+    'openrouter-images:black-forest-labs/flux.2-pro',
+  );
 });

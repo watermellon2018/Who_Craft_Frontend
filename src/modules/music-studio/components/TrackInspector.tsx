@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Alert, Button, Descriptions, Empty, Popconfirm, Spin, Tag} from 'antd';
-import {CheckOutlined, DownloadOutlined, FolderOutlined, PlusOutlined} from '@ant-design/icons';
+import {CheckOutlined, DownloadOutlined, EditOutlined, FolderOutlined, PlusOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 
 import {backendAssetUrl} from '../../../api/http';
@@ -25,6 +25,7 @@ interface TrackInspectorProps {
   onAudioPlay: (audio: HTMLAudioElement) => void;
   onChanged: () => void;
   onCreateVersion: () => void;
+  onEdit: () => void;
   onSignedUrlExpired: (refreshKey: string) => void;
   projectId: string;
   track: MusicTrackDetail;
@@ -35,6 +36,7 @@ export default function TrackInspector({
   onAudioPlay,
   onChanged,
   onCreateVersion,
+  onEdit,
   onSignedUrlExpired,
   projectId,
   track,
@@ -131,6 +133,11 @@ export default function TrackInspector({
         <p className="music-terms-note">{t('musicStudio.track.terms')}</p>
         {error && <Alert type="error" showIcon message={error} />}
         <div className="music-inline-actions">
+          {canEdit && track.status === 'active' && track.activeVersion?.audioUrl && (
+            <Button icon={<EditOutlined />} onClick={onEdit}>
+              {t('musicStudio.audioEditor.open')}
+            </Button>
+          )}
           {canEdit && track.status === 'active' && (
             <Button icon={<PlusOutlined />} onClick={onCreateVersion}>
               {t('musicStudio.job.newBrief')}

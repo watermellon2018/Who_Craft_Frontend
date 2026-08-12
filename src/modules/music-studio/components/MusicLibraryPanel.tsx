@@ -1,9 +1,10 @@
 import React, {useRef} from 'react';
-import {Button, Empty, Input, Segmented, Spin, Tag} from 'antd';
+import {Button, Empty, Input, Segmented, Skeleton, Tag} from 'antd';
 import {HistoryOutlined, PlusOutlined, SearchOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 
 import {backendAssetUrl} from '../../../api/http';
+import AudioPlayer from './AudioPlayer';
 import type {
   MusicGenerationJob,
   MusicLibraryItem,
@@ -18,7 +19,6 @@ interface MusicLibraryPanelProps {
   loading: boolean;
   mode: 'library' | 'history';
   onCreate: () => void;
-  onFilterChange: (filter: 'active' | 'archived') => void;
   onModeChange: (mode: 'library' | 'history') => void;
   onOpenJob: (jobId: string) => void;
   onOpenTrack: (trackId: number) => void;
@@ -28,12 +28,13 @@ interface MusicLibraryPanelProps {
   query: string;
   selectedJobId?: string;
   selectedTrackId?: number;
-  statusFilter: 'active' | 'archived';
+  total: number;
 }
 
 function duration(seconds?: number | null) {
   if (!seconds) return '—';
-  return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
+  const roundedSeconds = Math.round(seconds);
+  return `${Math.floor(roundedSeconds / 60)}:${String(roundedSeconds % 60).padStart(2, '0')}`;
 }
 
 export default function MusicLibraryPanel({
@@ -44,7 +45,6 @@ export default function MusicLibraryPanel({
   loading,
   mode,
   onCreate,
-  onFilterChange,
   onModeChange,
   onOpenJob,
   onOpenTrack,
@@ -54,24 +54,46 @@ export default function MusicLibraryPanel({
   query,
   selectedJobId,
   selectedTrackId,
-  statusFilter,
+  total,
 }: MusicLibraryPanelProps) {
   const {t} = useTranslation();
   const signedUrlRefreshKeysRef = useRef(new Set<string>());
+
+  const sourceLabel = (track: MusicLibraryItem) => {
+    if (track.source === 'generated' || track.activeVersion?.provenance?.createdByAi) {
+      return t('musicStudio.library.source.ai');
+    }
+    if (track.source === 'manual') return t('musicStudio.library.source.uploaded');
+    return t('musicStudio.library.source.legacy');
+  };
+
   return (
     <aside className="music-library" aria-label={t('musicStudio.library.title')}>
       <div className="music-library__header">
-        <h2>{mode === 'library'
-          ? t('musicStudio.library.title')
-          : t('musicStudio.history.title')}</h2>
+        <div>
+          <h2>{mode === 'library'
+            ? t('musicStudio.library.title')
+            : t('musicStudio.history.title')}</h2>
+          <span className="music-library__count">
+            {mode === 'library'
+              ? t('musicStudio.library.count', {count: total})
+              : t('musicStudio.history.count', {count: history.length})}
+          </span>
+        </div>
         {permissions.canRunGeneration && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={onCreate}>
-            {t('musicStudio.library.newTrack')}
-          </Button>
+          <Button
+            className="music-library__create"
+            type="primary"
+            icon={<PlusOutlined />}
+            aria-label={t('musicStudio.library.newTrack')}
+            title={t('musicStudio.library.newTrack')}
+            onClick={onCreate}
+          />
         )}
       </div>
       <Segmented
         block
+        className="music-library__tabs"
         value={mode}
         options={[
           {label: t('musicStudio.library.title'), value: 'library'},
@@ -81,38 +103,30 @@ export default function MusicLibraryPanel({
       />
 
       {mode === 'library' && (
-        <>
-          <Input
-            allowClear
-            aria-label={t('musicStudio.library.search')}
-            prefix={<SearchOutlined />}
-            placeholder={t('musicStudio.library.searchPlaceholder')}
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-          />
-          <Segmented
-            block
-            value={statusFilter}
-            options={[
-              {label: t('musicStudio.library.active'), value: 'active'},
-              {label: t('musicStudio.library.archived'), value: 'archived'},
-            ]}
-            onChange={(value) => onFilterChange(value as 'active' | 'archived')}
-          />
-        </>
+        <Input
+          allowClear
+          className="music-library__search"
+          aria-label={t('musicStudio.library.search')}
+          prefix={<SearchOutlined />}
+          placeholder={t('musicStudio.library.searchPlaceholder')}
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
       )}
 
       {loading ? (
-        <div className="music-centered"><Spin /></div>
+        <div className="music-library__skeleton" aria-label={t('musicStudio.library.loading')}>
+          {[0, 1, 2, 3].map((item) => (
+            <div className="music-library-row" key={item}>
+              <Skeleton active paragraph={{rows: 2}} title={{width: '72%'}} />
+            </div>
+          ))}
+        </div>
       ) : error ? (
         <div className="music-library__error" role="alert">{error}</div>
       ) : mode === 'library' ? (
         items.length === 0 ? (
-          <Empty
-            description={statusFilter === 'active'
-              ? t('musicStudio.library.empty')
-              : t('musicStudio.library.emptyArchived')}
-          />
+          <Empty description={t('musicStudio.library.empty')} />
         ) : (
           <div className="music-library__list">
             {items.map((track) => (
@@ -125,7 +139,9 @@ export default function MusicLibraryPanel({
                 <button type="button" onClick={() => onOpenTrack(track.id)}>
                   <span>
                     <strong>{track.title}</strong>
-                    <small>{track.author} · {duration(track.activeVersion?.durationSeconds)}</small>
+                    <small>
+                      {sourceLabel(track)} · {duration(track.activeVersion?.durationSeconds)}
+                    </small>
                   </span>
                   <span>{t('musicStudio.library.usage', {count: track.usageCount})}</span>
                 </button>
@@ -133,12 +149,12 @@ export default function MusicLibraryPanel({
                   {track.tags.slice(0, 3).map((tag) => <Tag key={tag}>{tag}</Tag>)}
                 </div>
                 {track.activeVersion?.audioUrl && (
-                  <audio
-                    controls
-                    preload="metadata"
-                    aria-label={t('musicStudio.player.track', {title: track.title})}
+                  <AudioPlayer
+                    compact
+                    durationSeconds={track.activeVersion.durationSeconds}
+                    label={t('musicStudio.player.track', {title: track.title})}
                     src={backendAssetUrl(track.activeVersion.audioUrl)}
-                    onPlay={(event) => activeAudio(event.currentTarget)}
+                    onPlay={activeAudio}
                     onError={() => {
                       const refreshKey = track.activeVersion?.versionId
                         ?? ['legacy', track.id].join('-');

@@ -1089,15 +1089,6 @@
   margin: 0 8px 8px 0;
 }
 
-.character-settings-panel .ant-checkbox-inner {
-  border-color: rgba(250, 176, 5, 0.55) !important;
-  background: #10141b !important;
-}
-
-.character-settings-panel .ant-checkbox-checked .ant-checkbox-inner {
-  background: var(--editor-accent) !important;
-}
-
 .character-settings-panel textarea.ant-input {
   min-height: 96px;
   resize: vertical;

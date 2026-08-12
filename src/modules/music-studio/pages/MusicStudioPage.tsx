@@ -1,6 +1,6 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Alert, Button, Empty, Result, Skeleton, Space, Spin} from 'antd';
-import {PlusOutlined, ReloadOutlined} from '@ant-design/icons';
+import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
+import {Alert, Button, Empty, Modal, Result, Segmented, Skeleton, Space, Spin} from 'antd';
+import {PlusOutlined, ReloadOutlined, SoundOutlined, UploadOutlined} from '@ant-design/icons';
 import {flushSync} from 'react-dom';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
@@ -8,13 +8,21 @@ import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router
 import {
   musicJobPath,
   musicStudioCreatePath,
+  musicTrackEditorPath,
   musicTrackPath,
+  musicUploadDraftEditorPath,
 } from '../../../routes/pathConstant';
+import {currentReturnTo} from '../../../utils/auth/returnTo';
 import type {AppliedTrackContext} from '../api/musicApi';
 import {musicApi, newMusicIdempotencyKey} from '../api/musicApi';
 import AudioReferenceField from '../components/AudioReferenceField';
+import AudioUploadForm from '../components/AudioUploadForm';
+import type {AudioUploadDraft} from '../components/AudioUploadForm';
 import LyricsSectionEditor from '../components/LyricsSectionEditor';
 import MusicBriefForm from '../components/MusicBriefForm';
+import MusicCreationSummary from '../components/MusicCreationSummary';
+import type {MusicCreationMode} from '../components/MusicCreationSummary';
+import MusicFormatSelector from '../components/MusicFormatSelector';
 import MusicJobState from '../components/MusicJobState';
 import MusicLibraryPanel from '../components/MusicLibraryPanel';
 import MusicStudioShell from '../components/MusicStudioShell';
@@ -22,6 +30,12 @@ import MusicVariantPlayer from '../components/MusicVariantPlayer';
 import ScenePickerDialog from '../components/ScenePickerDialog';
 import TrackInspector from '../components/TrackInspector';
 import {musicErrorDescriptor} from '../errors';
+import {
+  getLatestMusicUploadEditorDraft,
+  getMusicUploadEditorDraft,
+  removeMusicUploadEditorDraft,
+  saveMusicUploadEditorDraft,
+} from '../editor/musicUploadDraftStore';
 import {useMusicGenerationJob} from '../hooks/useMusicGenerationJob';
 import {useUnsavedMusicGuard} from '../hooks/useUnsavedMusicGuard';
 import type {
@@ -38,6 +52,13 @@ import type {
 import '../musicStudio.css';
 
 const NO_PERMISSIONS: MusicPermissions = {canEdit: false, canRunGeneration: false};
+const EMPTY_UPLOAD_DRAFT: AudioUploadDraft = {
+  description: '',
+  durationSeconds: null,
+  file: null,
+  status: 'empty',
+  title: '',
+};
 
 function createDefaultBrief(capabilities: MusicCapabilities): MusicBrief {
   return {
@@ -75,6 +96,10 @@ export function musicEnqueueIntentFingerprint(
   return JSON.stringify({expectedTrackVersion, payload});
 }
 
+export function resetMusicCreateScroll(isCreateRoute: boolean) {
+  if (isCreateRoute) window.scrollTo({behavior: 'auto', left: 0, top: 0});
+}
+
 function musicPathWithParams(
   path: string,
   params: Record<string, number | null | undefined>,
@@ -100,25 +125,48 @@ export default function MusicStudioPage() {
   const sceneIdParam = Number(searchParams.get('sceneId')) || null;
   const targetTrackIdParam = Number(searchParams.get('targetTrackId')) || null;
   const expectedTrackVersionParam = Number(searchParams.get('expectedTrackVersion')) || null;
+  const uploadEditorDraftIdParam = searchParams.get('uploadDraftId');
+  const requestedCreationMode = searchParams.get('mode') === 'upload' ? 'upload' : null;
   const isCreateRoute = location.pathname.endsWith('/create');
   const trackId = trackIdParam && /^\d+$/.test(trackIdParam) ? Number(trackIdParam) : null;
+  const restoredCreateDraftEntry = isCreateRoute
+    ? uploadEditorDraftIdParam
+      ? getMusicUploadEditorDraft(projectId, uploadEditorDraftIdParam)
+      : getLatestMusicUploadEditorDraft(projectId)
+    : null;
+  const restoredCreateDraft = restoredCreateDraftEntry?.snapshot ?? null;
+  const activeUploadEditorDraftId = uploadEditorDraftIdParam
+    ?? restoredCreateDraftEntry?.draftId
+    ?? null;
+  const restoredCreateDraftRef = useRef(restoredCreateDraft);
 
   const [capabilities, setCapabilities] = useState<MusicCapabilities | null>(null);
   const [capabilitiesError, setCapabilitiesError] = useState<string | null>(null);
-  const [brief, setBrief] = useState<MusicBrief | null>(null);
-  const [variantCount, setVariantCount] = useState(2);
-  const [reference, setReference] = useState<MusicReferenceAsset | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [selectedScene, setSelectedScene] = useState<MusicSceneOption | null>(null);
+  const [brief, setBrief] = useState<MusicBrief | null>(restoredCreateDraft?.brief ?? null);
+  const [creationMode, setCreationMode] = useState<MusicCreationMode>(
+    restoredCreateDraft?.creationMode ?? requestedCreationMode ?? 'ai',
+  );
+  const [variantCount, setVariantCount] = useState(restoredCreateDraft?.variantCount ?? 2);
+  const [reference, setReference] = useState<MusicReferenceAsset | null>(
+    restoredCreateDraft?.reference ?? null,
+  );
+  const [uploadDraft, setUploadDraft] = useState<AudioUploadDraft>(
+    restoredCreateDraft?.uploadDraft ?? EMPTY_UPLOAD_DRAFT,
+  );
+  const [aiDirty, setAiDirty] = useState(restoredCreateDraft?.aiDirty ?? false);
+  const [uploadDirty, setUploadDirty] = useState(restoredCreateDraft?.uploadDirty ?? false);
+  const [selectedScene, setSelectedScene] = useState<MusicSceneOption | null>(
+    restoredCreateDraft?.selectedScene ?? null,
+  );
   const [scenePickerOpen, setScenePickerOpen] = useState(false);
   const [library, setLibrary] = useState<MusicLibraryItem[]>([]);
+  const [libraryTotal, setLibraryTotal] = useState(0);
   const [history, setHistory] = useState<MusicGenerationJob[]>([]);
   const [permissions, setPermissions] = useState<MusicPermissions>(NO_PERMISSIONS);
   const [libraryLoading, setLibraryLoading] = useState(true);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [libraryMode, setLibraryMode] = useState<'library' | 'history'>('library');
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'active' | 'archived'>('active');
   const [dataRevision, setDataRevision] = useState(0);
   const [track, setTrack] = useState<MusicTrackDetail | null>(null);
   const [targetTrack, setTargetTrack] = useState<MusicTrackDetail | null>(null);
@@ -136,8 +184,13 @@ export default function MusicStudioPage() {
   const enqueueInFlightRef = useRef(false);
   const enqueueIntentRef = useRef<{fingerprint: string; key: string} | null>(null);
   const targetBriefInitializedRef = useRef<string | null>(null);
+  const variantCountInitializedRef = useRef(Boolean(restoredCreateDraft));
 
-  useUnsavedMusicGuard(isCreateRoute && dirty);
+  useLayoutEffect(() => {
+    resetMusicCreateScroll(isCreateRoute);
+  }, [isCreateRoute, location.key]);
+
+  useUnsavedMusicGuard(isCreateRoute && (aiDirty || uploadDirty));
   const generation = useMusicGenerationJob(projectId, jobId);
   const refreshGeneration = generation.refresh;
   const jobSceneId = generation.job?.brief.context.type === 'scene'
@@ -171,15 +224,54 @@ export default function MusicStudioPage() {
   useEffect(() => () => activeAudioRef.current?.pause(), []);
 
   useEffect(() => {
+    activeAudioRef.current?.pause();
+  }, [creationMode]);
+
+  useEffect(() => {
+    if (!isCreateRoute || !activeUploadEditorDraftId) return;
+    if (!uploadDraft.file) {
+      removeMusicUploadEditorDraft(projectId, activeUploadEditorDraftId);
+      return;
+    }
+    saveMusicUploadEditorDraft(projectId, {
+      aiDirty,
+      brief,
+      canEdit: permissions.canEdit,
+      creationMode,
+      reference,
+      selectedScene,
+      uploadDirty,
+      uploadDraft,
+      variantCount,
+    }, activeUploadEditorDraftId);
+  }, [
+    activeUploadEditorDraftId,
+    aiDirty,
+    brief,
+    creationMode,
+    isCreateRoute,
+    permissions.canEdit,
+    projectId,
+    reference,
+    selectedScene,
+    uploadDirty,
+    uploadDraft,
+    variantCount,
+  ]);
+
+  useEffect(() => {
     if (!projectId) return;
     const controller = new AbortController();
     setCapabilitiesError(null);
     musicApi.getCapabilities(projectId, controller.signal)
       .then((response) => {
         setCapabilities(response.data);
-        setVariantCount(response.data.variantCounts.includes(2)
-          ? 2
-          : response.data.variantCounts[0] ?? 1);
+        if (!variantCountInitializedRef.current) {
+          setVariantCount(response.data.variantCounts.includes(2)
+            ? 2
+            : response.data.variantCounts[0] ?? 1);
+          variantCountInitializedRef.current = true;
+        }
         setBrief((current) => current ?? createDefaultBrief(response.data));
       })
       .catch((error: unknown) => {
@@ -200,11 +292,12 @@ export default function MusicStudioPage() {
             limit: 30,
             offset: 0,
             q: query.trim() || undefined,
-            status: statusFilter,
+            status: 'active',
           }, controller.signal),
           musicApi.listJobs(projectId, {limit: 30, offset: 0}, controller.signal),
         ]);
         setLibrary(libraryResponse.data.items);
+        setLibraryTotal(libraryResponse.data.page.total);
         setPermissions(libraryResponse.data.permissions);
         setHistory(historyResponse.data.items);
       } catch (error: unknown) {
@@ -217,7 +310,7 @@ export default function MusicStudioPage() {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [dataRevision, projectId, query, statusFilter]);
+  }, [dataRevision, projectId, query]);
 
   useEffect(() => {
     if (!projectId || !trackId) {
@@ -267,6 +360,7 @@ export default function MusicStudioPage() {
   }, [dataRevision, projectId, requestedTargetTrackId]);
 
   useEffect(() => {
+    if (restoredCreateDraftRef.current) return;
     if (!isCreateRoute || !targetTrack || targetTrack.id !== targetTrackIdParam) return;
     const initializationKey = [targetTrack.id, targetTrack.version].join(':');
     if (targetBriefInitializedRef.current === initializationKey) return;
@@ -298,10 +392,11 @@ export default function MusicStudioPage() {
       };
     });
     targetBriefInitializedRef.current = initializationKey;
-    setDirty(false);
+    setAiDirty(false);
   }, [brief, isCreateRoute, targetTrack, targetTrackIdParam]);
 
   useEffect(() => {
+    if (restoredCreateDraftRef.current) return;
     if (!projectId || !isCreateRoute || !sceneIdParam) return;
     const controller = new AbortController();
     musicApi.listSceneOptions(projectId, {limit: 20, sceneId: sceneIdParam}, controller.signal)
@@ -323,7 +418,7 @@ export default function MusicStudioPage() {
             title: scene.title || current.title,
           };
         });
-        setDirty(false);
+        setAiDirty(false);
       })
       .catch(() => undefined);
     return () => controller.abort();
@@ -366,7 +461,42 @@ export default function MusicStudioPage() {
         title: scene.title || current.title,
       };
     });
-    setDirty(true);
+    setAiDirty(true);
+    if (creationMode === 'upload') setUploadDirty(true);
+  };
+
+  const changeBrief = (nextBrief: MusicBrief) => {
+    setBrief(nextBrief);
+    setAiDirty(true);
+    setPageError(null);
+  };
+
+  const openUploadEditor = () => {
+    if (!projectId || !uploadDraft.file || uploadDraft.status !== 'ready') return;
+    const editorDraft = saveMusicUploadEditorDraft(projectId, {
+      aiDirty,
+      brief,
+      canEdit: permissions.canEdit,
+      creationMode,
+      reference,
+      selectedScene,
+      uploadDirty,
+      uploadDraft,
+      variantCount,
+    }, activeUploadEditorDraftId);
+    const returnSearch = new URLSearchParams(searchParams);
+    returnSearch.set('mode', 'upload');
+    returnSearch.set('uploadDraftId', editorDraft.draftId);
+    const returnQuery = returnSearch.toString();
+    const returnTo = [musicStudioCreatePath(projectId), returnQuery].filter(Boolean).join('?');
+    const editorPath = musicUploadDraftEditorPath(projectId, editorDraft.draftId);
+    flushSync(() => {
+      setAiDirty(false);
+      setUploadDirty(false);
+    });
+    navigate(editorPath, {
+      state: {returnTo},
+    });
   };
 
   const validateBrief = (): string | null => {
@@ -400,6 +530,27 @@ export default function MusicStudioPage() {
       setPageError(targetTrackError ?? t('musicStudio.errors.loadTrack'));
       return;
     }
+    enqueueInFlightRef.current = true;
+    if (uploadDirty) {
+      const discardUploadDraft = await new Promise<boolean>((resolve) => {
+        Modal.confirm({
+          cancelText: t('musicStudio.upload.discardDraftCancel'),
+          content: t('musicStudio.upload.discardDraftDescription'),
+          okText: t('musicStudio.upload.discardDraftConfirm'),
+          onCancel: () => resolve(false),
+          onOk: () => resolve(true),
+          title: t('musicStudio.upload.discardDraftTitle'),
+        });
+      });
+      if (!discardUploadDraft) {
+        enqueueInFlightRef.current = false;
+        return;
+      }
+      flushSync(() => {
+        setUploadDraft(EMPTY_UPLOAD_DRAFT);
+        setUploadDirty(false);
+      });
+    }
     const payload: MusicEnqueueRequest = {
       brief: {
         ...briefForCapabilities(brief, capabilities.supportsSeed),
@@ -417,12 +568,11 @@ export default function MusicStudioPage() {
       ? enqueueIntentRef.current
       : {fingerprint, key: newMusicIdempotencyKey()};
     enqueueIntentRef.current = intent;
-    enqueueInFlightRef.current = true;
     setSubmitting(true);
     setPageError(null);
     try {
       const response = await musicApi.enqueueJob(projectId, payload, intent.key);
-      flushSync(() => setDirty(false));
+      flushSync(() => setAiDirty(false));
       navigate(musicPathWithParams(
         musicJobPath(projectId, response.data.jobId),
         {expectedTrackVersion},
@@ -509,8 +659,11 @@ export default function MusicStudioPage() {
     }
   };
 
+  const canChangeCreationScene = creationMode === 'ai'
+    ? permissions.canRunGeneration
+    : permissions.canEdit;
   const contextScene = selectedScene;
-  const inspector = (
+  const contextInspector = (
     <div className="music-context-card">
       <span className="music-eyebrow">{t('musicStudio.scene.context')}</span>
       {contextScene ? (
@@ -528,8 +681,12 @@ export default function MusicStudioPage() {
           </dl>
           {isCreateRoute && (
             <Space wrap>
-              <Button onClick={() => setScenePickerOpen(true)}>{t('musicStudio.scene.change')}</Button>
-              <Button onClick={() => selectScene([])}>{t('musicStudio.scene.projectWide')}</Button>
+              <Button disabled={!canChangeCreationScene} onClick={() => setScenePickerOpen(true)}>
+                {t('musicStudio.scene.change')}
+              </Button>
+              <Button disabled={!canChangeCreationScene} onClick={() => selectScene([])}>
+                {t('musicStudio.scene.projectWide')}
+              </Button>
             </Space>
           )}
         </>
@@ -538,11 +695,13 @@ export default function MusicStudioPage() {
           <h2>{t('musicStudio.scene.projectWide')}</h2>
           <p>{t('musicStudio.scene.optional')}</p>
           {isCreateRoute && (
-            <Button onClick={() => setScenePickerOpen(true)}>{t('musicStudio.scene.choose')}</Button>
+            <Button disabled={!canChangeCreationScene} onClick={() => setScenePickerOpen(true)}>
+              {t('musicStudio.scene.choose')}
+            </Button>
           )}
         </>
       )}
-      {!permissions.canEdit && <Alert type="info" showIcon message={t('musicStudio.readOnly')} />}
+      {!canChangeCreationScene && <Alert type="info" showIcon message={t('musicStudio.readOnly')} />}
     </div>
   );
 
@@ -559,11 +718,36 @@ export default function MusicStudioPage() {
     <div className="music-create-view">
       <div className="music-page-heading">
         <div>
-          <span className="music-eyebrow">{t('musicStudio.title')}</span>
-          <h1>{t('musicStudio.create.title')}</h1>
-          <p>{t('musicStudio.create.subtitle')}</p>
+          <h1>{t('musicStudio.title')}</h1>
         </div>
       </div>
+      <Segmented
+        block
+        className="music-creation-tabs"
+        aria-label={t('musicStudio.create.modeLabel')}
+        value={creationMode}
+        options={[
+          {
+            icon: <SoundOutlined />,
+            label: t('musicStudio.create.mode.ai'),
+            value: 'ai',
+          },
+          {
+            icon: <UploadOutlined />,
+            label: t('musicStudio.create.mode.upload'),
+            value: 'upload',
+          },
+        ]}
+        onChange={(mode) => setCreationMode(mode as MusicCreationMode)}
+      />
+      {creationMode === 'ai' && (
+        <MusicFormatSelector
+          capabilities={capabilities}
+          disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
+          value={brief}
+          onChange={changeBrief}
+        />
+      )}
       {targetTrackLoading && <Spin size="small" />}
       {targetTrackError && <Alert type="error" showIcon message={targetTrackError} />}
       {targetTrack && (
@@ -574,77 +758,99 @@ export default function MusicStudioPage() {
           description={t('musicStudio.track.version', {number: targetTrack.version})}
         />
       )}
-      <MusicBriefForm
-        capabilities={capabilities}
-        disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
-        scenePrefilled={Boolean(selectedScene)}
-        value={brief}
-        variantCount={variantCount}
-        onVariantCountChange={(count) => {
-          setVariantCount(count);
-          setDirty(true);
-        }}
-        onChange={(nextBrief) => {
-          setBrief(nextBrief);
-          setDirty(true);
-        }}
-      />
-      {capabilities.audioReference.supported && (
-        <AudioReferenceField
-          capabilities={capabilities.audioReference}
-          disabled={!permissions.canRunGeneration}
-          projectId={projectId}
-          value={reference}
-          onChange={(asset) => {
-            setReference(asset);
-            setDirty(true);
-          }}
-        />
-      )}
-      {brief.content.mode === 'song' && (
-        <LyricsSectionEditor
-          languages={capabilities.lyrics.languages}
-          maxChars={capabilities.lyrics.maxChars}
-          sectionTypes={capabilities.lyrics.sectionTypes}
-          selectedLanguage={brief.content.lyricsLanguage}
-          sections={brief.content.sections}
-          onLanguageChange={(lyricsLanguage) => {
-            setBrief((current) => {
-              if (!current || current.content.mode !== 'song') return current;
-              return {...current, content: {...current.content, lyricsLanguage}};
-            });
-            setDirty(true);
-          }}
-          onSectionsChange={(sections) => {
-            setBrief((current) => {
-              if (!current || current.content.mode !== 'song') return current;
-              return {...current, content: {...current.content, sections}};
-            });
-            setDirty(true);
-          }}
-        />
-      )}
-      {pageError && <Alert type="error" showIcon message={pageError} />}
-      <div className="music-generation-action">
-        <div>
-          <strong>{t('musicStudio.create.summary', {count: variantCount})}</strong>
-          <span>{t('musicStudio.create.summaryDetail', {
-            duration: brief.durationSeconds,
-            mode: t(`musicStudio.brief.mode.${brief.content.mode}`),
-          })}</span>
-        </div>
-        <Button
-          type="primary"
-          size="large"
-          disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
-          loading={submitting}
-          onClick={() => void enqueue()}
-        >
-          {t('musicStudio.create.generate', {count: variantCount})}
-        </Button>
+      <div className="music-creation-pane" hidden={creationMode !== 'ai'}>
+          <MusicBriefForm
+            capabilities={capabilities}
+            disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
+            scenePrefilled={Boolean(selectedScene)}
+            value={brief}
+            variantCount={variantCount}
+            onVariantCountChange={(count) => {
+              setVariantCount(count);
+              setAiDirty(true);
+              setPageError(null);
+            }}
+            onChange={changeBrief}
+          />
+          {capabilities.audioReference.supported && (
+            <AudioReferenceField
+              capabilities={capabilities.audioReference}
+              disabled={!permissions.canRunGeneration}
+              projectId={projectId}
+              value={reference}
+              onAudioPlay={activateAudio}
+              onChange={(asset) => {
+                setReference(asset);
+                setAiDirty(true);
+                setPageError(null);
+              }}
+            />
+          )}
+          {brief.content.mode === 'song' && (
+            <LyricsSectionEditor
+              disabled={!permissions.canRunGeneration}
+              languages={capabilities.lyrics.languages}
+              maxChars={capabilities.lyrics.maxChars}
+              sectionTypes={capabilities.lyrics.sectionTypes}
+              selectedLanguage={brief.content.lyricsLanguage}
+              sections={brief.content.sections}
+              onLanguageChange={(lyricsLanguage) => {
+                setBrief((current) => {
+                  if (!current || current.content.mode !== 'song') return current;
+                  return {...current, content: {...current.content, lyricsLanguage}};
+                });
+                setAiDirty(true);
+                setPageError(null);
+              }}
+              onSectionsChange={(sections) => {
+                setBrief((current) => {
+                  if (!current || current.content.mode !== 'song') return current;
+                  return {...current, content: {...current.content, sections}};
+                });
+                setAiDirty(true);
+                setPageError(null);
+              }}
+            />
+          )}
       </div>
+      <div className="music-creation-pane" hidden={creationMode !== 'upload'}>
+        <AudioUploadForm
+          capabilities={capabilities.audioReference}
+          disabled={!permissions.canEdit}
+          value={uploadDraft}
+          onAudioPlay={activateAudio}
+          onEdit={openUploadEditor}
+          onChange={(nextDraft) => {
+            // TODO: send this draft to the ready-track upload API when that contract exists.
+            setUploadDraft(nextDraft);
+            setUploadDirty(true);
+            setPageError(null);
+          }}
+        />
+      </div>
+      {pageError && <Alert type="error" showIcon message={pageError} />}
     </div>
   );
+
+  const creationInspector = capabilities && brief ? (
+    <MusicCreationSummary
+      brief={brief}
+      canEdit={permissions.canEdit}
+      canGenerate={permissions.canRunGeneration}
+      generateDisabled={Boolean(validateBrief()) || Boolean(
+        targetTrackIdParam && (!targetTrack || targetTrackLoading),
+      )}
+      mode={creationMode}
+      reference={reference}
+      scene={selectedScene}
+      submitting={submitting}
+      uploadDraft={uploadDraft}
+      variantCount={variantCount}
+      onClearScene={() => selectScene([])}
+      onGenerate={() => void enqueue()}
+      onOpenScenePicker={() => setScenePickerOpen(true)}
+    />
+  ) : <Skeleton active />;
 
   const jobView = generation.loading ? (
     <div className="music-centered music-centered--page"><Spin size="large" /></div>
@@ -737,6 +943,9 @@ export default function MusicStudioPage() {
         musicStudioCreatePath(projectId),
         {expectedTrackVersion: track.version, targetTrackId: track.id},
       ))}
+      onEdit={() => navigate(musicTrackEditorPath(projectId, track.id), {
+        state: {returnTo: currentReturnTo(location)},
+      })}
       onSignedUrlExpired={refreshTrackSignedUrl}
     />
   ) : <Empty />;
@@ -774,9 +983,8 @@ export default function MusicStudioPage() {
             query={query}
             selectedJobId={jobId}
             selectedTrackId={trackId ?? undefined}
-            statusFilter={statusFilter}
+            total={libraryTotal}
             onCreate={() => navigate(musicStudioCreatePath(projectId))}
-            onFilterChange={setStatusFilter}
             onModeChange={setLibraryMode}
             onOpenJob={(id) => navigate(musicJobPath(projectId, id))}
             onOpenTrack={(id) => navigate(musicTrackPath(projectId, id))}
@@ -785,7 +993,7 @@ export default function MusicStudioPage() {
           />
         )}
         center={center}
-        inspector={inspector}
+        inspector={isCreateRoute ? creationInspector : contextInspector}
       />
       <ScenePickerDialog
         open={scenePickerOpen}

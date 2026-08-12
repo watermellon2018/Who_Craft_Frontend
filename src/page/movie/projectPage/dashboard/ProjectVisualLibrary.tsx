@@ -59,7 +59,7 @@ const ProjectVisualLibrary: React.FC<Props> = ({
 
   return (
     <section className="proj-card proj-visual-library p-5 sm:p-6">
-      <div className="proj-visual-library__header">
+      <div className="proj-section-header">
         <div>
           <h3 className="proj-section-title">{t('referenceLibrary.title')}</h3>
           <p>{t('referenceLibrary.dashboard.subtitle')}</p>

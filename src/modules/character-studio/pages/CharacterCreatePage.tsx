@@ -8,7 +8,8 @@ import AppearanceDescriptionSection from '../components/create/AppearanceDescrip
 import BasicInformationSection from '../components/create/BasicInformationSection';
 import CharacterCreateHeader from '../components/create/CharacterCreateHeader';
 import {CharacterCreateMode} from '../components/create/CharacterCreateTabs';
-import GenerationSettingsPanel, {defaultGenerationOptions, GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import GenerationSettingsPanel, {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
+import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
 import PersonalitySection from '../components/create/PersonalitySection';
 import TipsPanel from '../components/create/TipsPanel';
 import VisualStyleSelector, {VisualStyleValue} from '../components/create/VisualStyleSelector';
@@ -26,6 +27,7 @@ interface CharacterCreatePageProps {
 interface GenerationRetryContext {
   formValues: CharacterCreateFormValues;
   generationPayload: Record<string, unknown>;
+  generationOptions: GenerationOptions;
   sourceTreeNodeId: string;
   characterName: string;
 }
@@ -76,7 +78,7 @@ function CreateCharacterFromDescriptionContent() {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [retryContext, setRetryContext] = useState<GenerationRetryContext | null>(null);
   const [generationOptions, setGenerationOptions] = useState<GenerationOptions>(
-    routeState?.generationOptions ?? defaultGenerationOptions,
+    {...defaultGenerationOptions, ...routeState?.generationOptions},
   );
   const [visualStyle, setVisualStyle] = useState<VisualStyleValue>(
     (returnFormValues?.visual_style as VisualStyleValue | undefined) ?? 'cinematic_realism',
@@ -144,7 +146,7 @@ function CreateCharacterFromDescriptionContent() {
         formValues: context.formValues,
         sourceTreeNodeId: context.sourceTreeNodeId,
         characterName: context.characterName,
-        generationOptions,
+        generationOptions: context.generationOptions,
       },
     });
   };
@@ -187,14 +189,18 @@ function CreateCharacterFromDescriptionContent() {
       durableContext.set('treeNodeId', sourceTreeNodeId);
       setSearchParams(durableContext, {replace: true, state: location.state});
 
+      const generationOptionsSnapshot = {...generationOptions};
       const context: GenerationRetryContext = {
         formValues: values,
         generationPayload: {
-          variant_count: generationOptions.count,
+          variant_count: generationOptionsSnapshot.count,
           image_type: 'portrait',
-          creativity: generationOptions.creativity,
-          seed: generationOptions.lockSeed && generationOptions.seed ? Number(generationOptions.seed) : undefined,
-          lock_seed: generationOptions.lockSeed,
+          image_model: generationOptionsSnapshot.imageModel,
+          creativity: generationOptionsSnapshot.creativity,
+          seed: generationOptionsSnapshot.lockSeed && generationOptionsSnapshot.seed
+            ? Number(generationOptionsSnapshot.seed)
+            : undefined,
+          lock_seed: generationOptionsSnapshot.lockSeed,
           visual_style: payload.visual_style,
           text_refinement: payload.appearance_description,
           character_type: payload.character_type,
@@ -205,6 +211,7 @@ function CreateCharacterFromDescriptionContent() {
           special_features: payload.special_features,
           appearance_description: payload.appearance_description,
         },
+        generationOptions: generationOptionsSnapshot,
         sourceTreeNodeId,
         characterName: payload.name || '',
       };
@@ -325,7 +332,11 @@ function CreateCharacterFromDescriptionContent() {
         </div>
 
         <aside className="character-create-side">
-          <GenerationSettingsPanel value={generationOptions} onChange={setGenerationOptions} />
+          <GenerationSettingsPanel
+            projectId={projectId}
+            value={generationOptions}
+            onChange={setGenerationOptions}
+          />
           <TipsPanel />
         </aside>
       </div>

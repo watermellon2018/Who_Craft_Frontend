@@ -33,12 +33,13 @@ import CharacterReferencesPage from "./modules/character-studio/pages/CharacterR
 import Character3DEditorPage from "./modules/character-studio/pages/Character3DEditorPage";
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
+import AudioTrackEditorPage from "./modules/music-studio/pages/AudioTrackEditorPage";
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
 import ReferenceDetailRedirect from "./modules/reference-library/pages/ReferenceDetailRedirect";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
 import withAuth from "./utils/auth/check_auth";
-import {CRAFT_ACCENT} from './constants/theme';
+import {CRAFT_ACCENT, CRAFT_ACCENT_HOVER, CRAFT_PLACEHOLDER} from './constants/theme';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import NotFoundPage from './page/errors/NotFoundPage';
 import {AUTH_EXPIRED_EVENT} from './api/http';
@@ -57,6 +58,7 @@ const ProtectedProjectPage = withAuth(ProjectPage);
 const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
+const ProtectedAudioTrackEditorPage = withAuth(AudioTrackEditorPage);
 const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
 const ProtectedReferenceDetailRedirect = withAuth(ReferenceDetailRedirect);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
@@ -99,6 +101,7 @@ const theme = {
         "colorInfo": CRAFT_ACCENT,
         "colorBgBase": "#1b1d22",
         "colorTextBase": "#ffffff",
+        "colorTextPlaceholder": CRAFT_PLACEHOLDER,
         "fontSize": 16,
         "sizeStep": 3,
         "sizeUnit": 3,
@@ -125,7 +128,7 @@ const theme = {
             },
         },
         "Input": {
-            "colorTextPlaceholder": "rgba(250, 176, 5, 0.55)",
+            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
             "colorBorder": "rgb(250, 176, 5)",
             "colorBgContainer": "rgb(27, 29, 34)"
         },
@@ -139,14 +142,14 @@ const theme = {
             "colorPrimaryBorder": "rgb(27, 29, 34)",
         },
         "InputNumber": {
-            "colorTextPlaceholder": "rgb(250, 176, 5, 0.55)",
+            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
             "colorBorder": "rgb(250, 176, 5)",
         },
         "Select": {
             "colorBgContainer": "#141820",
             "colorBgElevated": "#1b2029",
             "colorText": "rgba(255, 255, 255, 0.88)",
-            "colorTextPlaceholder": "#6f7784",
+            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
             "colorBorder": "#3b414d",
             "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
             "optionSelectedColor": CRAFT_ACCENT,
@@ -154,7 +157,15 @@ const theme = {
             "selectorBg": "#141820",
         },
         "Checkbox": {
-            "colorText": "rgb(27, 29, 34)",
+            "colorText": "#f3f6fa",
+            "colorTextDisabled": "#718196",
+            "colorBgContainer": "#0b1926",
+            "colorBgContainerDisabled": "#152536",
+            "colorBorder": "rgba(255, 255, 255, 0.62)",
+            "colorPrimary": CRAFT_ACCENT,
+            "colorPrimaryHover": CRAFT_ACCENT_HOVER,
+            "colorPrimaryBorder": "rgba(250, 176, 5, 0.4)",
+            "colorWhite": "rgba(0, 0, 0, 0.7)",
         },
         "Radio": {
             "colorText": "rgb(27, 29, 34)",
@@ -204,6 +215,8 @@ function App() {
         { key: 'musicStudioCreate', path: PathConstants.MUSIC_STUDIO_CREATE, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioTrack', path: PathConstants.MUSIC_STUDIO_TRACK, component: <ProtectedMusicStudioPage /> },
+        { key: 'musicStudioTrackEditor', path: PathConstants.MUSIC_STUDIO_TRACK_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
+        { key: 'musicStudioUploadDraftEditor', path: PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
         { key: 'referenceLibrary', path: PathConstants.REFERENCE_LIBRARY, component: <ProtectedReferenceLibraryPage /> },
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },

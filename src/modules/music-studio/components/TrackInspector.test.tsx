@@ -52,6 +52,7 @@ interface RenderInspectorOptions {
   currentTrack?: MusicTrackDetail;
   onChanged?: jest.Mock;
   onCreateVersion?: jest.Mock;
+  onEdit?: jest.Mock;
   onSignedUrlExpired?: jest.Mock;
 }
 
@@ -60,11 +61,13 @@ function renderInspector({
   currentTrack = track,
   onChanged = jest.fn(),
   onCreateVersion = jest.fn(),
+  onEdit = jest.fn(),
   onSignedUrlExpired = jest.fn(),
 }: RenderInspectorOptions = {}) {
   return {
     onChanged,
     onCreateVersion,
+    onEdit,
     onSignedUrlExpired,
     ...render(
       <TrackInspector
@@ -74,6 +77,7 @@ function renderInspector({
         onAudioPlay={jest.fn()}
         onChanged={onChanged}
         onCreateVersion={onCreateVersion}
+        onEdit={onEdit}
         onSignedUrlExpired={onSignedUrlExpired}
       />,
     ),
@@ -107,6 +111,18 @@ test('offers new-version generation only to editors', () => {
   unmount();
   renderInspector({canEdit: false});
   expect(screen.queryByText(newVersionLabel)).not.toBeInTheDocument();
+});
+
+test('opens the non-destructive editor only for an editable track with audio', () => {
+  const {onEdit, unmount} = renderInspector();
+  const editLabel = i18n.t('musicStudio.audioEditor.open');
+
+  fireEvent.click(screen.getByRole('button', {name: new RegExp(editLabel)}));
+  expect(onEdit).toHaveBeenCalledTimes(1);
+
+  unmount();
+  renderInspector({canEdit: false});
+  expect(screen.queryByRole('button', {name: new RegExp(editLabel)})).not.toBeInTheDocument();
 });
 
 test('shows version lyrics in their source order without viewer mutation controls', () => {
@@ -157,6 +173,7 @@ test('requests one audio refresh per active version even when its signed URL cha
       onAudioPlay={jest.fn()}
       onChanged={jest.fn()}
       onCreateVersion={jest.fn()}
+      onEdit={jest.fn()}
       onSignedUrlExpired={onSignedUrlExpired}
     />,
   );
@@ -179,6 +196,7 @@ test('requests one audio refresh per active version even when its signed URL cha
       onAudioPlay={jest.fn()}
       onChanged={jest.fn()}
       onCreateVersion={jest.fn()}
+      onEdit={jest.fn()}
       onSignedUrlExpired={onSignedUrlExpired}
     />,
   );

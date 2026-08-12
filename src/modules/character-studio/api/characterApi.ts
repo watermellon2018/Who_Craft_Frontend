@@ -3,6 +3,7 @@ import type {
   CreateCharacterFromReferencePayload,
   EditRequest,
   GenerationJob,
+  ImageModelCatalog,
   Model3DReconstruction,
   Model3DState,
   ReferenceType,
@@ -104,6 +105,9 @@ export const characterApi = {
     if (payload.preserveIdentity !== undefined) {
       form.append('preserve_identity', String(payload.preserveIdentity));
     }
+    if (payload.imageModel !== undefined) {
+      form.append('image_model', payload.imageModel);
+    }
     const fileIntent = {
       ...payload,
       referenceImage: {
@@ -132,11 +136,22 @@ export const characterApi = {
     projectId: string | number,
     characterId: string,
     imageTypes: string[],
+    imageModel?: string,
   ) {
     return api.get<CharacterGenerationPreview>(
       `${base(projectId, characterId)}/generation-preview`,
-      {params: {image_types: imageTypes.join(',')}},
+      {
+        params: {
+          image_types: imageTypes.join(','),
+          ...(imageModel ? {image_model: imageModel} : {}),
+        },
+      },
     );
+  },
+  getImageModelCatalog(projectId?: string | number) {
+    return api.get<ImageModelCatalog>('api/profile/me/image-model/', {
+      params: projectId === undefined || projectId === '' ? {} : {project_id: projectId},
+    });
   },
   generateInitial(
     projectId: string | number,
@@ -207,10 +222,11 @@ export const characterApi = {
     variantId: string,
     notes: string,
     imageType?: string,
+    applyAs: 'current_reference' | 'canonical_reference' | null = 'current_reference',
   ) {
     return api.post(`${base(projectId, characterId)}/apply-variant`, {
       variant_id: variantId,
-      apply_as: 'current_reference',
+      apply_as: applyAs,
       image_type: imageType,
       notes,
     });

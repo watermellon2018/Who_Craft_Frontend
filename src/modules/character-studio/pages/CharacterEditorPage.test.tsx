@@ -7,10 +7,12 @@ import CharacterEditorPage from './CharacterEditorPage';
 
 const mockRefresh = jest.fn();
 const mockSetCharacter = jest.fn();
+const mockAttachSecondaryJob = jest.fn();
 const mockLaunchSecondaryJob = jest.fn().mockResolvedValue('secondary-job');
 const mockRetryGenerationJob = jest.fn();
 const mockUnsavedChangesGuard = jest.fn();
 let mockJobPollingError: string | null = null;
+let mockLocationState: Record<string, unknown> | null = null;
 const mockSetControls = jest.fn();
 const mockSetRegion = jest.fn();
 
@@ -18,6 +20,7 @@ const mockCharacter: StudioCharacter = {
   character_id: 'char-1',
   project_id: 1,
   name: 'Mira',
+  age: 17,
   identity_locked: false,
   current_revision_id: 'revision-old',
   images: {},
@@ -45,7 +48,7 @@ jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useParams: () => ({projectId: '1', characterId: 'char-1'}),
   useNavigate: () => jest.fn(),
-  useLocation: () => ({state: null}),
+  useLocation: () => ({state: mockLocationState}),
 }));
 
 jest.mock('../hooks/useCharacter', () => ({
@@ -57,19 +60,26 @@ jest.mock('../hooks/useCharacter', () => ({
 }));
 
 jest.mock('../hooks/useCharacterEditor', () => ({
-  useCharacterEditor: () => ({
-    controls: {},
-    setControls: mockSetControls,
-    setRegion: mockSetRegion,
-    textRefinement: '',
-    setTextRefinement: jest.fn(),
-    request: {
-      region: 'face',
-      controls: {},
-      preserve: {identity: true},
-      variant_count: 1,
-    },
-  }),
+  useCharacterEditor: () => {
+    const React = jest.requireActual('react') as typeof import('react');
+    const [controls, setControls] = React.useState<Record<string, unknown>>({});
+    return {
+      controls,
+      setControls: (value: Record<string, unknown>) => {
+        mockSetControls(value);
+        setControls(value);
+      },
+      setRegion: mockSetRegion,
+      textRefinement: '',
+      setTextRefinement: jest.fn(),
+      request: {
+        region: 'face',
+        controls,
+        preserve: {identity: true},
+        variant_count: 1,
+      },
+    };
+  },
 }));
 
 jest.mock('../hooks/useGenerationJob', () => ({
@@ -90,6 +100,7 @@ jest.mock('../../../utils/useUnsavedChangesGuard', () => ({
 jest.mock('../hooks/useCharacterAssetJobs', () => ({
   dependentImageTypes: () => ['portrait', 'full_body', 'scene'],
   useCharacterAssetJobs: () => ({
+    attachJob: mockAttachSecondaryJob,
     jobs: {},
     retry: jest.fn(),
     launchJob: mockLaunchSecondaryJob,
@@ -137,7 +148,17 @@ jest.mock('../components/CharacterCategorySidebar', () => ({
 }));
 jest.mock('../components/CharacterSettingsPanel', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({
+    controls,
+    onControlsChange,
+  }: {
+    controls: Record<string, unknown>;
+    onControlsChange: (value: Record<string, unknown>) => void;
+  }) => (
+    <button onClick={() => onControlsChange({...controls, age: 35})}>
+      Edit age
+    </button>
+  ),
 }));
 jest.mock('../components/OutfitSettingsPanel', () => ({
   __esModule: true,
@@ -178,6 +199,7 @@ const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
 beforeEach(() => {
   jest.clearAllMocks();
   mockJobPollingError = null;
+  mockLocationState = null;
   jest.spyOn(Modal, 'confirm').mockImplementation((config) => {
     void config.onOk?.();
     return {destroy: jest.fn(), update: jest.fn()} as never;
@@ -253,6 +275,51 @@ it('chains sequential secondary keys from each applied revision', async () => {
   expect(mockedApi.generateEdit.mock.calls[2][3]).toBe(
     'char-1:scene:revision-full-body',
   );
+  expect(mockedApi.applyVariant.mock.calls.map((call) => call[5])).toEqual([
+    'current_reference',
+    null,
+    null,
+  ]);
+});
+
+it('attaches initial full-body and scene jobs passed from portrait selection', async () => {
+  mockLocationState = {
+    secondaryJobIds: {full_body: 'full-body-job', scene: 'scene-job'},
+  };
+
+  render(<CharacterEditorPage />);
+
+  await waitFor(() => {
+    expect(mockAttachSecondaryJob).toHaveBeenCalledWith('full_body', 'full-body-job');
+    expect(mockAttachSecondaryJob).toHaveBeenCalledWith('scene', 'scene-job');
+  });
+});
+
+it('sends the updated age and its before/after diff to every regeneration step', async () => {
+  render(<CharacterEditorPage />);
+
+  fireEvent.click(screen.getByRole('button', {name: 'Edit age'}));
+  fireEvent.click(screen.getByRole('button', {name: /Обновить/}));
+
+  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(3));
+  expect(mockedApi.update).toHaveBeenCalledWith(
+    '1',
+    'char-1',
+    expect.objectContaining({age: 35}),
+  );
+  mockedApi.generateEdit.mock.calls.forEach((call) => {
+    expect(call[2]).toEqual(expect.objectContaining({
+      changed_fields: ['age'],
+      previous_values: {age: 17},
+      new_values: {age: 35},
+      controls: expect.objectContaining({
+        age: 35,
+        changed_fields: ['age'],
+        previous_values: {age: 17},
+        new_values: {age: 35},
+      }),
+    }));
+  });
 });
 
 it('persists personality and outfit before Generate and clears the saved revision', async () => {
@@ -283,7 +350,7 @@ it('persists personality and outfit before Generate and clears the saved revisio
   await waitFor(() => expect(screen.getByText('Сохранено')).toBeInTheDocument());
 });
 
-it('keeps the editor dirty when persistence before Generate fails', async () => {
+it('keeps the editor dirty and does not generate when persistence fails', async () => {
   mockedApi.update.mockRejectedValueOnce(new Error('save failed'));
   render(<CharacterEditorPage />);
 
@@ -293,7 +360,8 @@ it('keeps the editor dirty when persistence before Generate fails', async () => 
   fireEvent.click(screen.getByRole('button', {name: 'Edit outfit'}));
   fireEvent.click(screen.getByRole('button', {name: 'Generate primary'}));
 
-  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockedApi.update).toHaveBeenCalledTimes(1));
+  expect(mockedApi.generateEdit).not.toHaveBeenCalled();
   expect(screen.getByText('Есть изменения')).toBeInTheDocument();
 });
 

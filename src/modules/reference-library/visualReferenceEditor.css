@@ -1193,20 +1193,6 @@
   color: var(--craft-text);
 }
 
-.visual-reference-rights .ant-checkbox-inner {
-  border-color: var(--craft-border-strong);
-  background: var(--craft-field);
-}
-
-.visual-reference-rights:hover .ant-checkbox-inner {
-  border-color: var(--craft-ai);
-}
-
-.visual-reference-rights .ant-checkbox-checked .ant-checkbox-inner {
-  border-color: var(--craft-accent);
-  background: var(--craft-accent);
-}
-
 .visual-reference-inspector__properties::-webkit-scrollbar,
 .visual-reference-drafts__list::-webkit-scrollbar,
 .visual-reference-select-popup::-webkit-scrollbar {

@@ -33,11 +33,20 @@ Pipeline:
 
 ## Requirements
 
-- Python 3.11
-- existing environment packages: `numpy`, `opencv-python`, `mediapipe`
-- the official local `SMPLX_NEUTRAL.npz`
+- Current Hunyuan worker: Python 3.10 and an NVIDIA CUDA 12.1 runtime.
+- Install its pinned shape-only dependencies into the separate Conda
+  environment used by `MODEL3D_CONDA_ENV` (the current default is `basic`):
 
-No installation step is required in this workspace.
+  ```powershell
+  conda run -n basic python -m pip install -r backend/requirements-3d.txt
+  ```
+
+- The legacy FaceMesh/SMPL-X spike uses the same `mediapipe` dependency and
+  additionally needs the official local `SMPLX_NEUTRAL.npz`.
+
+The full upstream Hunyuan demo and texture stack is intentionally not installed
+by this file; see `external/Hunyuan3D-2/requirements.txt` if those tools are
+needed.
 
 ## Exact Angry Dog command
 

@@ -189,6 +189,7 @@ export function CreateCharacterFromReferenceContent() {
         refinement,
         variantsCount: generationOptions.count,
         preserveIdentity,
+        imageModel: generationOptions.imageModel,
         referenceImage: file,
       });
       const {character, generation_job: job} = response.data;
@@ -262,7 +263,12 @@ export function CreateCharacterFromReferenceContent() {
       </div>
 
       <aside className="character-reference-side">
-        <GenerationSettingsPanel value={generationOptions} onChange={setGenerationOptions} />
+        <GenerationSettingsPanel
+          operation="reference"
+          projectId={projectId}
+          value={generationOptions}
+          onChange={setGenerationOptions}
+        />
         <IdentityInfoPanel preserveIdentity={preserveIdentity} />
         <TipsPanel />
       </aside>
