@@ -65,6 +65,7 @@ const ProjectTeamCard: React.FC<Props> = ({
             title="Пригласить участника"
           >
             <UserAddOutlined />
+            <span>Пригласить</span>
           </button>
         )}
       </div>

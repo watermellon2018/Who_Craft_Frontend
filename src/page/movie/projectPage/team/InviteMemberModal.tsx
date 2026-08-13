@@ -1,37 +1,71 @@
-import React, { useState } from 'react';
 import {
-  Modal,
-  Tabs,
-  Input,
-  Select,
-  Button,
-  message,
-  Tooltip,
-} from 'antd';
-import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
+  CheckOutlined,
+  ClockCircleOutlined,
+  CopyOutlined,
+  EditOutlined,
+  EyeOutlined,
+  LinkOutlined,
+  LockOutlined,
+  SafetyCertificateOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import {Button, Input, message, Modal, Select, Tooltip} from 'antd';
+import React, {useState} from 'react';
+
 import {
-  AccessRole,
-  PendingInvitation,
   createInvitation,
   teamErrorCode,
+} from '../../../../api/projects/team';
+import type {
+  AccessRole,
+  PendingInvitation,
 } from '../../../../api/projects/team';
 
 interface Props {
   open: boolean;
   projectId: number | string;
-  teamRoleOptions: { value: string; label: string }[];
+  teamRoleOptions: {value: string; label: string}[];
   onClose: () => void;
   onInvited: () => void;
 }
 
-const ACCESS_ROLE_OPTIONS: { value: Exclude<AccessRole, 'owner'>; label: string }[] = [
-  { value: 'admin', label: 'Администратор' },
-  { value: 'editor', label: 'Редактор' },
-  { value: 'viewer', label: 'Наблюдатель' },
+type InviteMethod = 'username' | 'link';
+type AssignableRole = Exclude<AccessRole, 'owner'>;
+
+interface FormErrors {
+  username?: string;
+  customTeamRole?: string;
+}
+
+const ACCESS_ROLE_OPTIONS: Array<{
+  value: AssignableRole;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    value: 'admin',
+    label: 'Администратор',
+    description: 'Настройки и команда',
+    icon: <SafetyCertificateOutlined />,
+  },
+  {
+    value: 'editor',
+    label: 'Редактор',
+    description: 'Создание материалов',
+    icon: <EditOutlined />,
+  },
+  {
+    value: 'viewer',
+    label: 'Наблюдатель',
+    description: 'Только просмотр',
+    icon: <EyeOutlined />,
+  },
 ];
 
 const ERROR_MESSAGES: Record<string, string> = {
-  USER_NOT_FOUND: 'Пользователь с таким username не найден',
+  USER_NOT_FOUND: 'Пользователь с таким именем не найден',
   ALREADY_MEMBER: 'Пользователь уже состоит в команде',
   INVITATION_ALREADY_EXISTS: 'Для этого пользователя уже есть активное приглашение',
   INSUFFICIENT_PERMISSIONS: 'Недостаточно прав для приглашения',
@@ -45,11 +79,12 @@ const InviteMemberModal: React.FC<Props> = ({
   onClose,
   onInvited,
 }) => {
-  const [tab, setTab] = useState<'username' | 'link'>('username');
+  const [method, setMethod] = useState<InviteMethod>('username');
   const [username, setUsername] = useState('');
-  const [accessRole, setAccessRole] = useState<Exclude<AccessRole, 'owner'>>('editor');
-  const [teamRole, setTeamRole] = useState<string>('');
+  const [accessRole, setAccessRole] = useState<AssignableRole>('editor');
+  const [teamRole, setTeamRole] = useState('');
   const [customTeamRole, setCustomTeamRole] = useState('');
+  const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [createdLink, setCreatedLink] = useState<PendingInvitation | null>(null);
   const [copied, setCopied] = useState(false);
@@ -59,43 +94,63 @@ const InviteMemberModal: React.FC<Props> = ({
     setAccessRole('editor');
     setTeamRole('');
     setCustomTeamRole('');
+    setErrors({});
     setCreatedLink(null);
     setCopied(false);
-    setTab('username');
+    setMethod('username');
   };
 
   const handleClose = () => {
+    if (createdLink) onInvited();
     reset();
     onClose();
   };
 
+  const changeMethod = (nextMethod: InviteMethod) => {
+    setMethod(nextMethod);
+    setErrors({});
+  };
+
   const teamRolePayload = () => ({
-    team_role: teamRole || '',
-    custom_team_role: teamRole === 'other' ? customTeamRole : '',
+    team_role: teamRole,
+    custom_team_role: teamRole === 'other' ? customTeamRole.trim() : '',
   });
 
-  const handleUsernameInvite = async () => {
-    if (!username.trim()) {
-      message.warning('Введите username');
-      return;
-    }
+  const validateProfessionalRole = (): boolean => {
     if (teamRole === 'other' && !customTeamRole.trim()) {
-      message.warning('Укажите название роли для варианта «Другое»');
+      setErrors((current) => ({
+        ...current,
+        customTeamRole: 'Укажите название профессиональной роли',
+      }));
+      return false;
+    }
+    return true;
+  };
+
+  const handleUsernameInvite = async () => {
+    const normalizedUsername = username.trim().replace(/^@/, '');
+    if (!normalizedUsername) {
+      setErrors((current) => ({
+        ...current,
+        username: 'Введите имя пользователя',
+      }));
       return;
     }
+    if (!validateProfessionalRole()) return;
+
     setSubmitting(true);
     try {
       await createInvitation(projectId, {
         invitation_type: 'username',
-        username: username.trim(),
+        username: normalizedUsername,
         access_role: accessRole,
         ...teamRolePayload(),
       });
-      message.success('Приглашение отправлено');
+      message.success(`Приглашение для @${normalizedUsername} отправлено`);
       onInvited();
       handleClose();
-    } catch (e) {
-      const code = teamErrorCode(e);
+    } catch (error) {
+      const code = teamErrorCode(error);
       message.error((code && ERROR_MESSAGES[code]) || 'Не удалось отправить приглашение');
     } finally {
       setSubmitting(false);
@@ -103,21 +158,18 @@ const InviteMemberModal: React.FC<Props> = ({
   };
 
   const handleLinkInvite = async () => {
-    if (teamRole === 'other' && !customTeamRole.trim()) {
-      message.warning('Укажите название роли для варианта «Другое»');
-      return;
-    }
+    if (!validateProfessionalRole()) return;
+
     setSubmitting(true);
     try {
-      const inv = await createInvitation(projectId, {
+      const invitation = await createInvitation(projectId, {
         invitation_type: 'link',
         access_role: accessRole,
         ...teamRolePayload(),
       });
-      setCreatedLink(inv);
-      onInvited();
-    } catch (e) {
-      const code = teamErrorCode(e);
+      setCreatedLink(invitation);
+    } catch (error) {
+      const code = teamErrorCode(error);
       message.error((code && ERROR_MESSAGES[code]) || 'Не удалось создать ссылку');
     } finally {
       setSubmitting(false);
@@ -129,123 +181,253 @@ const InviteMemberModal: React.FC<Props> = ({
     try {
       await navigator.clipboard.writeText(createdLink.inviteUrl);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      message.error('Не удалось скопировать');
+      message.error('Не удалось скопировать ссылку');
     }
   };
 
   const roleSelectors = (
     <>
-      <label className="invite-field-label">Роль доступа</label>
-      <Select
-        value={accessRole}
-        onChange={(v) => setAccessRole(v)}
-        options={ACCESS_ROLE_OPTIONS}
-        style={{ width: '100%' }}
-      />
-      <label className="invite-field-label">Профессиональная роль</label>
-      <Select
-        value={teamRole || undefined}
-        onChange={(v) => setTeamRole(v || '')}
-        placeholder="Не указана"
-        allowClear
-        options={teamRoleOptions}
-        style={{ width: '100%' }}
-      />
-      {teamRole === 'other' && (
-        <Input
-          value={customTeamRole}
-          onChange={(e) => setCustomTeamRole(e.target.value)}
-          placeholder="Название роли"
-          maxLength={64}
-          style={{ marginTop: 8 }}
+      <fieldset className="invite-fieldset">
+        <legend className="invite-field-heading">
+          <span>Права в проекте</span>
+          <span className="invite-required-badge">Обязательно</span>
+        </legend>
+        <div className="invite-access-roles">
+          {ACCESS_ROLE_OPTIONS.map((role) => (
+            <button
+              key={role.value}
+              type="button"
+              className={`invite-role-card${accessRole === role.value ? ' is-active' : ''}`}
+              aria-pressed={accessRole === role.value}
+              onClick={() => setAccessRole(role.value)}
+              disabled={submitting}
+            >
+              <span className="invite-role-icon" aria-hidden="true">{role.icon}</span>
+              <span className="invite-role-copy">
+                <span className="invite-role-name">{role.label}</span>
+                <span className="invite-role-description">{role.description}</span>
+              </span>
+              <span className="invite-role-check" aria-hidden="true">
+                <CheckOutlined />
+              </span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="invite-field-group">
+        <label className="invite-field-heading" htmlFor="invite-team-role">
+          <span>Роль в команде</span>
+          <span className="invite-optional-badge">Необязательно</span>
+        </label>
+        <Select
+          id="invite-team-role"
+          value={teamRole || undefined}
+          onChange={(value) => {
+            setTeamRole(value || '');
+            setErrors((current) => ({...current, customTeamRole: undefined}));
+          }}
+          placeholder="Например, режиссёр или сценарист"
+          allowClear
+          options={teamRoleOptions}
+          size="large"
+          className="invite-select"
+          disabled={submitting}
         />
-      )}
+        <span className="invite-field-help">
+          Поможет команде сразу понимать, за что отвечает участник.
+        </span>
+        {teamRole === 'other' && (
+          <div className="invite-custom-role">
+            <Input
+              value={customTeamRole}
+              onChange={(event) => {
+                setCustomTeamRole(event.target.value);
+                setErrors((current) => ({...current, customTeamRole: undefined}));
+              }}
+              placeholder="Введите название роли"
+              maxLength={64}
+              size="large"
+              status={errors.customTeamRole ? 'error' : undefined}
+              aria-label="Название профессиональной роли"
+              aria-invalid={!!errors.customTeamRole}
+              aria-describedby="invite-custom-role-error"
+              disabled={submitting}
+            />
+            {errors.customTeamRole && (
+              <span id="invite-custom-role-error" className="invite-field-error" role="alert">
+                {errors.customTeamRole}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 
   return (
     <Modal
       open={open}
-      title="Пригласить участника"
       onCancel={handleClose}
       footer={null}
+      width={720}
+      centered
       destroyOnClose
+      title="Пригласить участника"
+      closable={!submitting}
+      maskClosable={!submitting}
+      keyboard={!submitting}
+      className="invite-member-modal"
+      rootClassName="invite-member-modal-root"
     >
-      <Tabs
-        activeKey={tab}
-        onChange={(k) => setTab(k as 'username' | 'link')}
-        items={[
-          {
-            key: 'username',
-            label: 'По username',
-            children: (
-              <div className="invite-form">
-                <label className="invite-field-label">Username</label>
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="например, anna_director"
-                  onPressEnter={handleUsernameInvite}
-                  autoFocus
-                />
-                {roleSelectors}
+      <header className="invite-modal-hero">
+        <span className="invite-modal-icon" aria-hidden="true">
+          <TeamOutlined />
+        </span>
+        <div>
+          <div className="invite-modal-eyebrow">Команда проекта</div>
+          <h2 className="invite-modal-title">Пригласить участника</h2>
+          <p className="invite-modal-subtitle">
+            Выберите способ приглашения и уровень доступа к проекту.
+          </p>
+        </div>
+      </header>
+
+      <div className="invite-modal-body">
+        {!createdLink && (
+          <div className="invite-methods" role="radiogroup" aria-label="Способ приглашения">
+            <label className={`invite-method${method === 'username' ? ' is-active' : ''}`}>
+              <input
+                type="radio"
+                name="invite-method"
+                value="username"
+                checked={method === 'username'}
+                onChange={() => changeMethod('username')}
+                disabled={submitting}
+                className="invite-method-control"
+              />
+              <span className="invite-method-icon" aria-hidden="true"><UserOutlined /></span>
+              <span>
+                <span className="invite-method-title">По имени</span>
+                <span className="invite-method-description">Найдём пользователя Craft</span>
+              </span>
+            </label>
+            <label className={`invite-method${method === 'link' ? ' is-active' : ''}`}>
+              <input
+                type="radio"
+                name="invite-method"
+                value="link"
+                checked={method === 'link'}
+                onChange={() => changeMethod('link')}
+                disabled={submitting}
+                className="invite-method-control"
+              />
+              <span className="invite-method-icon" aria-hidden="true"><LinkOutlined /></span>
+              <span>
+                <span className="invite-method-title">По ссылке</span>
+                <span className="invite-method-description">Отправьте её в любом мессенджере</span>
+              </span>
+            </label>
+          </div>
+        )}
+
+        {createdLink ? (
+          <div className="invite-link-result" role="status">
+            <span className="invite-success-icon" aria-hidden="true"><CheckOutlined /></span>
+            <h3>Ссылка готова</h3>
+            <p>Скопируйте её и отправьте будущему участнику команды.</p>
+            <div className="invite-link-row">
+              <Input
+                value={createdLink.inviteUrl}
+                readOnly
+                size="large"
+                aria-label="Ссылка-приглашение"
+              />
+              <Tooltip title={copied ? 'Скопировано' : 'Скопировать'}>
                 <Button
                   type="primary"
-                  block
-                  loading={submitting}
-                  onClick={handleUsernameInvite}
-                  style={{ marginTop: 16 }}
+                  size="large"
+                  icon={copied ? <CheckOutlined /> : <CopyOutlined />}
+                  onClick={copyLink}
+                  aria-label={copied ? 'Ссылка скопирована' : 'Скопировать ссылку'}
+                  className="invite-copy-button"
                 >
-                  Отправить приглашение
+                  {copied ? 'Скопировано' : 'Копировать'}
                 </Button>
-              </div>
-            ),
-          },
-          {
-            key: 'link',
-            label: 'По ссылке',
-            children: (
-              <div className="invite-form">
-                {!createdLink ? (
-                  <>
-                    {roleSelectors}
-                    <Button
-                      type="primary"
-                      block
-                      loading={submitting}
-                      onClick={handleLinkInvite}
-                      style={{ marginTop: 16 }}
-                    >
-                      Создать ссылку-приглашение
-                    </Button>
-                  </>
-                ) : (
-                  <div className="invite-link-result">
-                    <div className="invite-link-row">
-                      <Input value={createdLink.inviteUrl} readOnly />
-                      <Tooltip title={copied ? 'Скопировано' : 'Скопировать'}>
-                        <Button
-                          icon={copied ? <CheckOutlined /> : <CopyOutlined />}
-                          onClick={copyLink}
-                        />
-                      </Tooltip>
-                    </div>
-                    <p className="invite-link-hint">
-                      Срок действия: 5 дней. Ссылка одноразовая — её можно
-                      использовать только один раз.
-                    </p>
-                    <Button block onClick={handleClose}>
-                      Готово
-                    </Button>
-                  </div>
+              </Tooltip>
+            </div>
+            <div className="invite-security-note">
+              <LockOutlined aria-hidden="true" />
+              <span>Ссылка одноразовая и перестанет действовать через 5 дней.</span>
+            </div>
+            <div className="invite-actions invite-result-actions">
+              <Button size="large" onClick={handleClose}>Готово</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="invite-form">
+            {method === 'username' && (
+              <div className="invite-field-group invite-username-field">
+                <label className="invite-field-heading" htmlFor="invite-username">
+                  Имя пользователя
+                </label>
+                <Input
+                  id="invite-username"
+                  value={username}
+                  onChange={(event) => {
+                    setUsername(event.target.value);
+                    setErrors((current) => ({...current, username: undefined}));
+                  }}
+                  placeholder="anna_director"
+                  prefix={<span className="invite-input-prefix">@</span>}
+                  onPressEnter={handleUsernameInvite}
+                  autoFocus
+                  size="large"
+                  status={errors.username ? 'error' : undefined}
+                  aria-invalid={!!errors.username}
+                  aria-describedby="invite-username-help invite-username-error"
+                  disabled={submitting}
+                />
+                <span id="invite-username-help" className="invite-field-help">
+                  Используйте имя из профиля — без пробелов.
+                </span>
+                {errors.username && (
+                  <span id="invite-username-error" className="invite-field-error" role="alert">
+                    {errors.username}
+                  </span>
                 )}
               </div>
-            ),
-          },
-        ]}
-      />
+            )}
+
+            {method === 'link' && (
+              <div className="invite-link-intro">
+                <ClockCircleOutlined aria-hidden="true" />
+                <span>Создадим защищённую одноразовую ссылку сроком на 5 дней.</span>
+              </div>
+            )}
+
+            {roleSelectors}
+
+            <footer className="invite-actions">
+              <Button size="large" onClick={handleClose} disabled={submitting}>
+                Отмена
+              </Button>
+              <Button
+                type="primary"
+                size="large"
+                loading={submitting}
+                onClick={method === 'username' ? handleUsernameInvite : handleLinkInvite}
+                className="craft-action-button invite-submit-button"
+                icon={method === 'username' ? <UserOutlined /> : <LinkOutlined />}
+              >
+                {method === 'username' ? 'Отправить приглашение' : 'Создать ссылку'}
+              </Button>
+            </footer>
+          </div>
+        )}
+      </div>
     </Modal>
   );
 };
