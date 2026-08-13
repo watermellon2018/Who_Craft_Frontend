@@ -25,13 +25,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
   border-radius: 8px;
   border: 1px solid rgba(250, 176, 5, 0.4);
   background: rgba(250, 176, 5, 0.1);
   color: #fab005;
   cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
   transition: background 120ms ease;
 }
 .team-card-invite-btn:hover {
@@ -295,24 +298,563 @@
 }
 
 /* ===== Invite form / accept ===== */
+.team-invite-button.ant-btn {
+  min-width: 142px;
+  box-shadow: 0 10px 28px rgba(250, 176, 5, 0.16) !important;
+}
+
+.team-invite-button.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 13px 32px rgba(250, 176, 5, 0.22) !important;
+}
+
+.invite-member-modal-root .ant-modal-mask {
+  background: rgba(3, 9, 16, 0.78);
+  backdrop-filter: blur(7px);
+}
+
+.invite-member-modal {
+  max-width: calc(100vw - 32px);
+}
+
+.invite-member-modal .ant-modal-content {
+  display: flex;
+  height: min(700px, calc(100vh - 20px));
+  height: min(700px, calc(100dvh - 20px));
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: linear-gradient(150deg, #102132 0%, #0a1724 72%);
+  box-shadow: 0 28px 90px rgba(2, 8, 16, 0.72);
+}
+
+.invite-member-modal .ant-modal-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.invite-member-modal .ant-modal-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.invite-member-modal .ant-modal-close {
+  top: 18px;
+  right: 18px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.invite-member-modal .ant-modal-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.invite-modal-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 138px;
+  flex: 0 0 138px;
+  padding: 26px 70px 24px 30px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 84% 5%, rgba(250, 176, 5, 0.2), transparent 38%),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.035), transparent 60%);
+}
+
+.invite-modal-hero::after {
+  content: '';
+  position: absolute;
+  right: 34px;
+  bottom: -35px;
+  width: 150px;
+  height: 100px;
+  border: 1px solid rgba(250, 176, 5, 0.13);
+  border-radius: 999px;
+  transform: rotate(-18deg);
+  pointer-events: none;
+}
+
+.invite-modal-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  border: 1px solid rgba(250, 176, 5, 0.42);
+  border-radius: 16px;
+  color: var(--craft-accent);
+  background: rgba(250, 176, 5, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 10px 28px rgba(2, 8, 16, 0.3);
+  font-size: 23px;
+}
+
+.invite-modal-eyebrow {
+  margin-bottom: 3px;
+  color: var(--craft-accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.invite-modal-title {
+  margin: 0;
+  color: var(--craft-text);
+  font-size: 23px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.invite-modal-subtitle {
+  margin: 5px 0 0;
+  color: var(--craft-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.invite-modal-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 30px 28px;
+}
+
+.invite-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(3, 9, 16, 0.38);
+}
+
+.invite-method {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--craft-text-muted);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.invite-method-control {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.invite-method:hover:not(:disabled) {
+  color: var(--craft-text);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.invite-method.is-active {
+  border-color: var(--craft-accent-border);
+  color: var(--craft-text);
+  background: linear-gradient(135deg, rgba(250, 176, 5, 0.14), rgba(250, 176, 5, 0.055));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.invite-method:focus-within,
+.invite-role-card:focus-visible {
+  outline: 2px solid var(--craft-accent);
+  outline-offset: 2px;
+}
+
+.invite-method:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.invite-method-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 10px;
+  color: var(--craft-text-muted);
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 16px;
+}
+
+.invite-method.is-active .invite-method-icon {
+  color: var(--craft-accent);
+  background: rgba(250, 176, 5, 0.12);
+}
+
+.invite-method-title,
+.invite-method-description {
+  display: block;
+}
+
+.invite-method-title {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.invite-method-description {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--craft-text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .invite-form {
   display: flex;
   flex-direction: column;
+  gap: 22px;
 }
-.invite-field-label {
-  display: block;
-  margin: 12px 0 4px;
+
+.invite-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.invite-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.invite-field-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 9px;
+  padding: 0;
+  color: var(--craft-text);
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.7);
+  font-weight: 650;
 }
+
+.invite-field-group > .invite-field-heading {
+  margin-bottom: 0;
+}
+
+.invite-required-badge,
+.invite-optional-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.invite-required-badge {
+  color: var(--craft-accent);
+  background: rgba(250, 176, 5, 0.1);
+}
+
+.invite-optional-badge {
+  color: var(--craft-text-muted);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.invite-member-modal .ant-input-affix-wrapper,
+.invite-member-modal .ant-input,
+.invite-member-modal .ant-select-selector {
+  border-color: var(--craft-border) !important;
+  border-radius: 10px !important;
+  background: rgba(3, 9, 16, 0.4) !important;
+  box-shadow: none !important;
+}
+
+.invite-member-modal .ant-input-affix-wrapper:hover,
+.invite-member-modal .ant-input:hover,
+.invite-member-modal .ant-select-selector:hover {
+  border-color: var(--craft-border-strong) !important;
+}
+
+.invite-member-modal .ant-input-affix-wrapper-focused,
+.invite-member-modal .ant-input:focus,
+.invite-member-modal .ant-select-focused .ant-select-selector {
+  border-color: var(--craft-accent) !important;
+  box-shadow: 0 0 0 3px var(--craft-accent-soft) !important;
+}
+
+.invite-member-modal .ant-input-affix-wrapper-status-error,
+.invite-member-modal .ant-input-status-error {
+  border-color: var(--craft-danger) !important;
+}
+
+.invite-input-prefix {
+  color: var(--craft-accent);
+  font-weight: 700;
+}
+
+.invite-select {
+  width: 100%;
+}
+
+.invite-field-help,
+.invite-field-error {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.invite-field-help {
+  color: var(--craft-text-muted);
+}
+
+.invite-field-error {
+  color: var(--craft-danger);
+}
+
+.invite-custom-role {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.invite-access-roles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.invite-role-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 70px;
+  padding: 11px 10px;
+  border: 1px solid var(--craft-border);
+  border-radius: 12px;
+  color: var(--craft-text-muted);
+  background: rgba(3, 9, 16, 0.3);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.invite-role-card:hover {
+  border-color: var(--craft-border-strong);
+  background: rgba(255, 255, 255, 0.035);
+  transform: translateY(-1px);
+}
+
+.invite-role-card:disabled {
+  cursor: wait;
+  opacity: 0.62;
+  transform: none;
+}
+
+.invite-role-card.is-active {
+  border-color: var(--craft-accent-border);
+  background: rgba(250, 176, 5, 0.075);
+}
+
+.invite-role-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 9px;
+  color: var(--craft-text-muted);
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 14px;
+}
+
+.invite-role-card.is-active .invite-role-icon {
+  color: var(--craft-accent);
+  background: rgba(250, 176, 5, 0.12);
+}
+
+.invite-role-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.invite-role-name {
+  color: var(--craft-text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.invite-role-description {
+  margin-top: 3px;
+  color: var(--craft-text-muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.invite-role-check {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  color: #101822;
+  background: var(--craft-accent);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 150ms ease, transform 150ms ease;
+  font-size: 9px;
+}
+
+.invite-role-card.is-active .invite-role-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.invite-link-intro,
+.invite-security-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 13px;
+  border: 1px solid rgba(59, 130, 246, 0.26);
+  border-radius: 10px;
+  color: #b8cef1;
+  background: rgba(37, 99, 235, 0.1);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.invite-link-intro .anticon,
+.invite-security-note .anticon {
+  margin-top: 2px;
+  color: #60a5fa;
+}
+
+.invite-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.invite-actions .ant-btn:not(.ant-btn-primary) {
+  border-color: var(--craft-border);
+  color: var(--craft-text-muted);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.invite-actions .ant-btn:not(.ant-btn-primary):hover {
+  border-color: var(--craft-border-strong);
+  color: var(--craft-text);
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.invite-submit-button.ant-btn {
+  min-width: 204px;
+}
+
+.invite-link-result {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 10px 4px 0;
+  text-align: center;
+}
+
+.invite-success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(34, 197, 94, 0.36);
+  border-radius: 999px;
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.11);
+  box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.035);
+  font-size: 22px;
+}
+
+.invite-link-result h3 {
+  margin: 18px 0 5px;
+  color: var(--craft-text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.invite-link-result > p {
+  margin: 0 0 20px;
+  color: var(--craft-text-muted);
+  font-size: 13px;
+}
+
 .invite-link-row {
   display: flex;
-  gap: 8px;
+  width: 100%;
+  gap: 9px;
 }
-.invite-link-hint {
-  margin: 10px 0 14px;
-  font-size: 12px;
-  color: rgba(0, 0, 0, 0.55);
+
+.invite-link-row .ant-input {
+  min-width: 0;
+  flex: 1;
+  color: var(--craft-text-muted);
+  font-size: 13px;
+}
+
+.invite-copy-button.ant-btn {
+  min-width: 138px;
+}
+
+.invite-security-note {
+  width: 100%;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.invite-result-actions {
+  width: 100%;
 }
 .invite-accept-card {
   max-width: 480px;
@@ -347,5 +889,51 @@
   .team-member-roles {
     width: 100%;
     margin-left: 56px;
+  }
+  .team-invite-button.ant-btn {
+    width: 100%;
+  }
+  .invite-modal-hero {
+    min-height: 124px;
+    flex-basis: 124px;
+    padding: 22px 52px 20px 20px;
+  }
+  .invite-modal-icon {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+    border-radius: 13px;
+    font-size: 20px;
+  }
+  .invite-modal-title {
+    font-size: 20px;
+  }
+  .invite-modal-subtitle {
+    max-width: 300px;
+  }
+  .invite-modal-body {
+    padding: 18px 20px 22px;
+  }
+  .invite-methods,
+  .invite-access-roles {
+    grid-template-columns: 1fr;
+  }
+  .invite-method-description {
+    white-space: normal;
+  }
+  .invite-role-card {
+    min-height: 58px;
+  }
+  .invite-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+  .invite-link-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .invite-actions .ant-btn,
+  .invite-copy-button.ant-btn {
+    width: 100%;
   }
 }
