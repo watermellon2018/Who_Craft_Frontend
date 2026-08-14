@@ -67,7 +67,7 @@ export interface PosterOperationResponse {
 
 export interface ProjectMutationRequest {
   title?: string;
-  format?: string;
+  format?: "short_film" | "feature_film" | "series" | "clip" | "commercial" | "other";
   genre?: Array<string>;
   audience?: Array<string>;
   annotation?: string;
@@ -90,7 +90,7 @@ export interface ProjectMutationResponse {
   isFavorite?: boolean;
   tags?: Array<string>;
   stats?: Record<string, unknown>;
-  format?: string;
+  format?: "short_film" | "feature_film" | "series" | "clip" | "commercial" | "other";
   genre?: Array<string>;
   audience?: Array<string>;
   annotation?: string;
@@ -158,7 +158,6 @@ export interface MusicTrackVersion {
   createdAt?: string | null;
   createdById?: number | null;
   provenance?: Record<string, unknown>;
-  legacy?: boolean;
 }
 
 export interface MusicTrackSummary {
@@ -167,7 +166,7 @@ export interface MusicTrackSummary {
   author: string;
   tags: Array<string>;
   status: "active" | "archived";
-  source: "manual" | "generated" | "legacy";
+  source: "manual" | "generated";
   version: number;
   activeVersion: MusicTrackVersion | null;
   usageCount: number;
@@ -196,7 +195,7 @@ export interface DashboardMusicTrack {
   activeVersionNumber?: number | null;
   activeVersion: DashboardMusicTrackVersion | null;
   version: number;
-  source: "manual" | "generated" | "legacy";
+  source: "manual" | "generated";
   usageCount: number;
   usageLabel: string;
 }
@@ -208,18 +207,6 @@ export interface MusicTrackPage {
 }
 
 export type MusicTrackDetail = MusicTrackSummary & { versions: Array<MusicTrackVersion>; assignments: Array<MusicAssignment>; permissions: MusicPermissions; };
-
-export interface LegacyMusicTrackRequest {
-  title: string;
-  author?: string;
-  duration_seconds?: number;
-  tags?: Array<string>;
-}
-
-export interface LegacyMusicTrackResponse {
-  id: number;
-  title: string;
-}
 
 export interface MusicCapabilities {
   contentModes: Array<"instrumental" | "song">;
@@ -381,11 +368,10 @@ export interface MusicVariantApplyResponse {
 }
 
 export interface MusicTrackPatchRequest {
-  version?: number;
+  expectedTrackVersion: number;
   title?: string;
   author?: string;
   durationSeconds?: number;
-  duration_seconds?: number;
   tags?: Array<string>;
   activeVersionId?: string;
 }
@@ -472,7 +458,7 @@ export interface ReferenceCharacterLink {
 export interface ReferenceVersion {
   id: string;
   number: number;
-  origin: "upload" | "generated" | "edit" | "legacy";
+  origin: "upload" | "generated" | "edit";
   imageUrl: string | null;
   thumbnailUrl: string | null;
   provider: string | null;

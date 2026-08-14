@@ -48,6 +48,7 @@ const BOTTOM_LEN_ANNOT = 0;
 const UP_LEN_ANNOT = PROJECT_ANNOTATION_MAX_LENGTH;
 const BOTTOM_LEN_DESC = 0;
 const UP_LEN_DESC = PROJECT_SYNOPSIS_MAX_LENGTH;
+type ProjectFormat = NonNullable<ProjectEditPayload['format']>;
 
 // ============== Design tokens ==============
 const COLORS = {
@@ -216,7 +217,7 @@ export const ProjectCreatePage = () => {
     const [title, setTitle] = useState<string>('');
     // Single genre value, e.g. "fantasy". Empty string means no selection.
     const [genre, setGenre] = useState<string>('');
-    const [format, setFormat] = useState<string>('feature_film');
+    const [format, setFormat] = useState<ProjectFormat>('feature_film');
     const [selectedAudience, setSelectedAudience] = useState<string[]>(['all']);
     const [annotation, setAnnotation] = useState<string>('');
     const [description, setDescription] = useState<string>('');

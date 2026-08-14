@@ -48,7 +48,7 @@ when behavior, permissions, APIs, configuration, and data are unchanged.
 
 ## Architecture map
 
-- Entry/router: `src/index.tsx`, `src/App.tsx`, `src/constants/path.tsx`.
+- Entry/router: `src/index.tsx`, `src/App.tsx`, `src/routes/pathConstant.ts`.
 - Shared HTTP/auth: `src/api/http.ts`.
 - Generated API surface: `openapi/w_craft.openapi.json` ->
   `src/api/generated/`.
@@ -66,6 +66,9 @@ The shared Axios client stores distinct opaque access/refresh tokens in local or
 session storage, injects the access token as `X-User-Token`, coordinates a
 single refresh rotation after a 401, retries once, and emits an auth-expired
 event when recovery fails. Never add tokens to URLs or request logging.
+Only `authToken` and `authRefreshToken` are recognized storage keys. Retired
+credential keys are purged without authenticating the user, who must sign in
+again.
 
 Use `backendAssetUrl()` or URLs returned by the API for media. Private media is
 served by the backend through signed URLs; frontend code must not construct

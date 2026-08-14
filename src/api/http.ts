@@ -8,7 +8,7 @@ const baseURL = rawBackend.endsWith('/') ? rawBackend.slice(0, -1) : rawBackend;
 
 const TOKEN_STORAGE_KEY = 'authToken';
 const REFRESH_TOKEN_STORAGE_KEY = 'authRefreshToken';
-const LEGACY_TOKEN_STORAGE_KEY = 'userId';
+const RETIRED_TOKEN_STORAGE_KEYS = ['userId'] as const;
 
 type TokenPersistence = 'local' | 'session';
 
@@ -39,7 +39,19 @@ function readStoredValue(persistence: TokenPersistence, key: string): string | n
     }
 }
 
+function purgeRetiredStoredTokens(): void {
+    for (const persistence of ['local', 'session'] as const) {
+        try {
+            const storage = getTokenStorage(persistence);
+            RETIRED_TOKEN_STORAGE_KEYS.forEach((key) => storage?.removeItem(key));
+        } catch {
+            // Ignore unavailable browser storage.
+        }
+    }
+}
+
 function storedTokenPersistence(): TokenPersistence | null {
+    purgeRetiredStoredTokens();
     if (
         readStoredValue('session', TOKEN_STORAGE_KEY)
         || readStoredValue('session', REFRESH_TOKEN_STORAGE_KEY)
@@ -60,32 +72,16 @@ function removeStoredTokens(persistence: TokenPersistence): void {
         const storage = getTokenStorage(persistence);
         storage?.removeItem(TOKEN_STORAGE_KEY);
         storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-        storage?.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+        RETIRED_TOKEN_STORAGE_KEYS.forEach((key) => storage?.removeItem(key));
     } catch {
         // Ignore unavailable browser storage.
-    }
-}
-
-function migrateLegacyTokenKey(): string | null {
-    const storage = getTokenStorage('local');
-    try {
-        const legacy = storage?.getItem(LEGACY_TOKEN_STORAGE_KEY);
-        if (legacy && legacy.trim()) {
-            storage?.setItem(TOKEN_STORAGE_KEY, legacy.trim());
-            storage?.removeItem(LEGACY_TOKEN_STORAGE_KEY);
-            storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-            return legacy.trim();
-        }
-        return null;
-    } catch {
-        return null;
     }
 }
 
 export function getStoredUserToken(): string | null {
     const persistence = storedTokenPersistence();
     if (persistence) return readStoredValue(persistence, TOKEN_STORAGE_KEY);
-    return migrateLegacyTokenKey();
+    return null;
 }
 
 export function getStoredRefreshToken(): string | null {

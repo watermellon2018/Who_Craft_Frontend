@@ -63,8 +63,7 @@ export default function MusicLibraryPanel({
     if (track.source === 'generated' || track.activeVersion?.provenance?.createdByAi) {
       return t('musicStudio.library.source.ai');
     }
-    if (track.source === 'manual') return t('musicStudio.library.source.uploaded');
-    return t('musicStudio.library.source.legacy');
+    return t('musicStudio.library.source.uploaded');
   };
 
   return (
@@ -157,7 +156,7 @@ export default function MusicLibraryPanel({
                     onPlay={activeAudio}
                     onError={() => {
                       const refreshKey = track.activeVersion?.versionId
-                        ?? ['legacy', track.id].join('-');
+                        ?? ['unversioned', track.id].join('-');
                       if (signedUrlRefreshKeysRef.current.has(refreshKey)) return;
                       signedUrlRefreshKeysRef.current.add(refreshKey);
                       onSignedUrlExpired();

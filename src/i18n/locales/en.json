@@ -541,7 +541,7 @@
       "empty": "No tracks yet. Create or upload the first one.",
       "emptyArchived": "There are no archived tracks",
       "usage": "Scenes: {{count}}",
-      "source": {"ai": "AI", "uploaded": "Uploaded", "legacy": "Previously added"}
+      "source": {"ai": "AI", "uploaded": "Uploaded"}
     },
     "history": {"title": "History", "count": "Jobs: {{count}}", "empty": "Generation history is empty"},
     "create": {
@@ -765,7 +765,7 @@
       "save": "Save new version",
       "saving": "Saving a new version",
       "duration": "Duration {{duration}}",
-      "source": {"ai": "Created with AI", "uploaded": "Uploaded", "localDraft": "Local draft", "legacy": "Previously added"},
+      "source": {"ai": "Created with AI", "uploaded": "Uploaded", "localDraft": "Local draft"},
       "undo": "Undo action",
       "redo": "Redo action",
       "tools": {"label": "Editing tools", "select": "Selection", "trim": "Trim to selection", "split": "Split at playhead", "delete": "Delete selection", "fadeIn": "Fade in", "fadeOut": "Fade out", "volume": "Selection volume", "zoomIn": "Zoom in", "zoomOut": "Zoom out"},
@@ -881,7 +881,7 @@
     "generate": {"title": "Generate variants", "helper": "Generation continues in the background even if you leave this page.", "new": "New generation", "edit": "Edit active version", "editInstruction": "What should be changed", "variantCount": "Number of variants", "action": "Generate {{count}} variants"},
     "job": {"title": "Generation job", "working": "Creating variants. You can leave this page — the work will continue.", "completedHelper": "Variants are ready. Choose the image that should become the active version.", "failed": "Could not create an image", "cancelled": "Generation cancelled", "cancel": "Cancel", "retry": "Retry", "status": {"queued": "Job queued", "processing": "Creating variants", "cancellation_requested": "Stopping generation", "completed": "Variants ready", "failed": "Generation failed", "cancelled": "Cancelled"}, "stage": {"queued": "Queued", "compiling": "Compiling brief", "generating": "Creating image", "validating": "Validating result", "storing": "Saving variants", "finalized": "Ready", "failed": "Failed", "cancelled": "Cancelled"}},
     "variants": {"title": "Variants", "helper": "Selecting a card changes nothing until you explicitly apply the variant.", "item": "Variant {{number}}", "alt": "Generated variant {{number}}", "apply": "Make active version", "applyConfirmTitle": "Apply the selected variant?", "applyConfirmDescription": "A new immutable version will be created. Existing scenes remain pinned to their previous versions.", "applied": "Active version updated: v{{version}}"},
-    "versions": {"title": "Version history", "helper": "Versions are immutable; scenes preserve the version selected earlier.", "empty": "No versions yet", "active": "Active", "open": "Open", "origin": {"upload": "Uploaded", "generated": "AI generated", "edit": "AI edited", "legacy": "Imported"}},
+    "versions": {"title": "Version history", "helper": "Versions are immutable; scenes preserve the version selected earlier.", "empty": "No versions yet", "active": "Active", "open": "Open", "origin": {"upload": "Uploaded", "generated": "AI generated", "edit": "AI edited"}},
     "archive": {"title": "Archive this reference?", "description": "It will leave the main library, while versions and existing scene assignments remain available.", "action": "Archive", "restoreTitle": "Restore this reference?", "restoreDescription": "It will become available in the main library again.", "restore": "Restore"},
     "validation": {"title": "Enter a reference title", "titleLength": "The title must not exceed 255 characters", "primaryImage": "Select a primary image before saving", "generateDescription": "Add a description before generation", "editInstruction": "Describe what should change in the active version", "saveBeforeMediaAction": "Save the reference changes before uploading or generating an image"},
     "unsaved": {"description": "This reference has unsaved changes. Leave the page?"},

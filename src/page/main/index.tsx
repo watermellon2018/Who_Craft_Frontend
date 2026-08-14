@@ -75,12 +75,6 @@ const IconPackage = () => (
   </svg>
 );
 
-const IconArrow = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none">
-    <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
 interface HomeUserPillProps {
   user: ProfileUser | null;
 }

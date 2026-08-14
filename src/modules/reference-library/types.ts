@@ -78,7 +78,7 @@ export interface ReferenceVersionSummary {
   id: string;
   imageUrl?: string | null;
   number: number;
-  origin?: 'upload' | 'generated' | 'edit' | 'legacy';
+  origin?: 'upload' | 'generated' | 'edit';
   thumbnailUrl?: string | null;
   width?: number | null;
 }

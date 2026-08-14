@@ -77,7 +77,7 @@ export interface MusicLibraryItem {
   activeVersion: MusicTrackVersionSummary | null;
   author: string;
   id: number;
-  source?: 'generated' | 'legacy' | 'manual';
+  source: 'generated' | 'manual';
   status: 'active' | 'archived';
   tags: string[];
   title: string;
