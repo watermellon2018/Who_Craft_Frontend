@@ -6,10 +6,14 @@ import type {
   CharacterTreeNode,
   CharacterTreeUpdateRequest,
   CreditDemoTopUpRequest,
+  CreditAdminAudit,
+  CreditAdminOperationRequest,
+  CreditAdminOperationResponse,
   CreditHistoryPage,
   CreditMutationResponse,
   CreditOperationType,
   CreditSummary,
+  CreditSpendingStatistics,
   CreditTransferRequest,
   CreditTransferResponse,
   GenerationCostEstimate,
@@ -37,6 +41,10 @@ export function createGeneratedApiClient(http: AxiosInstance) {
       const response = await http.get<CreditHistoryPage>('api/credits/history/', {params});
       return response.data;
     },
+    async getCreditSpendingStatistics(params: {periodDays?: number; projectId?: number} = {}): Promise<CreditSpendingStatistics> {
+      const response = await http.get<CreditSpendingStatistics>('api/credits/spending-statistics/', {params});
+      return response.data;
+    },
     async createCreditDemoTopUp(payload: CreditDemoTopUpRequest, idempotencyKey: string): Promise<CreditMutationResponse> {
       const response = await http.post<CreditMutationResponse>('api/credits/demo-top-up/', payload, {
         headers: {'Idempotency-Key': idempotencyKey},
@@ -47,6 +55,16 @@ export function createGeneratedApiClient(http: AxiosInstance) {
       const response = await http.post<CreditTransferResponse>('api/credits/transfers/', payload, {
         headers: {'Idempotency-Key': idempotencyKey},
       });
+      return response.data;
+    },
+    async createCreditAdminOperation(payload: CreditAdminOperationRequest, idempotencyKey: string): Promise<CreditAdminOperationResponse> {
+      const response = await http.post<CreditAdminOperationResponse>('api/credits/admin/operations/', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async getCreditAdminAudit(username: string): Promise<CreditAdminAudit> {
+      const response = await http.get<CreditAdminAudit>('api/credits/admin/audit/', {params: {username}});
       return response.data;
     },
     async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {

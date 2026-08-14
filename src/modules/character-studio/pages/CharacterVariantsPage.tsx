@@ -251,10 +251,14 @@ function CharacterVariantsPageContent() {
                     variantCount: opts.count,
                     promptLength: String(formValues.appearance_description ?? '').length,
                 },
-                () => characterApi.generateInitial(
+                (estimate) => characterApi.generateInitial(
                     projectId,
                     characterId,
-                    payload,
+                    {
+                        ...payload,
+                        image_model: estimate.modelKey,
+                        routing_mode: estimate.routingMode,
+                    },
                     `character:${characterId}:portrait:${uuidv4()}`,
                 ),
             );
@@ -313,7 +317,7 @@ function CharacterVariantsPageContent() {
 
             const revisionId = appliedRevision.data?.revision_id;
             let secondaryLaunchFailed = false;
-            const launchSecondary = () => Promise.all(INITIAL_SECONDARY_ASSETS.map(async ({imageType, region}) => {
+            const launchSecondary = (modelKey: string, routingMode: string) => Promise.all(INITIAL_SECONDARY_ASSETS.map(async ({imageType, region}) => {
                     try {
                         const response = await characterApi.generateEdit(
                             projectId,
@@ -325,6 +329,8 @@ function CharacterVariantsPageContent() {
                                 preserve: {identity: true},
                                 variant_count: 1,
                                 activate_image: true,
+                                image_model: modelKey,
+                                routing_mode: routingMode as 'manual' | 'economy' | 'fast' | 'balanced' | 'quality',
                             },
                             `${characterId}:${imageType}:${revisionId}`,
                         );
@@ -345,7 +351,7 @@ function CharacterVariantsPageContent() {
                         variantCount: INITIAL_SECONDARY_ASSETS.length,
                         promptLength: String(effectiveFormValues?.appearance_description ?? '').length,
                     },
-                    launchSecondary,
+                    (estimate) => launchSecondary(estimate.modelKey, estimate.routingMode),
                 ) ?? [])
                 : [];
             const secondaryJobIds = Object.fromEntries(

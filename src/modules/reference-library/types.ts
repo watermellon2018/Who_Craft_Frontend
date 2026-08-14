@@ -1,3 +1,5 @@
+import type {GenerationBilling, GenerationRoutingMode} from '../../api/generated/contracts';
+
 export type ReferenceCategory = 'location' | 'prop' | 'wardrobe' | 'vehicle' | 'symbol' | 'other';
 
 export type ReferenceStatus = 'draft' | 'generating' | 'ready' | 'failed' | 'archived';
@@ -178,6 +180,7 @@ export interface ReferenceJobError {
 }
 
 export interface ReferenceGenerationJob {
+  billing?: GenerationBilling | null;
   attempts: number;
   canCancel: boolean;
   canRetry: boolean;
@@ -200,6 +203,7 @@ export interface ReferenceEnqueueRequest {
   editInstruction?: string;
   expectedReferenceVersion: number;
   imageModel: string;
+  routingMode?: GenerationRoutingMode;
   operation: 'generate' | 'edit';
   sourceVersionId: string | null;
   variantCount: number;

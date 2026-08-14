@@ -26,7 +26,10 @@ import {API_CONSTRAINTS} from '../../../api/generated/contracts';
 import {projectEditPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
 import {fetch_project} from "../../../api/projects/properties/project";
-import {runGenerationWithCredits} from '../../../modules/credits/components/GenerationCostGuard';
+import {
+    GenerationCostPreview,
+    runGenerationWithCredits,
+} from '../../../modules/credits/components/GenerationCostGuard';
 
 // ============== Design tokens ==============
 const COLORS = {
@@ -642,10 +645,12 @@ const GenPosterPage: React.FC = () => {
                     variantCount: 1,
                     promptLength: prompt.length,
                 },
-                () => generatePoster(existingProjectId, prompt, {
+                (estimate) => generatePoster(existingProjectId, prompt, {
                     style: selectedStyle,
                     format: selectedFormat,
                     referenceFile,
+                    imageModel: estimate.modelKey,
+                    routingMode: estimate.routingMode,
                 }),
             );
             if (!variant) {
@@ -670,9 +675,11 @@ const GenPosterPage: React.FC = () => {
                     variantCount: 1,
                     promptLength: correctionText.length,
                 },
-                () => editPoster(existingProjectId, {
+                (estimate) => editPoster(existingProjectId, {
                     sourceVariantId,
                     instruction: correctionText,
+                    imageModel: estimate.modelKey,
+                    routingMode: estimate.routingMode,
                 }),
             );
             if (!variant) {
@@ -1170,6 +1177,12 @@ const GenPosterPage: React.FC = () => {
                                     >
                                         {isGenerating ? 'Генерируем…' : 'Сгенерировать постер'}
                                     </PrimaryButton>
+                                    <GenerationCostPreview intent={{
+                                        domain: 'poster',
+                                        operation: referenceFile ? 'reference' : 'generate',
+                                        variantCount: 1,
+                                        promptLength: prompt.length,
+                                    }} />
                                
                                 </div>
                             </div>

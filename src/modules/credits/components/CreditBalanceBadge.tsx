@@ -18,13 +18,24 @@ export function formatCreditAmount(value: string, language: string): string {
 const CreditBalanceBadge: React.FC = () => {
   const {t, i18n} = useTranslation();
   const {summary, loading, error} = useCreditSummary();
+  const stateClass = summary?.account.isFrozen
+    ? ' credit-balance-badge--frozen'
+    : summary?.alerts.lowBalance
+      ? ' credit-balance-badge--low'
+      : '';
 
   return (
     <Link
       to={PathConstants.CREDITS}
-      className="credit-balance-badge"
+      className={`credit-balance-badge${stateClass}`}
       aria-label={t('credits.openWallet')}
-      title={error ? t('credits.balanceUnavailable') : t('credits.openWallet')}
+      title={error
+        ? t('credits.balanceUnavailable')
+        : summary?.account.isFrozen
+          ? t('credits.frozen.title')
+          : summary?.alerts.lowBalance
+            ? t('credits.lowBalance', {threshold: summary.alerts.lowBalanceThreshold})
+            : t('credits.openWallet')}
     >
       <span className="credit-balance-badge__coin" aria-hidden="true">C</span>
       <span className="credit-balance-badge__content">
@@ -34,6 +45,7 @@ const CreditBalanceBadge: React.FC = () => {
             ? formatCreditAmount(summary.account.availableBalance, i18n.language)
             : '—'}
         </span>
+        {summary?.account.isFrozen && <span className="credit-balance-badge__warning">{t('credits.frozen.badge')}</span>}
       </span>
     </Link>
   );

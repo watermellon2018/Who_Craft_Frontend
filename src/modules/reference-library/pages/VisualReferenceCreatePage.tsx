@@ -31,7 +31,10 @@ import type {
 import {referenceWorkspaceCreateCategory} from './ReferenceWorkspacePage';
 import '../referenceLibrary.css';
 import '../visualReferenceEditor.css';
-import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
+import {
+  GenerationCostPreview,
+  runGenerationWithCredits,
+} from '../../credits/components/GenerationCostGuard';
 
 const DEFAULT_ACCEPT = 'image/jpeg,image/png,image/webp';
 const EDITOR_DISPOSED = Symbol('visual-reference-editor-disposed');
@@ -401,10 +404,14 @@ function VisualReferenceCreateEditor() {
           variantCount,
           promptLength: String(brief.description ?? '').length,
         },
-        () => referenceApi.enqueueJob(
+        (estimate) => referenceApi.enqueueJob(
           projectId,
           draft.id,
-          jobPayload,
+          {
+            ...jobPayload,
+            imageModel: estimate.modelKey,
+            routingMode: estimate.routingMode,
+          },
           intent.key,
         ),
       );
@@ -563,6 +570,15 @@ function VisualReferenceCreateEditor() {
             canAddActiveToDrafts={canvasSelection?.kind === 'generated-preview'
               || canvasSelection?.kind === 'uploaded'}
             canGenerate={canGenerate}
+            costPreview={<GenerationCostPreview intent={{
+              domain: 'reference',
+              operation: 'generate',
+              modelKey: capabilities?.generation.effectiveModel ?? undefined,
+              variantCount: capabilities?.generation.generateVariantCounts.includes(1)
+                ? 1
+                : capabilities?.generation.generateVariantCounts[0] ?? 1,
+              promptLength: String(brief.description ?? '').length,
+            }} />}
             disabled={!canEdit || busy}
             generating={generationInProgress}
             primaryImageId={primaryImageId}

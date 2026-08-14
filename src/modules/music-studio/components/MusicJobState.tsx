@@ -4,6 +4,7 @@ import {useTranslation} from 'react-i18next';
 
 import {musicJobErrorMessage} from '../errors';
 import type {MusicGenerationJob} from '../types';
+import GenerationBillingSummary from '../../credits/components/GenerationBillingSummary';
 
 interface MusicJobStateProps {
   actionLoading?: boolean;
@@ -24,43 +25,52 @@ export default function MusicJobState({
 
   if (job.status === 'failed') {
     return (
-      <Result
-        status="error"
-        title={job.error?.retryable
-          ? t('musicStudio.job.failed')
-          : t('musicStudio.job.checkBrief')}
-        subTitle={musicJobErrorMessage(job.error?.code)}
-        extra={canMutate && job.canRetry ? (
-          <Button type="primary" loading={actionLoading} onClick={onRetry}>
-            {t('musicStudio.job.retry')}
-          </Button>
-        ) : undefined}
-      />
+      <>
+        <Result
+          status="error"
+          title={job.error?.retryable
+            ? t('musicStudio.job.failed')
+            : t('musicStudio.job.checkBrief')}
+          subTitle={musicJobErrorMessage(job.error?.code)}
+          extra={canMutate && job.canRetry ? (
+            <Button type="primary" loading={actionLoading} onClick={onRetry}>
+              {t('musicStudio.job.retry')}
+            </Button>
+          ) : undefined}
+        />
+        <GenerationBillingSummary billing={job.billing} />
+      </>
     );
   }
 
   if (job.status === 'cancelled') {
     return (
-      <Result
-        status="info"
-        title={t('musicStudio.job.cancelled')}
-        extra={canMutate && job.canRetry ? (
-          <Button type="primary" loading={actionLoading} onClick={onRetry}>
-            {t('musicStudio.job.retry')}
-          </Button>
-        ) : undefined}
-      />
+      <>
+        <Result
+          status="info"
+          title={t('musicStudio.job.cancelled')}
+          extra={canMutate && job.canRetry ? (
+            <Button type="primary" loading={actionLoading} onClick={onRetry}>
+              {t('musicStudio.job.retry')}
+            </Button>
+          ) : undefined}
+        />
+        <GenerationBillingSummary billing={job.billing} />
+      </>
     );
   }
 
   if (job.status === 'completed') {
     return (
-      <Alert
-        showIcon
-        type="success"
-        message={t('musicStudio.job.completed')}
-        description={t('musicStudio.job.completedDescription', {count: job.variants.length})}
-      />
+      <>
+        <Alert
+          showIcon
+          type="success"
+          message={t('musicStudio.job.completed')}
+          description={t('musicStudio.job.completedDescription', {count: job.variants.length})}
+        />
+        <GenerationBillingSummary billing={job.billing} />
+      </>
     );
   }
 
@@ -76,6 +86,7 @@ export default function MusicJobState({
             : t('musicStudio.job.processing', {count: job.variantCount})}</h2>
         <p>{t(`musicStudio.job.stage.${job.stage}`, {defaultValue: t('musicStudio.job.working')})}</p>
         <Progress percent={job.status === 'queued' ? 10 : 55} showInfo={false} status="active" />
+        <GenerationBillingSummary billing={job.billing} />
         {!cancellationRequested && canMutate && job.canCancel && (
           <Space>
             <Button danger loading={actionLoading} onClick={onCancel}>

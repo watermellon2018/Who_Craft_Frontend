@@ -3,19 +3,28 @@ import {useTranslation} from 'react-i18next';
 
 import {getApiErrorMessage} from '../../../api/errors';
 import type {
+  CreditAdminAudit,
+  CreditAdminOperationRequest,
   CreditHistoryPage,
   CreditLedgerEntry,
   CreditOperationType,
+  CreditSpendingStatistics,
   CreditSummary,
+  GenerationRoutingMode,
 } from '../../../api/generated/contracts';
 import DashboardHeader from '../../profile/components/DashboardHeader';
 import {
+  createCreditAdminOperation,
   createCreditTransfer,
   createDemoTopUp,
   createIdempotencyKey,
+  fetchCreditAdminAudit,
   fetchCreditHistory,
+  fetchCreditSpendingStatistics,
   fetchCreditSummary,
+  getGenerationRoutingMode,
   notifyCreditBalanceUpdated,
+  setGenerationRoutingMode,
 } from '../api/creditApi';
 import {formatCreditAmount} from '../components/CreditBalanceBadge';
 import '../credits.css';
@@ -36,7 +45,7 @@ function normalizedAmount(value: string): string | null {
 
 function mutationKey(
   pending: React.MutableRefObject<PendingMutation | null>,
-  prefix: 'topup' | 'transfer',
+  prefix: 'topup' | 'transfer' | 'admin',
   fingerprint: string,
 ): string {
   if (pending.current?.fingerprint === fingerprint) return pending.current.key;
@@ -49,6 +58,8 @@ const CreditWalletPage: React.FC = () => {
   const {t, i18n} = useTranslation();
   const [summary, setSummary] = useState<CreditSummary | null>(null);
   const [history, setHistory] = useState<CreditHistoryPage | null>(null);
+  const [spending, setSpending] = useState<CreditSpendingStatistics | null>(null);
+  const [spendingPeriod, setSpendingPeriod] = useState(30);
   const [historyFilter, setHistoryFilter] = useState<CreditOperationType | ''>('');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -60,29 +71,39 @@ const CreditWalletPage: React.FC = () => {
   const [transferAmount, setTransferAmount] = useState('');
   const [transferNote, setTransferNote] = useState('');
   const [transferPending, setTransferPending] = useState(false);
+  const [routingMode, setRoutingModeState] = useState<GenerationRoutingMode>(getGenerationRoutingMode);
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminAction, setAdminAction] = useState<CreditAdminOperationRequest['action']>('adjustment');
+  const [adminAmount, setAdminAmount] = useState('');
+  const [adminReason, setAdminReason] = useState('');
+  const [adminPending, setAdminPending] = useState(false);
+  const [adminAudit, setAdminAudit] = useState<CreditAdminAudit | null>(null);
   const topUpMutation = useRef<PendingMutation | null>(null);
   const transferMutation = useRef<PendingMutation | null>(null);
+  const adminMutation = useRef<PendingMutation | null>(null);
 
   const loadWallet = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [nextSummary, nextHistory] = await Promise.all([
+      const [nextSummary, nextHistory, nextSpending] = await Promise.all([
         fetchCreditSummary(),
         fetchCreditHistory({
           limit: HISTORY_LIMIT,
           offset: 0,
           ...(historyFilter ? {operationType: historyFilter} : {}),
         }),
+        fetchCreditSpendingStatistics(spendingPeriod),
       ]);
       setSummary(nextSummary);
       setHistory(nextHistory);
+      setSpending(nextSpending);
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, t('credits.errors.load')));
     } finally {
       setLoading(false);
     }
-  }, [historyFilter, t]);
+  }, [historyFilter, spendingPeriod, t]);
 
   useEffect(() => {
     void loadWallet();
@@ -160,6 +181,53 @@ const CreditWalletPage: React.FC = () => {
     }
   };
 
+  const handleRoutingMode = (mode: GenerationRoutingMode) => {
+    setGenerationRoutingMode(mode);
+    setRoutingModeState(mode);
+    setNotice(t('credits.routing.saved'));
+  };
+
+  const handleAdminOperation = async (event: FormEvent) => {
+    event.preventDefault();
+    const username = adminUsername.trim();
+    const reason = adminReason.trim();
+    const needsAmount = adminAction === 'adjustment' || adminAction === 'refund';
+    const normalized = adminAmount.trim().replace(',', '.');
+    const amountNumber = Number(normalized);
+    const amountValid = /^-?\d+(?:\.\d{1,2})?$/.test(normalized)
+      && Number.isFinite(amountNumber)
+      && amountNumber !== 0
+      && (adminAction !== 'refund' || amountNumber > 0);
+    if (!username || !reason || (needsAmount && !amountValid)) {
+      setError(t('credits.admin.validation'));
+      return;
+    }
+    const payload: CreditAdminOperationRequest = {
+      username,
+      action: adminAction,
+      reason,
+      ...(needsAmount ? {amount: amountNumber.toFixed(2)} : {}),
+    };
+    const fingerprint = JSON.stringify(payload);
+    setAdminPending(true);
+    setError('');
+    setNotice('');
+    try {
+      await createCreditAdminOperation(
+        payload,
+        mutationKey(adminMutation, 'admin', fingerprint),
+      );
+      adminMutation.current = null;
+      setAdminAudit(await fetchCreditAdminAudit(username));
+      await refreshAfterMutation();
+      setNotice(t('credits.admin.success'));
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, t('credits.admin.error')));
+    } finally {
+      setAdminPending(false);
+    }
+  };
+
   const loadMore = async () => {
     if (!history?.nextOffset) return;
     setLoadingMore(true);
@@ -226,11 +294,48 @@ const CreditWalletPage: React.FC = () => {
 
         {error && <div className="credit-wallet__alert credit-wallet__alert--error" role="alert">{error}</div>}
         {notice && <div className="credit-wallet__alert credit-wallet__alert--success" role="status">{notice}</div>}
+        {summary?.account.isFrozen && (
+          <div className="credit-wallet__alert credit-wallet__alert--error" role="alert">
+            <strong>{t('credits.frozen.title')}</strong> {summary.account.freezeReason || t('credits.frozen.description')}
+          </div>
+        )}
+        {summary?.alerts.lowBalance && (
+          <div className="credit-wallet__alert credit-wallet__alert--warning" role="status">
+            {t('credits.lowBalance', {
+              threshold: formatCreditAmount(summary.alerts.lowBalanceThreshold, i18n.language),
+            })}
+          </div>
+        )}
 
         {loading && !summary ? (
           <div className="credit-wallet__loading">{t('common.loading')}</div>
         ) : (
           <>
+            <section className="credit-wallet__routing">
+              <div className="credit-wallet__section-heading">
+                <div>
+                  <span>{t('credits.routing.eyebrow')}</span>
+                  <h2>{t('credits.routing.title')}</h2>
+                </div>
+              </div>
+              <p>{t('credits.routing.description')}</p>
+              <div className="credit-wallet__routing-grid">
+                {(['manual', 'economy', 'fast', 'balanced', 'quality'] as GenerationRoutingMode[]).map((mode) => (
+                  <button
+                    aria-pressed={routingMode === mode}
+                    className={routingMode === mode ? 'is-active' : ''}
+                    key={mode}
+                    onClick={() => handleRoutingMode(mode)}
+                    type="button"
+                  >
+                    <strong>{t(`credits.routing.modes.${mode}.title`)}</strong>
+                    <span>{t(`credits.routing.modes.${mode}.description`)}</span>
+                  </button>
+                ))}
+              </div>
+              <small>{t('credits.routing.priceGuard')}</small>
+            </section>
+
             <section className="credit-wallet__balance-grid" aria-label={t('credits.balanceDetails')}>
               <article className="credit-card credit-card--primary">
                 <span>{t('credits.available')}</span>
@@ -247,6 +352,48 @@ const CreditWalletPage: React.FC = () => {
                 <strong>{formatCreditAmount(summary?.account.totalBalance ?? '0', i18n.language)}</strong>
                 <small>{t('credits.totalHint')}</small>
               </article>
+            </section>
+
+            <section className="credit-wallet__spending">
+              <div className="credit-wallet__section-heading credit-wallet__section-heading--history">
+                <div>
+                  <span>{t('credits.spending.eyebrow')}</span>
+                  <h2>{t('credits.spending.title')}</h2>
+                </div>
+                <label>
+                  <span>{t('credits.spending.period')}</span>
+                  <select value={spendingPeriod} onChange={(event) => setSpendingPeriod(Number(event.target.value))}>
+                    {[7, 30, 90, 365].map((days) => (
+                      <option key={days} value={days}>{t('credits.spending.days', {days})}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="credit-wallet__spending-total">
+                <span>{t('credits.spending.total')}</span>
+                <strong>{formatCreditAmount(spending?.totalCharged ?? '0', i18n.language)} C</strong>
+                <small>{t('credits.spending.jobs', {count: spending?.jobCount ?? 0})}</small>
+              </div>
+              <div className="credit-wallet__spending-columns">
+                <div>
+                  <h3>{t('credits.spending.byType')}</h3>
+                  {(spending?.byDomain ?? []).map((row) => (
+                    <div className="credit-wallet__spending-row" key={row.domain}>
+                      <span>{t(`credits.spending.domains.${row.domain}`, {defaultValue: row.domain})}</span>
+                      <strong>{formatCreditAmount(row.charged, i18n.language)} C</strong>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <h3>{t('credits.spending.byProject')}</h3>
+                  {(spending?.byProject ?? []).map((row) => (
+                    <div className="credit-wallet__spending-row" key={`${row.projectId ?? 'none'}-${row.projectTitle}`}>
+                      <span>{row.projectTitle || t('credits.spending.noProject')}</span>
+                      <strong>{formatCreditAmount(row.charged, i18n.language)} C</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </section>
 
             <section className="credit-wallet__stats">
@@ -329,10 +476,53 @@ const CreditWalletPage: React.FC = () => {
                       {transferPending ? t('credits.processing') : t('credits.transfer.submit')}
                     </button>
                     <small>{t('credits.transfer.hint')}</small>
+                    <small>{t('credits.transfer.limits', {
+                      perTransfer: formatCreditAmount(summary.transferLimits.perTransfer, i18n.language),
+                      day: formatCreditAmount(summary.transferLimits.rollingDay, i18n.language),
+                      count: summary.transferLimits.rollingDayCount,
+                    })}</small>
                   </form>
                 </section>
               )}
             </div>
+
+            {summary?.capabilities.adminWalletManagement && (
+              <section className="credit-wallet__panel credit-wallet__admin">
+                <span className="credit-wallet__demo-badge">ADMIN</span>
+                <h2>{t('credits.admin.title')}</h2>
+                <p>{t('credits.admin.description')}</p>
+                <form onSubmit={handleAdminOperation}>
+                  <label htmlFor="credit-admin-username">{t('credits.admin.username')}</label>
+                  <input id="credit-admin-username" value={adminUsername} onChange={(event) => setAdminUsername(event.target.value)} />
+                  <label htmlFor="credit-admin-action">{t('credits.admin.action')}</label>
+                  <select id="credit-admin-action" value={adminAction} onChange={(event) => setAdminAction(event.target.value as CreditAdminOperationRequest['action'])}>
+                    {(['adjustment', 'refund', 'freeze', 'unfreeze'] as const).map((action) => (
+                      <option key={action} value={action}>{t(`credits.admin.actions.${action}`)}</option>
+                    ))}
+                  </select>
+                  {(adminAction === 'adjustment' || adminAction === 'refund') && (
+                    <>
+                      <label htmlFor="credit-admin-amount">{t('credits.amount')}</label>
+                      <input id="credit-admin-amount" inputMode="decimal" value={adminAmount} onChange={(event) => setAdminAmount(event.target.value)} />
+                    </>
+                  )}
+                  <label htmlFor="credit-admin-reason">{t('credits.admin.reason')}</label>
+                  <input id="credit-admin-reason" maxLength={300} value={adminReason} onChange={(event) => setAdminReason(event.target.value)} />
+                  <button disabled={adminPending} type="submit">{adminPending ? t('credits.processing') : t('credits.admin.submit')}</button>
+                </form>
+                {adminAudit && (
+                  <div className="credit-wallet__admin-audit">
+                    <h3>{t('credits.admin.audit', {username: adminAudit.username})}</h3>
+                    {adminAudit.items.map((event) => (
+                      <div key={event.id}>
+                        <strong>{t(`credits.admin.actions.${event.eventType}`)}</strong>
+                        <span>{event.amount ? `${formatCreditAmount(event.amount, i18n.language)} C · ` : ''}{event.reason}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
             <section className="credit-wallet__history">
               <div className="credit-wallet__section-heading credit-wallet__section-heading--history">
@@ -407,4 +597,3 @@ const CreditWalletPage: React.FC = () => {
 };
 
 export default CreditWalletPage;
-

@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {getApiErrorMessage} from '../../../api/errors';
+import GenerationBillingSummary from '../../credits/components/GenerationBillingSummary';
 import {characterApi} from '../api/characterApi';
 import {isGenerationJobActive} from '../types/character.types';
 import type {GenerationJob} from '../types/character.types';
@@ -236,6 +237,7 @@ export default function GenerationJobHistory({
                 {job.status === 'failed' && (
                   <p className="generation-history__notice generation-history__notice--error">{publicFailureMessage(job)}</p>
                 )}
+                <GenerationBillingSummary billing={job.billing} compact />
               </div>
             );
           })}

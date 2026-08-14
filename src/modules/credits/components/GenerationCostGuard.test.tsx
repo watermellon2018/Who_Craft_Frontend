@@ -8,6 +8,7 @@ import {runGenerationWithCredits} from './GenerationCostGuard';
 
 jest.mock('../api/creditApi', () => ({
   estimateGenerationCost: jest.fn(),
+  getGenerationRoutingMode: jest.fn(() => 'manual'),
   notifyCreditBalanceUpdated: jest.fn(),
 }));
 
@@ -27,6 +28,10 @@ const estimate = {
   costIsEstimate: true,
   availableBalance: '1.00',
   sufficientBalance: true,
+  accountFrozen: false,
+  routingMode: 'manual' as const,
+  routingReason: 'manual-selection',
+  routeCandidates: [],
 };
 
 describe('GenerationCostGuard', () => {

@@ -289,7 +289,13 @@ export const characterApi = {
   generateReference(
     projectId: string | number,
     characterId: string,
-    payload: { reference_type: ReferenceType; correction_prompt?: string; preserve_identity?: boolean },
+    payload: {
+      reference_type: ReferenceType;
+      correction_prompt?: string;
+      preserve_identity?: boolean;
+      image_model?: string;
+      routing_mode?: import('../../../api/generated/contracts').GenerationRoutingMode;
+    },
   ) {
     return api.post(
       `${base(projectId, characterId)}/references/generate`,
@@ -312,7 +318,12 @@ export const characterApi = {
     projectId: string | number,
     characterId: string,
     referenceId: string,
-    payload: { correction_prompt: string; preserve_identity?: boolean },
+    payload: {
+      correction_prompt: string;
+      preserve_identity?: boolean;
+      image_model?: string;
+      routing_mode?: import('../../../api/generated/contracts').GenerationRoutingMode;
+    },
   ) {
     return api.post(
       `${base(projectId, characterId)}/references/${referenceId}/correct`,

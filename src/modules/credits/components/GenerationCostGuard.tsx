@@ -1,5 +1,5 @@
 import {Modal} from 'antd';
-import React from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import i18n from '../../../i18n';
 
 import type {
@@ -9,6 +9,7 @@ import type {
 import {getApiErrorMessage} from '../../../api/errors';
 import {
   estimateGenerationCost,
+  getGenerationRoutingMode,
   notifyCreditBalanceUpdated,
 } from '../api/creditApi';
 import {formatCreditAmount} from './CreditBalanceBadge';
@@ -32,6 +33,16 @@ function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
               <dt>{i18n.t('credits.generation.estimatedCost')}</dt>
               <dd>{costLabel(estimate.estimatedCost)} C</dd>
             </div>
+            {estimate.routeCandidates.length > 1 && (
+              <div>
+                <dt>{i18n.t('credits.generation.maxWithFallback')}</dt>
+                <dd>{costLabel(estimate.reservationAmount)} C</dd>
+              </div>
+            )}
+            <div>
+              <dt>{i18n.t('credits.generation.routingMode')}</dt>
+              <dd>{i18n.t(`credits.routing.modes.${estimate.routingMode}.title`)}</dd>
+            </div>
             <div>
               <dt>{i18n.t('credits.generation.balanceAfterReserve')}</dt>
               <dd>
@@ -41,6 +52,14 @@ function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
               </dd>
             </div>
           </dl>
+          {estimate.routeCandidates.length > 1 && (
+            <p className="generation-cost-confirmation__route">
+              {i18n.t('credits.generation.fallbackRoute', {
+                primary: estimate.routeCandidates[0].modelName,
+                fallback: estimate.routeCandidates[1].modelName,
+              })}
+            </p>
+          )}
           <small>{i18n.t('credits.generation.finalCostHint')}</small>
         </div>
       ),
@@ -57,11 +76,21 @@ export async function confirmGenerationCost(
 ): Promise<GenerationCostEstimate | null> {
   let estimate: GenerationCostEstimate;
   try {
-    estimate = await estimateGenerationCost(intent);
+    estimate = await estimateGenerationCost({
+      ...intent,
+      routingMode: intent.routingMode ?? getGenerationRoutingMode(),
+    });
   } catch (error) {
     Modal.error({
       title: i18n.t('credits.generation.estimateErrorTitle'),
       content: getApiErrorMessage(error, i18n.t('credits.generation.estimateError')),
+    });
+    return null;
+  }
+  if (estimate.accountFrozen) {
+    Modal.error({
+      title: i18n.t('credits.frozen.title'),
+      content: i18n.t('credits.frozen.generation'),
     });
     return null;
   }
@@ -80,11 +109,51 @@ export async function confirmGenerationCost(
 
 export async function runGenerationWithCredits<T>(
   intent: GenerationCostIntent,
-  operation: () => Promise<T>,
+  operation: (estimate: GenerationCostEstimate) => Promise<T>,
 ): Promise<T | undefined> {
   const estimate = await confirmGenerationCost(intent);
   if (!estimate) return undefined;
-  const result = await operation();
+  const result = await operation(estimate);
   notifyCreditBalanceUpdated();
   return result;
 }
+
+interface GenerationCostPreviewProps {
+  intent: GenerationCostIntent;
+  className?: string;
+}
+
+export const GenerationCostPreview: React.FC<GenerationCostPreviewProps> = ({
+  intent,
+  className = '',
+}) => {
+  const [estimate, setEstimate] = useState<GenerationCostEstimate | null>(null);
+  const serializedIntent = useMemo(() => JSON.stringify(intent), [intent]);
+
+  useEffect(() => {
+    let active = true;
+    void estimateGenerationCost({
+      ...intent,
+      routingMode: intent.routingMode ?? getGenerationRoutingMode(),
+    }).then((result) => {
+      if (active) setEstimate(result);
+    }).catch(() => {
+      if (active) setEstimate(null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [serializedIntent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!estimate || Number(estimate.reservationAmount) <= 0) return null;
+  return (
+    <span
+      className={`generation-cost-preview ${className}`.trim()}
+      title={i18n.t('credits.generation.previewTitle', {
+        amount: costLabel(estimate.reservationAmount),
+      })}
+    >
+      ≈ {costLabel(estimate.estimatedCost)} C
+    </span>
+  );
+};

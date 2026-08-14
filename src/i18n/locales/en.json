@@ -64,6 +64,7 @@
       "notePlaceholder": "For example, thanks for helping with the project",
       "submit": "Send credits",
       "hint": "Reserved credits cannot be transferred. A transfer in this demo project is not a bank payment.",
+      "limits": "Limit: {{perTransfer}} C per transfer, {{day}} C and {{count}} operations per 24 hours.",
       "success": "Sent {{amount}} credits to @{{username}}."
     },
     "history": {
@@ -90,6 +91,10 @@
       "confirmTitle": "Confirm generation",
       "confirmDescription": "This amount will be temporarily reserved in your wallet before the job starts.",
       "estimatedCost": "Estimated cost",
+      "maxWithFallback": "Maximum with fallback route",
+      "routingMode": "Routing mode",
+      "fallbackRoute": "Primary model: {{primary}}. {{fallback}} is used if it is temporarily unavailable.",
+      "previewTitle": "Approximately {{amount}} credits",
       "balanceAfterReserve": "Available after reservation",
       "finalCostHint": "The final charge uses the provider's actual usage report. Any unused reservation returns to your balance.",
       "confirm": "Start generation",
@@ -97,6 +102,57 @@
       "insufficientDescription": "About {{required}} C is required; {{available}} C is currently available.",
       "estimateErrorTitle": "Could not estimate cost",
       "estimateError": "The selected model's provider price is temporarily unavailable."
+    },
+    "routing": {
+      "eyebrow": "ROUTING",
+      "title": "How to select a model",
+      "description": "Craft can select a configured provider and one fallback route based on your priority.",
+      "saved": "Routing mode saved.",
+      "priceGuard": "The maximum reservation is shown before launch. Automatic routing never charges more than the confirmed amount.",
+      "modes": {
+        "manual": {"title": "Manual", "description": "Use the model selected on the generation screen."},
+        "economy": {"title": "Lower cost", "description": "Try the model with the lowest estimated cost first."},
+        "fast": {"title": "Faster", "description": "Prioritize models with a shorter expected response time."},
+        "balanced": {"title": "Balanced", "description": "Balance speed, quality and cost."},
+        "quality": {"title": "Best quality", "description": "Try the model with the best expected quality first."}
+      }
+    },
+    "billing": {
+      "final": "Final cost:",
+      "reserved": "Reserved:",
+      "fallbackUsed": "Fallback provider used"
+    },
+    "frozen": {
+      "title": "Wallet frozen.",
+      "badge": "Frozen",
+      "description": "New charges, top-ups and transfers are temporarily unavailable.",
+      "generation": "New generation is unavailable until an administrator unfreezes the wallet."
+    },
+    "lowBalance": "Your balance is below {{threshold}} C. Add demo credits to avoid interrupted generation.",
+    "spending": {
+      "eyebrow": "GENERATION SPENDING",
+      "title": "Where credits went",
+      "period": "Period",
+      "days": "{{days}} days",
+      "total": "Charged",
+      "jobs": "Jobs: {{count}}",
+      "byType": "By type",
+      "byProject": "By project",
+      "noProject": "No project",
+      "domains": {"character": "Characters", "poster": "Posters", "reference": "References", "music": "Music", "model3d": "3D models"}
+    },
+    "admin": {
+      "title": "Wallet administration",
+      "description": "Manual operations are staff-only and always recorded in an immutable audit trail.",
+      "username": "User login",
+      "action": "Operation",
+      "reason": "Operation reason",
+      "submit": "Run operation",
+      "audit": "Audit for @{{username}}",
+      "success": "Operation completed and recorded in the audit trail.",
+      "validation": "Enter a user, a reason and a valid non-zero amount.",
+      "error": "Could not complete the administrative operation.",
+      "actions": {"adjustment": "Adjustment", "refund": "Refund", "freeze": "Freeze", "unfreeze": "Unfreeze"}
     },
     "errors": {
       "load": "Could not load the wallet.",

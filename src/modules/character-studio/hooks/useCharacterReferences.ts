@@ -284,6 +284,8 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           reference_type: referenceType,
           correction_prompt: opts?.correction_prompt,
           preserve_identity: true,
+          image_model: estimate.modelKey,
+          routing_mode: estimate.routingMode,
         });
         if (!isCurrentOwner(requestOwnerKey)) return;
         const data = response.data as {job_id: string; status: GenerationJob['status']; references: ReferencesState};
@@ -329,6 +331,8 @@ export function useCharacterReferences(projectId: string | number, characterId: 
         const response = await characterApi.correctReference(projectId, characterId, referenceId, {
           correction_prompt: correctionPrompt,
           preserve_identity: true,
+          image_model: estimate.modelKey,
+          routing_mode: estimate.routingMode,
         });
         if (!isCurrentOwner(requestOwnerKey)) return;
         const data = response.data as {job_id: string; status: GenerationJob['status']; references: ReferencesState};

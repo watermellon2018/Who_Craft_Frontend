@@ -1,3 +1,5 @@
+import type {GenerationBilling, GenerationRoutingMode} from '../../../api/generated/contracts';
+
 export type CharacterRegion = 'face' | 'hair' | 'body' | 'outfit' | 'style' | 'full_character';
 
 export interface ClothingReference {
@@ -180,6 +182,7 @@ export interface StudioCharacter {
 }
 
 export interface GenerationJob {
+  billing?: GenerationBilling | null;
   job_id: string;
   character_id?: string;
   project_id?: number;
@@ -265,6 +268,8 @@ export interface EditRequest {
   preserve: Record<string, boolean>;
   variant_count: number;
   activate_image?: boolean;
+  image_model?: string;
+  routing_mode?: GenerationRoutingMode;
 }
 
 export interface ZoneSelection {
@@ -279,6 +284,8 @@ export interface ZoneEditRequest {
   instruction: string;
   selection: ZoneSelection;
   variant_count?: number;
+  image_model?: string;
+  routing_mode?: GenerationRoutingMode;
 }
 
 export interface ZoneEditResponse {

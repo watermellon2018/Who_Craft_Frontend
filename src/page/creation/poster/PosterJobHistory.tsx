@@ -14,6 +14,7 @@ import type {
 } from '../../../api/posters';
 import {getApiErrorMessage} from '../../../api/errors';
 import {notifyCreditBalanceUpdated} from '../../../modules/credits/api/creditApi';
+import GenerationBillingSummary from '../../../modules/credits/components/GenerationBillingSummary';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -217,6 +218,7 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
                         {job.status === 'failed' && job.errorMessage && (
                             <p style={{color: '#EF4444', fontSize: 11, margin: 0}}>{job.errorMessage}</p>
                         )}
+                        <GenerationBillingSummary billing={job.billing} compact />
                     </div>
                 );
             })}

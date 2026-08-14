@@ -28,6 +28,8 @@ export interface CreditAccount {
   availableBalance: CreditAmount;
   reservedBalance: CreditAmount;
   totalBalance: CreditAmount;
+  isFrozen: boolean;
+  freezeReason: string;
 }
 
 export interface CreditStatistics {
@@ -41,12 +43,26 @@ export interface CreditStatistics {
 export interface CreditCapabilities {
   demoTopUpEnabled: boolean;
   transfersEnabled: boolean;
+  adminWalletManagement: boolean;
+}
+
+export interface CreditAlerts {
+  lowBalance: boolean;
+  lowBalanceThreshold: CreditAmount;
+}
+
+export interface CreditTransferLimits {
+  perTransfer: CreditAmount;
+  rollingDay: CreditAmount;
+  rollingDayCount: number;
 }
 
 export interface CreditSummary {
   account: CreditAccount;
   stats: CreditStatistics;
   capabilities: CreditCapabilities;
+  alerts: CreditAlerts;
+  transferLimits: CreditTransferLimits;
 }
 
 export type CreditOperationType = "demo_top_up" | "transfer_out" | "transfer_in" | "reserve" | "capture" | "release" | "refund" | "adjustment";
@@ -107,6 +123,61 @@ export interface CreditTransferResponse {
   replayed: boolean;
 }
 
+export interface CreditSpendingGroup {
+  domain?: string;
+  projectId?: number | null;
+  projectTitle?: string;
+  date?: string;
+  charged: CreditAmount;
+  jobCount: number;
+}
+
+export interface CreditSpendingStatistics {
+  periodDays: number;
+  totalCharged: CreditAmount;
+  jobCount: number;
+  byDomain: Array<CreditSpendingGroup>;
+  byProject: Array<CreditSpendingGroup>;
+  timeline: Array<CreditSpendingGroup>;
+}
+
+export interface CreditAdminOperationRequest {
+  username: string;
+  action: "adjustment" | "refund" | "freeze" | "unfreeze";
+  amount?: CreditAmount;
+  reason: string;
+}
+
+export interface CreditAdminAuditEvent {
+  id: string;
+  eventType: "adjustment" | "refund" | "freeze" | "unfreeze";
+  amount: CreditAmount | null;
+  reason: string;
+  actor: string | null;
+  createdAt: string;
+}
+
+export interface CreditAdminOperationResponse {
+  account: CreditAccount;
+  auditEvent: CreditAdminAuditEvent;
+  replayed: boolean;
+}
+
+export interface CreditAdminAudit {
+  username: string;
+  account: CreditAccount;
+  items: Array<CreditAdminAuditEvent>;
+}
+
+export type GenerationRoutingMode = "manual" | "economy" | "fast" | "balanced" | "quality";
+
+export interface GenerationRouteCandidate {
+  modelKey: string;
+  modelName: string;
+  provider: string;
+  estimatedCost: CreditAmount;
+}
+
 export interface GenerationCostEstimateRequest {
   domain: "character" | "poster" | "reference" | "music" | "model3d";
   operation?: "generate" | "edit" | "reference";
@@ -114,6 +185,7 @@ export interface GenerationCostEstimateRequest {
   variantCount?: number;
   promptLength?: number;
   resolution?: "512" | "1K" | "2K" | "4K";
+  routingMode?: GenerationRoutingMode;
 }
 
 export interface GenerationCostEstimate {
@@ -129,6 +201,10 @@ export interface GenerationCostEstimate {
   costIsEstimate: boolean;
   availableBalance: CreditAmount;
   sufficientBalance: boolean;
+  accountFrozen: boolean;
+  routingMode: GenerationRoutingMode;
+  routingReason: string;
+  routeCandidates: Array<GenerationRouteCandidate>;
 }
 
 export interface GenerationBilling {
@@ -142,6 +218,9 @@ export interface GenerationBilling {
   costIsEstimate: boolean;
   provider: string;
   model: string;
+  operation: string;
+  routingMode: GenerationRoutingMode;
+  routingAttempts: Array<Record<string, unknown>>;
 }
 
 export interface CharacterTreeNode {
@@ -172,6 +251,7 @@ export interface PosterGenerateRequest {
   reference_image_url?: string;
   reference_image_asset_id?: number;
   image_model?: string;
+  routing_mode?: GenerationRoutingMode;
 }
 
 export type PosterGenerateMultipartRequest = PosterGenerateRequest & { reference_image?: File; };
@@ -185,6 +265,7 @@ export interface PosterOperationResponse {
   jobId?: number;
   status?: "queued" | "processing" | "completed" | "failed" | "cancelled";
   variants: Array<PosterVariant>;
+  billing?: GenerationBilling | null;
 }
 
 export interface ProjectMutationRequest {
@@ -685,6 +766,7 @@ export interface ReferenceGenerationCreateRequest {
   sourceVersionId?: string | null;
   variantCount: 1 | 2 | 4;
   imageModel?: string;
+  routingMode?: GenerationRoutingMode;
   brief?: ReferenceBrief;
   editInstruction?: string;
 }
@@ -716,6 +798,7 @@ export interface ReferenceGenerationJobSummary {
   attempts: number;
   canCancel: boolean;
   canRetry: boolean;
+  billing?: GenerationBilling | null;
   error: ReferenceGenerationError | null | null;
   createdAt: string;
   completedAt: string | null;

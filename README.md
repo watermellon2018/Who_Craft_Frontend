@@ -17,6 +17,13 @@ with the provider-native estimated cost. The backend remains authoritative: it
 reserves at enqueue, settles after provider completion, and refreshes the
 visible balance when the request starts.
 
+The wallet also stores the user's generation-routing preference (manual,
+lower-cost, faster, balanced, or quality), shows low-balance/frozen warnings,
+generation spending by project and type, and provider-billed totals in job
+history. Staff users see audited adjustment/refund/freeze controls on the same
+page. Automatic generation always confirms its maximum primary-plus-fallback
+reservation before enqueue.
+
 System-wide documentation is in the parent workspace:
 `../README.md`, `../AGENTS.md`, and `../docs/`.
 

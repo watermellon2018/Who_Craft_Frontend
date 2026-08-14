@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
 import {characterApi} from '../api/characterApi';
-import type {CharacterGenerationPreview} from '../api/characterApi';
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
 import CharacterEditorLayout from '../components/CharacterEditorLayout';
 import GenerationJobHistory from '../components/GenerationJobHistory';
@@ -120,45 +120,6 @@ function confirmDeleteCharacter(name: string) {
   });
 }
 
-function confirmGenerationPreview(preview: CharacterGenerationPreview) {
-  const estimatedCost = preview.estimated_cost_usd === null
-    ? 'not configured'
-    : `$${preview.estimated_cost_usd}`;
-  return new Promise<boolean>((resolve) => {
-    if (!preview.sufficient_balance) {
-      Modal.error({
-        title: 'Недостаточно кредитов',
-        content: `Нужно примерно ${preview.reservation_amount} C, доступно ${preview.available_balance} C.`,
-      });
-      resolve(false);
-      return;
-    }
-    Modal.confirm({
-      title: 'Confirm generation',
-      content: (
-        <div>
-          <p>Mode: {preview.mode === 'offline' ? 'mock / offline' : 'paid'}</p>
-          <p>Provider: {preview.provider}</p>
-          <p>Provider calls: {preview.provider_call_count}</p>
-          <p>Estimated cost: {estimatedCost}</p>
-          <p>
-            Daily budget: user {preview.budgets.user.used}/{preview.budgets.user.limit},
-            project {preview.budgets.project.used}/{preview.budgets.project.limit}
-          </p>
-          <p>
-            Active jobs: global {preview.concurrency.global.active}/{preview.concurrency.global.limit},
-            project {preview.concurrency.project.active}/{preview.concurrency.project.limit}
-          </p>
-        </div>
-      ),
-      okText: 'Start generation',
-      cancelText: 'Cancel',
-      onOk: () => resolve(true),
-      onCancel: () => resolve(false),
-    });
-  });
-}
-
 const CANCELLATION_REQUESTED_LABEL = '\u041e\u0442\u043c\u0435\u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u0430';
 const POLL_DELAY_MS = 3000;
 
@@ -254,13 +215,15 @@ function CharacterEditorPageContent() {
   const confirmGeneration = async (imageTypes: CharacterImageType[]) => {
     if (!character) return false;
     try {
-      const response = await characterApi.getGenerationPreview(
-        projectId, character.character_id, imageTypes,
-      );
-      return confirmGenerationPreview(response.data);
+      return await confirmGenerationCost({
+        domain: 'character',
+        operation: 'generate',
+        variantCount: imageTypes.length,
+        promptLength: editor.textRefinement.length,
+      });
     } catch {
       message.error(t('characterStudio.editor.generationError'));
-      return false;
+      return null;
     }
   };
 
@@ -397,7 +360,8 @@ function CharacterEditorPageContent() {
     const imageType = viewModeToImageType(activeViewMode);
     const region = regionForImageType(imageType, activeTab);
     const plannedTypes = dependentImageTypes(imageType);
-    if (!(await confirmGeneration(plannedTypes))) return;
+    const costEstimate = await confirmGeneration(plannedTypes);
+    if (!costEstimate) return;
     const diff = diffControls(controlsFromCharacter(character), editor.controls);
     setGeneratingImageType(imageType);
     const persisted = await persistAllEdits();
@@ -430,6 +394,8 @@ function CharacterEditorPageContent() {
         current_image_url: activeImage?.image_url || null,
         current_asset_id: activeImage?.asset_id || null,
         activate_image: false,
+        image_model: costEstimate.modelKey,
+        routing_mode: costEstimate.routingMode,
       });
       setSelectedVariant(null);
       setPreviewedJobId(undefined);
@@ -465,7 +431,8 @@ function CharacterEditorPageContent() {
   const applyZoneEdit = async (zone: ZoneEditState) => {
     if (!character || zoneEditSubmitting) return;
     const imageType = currentImageTypeForZone;
-    if (!(await confirmGeneration([imageType]))) return;
+    const costEstimate = await confirmGeneration([imageType]);
+    if (!costEstimate) return;
     setZoneEditSubmitting(true);
     setGeneratingImageType(imageType);
     try {
@@ -473,6 +440,8 @@ function CharacterEditorPageContent() {
         asset_type: imageType,
         instruction: zone.instruction,
         selection: zone.selection,
+        image_model: costEstimate.modelKey,
+        routing_mode: costEstimate.routingMode,
         variant_count: 1,
       });
       const data = response.data as ZoneEditResponse;
@@ -625,7 +594,8 @@ function CharacterEditorPageContent() {
 
   const generateSequential = async () => {
     if (!character || generatingImageType || sequentialRunning) return;
-    if (!(await confirmGeneration(['portrait', 'full_body', 'scene']))) return;
+    const costEstimate = await confirmGeneration(['portrait', 'full_body', 'scene']);
+    if (!costEstimate) return;
     const diff = diffControls(controlsFromCharacter(character), editor.controls);
     setSequentialRunning(true);
 
@@ -675,6 +645,8 @@ function CharacterEditorPageContent() {
           current_image_url: activeImage?.image_url || null,
           current_asset_id: activeImage?.asset_id || null,
           activate_image: false,
+          image_model: costEstimate.modelKey,
+          routing_mode: costEstimate.routingMode,
         }, idempotencyKey);
 
         if (response.data?.status === 'failed') {

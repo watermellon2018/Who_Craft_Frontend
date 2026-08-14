@@ -23,7 +23,11 @@ import MusicStudioPage, {
 
 jest.mock('../hooks/useMusicGenerationJob');
 jest.mock('../../credits/components/GenerationCostGuard', () => ({
-  runGenerationWithCredits: (_intent: unknown, operation: () => unknown) => operation(),
+  GenerationCostPreview: () => null,
+  runGenerationWithCredits: (
+    intent: {modelKey?: string},
+    operation: (estimate: unknown) => unknown,
+  ) => operation({modelKey: intent.modelKey ?? 'local', routingMode: 'manual'}),
 }));
 jest.mock('../hooks/useUnsavedMusicGuard', () => ({
   useUnsavedMusicGuard: jest.fn(),

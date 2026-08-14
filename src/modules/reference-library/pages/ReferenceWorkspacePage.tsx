@@ -392,10 +392,14 @@ export default function ReferenceWorkspacePage() {
           variantCount: payload.variantCount,
           promptLength: description.trim().length + editInstruction.trim().length,
         },
-        () => referenceApi.enqueueJob(
+        (estimate) => referenceApi.enqueueJob(
           projectId,
           referenceId,
-          payload,
+          {
+            ...payload,
+            imageModel: estimate.modelKey,
+            routingMode: estimate.routingMode,
+          },
           intent.key,
         ),
       );

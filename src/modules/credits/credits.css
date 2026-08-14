@@ -24,6 +24,21 @@
   outline-offset: 2px;
 }
 
+.credit-balance-badge--low {
+  border-color: rgba(251, 191, 36, 0.72);
+}
+
+.credit-balance-badge--frozen {
+  border-color: rgba(248, 113, 113, 0.62);
+}
+
+.credit-balance-badge__warning {
+  color: #fca5a5;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .credit-balance-badge__coin {
   display: inline-flex;
   align-items: center;
@@ -83,6 +98,43 @@
   color: #ffbd1a;
   font-weight: 700;
   margin: 0;
+}
+
+.generation-cost-preview {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  color: #f7d58d;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.generation-billing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: rgba(226, 232, 240, 0.84);
+  background: rgba(214, 162, 97, 0.08);
+  border: 1px solid rgba(214, 162, 97, 0.18);
+  border-radius: 10px;
+}
+
+.generation-billing strong {
+  color: #f7d58d;
+}
+
+.generation-billing small {
+  color: rgba(148, 163, 184, 0.82);
+}
+
+.generation-billing--compact {
+  margin-top: 4px;
+  padding: 7px 9px;
+  font-size: 12px;
 }
 
 .credit-wallet-page {
@@ -174,6 +226,12 @@
   border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
+.credit-wallet__alert--warning {
+  color: #fde68a;
+  background: rgba(120, 53, 15, 0.32);
+  border: 1px solid rgba(251, 191, 36, 0.34);
+}
+
 .credit-wallet__loading,
 .credit-wallet__empty {
   margin-top: 24px;
@@ -190,6 +248,102 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-top: 18px;
+}
+
+.credit-wallet__routing,
+.credit-wallet__spending {
+  margin-top: 34px;
+  padding: 24px;
+  background: rgba(15, 23, 36, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 20px;
+}
+
+.credit-wallet__routing > p,
+.credit-wallet__routing > small {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.credit-wallet__routing-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 14px;
+}
+
+.credit-wallet__routing-grid button {
+  display: flex;
+  min-height: 108px;
+  padding: 14px;
+  flex-direction: column;
+  gap: 8px;
+  color: #f8fafc;
+  text-align: left;
+  background: #09111d;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.credit-wallet__routing-grid button span {
+  color: rgba(148, 163, 184, 0.82);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.credit-wallet__routing-grid button.is-active {
+  background: rgba(98, 65, 23, 0.44);
+  border-color: rgba(214, 162, 97, 0.72);
+  box-shadow: 0 0 0 3px rgba(214, 162, 97, 0.08);
+}
+
+.credit-wallet__spending-total {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.credit-wallet__spending-total span,
+.credit-wallet__spending-total small {
+  color: rgba(148, 163, 184, 0.82);
+}
+
+.credit-wallet__spending-total strong {
+  color: #f7d58d;
+  font-size: 28px;
+}
+
+.credit-wallet__spending-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.credit-wallet__spending-columns > div {
+  padding: 16px;
+  background: rgba(5, 9, 20, 0.45);
+  border-radius: 14px;
+}
+
+.credit-wallet__spending-columns h3,
+.credit-wallet__admin-audit h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.credit-wallet__spending-row,
+.credit-wallet__admin-audit > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  color: rgba(203, 213, 225, 0.78);
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.credit-wallet__spending-row strong {
+  color: #f8fafc;
 }
 
 .credit-card {
@@ -315,6 +469,7 @@
 }
 
 .credit-wallet__panel input,
+.credit-wallet__panel select,
 .credit-wallet__history select {
   width: 100%;
   min-height: 46px;
@@ -327,9 +482,37 @@
 }
 
 .credit-wallet__panel input:focus,
+.credit-wallet__panel select:focus,
 .credit-wallet__history select:focus {
   border-color: rgba(214, 162, 97, 0.72);
   box-shadow: 0 0 0 3px rgba(214, 162, 97, 0.1);
+}
+
+.credit-wallet__admin {
+  margin-top: 42px;
+  border-color: rgba(96, 165, 250, 0.28);
+}
+
+.credit-wallet__admin form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.credit-wallet__admin form button,
+.credit-wallet__admin form > label:last-of-type,
+.credit-wallet__admin form > input:last-of-type {
+  grid-column: 1 / -1;
+}
+
+.credit-wallet__admin-audit {
+  margin-top: 24px;
+  padding: 16px;
+  background: rgba(5, 9, 20, 0.42);
+  border-radius: 14px;
+}
+
+.credit-wallet__admin-audit > div {
+  flex-direction: column;
 }
 
 .credit-wallet__panel button,
@@ -465,12 +648,22 @@
   }
 
   .credit-wallet__balance-grid,
-  .credit-wallet__actions-grid {
+  .credit-wallet__actions-grid,
+  .credit-wallet__spending-columns {
     grid-template-columns: 1fr;
+  }
+
+  .credit-wallet__routing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .credit-wallet__stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .credit-wallet__routing-grid,
+  .credit-wallet__admin form {
+    grid-template-columns: 1fr;
   }
 }
 

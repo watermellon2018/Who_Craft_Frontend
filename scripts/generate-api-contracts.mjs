@@ -97,8 +97,11 @@ function buildClient() {
     createInvitation: operationPath('createProjectInvitation'),
     getCreditSummary: operationPath('getCreditSummary'),
     listCreditHistory: operationPath('listCreditHistory'),
+    getCreditSpendingStatistics: operationPath('getCreditSpendingStatistics'),
     createCreditDemoTopUp: operationPath('createCreditDemoTopUp'),
     createCreditTransfer: operationPath('createCreditTransfer'),
+    createCreditAdminOperation: operationPath('createCreditAdminOperation'),
+    getCreditAdminAudit: operationPath('getCreditAdminAudit'),
     estimateGenerationCost: operationPath('estimateGenerationCost'),
   };
   return `// Generated from openapi/w_craft.openapi.json. Do not edit manually.
@@ -109,10 +112,14 @@ import type {
   CharacterTreeNode,
   CharacterTreeUpdateRequest,
   CreditDemoTopUpRequest,
+  CreditAdminAudit,
+  CreditAdminOperationRequest,
+  CreditAdminOperationResponse,
   CreditHistoryPage,
   CreditMutationResponse,
   CreditOperationType,
   CreditSummary,
+  CreditSpendingStatistics,
   CreditTransferRequest,
   CreditTransferResponse,
   GenerationCostEstimate,
@@ -140,6 +147,10 @@ export function createGeneratedApiClient(http: AxiosInstance) {
       const response = await http.get<CreditHistoryPage>('${paths.listCreditHistory}', {params});
       return response.data;
     },
+    async getCreditSpendingStatistics(params: {periodDays?: number; projectId?: number} = {}): Promise<CreditSpendingStatistics> {
+      const response = await http.get<CreditSpendingStatistics>('${paths.getCreditSpendingStatistics}', {params});
+      return response.data;
+    },
     async createCreditDemoTopUp(payload: CreditDemoTopUpRequest, idempotencyKey: string): Promise<CreditMutationResponse> {
       const response = await http.post<CreditMutationResponse>('${paths.createCreditDemoTopUp}', payload, {
         headers: {'Idempotency-Key': idempotencyKey},
@@ -150,6 +161,16 @@ export function createGeneratedApiClient(http: AxiosInstance) {
       const response = await http.post<CreditTransferResponse>('${paths.createCreditTransfer}', payload, {
         headers: {'Idempotency-Key': idempotencyKey},
       });
+      return response.data;
+    },
+    async createCreditAdminOperation(payload: CreditAdminOperationRequest, idempotencyKey: string): Promise<CreditAdminOperationResponse> {
+      const response = await http.post<CreditAdminOperationResponse>('${paths.createCreditAdminOperation}', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async getCreditAdminAudit(username: string): Promise<CreditAdminAudit> {
+      const response = await http.get<CreditAdminAudit>('${paths.getCreditAdminAudit}', {params: {username}});
       return response.data;
     },
     async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {

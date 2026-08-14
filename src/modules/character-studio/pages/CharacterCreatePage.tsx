@@ -18,7 +18,10 @@ import {characterVariantsPath} from '../../../routes/pathConstant';
 import {characterToFormValues, CharacterCreateFormValues} from '../types/characterForm';
 import {CreateCharacterFromReferenceContent} from './CreateCharacterFromReferencePage';
 import './CharacterCreatePage.css';
-import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
+import {
+  GenerationCostPreview,
+  runGenerationWithCredits,
+} from '../../credits/components/GenerationCostGuard';
 
 
 interface CharacterCreatePageProps {
@@ -136,10 +139,14 @@ function CreateCharacterFromDescriptionContent() {
         variantCount: context.generationOptions.count,
         promptLength: String(context.generationPayload.appearance_description ?? '').length,
       },
-      () => characterApi.generateInitial(
+      (estimate) => characterApi.generateInitial(
         projectId,
         characterId,
-        context.generationPayload,
+        {
+          ...context.generationPayload,
+          image_model: estimate.modelKey,
+          routing_mode: estimate.routingMode,
+        },
         `character:${characterId}:portrait:attempt:${uuidv4()}`,
       ),
     );
@@ -337,6 +344,13 @@ function CreateCharacterFromDescriptionContent() {
               >
                 {t('characterStudio.create.generateButton')}
               </Button>
+              <GenerationCostPreview intent={{
+                domain: 'character',
+                operation: 'generate',
+                modelKey: generationOptions.imageModel || undefined,
+                variantCount: generationOptions.count,
+                promptLength: String(appearanceDescription ?? '').length,
+              }} />
             </div>
             <p>{t('characterStudio.create.afterGenerationHint')}</p>
           </div>
