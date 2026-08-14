@@ -10,17 +10,13 @@ const PathConstants = {
 
     CREATE_PROJECT: '/create-project',
     EDIT_PROJECT: '/projects/:projectId/edit',
-    EDIT_PROJECT_LEGACY: '/edit-project',
     GEN_POSTER: '/projects/:projectId/poster',
-    GEN_POSTER_LEGACY: '/create-project/gen-poster',
     PROJECTS: '/project-list',
     PROJECT_PAGE: '/projects/:projectId',
-    PROJECT_PAGE_LEGACY: '/project-list/project',
     PROJECT_TEAM: '/project-list/project/:projectId/team',
     INVITE_ACCEPT: '/invite/:token',
 
     SCRIPT_PAGE: '/project/:projectId/script',
-    SCRIPT_PAGE_LEGACY: '/project/script',
 
     MUSIC_STUDIO: '/project/:projectId/music',
     MUSIC_STUDIO_CREATE: '/project/:projectId/music/create',
@@ -32,7 +28,6 @@ const PathConstants = {
     REFERENCE_LIBRARY: '/project/:projectId/references',
     REFERENCE_LIBRARY_CREATE: '/project/:projectId/references/create',
     REFERENCE_LIBRARY_JOB: '/project/:projectId/references/:referenceId/jobs/:jobId',
-    REFERENCE_LIBRARY_DETAIL: '/project/:projectId/references/:referenceId',
     REFERENCE_LIBRARY_EDIT: '/project/:projectId/references/:referenceId/edit',
 
     CHARACTER_STUDIO: '/project/:projectId/characters',
@@ -116,15 +111,6 @@ export function referenceLocationCreatePath(projectId: string | number): string 
     return `${referenceCreatePath(projectId)}?category=location`;
 }
 
-export function referenceDetailPath(
-    projectId: string | number,
-    referenceId: string,
-): string {
-    return PathConstants.REFERENCE_LIBRARY_DETAIL
-        .replace(':projectId', String(projectId))
-        .replace(':referenceId', encodeURIComponent(referenceId));
-}
-
 export function referenceEditPath(
     projectId: string | number,
     referenceId: string,
@@ -175,7 +161,6 @@ export function isProjectEditPath(pathname: string): boolean {
 }
 
 export function isScriptWorkspacePath(pathname: string) {
-    return pathname === PathConstants.SCRIPT_PAGE_LEGACY
-        || /^\/project\/[^/]+\/script\/?$/.test(pathname);
+    return /^\/project\/[^/]+\/script\/?$/.test(pathname);
 }
 export default PathConstants

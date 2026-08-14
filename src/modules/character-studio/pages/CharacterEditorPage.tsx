@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Button, Collapse, Modal, message} from 'antd';
-import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, MoreOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
+import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
@@ -995,19 +995,6 @@ function PresetGrid({items, activeIndex = 0}: {items: string[]; activeIndex?: nu
       {items.map((item, index) => (
         <button key={item} type="button" className={index === activeIndex ? 'is-active' : ''}>
           {item}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function SegmentList({items}: {items: string[]}) {
-  return (
-    <div className="segment-list">
-      {items.map((item) => (
-        <button key={item} type="button">
-          <span>{item}</span>
-          <strong>Настроить</strong>
         </button>
       ))}
     </div>

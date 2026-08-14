@@ -27,38 +27,20 @@ export interface CharacterTreeNode {
   key: string;
   name: string;
   is_folder: boolean;
-  character_id?: string | null;
-  legacy_hero_id?: number | null;
+  character_id: string | null;
   children?: Array<CharacterTreeNode>;
 }
 
 export interface CharacterTreeCreateRequest {
   id: string;
   name: string;
-  type: "leaf" | "node";
-  projectId: number | string;
-  parent?: string | null;
-  heroID?: number | null;
-  studioCharacterId?: string | null;
+  type: "folder" | "character";
+  parent_id?: string | null;
+  studio_character_id?: string | null;
 }
 
-export interface CharacterTreeRenameRequest {
-  id: string;
+export interface CharacterTreeUpdateRequest {
   name: string;
-}
-
-export interface CharacterTreeRenameResponse {
-  id: string;
-  name: string;
-  character_id?: string | null;
-}
-
-export interface CharacterTreeDeleteRequest {
-  id: string;
-}
-
-export interface DeleteResponse {
-  message: string;
 }
 
 export interface PosterGenerateRequest {
@@ -532,6 +514,11 @@ export interface ReferencePage {
   page: number;
   pageSize: number;
   total: number;
+}
+
+export interface ReferenceLinkOptions {
+  characters: Array<{ id: string; name: string; }>;
+  locations: Array<{ id: number; name: string; }>;
 }
 
 export interface ReferenceCreateRequest {

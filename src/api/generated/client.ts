@@ -3,11 +3,8 @@
 import type {AxiosInstance} from 'axios';
 import type {
   CharacterTreeCreateRequest,
-  CharacterTreeDeleteRequest,
   CharacterTreeNode,
-  CharacterTreeRenameRequest,
-  CharacterTreeRenameResponse,
-  DeleteResponse,
+  CharacterTreeUpdateRequest,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -18,22 +15,25 @@ import type {
 const projectPath = (template: string, projectId: ProjectId) =>
   template.replace('{projectId}', encodeURIComponent(String(projectId)));
 
+const treeNodePath = (template: string, projectId: ProjectId, nodeId: string) =>
+  projectPath(template, projectId).replace('{nodeId}', encodeURIComponent(String(nodeId)));
+
 export function createGeneratedApiClient(http: AxiosInstance) {
   return {
     async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {
-      const response = await http.get<CharacterTreeNode[]>('api/character/select/', {params: {projectId}});
+      const response = await http.get<CharacterTreeNode[]>(projectPath('api/projects/{projectId}/character-tree/', projectId));
       return response.data;
     },
-    async createCharacterTreeNode(payload: CharacterTreeCreateRequest): Promise<void> {
-      await http.post<void>('api/character/create/', payload);
-    },
-    async renameCharacterTreeNode(payload: CharacterTreeRenameRequest): Promise<CharacterTreeRenameResponse> {
-      const response = await http.post<CharacterTreeRenameResponse>('api/character/rename/', payload);
+    async createCharacterTreeNode(projectId: ProjectId, payload: CharacterTreeCreateRequest): Promise<CharacterTreeNode> {
+      const response = await http.post<CharacterTreeNode>(projectPath('api/projects/{projectId}/character-tree/nodes/', projectId), payload);
       return response.data;
     },
-    async deleteCharacterTreeNode(payload: CharacterTreeDeleteRequest): Promise<DeleteResponse> {
-      const response = await http.post<DeleteResponse>('api/character/delete/', payload);
+    async renameCharacterTreeNode(projectId: ProjectId, nodeId: string, payload: CharacterTreeUpdateRequest): Promise<CharacterTreeNode> {
+      const response = await http.patch<CharacterTreeNode>(treeNodePath('api/projects/{projectId}/character-tree/nodes/{nodeId}/', projectId, nodeId), payload);
       return response.data;
+    },
+    async deleteCharacterTreeNode(projectId: ProjectId, nodeId: string): Promise<void> {
+      await http.delete(treeNodePath('api/projects/{projectId}/character-tree/nodes/{nodeId}/', projectId, nodeId));
     },
     async getProject(projectId: ProjectId): Promise<ProjectMutationResponse> {
       const response = await http.get<ProjectMutationResponse>(projectPath('api/projects/{projectId}/', projectId));

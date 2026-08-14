@@ -8,19 +8,21 @@ jest.mock('../api/characterApi');
 jest.mock('../hooks/useGenerationJob', () => ({
   useGenerationJob: jest.fn(),
 }));
-jest.mock('../../../api/generation/characters/tree_structure', () => ({
-  createCharacterFromTreeAPI: jest.fn().mockResolvedValue(undefined),
+jest.mock('../api/treeApi', () => ({
+  characterTreeApi: {
+    create: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 jest.mock('../events', () => ({
   notifyCharacterListUpdated: jest.fn(),
   notifyCharacterTreeUpdated: jest.fn(),
 }));
 
-import {createCharacterFromTreeAPI} from '../../../api/generation/characters/tree_structure';
+import {characterTreeApi} from '../api/treeApi';
 import {useGenerationJob} from '../hooks/useGenerationJob';
 
 const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
-const mockedCreateTreeNode = createCharacterFromTreeAPI as jest.MockedFunction<typeof createCharacterFromTreeAPI>;
+const mockedCreateTreeNode = characterTreeApi.create as jest.MockedFunction<typeof characterTreeApi.create>;
 const mockedUseGenerationJob = useGenerationJob as jest.MockedFunction<typeof useGenerationJob>;
 
 const PROJECT_ID = 'proj-1';
@@ -67,7 +69,7 @@ function EditPageProbe() {
 }
 
 function renderPage(
-  locationState = PAGE_STATE,
+  locationState: Partial<typeof PAGE_STATE> & Record<string, unknown> = PAGE_STATE,
   jobId: string | null = PAGE_STATE.jobId,
   treeNodeId: string | null = PAGE_STATE.sourceTreeNodeId,
 ) {
@@ -107,7 +109,13 @@ beforeEach(() => {
     identity_locked: false,
     appearance: {appearance_prompt: 'Recovered hero'},
   }} as never);
-  mockedCreateTreeNode.mockResolvedValue(undefined);
+  mockedCreateTreeNode.mockResolvedValue({
+    id: 'tree-1',
+    key: 'tree-1',
+    name: 'Hero',
+    is_folder: false,
+    character_id: CHARACTER_ID,
+  });
   mockedApi.generateInitial.mockResolvedValue({
     data: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []},
   } as never);
@@ -235,7 +243,12 @@ describe('CharacterVariantsPage – initial state', () => {
     fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
 
     await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalled());
-    expect(mockedCreateTreeNode.mock.calls[0][0]).toBe('tree-1');
+    expect(mockedCreateTreeNode).toHaveBeenCalledWith(PROJECT_ID, {
+      id: 'tree-1',
+      name: 'Hero',
+      type: 'character',
+      studio_character_id: CHARACTER_ID,
+    });
   });
 
   it('shows an explicit forbidden error returned by the job endpoint', () => {
@@ -450,6 +463,25 @@ describe('CharacterVariantsPage – Continue button', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', {name: /продолжить/i})).not.toBeDisabled();
     });
+  });
+
+  it('reuses a generated tree node id when persistence is retried', async () => {
+    mockedCreateTreeNode.mockRejectedValueOnce(
+      new Error('response lost after persistence'),
+    );
+    renderPage({...PAGE_STATE, sourceTreeNodeId: undefined}, 'job-1', null);
+
+    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+    await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(screen.getByRole('button', {name: /продолжить/i})).not.toBeDisabled();
+    });
+    const firstNodeId = mockedCreateTreeNode.mock.calls[0][1].id;
+
+    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+    await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalledTimes(2));
+
+    expect(mockedCreateTreeNode.mock.calls[1][1].id).toBe(firstNodeId);
   });
 
   it('navigates only after tree persistence succeeds', async () => {

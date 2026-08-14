@@ -3,9 +3,9 @@ import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
-import { createCharacterFromTreeAPI } from '../../../api/generation/characters/tree_structure';
 import {getApiStatus} from '../../../api/errors';
 import { characterApi } from '../api/characterApi';
+import {characterTreeApi} from '../api/treeApi';
 import { notifyCharacterListUpdated, notifyCharacterTreeUpdated } from '../events';
 import { useGenerationJob } from '../hooks/useGenerationJob';
 import {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
@@ -73,6 +73,7 @@ function CharacterVariantsPageContent() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentJobId = searchParams.get('jobId') || undefined;
     const sourceTreeNodeId = searchParams.get('treeNodeId') || state.sourceTreeNodeId;
+    const [placementTreeNodeId] = useState(() => sourceTreeNodeId || uuidv4());
     const {
         errorMessage,
         errorStatus,
@@ -283,10 +284,15 @@ function CharacterVariantsPageContent() {
 
             // Tree node creation and list notifications are deferred here so that
             // draft characters never appear in UI lists before the user confirms a variant.
-            const treeNodeId = sourceTreeNodeId || uuidv4();
+            const treeNodeId = sourceTreeNodeId || placementTreeNodeId;
             const charName = characterName;
             if (charName) {
-                await createCharacterFromTreeAPI(treeNodeId, charName, 'leaf', projectId, null, null, characterId);
+                await characterTreeApi.create(projectId, {
+                    id: treeNodeId,
+                    name: charName,
+                    type: 'character',
+                    studio_character_id: characterId,
+                });
             }
             notifyCharacterTreeUpdated();
             notifyCharacterListUpdated();

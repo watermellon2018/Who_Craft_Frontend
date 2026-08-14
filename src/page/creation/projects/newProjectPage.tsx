@@ -272,12 +272,12 @@ export const ProjectCreatePage = () => {
                 const incoming = location.state?.imgUrl;
                 if (incoming) {
                     setImageUrl(incoming);
-                    // If the user just came back from /create-project/gen-poster,
+                    // If the user just came back from the project's poster studio,
                     // ``imgUrl`` is a freshly generated base64 data URL. Stash it
                     // in ``posterDataUrl`` too — that's what the next "Сохранить
                     // изменения" PATCH actually uploads as ``poster_image_data``.
                     // Without this the new poster is only a preview and the
-                    // server-side ``project.image`` stays at the old value.
+                    // server-side ``project.cover_image`` stays at the old value.
                     if (typeof incoming === 'string' && incoming.startsWith('data:')) {
                         setPosterDataUrl(incoming);
                     }
@@ -403,7 +403,7 @@ export const ProjectCreatePage = () => {
         if (projectId) {
             // No dedicated project-detail route exists yet — fall back to the
             // project list, where the user came from. ``navigate(-1)`` would
-            // sometimes land back on /create-project/gen-poster, which is the
+            // sometimes land back on the poster studio, which is the
             // wrong direction for a "Назад" affordance on the settings page.
             navigate(PathConstants.PROJECTS);
             return;

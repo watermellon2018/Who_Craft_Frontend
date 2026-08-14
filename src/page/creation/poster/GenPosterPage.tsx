@@ -4,7 +4,6 @@ import DashboardHeader from "../../../modules/profile/components/DashboardHeader
 import {useNavigate, useParams} from "react-router-dom";
 import {
     ArrowLeftOutlined,
-    BulbOutlined,
     CameraOutlined,
     FireOutlined,
     HistoryOutlined,
@@ -39,7 +38,6 @@ const COLORS = {
     accent: '#FBBF24',
     accentHover: '#FCD34D',
     accentSoft: 'rgba(251, 191, 36, 0.12)',
-    accentSoftHover: 'rgba(251, 191, 36, 0.18)',
     textPrimary: '#F8FAFC',
     textSecondary: '#94A3B8',
     textMuted: '#64748B',
@@ -205,57 +203,6 @@ const SecondaryButton: React.FC<BtnProps> = ({ onClick, children, icon, disabled
         >
             {icon}
             {children}
-        </button>
-    );
-};
-
-// ============== Chip ==============
-interface ChipProps {
-    label: string;
-    active: boolean;
-    onClick: () => void;
-}
-
-const Chip: React.FC<ChipProps> = ({ label, active, onClick }) => {
-    const [hover, setHover] = useState(false);
-
-    const baseStyle: React.CSSProperties = {
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '8px 16px',
-        borderRadius: 999,
-        fontSize: 13,
-        fontWeight: 500,
-        cursor: 'pointer',
-        transition: 'all 0.15s ease',
-        userSelect: 'none',
-        lineHeight: 1.2,
-        whiteSpace: 'nowrap',
-    };
-
-    const activeStyle: React.CSSProperties = {
-        background: hover ? COLORS.accentSoftHover : COLORS.accentSoft,
-        border: `1px solid ${COLORS.accent}`,
-        color: COLORS.accent,
-    };
-
-    const inactiveStyle: React.CSSProperties = {
-        background: hover ? 'rgba(148, 163, 184, 0.06)' : 'transparent',
-        border: `1px solid ${hover ? COLORS.fieldBorderHover : COLORS.fieldBorder}`,
-        color: COLORS.textChip,
-    };
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            onMouseEnter={() => setHover(true)}
-            onMouseLeave={() => setHover(false)}
-            style={{ ...baseStyle, ...(active ? activeStyle : inactiveStyle) }}
-            aria-pressed={active}
-        >
-            {label}
         </button>
     );
 };

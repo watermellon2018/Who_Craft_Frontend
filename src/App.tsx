@@ -2,10 +2,8 @@ import React, {useEffect, useMemo} from 'react';
 import './App.css';
 import {
     createBrowserRouter,
-    Navigate,
     Outlet,
     RouterProvider,
-    useLocation,
     useNavigate,
 } from 'react-router-dom';
 
@@ -21,7 +19,7 @@ import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
 import ProjectTeamPage from "./page/movie/projectPage/team/ProjectTeamPage";
 import InviteAcceptPage from "./page/movie/projectPage/team/InviteAcceptPage";
-import PathConstants, {projectDashboardPath} from "./routes/pathConstant";
+import PathConstants from "./routes/pathConstant";
 import GenPosterPage from "./page/creation/poster/GenPosterPage";
 import ScriptPage from "./page/script/editor";
 import CharacterGalleryPage from "./modules/character-studio/pages/CharacterGalleryPage";
@@ -35,7 +33,6 @@ import CharacterStudioShell from "./modules/character-studio/components/Characte
 import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
 import AudioTrackEditorPage from "./modules/music-studio/pages/AudioTrackEditorPage";
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
-import ReferenceDetailRedirect from "./modules/reference-library/pages/ReferenceDetailRedirect";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
 import withAuth from "./utils/auth/check_auth";
@@ -60,21 +57,9 @@ const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
 const ProtectedAudioTrackEditorPage = withAuth(AudioTrackEditorPage);
 const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
-const ProtectedReferenceDetailRedirect = withAuth(ReferenceDetailRedirect);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
 const ProtectedVisualReferenceCreatePage = withAuth(VisualReferenceCreatePage);
 const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
-
-const LegacyProjectDashboardRedirect: React.FC = () => {
-    const location = useLocation();
-    const projectId = (location.state as {project_id?: string | number} | null)?.project_id;
-    return (
-        <Navigate
-            to={projectId ? projectDashboardPath(projectId) : PathConstants.PROJECTS}
-            replace
-        />
-    );
-};
 
 const AuthExpiryRedirect: React.FC = () => {
     const navigate = useNavigate();
@@ -186,11 +171,8 @@ const theme = {
     }
 }
 
-function App() {
-
-    const routes = useMemo(() => [
+export const APP_ROUTES = [
         // Public.
-        { key: 'startRedirect', path: '/start', component: <Navigate to={PathConstants.LOGIN} replace /> },
         { key: 'register', path: PathConstants.REGISTER, component: <RegistrationPage /> },
         { key: 'login', path: PathConstants.LOGIN, component: <LoginPage /> },
 
@@ -201,16 +183,12 @@ function App() {
         { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'editProject', path: PathConstants.EDIT_PROJECT, component: <ProtectedProjectCreatePage /> },
-        { key: 'editProjectLegacy', path: PathConstants.EDIT_PROJECT_LEGACY, component: <Navigate to={PathConstants.PROJECTS} replace /> },
         { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },
         { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProtectedProjectPage /> },
-        { key: 'projectPageLegacy', path: PathConstants.PROJECT_PAGE_LEGACY, component: <LegacyProjectDashboardRedirect /> },
         { key: 'projectTeam', path: PathConstants.PROJECT_TEAM, component: <ProjectTeamPage /> },
         { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
-        { key: 'genPosterLegacy', path: PathConstants.GEN_POSTER_LEGACY, component: <Navigate to={PathConstants.CREATE_PROJECT} replace /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
-        { key: 'scriptPageLegacy', path: PathConstants.SCRIPT_PAGE_LEGACY, component: <ProtectedScriptPage /> },
         { key: 'musicStudio', path: PathConstants.MUSIC_STUDIO, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioCreate', path: PathConstants.MUSIC_STUDIO_CREATE, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
@@ -221,7 +199,6 @@ function App() {
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },
         { key: 'referenceLibraryEdit', path: PathConstants.REFERENCE_LIBRARY_EDIT, component: <ProtectedReferenceWorkspacePage /> },
-        { key: 'referenceLibraryDetail', path: PathConstants.REFERENCE_LIBRARY_DETAIL, component: <ProtectedReferenceDetailRedirect /> },
         { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <ProtectedCharacterStudioShell><CharacterGalleryPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <ProtectedCharacterStudioShell><CharacterCreatePage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <ProtectedCharacterStudioShell><CharacterCreatePage activeMode="reference" /></ProtectedCharacterStudioShell> },
@@ -230,15 +207,17 @@ function App() {
         { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <ProtectedCharacterStudioShell><CharacterEditorPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <ProtectedCharacterStudioShell><CharacterReferencesPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
-    ], []);
+    ];
+
+function App() {
 
     const router = useMemo(() => createBrowserRouter([{
         element: <><AuthExpiryRedirect /><Outlet /></>,
         children: [
-            ...routes.map(({path, component}) => ({path, element: component})),
+            ...APP_ROUTES.map(({path, component}) => ({path, element: component})),
             {path: '*', element: <NotFoundPage />},
         ],
-    }]), [routes]);
+    }]), []);
 
 
 
