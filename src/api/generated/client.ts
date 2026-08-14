@@ -12,6 +12,8 @@ import type {
   CreditSummary,
   CreditTransferRequest,
   CreditTransferResponse,
+  GenerationCostEstimate,
+  GenerationCostEstimateRequest,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -45,6 +47,10 @@ export function createGeneratedApiClient(http: AxiosInstance) {
       const response = await http.post<CreditTransferResponse>('api/credits/transfers/', payload, {
         headers: {'Idempotency-Key': idempotencyKey},
       });
+      return response.data;
+    },
+    async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {
+      const response = await http.post<GenerationCostEstimate>('api/credits/generation-estimate/', payload);
       return response.data;
     },
     async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {

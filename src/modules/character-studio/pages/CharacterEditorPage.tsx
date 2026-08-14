@@ -125,6 +125,14 @@ function confirmGenerationPreview(preview: CharacterGenerationPreview) {
     ? 'not configured'
     : `$${preview.estimated_cost_usd}`;
   return new Promise<boolean>((resolve) => {
+    if (!preview.sufficient_balance) {
+      Modal.error({
+        title: 'Недостаточно кредитов',
+        content: `Нужно примерно ${preview.reservation_amount} C, доступно ${preview.available_balance} C.`,
+      });
+      resolve(false);
+      return;
+    }
     Modal.confirm({
       title: 'Confirm generation',
       content: (

@@ -1,4 +1,5 @@
 import api from '../../../api/http';
+import {notifyCreditBalanceUpdated} from '../../credits/api/creditApi';
 import type {
   CreateCharacterFromReferencePayload,
   EditRequest,
@@ -60,6 +61,11 @@ export interface CharacterGenerationPreview {
   image_types: string[];
   provider_call_count: number;
   estimated_cost_usd: string | null;
+  reservation_amount: string;
+  currency: 'USD';
+  pricing_source: string;
+  available_balance: string;
+  sufficient_balance: boolean;
   budgets: {
     user: {used: number; limit: number};
     project: {used: number; limit: number};
@@ -121,7 +127,10 @@ export const characterApi = {
       `${base(projectId)}/from-reference`,
       form,
       generationRequestConfig(`${projectId}:from-reference`, fileIntent),
-    );
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
   },
   get(projectId: string | number, characterId: string) {
     return api.get(base(projectId, characterId));
@@ -163,7 +172,10 @@ export const characterApi = {
       `${base(projectId, characterId)}/generate-initial-variants`,
       data,
       generationRequestConfig(`${projectId}:${characterId}:initial`, data, idempotencyKey),
-    );
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
   },
   generateEdit(
     projectId: string | number,
@@ -175,7 +187,10 @@ export const characterApi = {
       `${base(projectId, characterId)}/generate-edit-variants`,
       data,
       generationRequestConfig(`${projectId}:${characterId}:edit`, data, idempotencyKey),
-    );
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
   },
   zoneEdit(projectId: string | number, characterId: string, data: ZoneEditRequest, idempotencyKey?: string) {
     return api.post(

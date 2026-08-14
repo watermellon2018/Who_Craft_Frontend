@@ -21,6 +21,7 @@ import type {
 import {characterToFormValues} from '../types/characterForm';
 import {characterCreatePath} from '../../../routes/pathConstant';
 import './CharacterVariantsPage.css';
+import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
 
 interface VariantsPageState {
   formValues?: Record<string, unknown>;
@@ -242,12 +243,25 @@ function CharacterVariantsPageContent() {
                 special_features: formValues.special_features,
                 appearance_description: formValues.appearance_description,
             };
-            const jobResponse = await characterApi.generateInitial(
-                projectId,
-                characterId,
-                payload,
-                `character:${characterId}:portrait:${uuidv4()}`,
+            const jobResponse = await runGenerationWithCredits(
+                {
+                    domain: 'character',
+                    operation: 'generate',
+                    modelKey: opts.imageModel,
+                    variantCount: opts.count,
+                    promptLength: String(formValues.appearance_description ?? '').length,
+                },
+                () => characterApi.generateInitial(
+                    projectId,
+                    characterId,
+                    payload,
+                    `character:${characterId}:portrait:${uuidv4()}`,
+                ),
             );
+            if (!jobResponse) {
+                setRegenerating(false);
+                return;
+            }
             if (jobResponse.data?.status === 'failed') {
                 setRegenError(jobResponse.data?.error_message || t('characterStudio.editor.saveGeneric'));
                 setRegenerating(false);
@@ -299,8 +313,7 @@ function CharacterVariantsPageContent() {
 
             const revisionId = appliedRevision.data?.revision_id;
             let secondaryLaunchFailed = false;
-            const launchedJobs = revisionId
-                ? await Promise.all(INITIAL_SECONDARY_ASSETS.map(async ({imageType, region}) => {
+            const launchSecondary = () => Promise.all(INITIAL_SECONDARY_ASSETS.map(async ({imageType, region}) => {
                     try {
                         const response = await characterApi.generateEdit(
                             projectId,
@@ -322,7 +335,18 @@ function CharacterVariantsPageContent() {
                         secondaryLaunchFailed = true;
                         return null;
                     }
-                }))
+                }));
+            const launchedJobs = revisionId
+                ? (await runGenerationWithCredits(
+                    {
+                        domain: 'character',
+                        operation: 'generate',
+                        modelKey: effectiveGenerationOptions.imageModel,
+                        variantCount: INITIAL_SECONDARY_ASSETS.length,
+                        promptLength: String(effectiveFormValues?.appearance_description ?? '').length,
+                    },
+                    launchSecondary,
+                ) ?? [])
                 : [];
             const secondaryJobIds = Object.fromEntries(
                 launchedJobs.filter((entry): entry is readonly [CharacterImageType, string] => entry !== null),

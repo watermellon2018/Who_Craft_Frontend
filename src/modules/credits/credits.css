@@ -62,6 +62,29 @@
   white-space: nowrap;
 }
 
+.generation-cost-confirmation dl {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.generation-cost-confirmation dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.generation-cost-confirmation dt,
+.generation-cost-confirmation small {
+  color: #8fa1b5;
+}
+
+.generation-cost-confirmation dd {
+  color: #ffbd1a;
+  font-weight: 700;
+  margin: 0;
+}
+
 .credit-wallet-page {
   min-height: 100vh;
   padding: 0 20px 60px;

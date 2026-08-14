@@ -107,6 +107,43 @@ export interface CreditTransferResponse {
   replayed: boolean;
 }
 
+export interface GenerationCostEstimateRequest {
+  domain: "character" | "poster" | "reference" | "music" | "model3d";
+  operation?: "generate" | "edit" | "reference";
+  modelKey?: string;
+  variantCount?: number;
+  promptLength?: number;
+  resolution?: "512" | "1K" | "2K" | "4K";
+}
+
+export interface GenerationCostEstimate {
+  domain: string;
+  operation: string;
+  provider: string;
+  modelKey: string;
+  modelName: string;
+  currency: "USD";
+  estimatedCost: CreditAmount;
+  reservationAmount: CreditAmount;
+  pricingSource: string;
+  costIsEstimate: boolean;
+  availableBalance: CreditAmount;
+  sufficientBalance: boolean;
+}
+
+export interface GenerationBilling {
+  status: "reserved" | "captured" | "released";
+  currency: "USD";
+  estimatedCost: CreditAmount;
+  reservedAmount: CreditAmount;
+  actualCost: CreditAmount | null;
+  chargedAmount: CreditAmount;
+  uncoveredCost: CreditAmount;
+  costIsEstimate: boolean;
+  provider: string;
+  model: string;
+}
+
 export interface CharacterTreeNode {
   id: string;
   key: string;

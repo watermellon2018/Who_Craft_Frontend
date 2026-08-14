@@ -8,6 +8,9 @@ import {characterApi} from '../api/characterApi';
 import CharacterCreatePage from './CharacterCreatePage';
 
 jest.mock('../api/characterApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  runGenerationWithCredits: (_intent: unknown, operation: () => unknown) => operation(),
+}));
 jest.mock('../hooks/useProjectIdFromRoute', () => ({
   useProjectIdFromRoute: () => 'proj-1',
 }));

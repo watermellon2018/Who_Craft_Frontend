@@ -11,7 +11,7 @@ export function formatCreditAmount(value: string, language: string): string {
   if (!Number.isFinite(amount)) return '—';
   return new Intl.NumberFormat(language, {
     minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 6,
   }).format(amount);
 }
 
@@ -40,4 +40,3 @@ const CreditBalanceBadge: React.FC = () => {
 };
 
 export default CreditBalanceBadge;
-

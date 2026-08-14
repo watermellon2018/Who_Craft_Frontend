@@ -11,6 +11,12 @@ history. In demo environments it can add test credits; users can transfer any
 available credits to an exact Craft login. The client never connects to a bank
 or provider balance directly.
 
+Paid generation screens request a backend estimate before enqueue. They block
+when the available balance is insufficient and otherwise show a confirmation
+with the provider-native estimated cost. The backend remains authoritative: it
+reserves at enqueue, settles after provider completion, and refreshes the
+visible balance when the request starts.
+
 System-wide documentation is in the parent workspace:
 `../README.md`, `../AGENTS.md`, and `../docs/`.
 

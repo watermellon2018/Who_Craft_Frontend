@@ -50,6 +50,7 @@ import type {
   MusicTrackDetail,
 } from '../types';
 import '../musicStudio.css';
+import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
 
 const NO_PERMISSIONS: MusicPermissions = {canEdit: false, canRunGeneration: false};
 const EMPTY_UPLOAD_DRAFT: AudioUploadDraft = {
@@ -571,7 +572,16 @@ export default function MusicStudioPage() {
     setSubmitting(true);
     setPageError(null);
     try {
-      const response = await musicApi.enqueueJob(projectId, payload, intent.key);
+      const response = await runGenerationWithCredits(
+        {
+          domain: 'music',
+          operation: 'generate',
+          variantCount,
+          promptLength: JSON.stringify(payload.brief).length,
+        },
+        () => musicApi.enqueueJob(projectId, payload, intent.key),
+      );
+      if (!response) return;
       flushSync(() => setAiDirty(false));
       navigate(musicPathWithParams(
         musicJobPath(projectId, response.data.jobId),

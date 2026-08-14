@@ -99,6 +99,7 @@ function buildClient() {
     listCreditHistory: operationPath('listCreditHistory'),
     createCreditDemoTopUp: operationPath('createCreditDemoTopUp'),
     createCreditTransfer: operationPath('createCreditTransfer'),
+    estimateGenerationCost: operationPath('estimateGenerationCost'),
   };
   return `// Generated from openapi/w_craft.openapi.json. Do not edit manually.
 
@@ -114,6 +115,8 @@ import type {
   CreditSummary,
   CreditTransferRequest,
   CreditTransferResponse,
+  GenerationCostEstimate,
+  GenerationCostEstimateRequest,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -147,6 +150,10 @@ export function createGeneratedApiClient(http: AxiosInstance) {
       const response = await http.post<CreditTransferResponse>('${paths.createCreditTransfer}', payload, {
         headers: {'Idempotency-Key': idempotencyKey},
       });
+      return response.data;
+    },
+    async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {
+      const response = await http.post<GenerationCostEstimate>('${paths.estimateGenerationCost}', payload);
       return response.data;
     },
     async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {

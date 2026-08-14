@@ -31,6 +31,7 @@ import type {
 import {referenceWorkspaceCreateCategory} from './ReferenceWorkspacePage';
 import '../referenceLibrary.css';
 import '../visualReferenceEditor.css';
+import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
 
 const DEFAULT_ACCEPT = 'image/jpeg,image/png,image/webp';
 const EDITOR_DISPOSED = Symbol('visual-reference-editor-disposed');
@@ -392,12 +393,22 @@ function VisualReferenceCreateEditor() {
         ? generationIntent.current
         : {fingerprint, key: newReferenceIdempotencyKey()};
       generationIntent.current = intent;
-      const response = await referenceApi.enqueueJob(
-        projectId,
-        draft.id,
-        jobPayload,
-        intent.key,
+      const response = await runGenerationWithCredits(
+        {
+          domain: 'reference',
+          modelKey: capabilities.generation.effectiveModel ?? undefined,
+          operation: 'generate',
+          variantCount,
+          promptLength: String(brief.description ?? '').length,
+        },
+        () => referenceApi.enqueueJob(
+          projectId,
+          draft.id,
+          jobPayload,
+          intent.key,
+        ),
       );
+      if (!response) return;
       assertMounted();
       generationPrompts.current.set(response.data.id, brief.description?.trim() ?? '');
       generationIntent.current = undefined;

@@ -26,6 +26,7 @@ import {API_CONSTRAINTS} from '../../../api/generated/contracts';
 import {projectEditPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
 import {fetch_project} from "../../../api/projects/properties/project";
+import {runGenerationWithCredits} from '../../../modules/credits/components/GenerationCostGuard';
 
 // ============== Design tokens ==============
 const COLORS = {
@@ -634,11 +635,23 @@ const GenPosterPage: React.FC = () => {
         if (!existingProjectId) return;
         try {
             setIsGenerating(true);
-            const variant = await generatePoster(existingProjectId, prompt, {
-                style: selectedStyle,
-                format: selectedFormat,
-                referenceFile,
-            });
+            const variant = await runGenerationWithCredits(
+                {
+                    domain: 'poster',
+                    operation: 'generate',
+                    variantCount: 1,
+                    promptLength: prompt.length,
+                },
+                () => generatePoster(existingProjectId, prompt, {
+                    style: selectedStyle,
+                    format: selectedFormat,
+                    referenceFile,
+                }),
+            );
+            if (!variant) {
+                setIsGenerating(false);
+                return;
+            }
             displayGenImage(variant);
         } catch (error: unknown) {
             catchError(error);
@@ -650,10 +663,22 @@ const GenPosterPage: React.FC = () => {
         if (!existingProjectId || sourceVariantId === null) return;
         try {
             setIsGenerating(true);
-            const variant = await editPoster(existingProjectId, {
-                sourceVariantId,
-                instruction: correctionText,
-            });
+            const variant = await runGenerationWithCredits(
+                {
+                    domain: 'poster',
+                    operation: 'edit',
+                    variantCount: 1,
+                    promptLength: correctionText.length,
+                },
+                () => editPoster(existingProjectId, {
+                    sourceVariantId,
+                    instruction: correctionText,
+                }),
+            );
+            if (!variant) {
+                setIsGenerating(false);
+                return;
+            }
             displayGenImage(variant);
         } catch (error: unknown) {
             catchError(error);

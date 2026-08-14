@@ -5,6 +5,9 @@ import {characterApi} from '../api/characterApi';
 import CharacterVariantsPage from './CharacterVariantsPage';
 
 jest.mock('../api/characterApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  runGenerationWithCredits: (_intent: unknown, operation: () => unknown) => operation(),
+}));
 jest.mock('../hooks/useGenerationJob', () => ({
   useGenerationJob: jest.fn(),
 }));

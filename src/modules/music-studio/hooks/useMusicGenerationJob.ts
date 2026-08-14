@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
+import {notifyCreditBalanceUpdated} from '../../credits/api/creditApi';
 import {musicApi} from '../api/musicApi';
 import {musicErrorDescriptor} from '../errors';
 import {isMusicJobTerminal} from '../types';
@@ -81,7 +82,9 @@ export function useMusicGenerationJob(projectId?: string, jobId?: string) {
           return;
         }
         setState({...initialState(requestKey), job});
-        if (!isMusicJobTerminal(job.status)) {
+        if (isMusicJobTerminal(job.status)) {
+          notifyCreditBalanceUpdated();
+        } else {
           timeoutId = window.setTimeout(() => void load(), pollDelay(job));
         }
       } catch (error: unknown) {

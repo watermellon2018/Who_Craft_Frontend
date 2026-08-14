@@ -43,6 +43,7 @@ import ReferenceUpload from '../components/ReferenceUpload';
 import ReferenceVariantGrid from '../components/ReferenceVariantGrid';
 import ReferenceVersionHistory from '../components/ReferenceVersionHistory';
 import VisualInspectorShell from '../components/visual-editor/VisualInspectorShell';
+import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
 import {
   AppearanceSettingsTab,
   MainSettingsTab,
@@ -383,12 +384,22 @@ export default function ReferenceWorkspacePage() {
     setActionLoading(true);
     setError(null);
     try {
-      const response = await referenceApi.enqueueJob(
-        projectId,
-        referenceId,
-        payload,
-        intent.key,
+      const response = await runGenerationWithCredits(
+        {
+          domain: 'reference',
+          modelKey: capabilities.generation.effectiveModel ?? undefined,
+          operation,
+          variantCount: payload.variantCount,
+          promptLength: description.trim().length + editInstruction.trim().length,
+        },
+        () => referenceApi.enqueueJob(
+          projectId,
+          referenceId,
+          payload,
+          intent.key,
+        ),
       );
+      if (!response) return;
       navigate(referenceJobPath(projectId, referenceId, response.data.id));
     } catch (requestError: unknown) {
       setError(referenceErrorDescriptor(requestError).message);

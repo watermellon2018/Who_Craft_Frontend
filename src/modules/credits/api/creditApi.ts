@@ -8,6 +8,8 @@ import type {
   CreditTransferRequest,
   CreditTransferResponse,
   CreditMutationResponse,
+  GenerationCostEstimate,
+  GenerationCostEstimateRequest,
 } from '../../../api/generated/contracts';
 
 const generatedClient = createGeneratedApiClient(api);
@@ -44,6 +46,12 @@ export function createCreditTransfer(
   return generatedClient.createCreditTransfer(payload, idempotencyKey);
 }
 
+export function estimateGenerationCost(
+  payload: GenerationCostEstimateRequest,
+): Promise<GenerationCostEstimate> {
+  return generatedClient.estimateGenerationCost(payload);
+}
+
 export function notifyCreditBalanceUpdated(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(CREDIT_BALANCE_UPDATED_EVENT));
@@ -56,4 +64,3 @@ export function createIdempotencyKey(prefix: 'topup' | 'transfer'): string {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${prefix}-${randomUuid}`;
 }
-

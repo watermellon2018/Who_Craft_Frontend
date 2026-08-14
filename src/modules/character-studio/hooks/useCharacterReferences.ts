@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {message} from 'antd';
 import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import type {
   CharacterReference,
   GenerationJob,
@@ -254,6 +255,13 @@ export function useCharacterReferences(projectId: string | number, characterId: 
     async (referenceType: ReferenceType, opts?: {correction_prompt?: string}) => {
       const requestOwnerKey = ownerKey;
       if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return;
+      const estimate = await confirmGenerationCost({
+        domain: 'character',
+        operation: 'reference',
+        variantCount: 1,
+        promptLength: opts?.correction_prompt?.length ?? 0,
+      });
+      if (!estimate) return;
       // Optimistic flip to `generating`; the real response overwrites it.
       setSnapshot((current) => {
         if (!isCurrentOwner(requestOwnerKey) || current.ownerKey !== requestOwnerKey || !current.state) {
@@ -310,6 +318,13 @@ export function useCharacterReferences(projectId: string | number, characterId: 
     async (referenceId: string, correctionPrompt: string, referenceType: ReferenceType) => {
       const requestOwnerKey = ownerKey;
       if (!projectId || !characterId || !isCurrentOwner(requestOwnerKey)) return;
+      const estimate = await confirmGenerationCost({
+        domain: 'character',
+        operation: 'edit',
+        variantCount: 1,
+        promptLength: correctionPrompt.length,
+      });
+      if (!estimate) return;
       try {
         const response = await characterApi.correctReference(projectId, characterId, referenceId, {
           correction_prompt: correctionPrompt,

@@ -8,6 +8,9 @@ import {useReferenceGenerationJob} from '../hooks/useReferenceGenerationJob';
 import ReferenceWorkspacePage from './ReferenceWorkspacePage';
 
 jest.mock('../api/referenceApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  runGenerationWithCredits: (_intent: unknown, operation: () => unknown) => operation(),
+}));
 jest.mock('../components/ReferenceLibraryShell', () => ({
   __esModule: true,
   default: ({children}: {children: React.ReactNode}) => <>{children}</>,

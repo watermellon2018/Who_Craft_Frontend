@@ -13,6 +13,7 @@ import type {
     PosterVariant,
 } from '../../../api/posters';
 import {getApiErrorMessage} from '../../../api/errors';
+import {notifyCreditBalanceUpdated} from '../../../modules/credits/api/creditApi';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -56,6 +57,7 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
     const [actionJobId, setActionJobId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const previewedJobIds = useRef(new Set<number>());
+    const settledCreditJobIds = useRef(new Set<number>());
     const loadSequenceRef = useRef(0);
 
     const publishLatestVariant = useCallback(async (nextJobs: PosterJob[], alive?: () => boolean) => {
@@ -86,6 +88,17 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
             const response = await listPosterJobs(projectId);
             if (isStale()) return;
             const nextJobs = response.data.jobs ?? [];
+            let hasNewSettlement = false;
+            nextJobs.forEach((job) => {
+                if (
+                    ['completed', 'failed', 'cancelled'].includes(job.status)
+                    && !settledCreditJobIds.current.has(job.id)
+                ) {
+                    settledCreditJobIds.current.add(job.id);
+                    hasNewSettlement = true;
+                }
+            });
+            if (hasNewSettlement) notifyCreditBalanceUpdated();
             setJobs(nextJobs);
             setError(null);
             await publishLatestVariant(nextJobs, () => !isStale());

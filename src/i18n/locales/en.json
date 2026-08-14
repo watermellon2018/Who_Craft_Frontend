@@ -86,6 +86,18 @@
       "refund": "Refund",
       "adjustment": "Adjustment"
     },
+    "generation": {
+      "confirmTitle": "Confirm generation",
+      "confirmDescription": "This amount will be temporarily reserved in your wallet before the job starts.",
+      "estimatedCost": "Estimated cost",
+      "balanceAfterReserve": "Available after reservation",
+      "finalCostHint": "The final charge uses the provider's actual usage report. Any unused reservation returns to your balance.",
+      "confirm": "Start generation",
+      "insufficientTitle": "Not enough credits",
+      "insufficientDescription": "About {{required}} C is required; {{available}} C is currently available.",
+      "estimateErrorTitle": "Could not estimate cost",
+      "estimateError": "The selected model's provider price is temporarily unavailable."
+    },
     "errors": {
       "load": "Could not load the wallet.",
       "history": "Could not load the history.",

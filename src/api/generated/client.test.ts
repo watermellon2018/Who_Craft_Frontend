@@ -10,13 +10,20 @@ describe('generated API client', () => {
       capabilities: {demoTopUpEnabled: true, transfersEnabled: true},
     };
     const history = {items: [], total: 0, limit: 20, offset: 0, nextOffset: null};
+    const estimate = {
+      domain: 'character', operation: 'generate', provider: 'mock', modelKey: 'mock',
+      modelName: 'mock', currency: 'USD', estimatedCost: '0', reservationAmount: '0',
+      pricingSource: 'local', costIsEstimate: true, availableBalance: '130',
+      sufficientBalance: true,
+    } as const;
     const http = {
       get: jest.fn()
         .mockResolvedValueOnce({data: summary})
         .mockResolvedValueOnce({data: history}),
       post: jest.fn()
         .mockResolvedValueOnce({data: {account: summary.account, transaction: {}, replayed: false}})
-        .mockResolvedValueOnce({data: {account: summary.account, transfer: {}, replayed: false}}),
+        .mockResolvedValueOnce({data: {account: summary.account, transfer: {}, replayed: false}})
+        .mockResolvedValueOnce({data: estimate}),
     } as unknown as AxiosInstance;
     const client = createGeneratedApiClient(http);
 
@@ -25,6 +32,7 @@ describe('generated API client', () => {
       .resolves.toEqual(history);
     await client.createCreditDemoTopUp({amount: '100.00'}, 'topup-key-1');
     await client.createCreditTransfer({username: 'test', amount: '25.00'}, 'transfer-key-1');
+    await expect(client.estimateGenerationCost({domain: 'character'})).resolves.toEqual(estimate);
 
     expect(http.get).toHaveBeenNthCalledWith(1, 'api/credits/summary/');
     expect(http.get).toHaveBeenNthCalledWith(2, 'api/credits/history/', {
@@ -38,6 +46,9 @@ describe('generated API client', () => {
       amount: '25.00',
     }, {
       headers: {'Idempotency-Key': 'transfer-key-1'},
+    });
+    expect(http.post).toHaveBeenNthCalledWith(3, 'api/credits/generation-estimate/', {
+      domain: 'character',
     });
   });
 
