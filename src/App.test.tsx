@@ -26,6 +26,8 @@ test('defines character studio and project routes', () => {
   );
   expect(PathConstants.SCRIPT_PAGE).toBe('/project/:projectId/script');
   expect(PathConstants.CHARACTER_STUDIO_EDITOR).toBe('/project/:projectId/characters/:characterId/edit');
+  expect(PathConstants.CREDITS).toBe('/credits');
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.CREDITS)).toBe(true);
 });
 
 test('recognizes canonical project edit and script workspace paths', () => {

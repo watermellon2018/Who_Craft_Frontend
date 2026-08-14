@@ -22,6 +22,91 @@ export interface ApiErrorEnvelope {
   errors?: Record<string, unknown>;
 }
 
+export type CreditAmount = string;
+
+export interface CreditAccount {
+  availableBalance: CreditAmount;
+  reservedBalance: CreditAmount;
+  totalBalance: CreditAmount;
+}
+
+export interface CreditStatistics {
+  periodDays: number;
+  received: CreditAmount;
+  sent: CreditAmount;
+  spent: CreditAmount;
+  refunded: CreditAmount;
+}
+
+export interface CreditCapabilities {
+  demoTopUpEnabled: boolean;
+  transfersEnabled: boolean;
+}
+
+export interface CreditSummary {
+  account: CreditAccount;
+  stats: CreditStatistics;
+  capabilities: CreditCapabilities;
+}
+
+export type CreditOperationType = "demo_top_up" | "transfer_out" | "transfer_in" | "reserve" | "capture" | "release" | "refund" | "adjustment";
+
+export interface CreditCounterparty {
+  username: string;
+  displayName: string;
+}
+
+export interface CreditLedgerEntry {
+  id: string;
+  operationType: CreditOperationType;
+  availableDelta: CreditAmount;
+  reservedDelta: CreditAmount;
+  availableBalanceAfter: CreditAmount;
+  reservedBalanceAfter: CreditAmount;
+  correlationId: string;
+  counterparty: CreditCounterparty | null;
+  description: string;
+  createdAt: string;
+}
+
+export interface CreditHistoryPage {
+  items: Array<CreditLedgerEntry>;
+  total: number;
+  limit: number;
+  offset: number;
+  nextOffset: number | null;
+}
+
+export interface CreditDemoTopUpRequest {
+  amount: string;
+}
+
+export interface CreditMutationResponse {
+  account: CreditAccount;
+  transaction: CreditLedgerEntry;
+  replayed: boolean;
+}
+
+export interface CreditTransferRequest {
+  username: string;
+  amount: string;
+  note?: string;
+}
+
+export interface CreditTransfer {
+  id: string;
+  amount: CreditAmount;
+  recipient: CreditCounterparty;
+  note: string;
+  createdAt: string;
+}
+
+export interface CreditTransferResponse {
+  account: CreditAccount;
+  transfer: CreditTransfer;
+  replayed: boolean;
+}
+
 export interface CharacterTreeNode {
   id: string;
   key: string;

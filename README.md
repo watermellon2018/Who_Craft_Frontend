@@ -5,6 +5,12 @@ App 5. It consumes the sibling Django backend and contains project/team, poster,
 script, Character Studio, Music Studio, Reference Library, profile, and social
 subscription experiences.
 
+The protected `/credits` route is the Craft wallet. It shows available and
+reserved credits, 30-day movement statistics, and the append-only operation
+history. In demo environments it can add test credits; users can transfer any
+available credits to an exact Craft login. The client never connects to a bank
+or provider balance directly.
+
 System-wide documentation is in the parent workspace:
 `../README.md`, `../AGENTS.md`, and `../docs/`.
 
@@ -53,7 +59,7 @@ when behavior, permissions, APIs, configuration, and data are unchanged.
 - Generated API surface: `openapi/w_craft.openapi.json` ->
   `src/api/generated/`.
 - Feature modules: `src/modules/character-studio/`, `music-studio/`,
-  `reference-library/`, `profile/`, and `subscriptions/`.
+  `reference-library/`, `credits/`, `profile/`, and `subscriptions/`.
 - Project, poster, dashboard, and script pages: `src/page/`.
 - Localization: `src/i18n/` and locale resources.
 

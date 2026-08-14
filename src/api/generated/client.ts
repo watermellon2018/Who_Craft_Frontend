@@ -5,6 +5,13 @@ import type {
   CharacterTreeCreateRequest,
   CharacterTreeNode,
   CharacterTreeUpdateRequest,
+  CreditDemoTopUpRequest,
+  CreditHistoryPage,
+  CreditMutationResponse,
+  CreditOperationType,
+  CreditSummary,
+  CreditTransferRequest,
+  CreditTransferResponse,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -20,6 +27,26 @@ const treeNodePath = (template: string, projectId: ProjectId, nodeId: string) =>
 
 export function createGeneratedApiClient(http: AxiosInstance) {
   return {
+    async getCreditSummary(): Promise<CreditSummary> {
+      const response = await http.get<CreditSummary>('api/credits/summary/');
+      return response.data;
+    },
+    async listCreditHistory(params: {limit?: number; offset?: number; operationType?: CreditOperationType} = {}): Promise<CreditHistoryPage> {
+      const response = await http.get<CreditHistoryPage>('api/credits/history/', {params});
+      return response.data;
+    },
+    async createCreditDemoTopUp(payload: CreditDemoTopUpRequest, idempotencyKey: string): Promise<CreditMutationResponse> {
+      const response = await http.post<CreditMutationResponse>('api/credits/demo-top-up/', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async createCreditTransfer(payload: CreditTransferRequest, idempotencyKey: string): Promise<CreditTransferResponse> {
+      const response = await http.post<CreditTransferResponse>('api/credits/transfers/', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
     async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {
       const response = await http.get<CharacterTreeNode[]>(projectPath('api/projects/{projectId}/character-tree/', projectId));
       return response.data;

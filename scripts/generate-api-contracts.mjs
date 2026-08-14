@@ -95,6 +95,10 @@ function buildClient() {
     createProject: operationPath('createProject'),
     updateProject: operationPath('updateProject'),
     createInvitation: operationPath('createProjectInvitation'),
+    getCreditSummary: operationPath('getCreditSummary'),
+    listCreditHistory: operationPath('listCreditHistory'),
+    createCreditDemoTopUp: operationPath('createCreditDemoTopUp'),
+    createCreditTransfer: operationPath('createCreditTransfer'),
   };
   return `// Generated from openapi/w_craft.openapi.json. Do not edit manually.
 
@@ -103,6 +107,13 @@ import type {
   CharacterTreeCreateRequest,
   CharacterTreeNode,
   CharacterTreeUpdateRequest,
+  CreditDemoTopUpRequest,
+  CreditHistoryPage,
+  CreditMutationResponse,
+  CreditOperationType,
+  CreditSummary,
+  CreditTransferRequest,
+  CreditTransferResponse,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -118,6 +129,26 @@ const treeNodePath = (template: string, projectId: ProjectId, nodeId: string) =>
 
 export function createGeneratedApiClient(http: AxiosInstance) {
   return {
+    async getCreditSummary(): Promise<CreditSummary> {
+      const response = await http.get<CreditSummary>('${paths.getCreditSummary}');
+      return response.data;
+    },
+    async listCreditHistory(params: {limit?: number; offset?: number; operationType?: CreditOperationType} = {}): Promise<CreditHistoryPage> {
+      const response = await http.get<CreditHistoryPage>('${paths.listCreditHistory}', {params});
+      return response.data;
+    },
+    async createCreditDemoTopUp(payload: CreditDemoTopUpRequest, idempotencyKey: string): Promise<CreditMutationResponse> {
+      const response = await http.post<CreditMutationResponse>('${paths.createCreditDemoTopUp}', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async createCreditTransfer(payload: CreditTransferRequest, idempotencyKey: string): Promise<CreditTransferResponse> {
+      const response = await http.post<CreditTransferResponse>('${paths.createCreditTransfer}', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
     async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {
       const response = await http.get<CharacterTreeNode[]>(projectPath('${paths.listTree}', projectId));
       return response.data;

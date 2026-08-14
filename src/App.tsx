@@ -35,6 +35,7 @@ import AudioTrackEditorPage from "./modules/music-studio/pages/AudioTrackEditorP
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
+import CreditWalletPage from './modules/credits/pages/CreditWalletPage';
 import withAuth from "./utils/auth/check_auth";
 import {CRAFT_ACCENT, CRAFT_ACCENT_HOVER, CRAFT_PLACEHOLDER} from './constants/theme';
 import AppErrorBoundary from './components/AppErrorBoundary';
@@ -49,6 +50,7 @@ const ProtectedMainPage = withAuth(MainPage);
 const ProtectedProfilePage = withAuth(ProfilePage);
 const ProtectedProfileEditPage = withAuth(ProfileEditPage);
 const ProtectedSubscriptionsPage = withAuth(SubscriptionsPage);
+const ProtectedCreditWalletPage = withAuth(CreditWalletPage);
 const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
 const ProtectedProjectListPage = withAuth(ProjectListPage);
 const ProtectedProjectPage = withAuth(ProjectPage);
@@ -181,6 +183,7 @@ export const APP_ROUTES = [
         { key: 'profile', path: PathConstants.PROFILE, component: <ProtectedProfilePage /> },
         { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProtectedProfileEditPage /> },
         { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
+        { key: 'credits', path: PathConstants.CREDITS, component: <ProtectedCreditWalletPage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'editProject', path: PathConstants.EDIT_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },

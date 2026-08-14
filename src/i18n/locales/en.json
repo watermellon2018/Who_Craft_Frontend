@@ -23,6 +23,78 @@
     "select": "Select",
     "refresh": "Refresh"
   },
+  "credits": {
+    "pageTitle": "Craft wallet",
+    "subtitle": "One balance for generation and transfers inside Craft.",
+    "openWallet": "Open Craft wallet",
+    "balance": "Balance",
+    "balanceUnavailable": "Balance is temporarily unavailable",
+    "balanceDetails": "Balance details",
+    "available": "Available",
+    "reserved": "Reserved",
+    "total": "Total",
+    "units": "credits",
+    "availableHint": "Available to spend or transfer",
+    "reservedHint": "Held for operations in progress",
+    "totalHint": "Available and reserved credits",
+    "amount": "Amount in credits",
+    "processing": "Processing...",
+    "stats": {
+      "eyebrow": "STATISTICS",
+      "title": "Movement over {{days}} days",
+      "received": "Received",
+      "sent": "Sent",
+      "spent": "Spent",
+      "refunded": "Refunded"
+    },
+    "topUp": {
+      "demoBadge": "DEMO",
+      "title": "Add credits",
+      "description": "A test top-up without a bank or payment processor. Available in demo mode only.",
+      "submit": "Add credits",
+      "presets": "Quick amount selection",
+      "success": "Added {{amount}} credits."
+    },
+    "transfer": {
+      "title": "Send to a user",
+      "description": "Transfer any available credits, including bonuses and credits received from another user.",
+      "recipient": "Recipient login",
+      "recipientPlaceholder": "Exact Craft login",
+      "note": "Note",
+      "notePlaceholder": "For example, thanks for helping with the project",
+      "submit": "Send credits",
+      "hint": "Reserved credits cannot be transferred. A transfer in this demo project is not a bank payment.",
+      "success": "Sent {{amount}} credits to @{{username}}."
+    },
+    "history": {
+      "eyebrow": "ACTIVITY",
+      "title": "Balance history",
+      "filter": "Operation type",
+      "all": "All operations",
+      "empty": "No operations yet.",
+      "counterparty": "User @{{username}}",
+      "systemOperation": "Craft operation",
+      "loadMore": "Show more"
+    },
+    "operations": {
+      "demo_top_up": "Demo top-up",
+      "transfer_out": "Outgoing transfer",
+      "transfer_in": "Incoming transfer",
+      "reserve": "Reserved",
+      "capture": "Generation charge",
+      "release": "Reservation released",
+      "refund": "Refund",
+      "adjustment": "Adjustment"
+    },
+    "errors": {
+      "load": "Could not load the wallet.",
+      "history": "Could not load the history.",
+      "invalidAmount": "Enter a positive amount with no more than two decimal places.",
+      "transferFields": "Enter the exact recipient login and a valid amount.",
+      "topUp": "Could not add demo credits.",
+      "transfer": "Could not transfer credits."
+    }
+  },
   "auth": {
     "login": {
       "title": "Welcome back",
@@ -902,6 +974,7 @@
       "script": "Script",
       "music": "Music",
       "references": "Visual library",
+      "credits": "Craft wallet",
       "home": "Home"
     }
   }

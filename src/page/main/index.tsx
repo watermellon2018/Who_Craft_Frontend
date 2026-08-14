@@ -6,6 +6,7 @@ import PathConstants from '../../routes/pathConstant';
 import { ProfileUser } from '../../modules/profile/types';
 import { fetchProfileMe } from '../../modules/profile/api/profileApi';
 import { logout } from '../../api/http';
+import CreditBalanceBadge from '../../modules/credits/components/CreditBalanceBadge';
 import '../../modules/profile/components/dashboardHeader.css';
 import './main.css';
 
@@ -112,6 +113,7 @@ const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
 
   return (
     <div className="home-user-pill-wrap">
+      <CreditBalanceBadge />
       <div className="app-header__user-wrap" ref={ref}>
         <button
           type="button"
