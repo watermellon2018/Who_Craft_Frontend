@@ -1,5 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Button, Empty, Modal, Spin, Tooltip, message} from 'antd';
+import {Button, Empty, Spin, Tooltip, message} from 'antd';
 
 const TREE_SIDEBAR_ICON_BUTTON_CLASS =
   'character-tree-sidebar__icon-button inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent ' +
@@ -28,6 +28,7 @@ function TreeSidebarIconButton({
   );
 }
 import i18nInstance from '../../../i18n';
+import {craftModal} from '../../../theme/CraftModalHost';
 import {CloseOutlined, EditOutlined, FileImageOutlined, FolderAddOutlined, FolderOpenOutlined, FolderOutlined, MenuFoldOutlined, MenuUnfoldOutlined, PlusOutlined} from '@ant-design/icons';
 import {Tree} from 'react-arborist';
 import type {DeleteHandler, NodeApi, RenameHandler, RowRendererProps, TreeApi} from 'react-arborist';
@@ -310,7 +311,7 @@ function confirmDelete(nodes: CharacterTreeNode[]) {
       : tx('characterStudio.tree.confirmDeleteCharacterDescription');
 
   return new Promise<boolean>((resolve) => {
-    Modal.confirm({
+    craftModal.confirm({
       title,
       content,
       okText: tx('common.delete'),

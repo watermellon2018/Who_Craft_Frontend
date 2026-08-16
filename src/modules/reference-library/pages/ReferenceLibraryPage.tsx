@@ -5,7 +5,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import {Alert, Button, Empty, Input, message, Modal, Pagination, Result, Select, Skeleton} from 'antd';
+import {Alert, Button, Empty, Input, message, Pagination, Result, Select, Skeleton} from 'antd';
 import {useTranslation} from 'react-i18next';
 import {useNavigate, useParams, useSearchParams} from 'react-router-dom';
 
@@ -14,6 +14,7 @@ import {
   referenceCreatePath,
   referenceEditPath,
 } from '../../../routes/pathConstant';
+import {craftModal} from '../../../theme/CraftModalHost';
 import {referenceApi} from '../api/referenceApi';
 import ReferenceCard from '../components/ReferenceCard';
 import ReferenceLibraryShell from '../components/ReferenceLibraryShell';
@@ -192,7 +193,7 @@ export default function ReferenceLibraryPage() {
   };
 
   const confirmDelete = (item: ReferenceListItem) => {
-    Modal.confirm({
+    craftModal.confirm({
       cancelText: t('common.cancel'),
       content: t('referenceLibrary.delete.description'),
       okButtonProps: {danger: true},

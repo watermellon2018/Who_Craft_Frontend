@@ -1737,6 +1737,33 @@
   }
 }
 
+.music-unsaved-confirm-modal.ant-modal-confirm .ant-modal-content {
+  padding: 24px 22px;
+}
+
+.music-unsaved-confirm-modal.ant-modal-confirm .ant-modal-confirm-body > .anticon {
+  margin-inline-end: 16px;
+}
+
+.music-unsaved-confirm-modal.ant-modal-confirm .ant-modal-confirm-content {
+  line-height: 1.55;
+  margin-top: 8px;
+}
+
+.music-unsaved-confirm-modal.ant-modal-confirm .ant-modal-confirm-btns {
+  margin-top: 26px;
+}
+
+@media (max-width: 600px) {
+  .music-unsaved-confirm-modal.ant-modal-confirm .ant-modal-content {
+    padding: 22px 20px;
+  }
+
+  .music-unsaved-confirm-modal.ant-modal-confirm .ant-modal-confirm-btns {
+    margin-top: 22px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .music-studio-shell *,
   .music-studio-shell *::before,
