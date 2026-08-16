@@ -8,14 +8,6 @@ const HAIR_LENGTH_OPTIONS = [
   {value: 'long',           label: 'Длинные'},
 ];
 
-// Map legacy hair_length values that no longer exist in the simplified list.
-const HAIR_LENGTH_LEGACY: Record<string, string> = {
-  buzz:            'short',
-  bob:             'short',
-  shoulder_length: 'medium',
-  very_long:       'long',
-};
-
 const HAIR_COLOR_OPTIONS = [
   {value: 'black',   label: 'Черный'},
   {value: 'brown',   label: 'Коричневый'},
@@ -33,11 +25,7 @@ const VALID_COLORS = new Set(HAIR_COLOR_OPTIONS.map((o) => o.value));
 
 export default function HairControls({value, onChange}: {value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void}) {
   const rawLength = value.hair_length as string | undefined;
-  // Normalize legacy values on-the-fly; unknown values fall back to undefined so
-  // the placeholder shows and the user can pick a valid option.
-  const hairLength = rawLength
-    ? (HAIR_LENGTH_LEGACY[rawLength] ?? (VALID_LENGTHS.has(rawLength) ? rawLength : undefined))
-    : undefined;
+  const hairLength = rawLength && VALID_LENGTHS.has(rawLength) ? rawLength : undefined;
 
   const rawColor = value.hair_color as string | undefined;
   const hairColor = rawColor && VALID_COLORS.has(rawColor) ? rawColor : undefined;

@@ -7,6 +7,7 @@ import PathConstants, {isProjectEditPath, isScriptWorkspacePath} from '../../../
 import { logout } from '../../../api/http';
 import { safeImageUrl } from '../../../utils/safeUrl';
 import i18n from '../../../i18n';
+import CreditBalanceBadge from '../../credits/components/CreditBalanceBadge';
 import './dashboardHeader.css';
 
 export interface BreadcrumbItem {
@@ -30,6 +31,7 @@ function resolveSectionTitle(pathname: string): string {
   if (pathname.startsWith(PathConstants.PROFILE_SUBSCRIPTIONS)) return t('navigation.sections.subscriptions');
   if (pathname.startsWith(PathConstants.PROFILE_EDIT)) return t('navigation.sections.profileEdit');
   if (pathname.startsWith(PathConstants.PROFILE)) return t('navigation.sections.profile');
+  if (pathname.startsWith(PathConstants.CREDITS)) return t('navigation.sections.credits');
   if (pathname.startsWith(PathConstants.PROJECTS)) return t('navigation.sections.myProjects');
   if (pathname.startsWith(PathConstants.CREATE_PROJECT)) return t('navigation.sections.createProject');
   if (isProjectEditPath(pathname)) return t('navigation.sections.editProject');
@@ -117,6 +119,7 @@ const DashboardHeader: React.FC<Props> = ({
         </div>
 
         <div className="app-header__right">
+          <CreditBalanceBadge />
           <div className="app-header__user-wrap" ref={dropdownRef}>
             <button
               type="button"

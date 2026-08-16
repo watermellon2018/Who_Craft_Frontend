@@ -2,8 +2,8 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Button, Empty, Modal, Spin, Tooltip, message} from 'antd';
 
 const TREE_SIDEBAR_ICON_BUTTON_CLASS =
-  'inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent ' +
-  'text-[#dce1e8] transition-colors duration-150 ' +
+  'character-tree-sidebar__icon-button inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent ' +
+  'transition-colors duration-150 ' +
   'hover:border-accent/40 hover:bg-accent/10 hover:text-accent ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40';
 
@@ -29,17 +29,18 @@ function TreeSidebarIconButton({
 }
 import i18nInstance from '../../../i18n';
 import {CloseOutlined, EditOutlined, FileImageOutlined, FolderAddOutlined, FolderOpenOutlined, FolderOutlined, MenuFoldOutlined, MenuUnfoldOutlined, PlusOutlined} from '@ant-design/icons';
-import {DeleteHandler, NodeApi, RenameHandler, RowRendererProps, Tree, TreeApi} from 'react-arborist';
+import {Tree} from 'react-arborist';
+import type {DeleteHandler, NodeApi, RenameHandler, RowRendererProps, TreeApi} from 'react-arborist';
 import {v4 as uuidv4} from 'uuid';
 
 // Inner helpers run outside React render scope (callbacks fired after async
 // work), so they read translations from the i18next instance directly rather
 // than via useTranslation.
 const tx = (key: string, opts?: Record<string, unknown>) => i18nInstance.t(key, opts) as string;
-import {createCharacterFromTreeAPI, deleteCharacterFromTree, get_all_character_for_project, renameCharacterFromTree} from '../../../api/generation/characters/tree_structure';
 import {characterApi} from '../api/characterApi';
-import {StudioCharacter} from '../types/character.types';
+import {characterTreeApi} from '../api/treeApi';
 import {CHARACTER_LIST_UPDATED_EVENT, CHARACTER_TREE_UPDATED_EVENT, notifyCharacterDeleted, notifyCharacterListUpdated, notifyCharacterRenamed, notifyCharacterTreeUpdated} from '../events';
+import type {StudioCharacter} from '../types/character.types';
 import './CharacterTreeSidebar.css';
 
 const TREE_ROW_HEIGHT = 34;
@@ -49,15 +50,11 @@ export interface CharacterTreeNode {
   id: string;
   key: string;
   name: string;
-  is_folder?: boolean;
+  is_folder: boolean;
   character_id?: string | null;
-  legacy_hero_id?: string | number | null;
   children?: CharacterTreeNode[];
-  // Synthesized client-side from a StudioCharacter that has no
-  // MenuFolder/ItemFolder row. Such nodes must NOT be deleted through the
-  // tree API (there's no tree row to remove and the legacy view would
-  // crash on UUID-vs-int FK mismatches); we delete the studio character
-  // directly instead.
+  // Synthesized client-side from a visible StudioCharacter that has no tree
+  // placement. It remains a root until the user puts it in a folder.
   __synthetic?: boolean;
 }
 
@@ -158,13 +155,14 @@ function removeTreeNodes(nodes: CharacterTreeNode[], ids: Set<string>): Characte
     });
 }
 
-function collectTreeNodes(nodes: CharacterTreeNode[], ids: Set<string>): CharacterTreeNode[] {
+export function collectTreeNodes(nodes: CharacterTreeNode[], ids: Set<string>): CharacterTreeNode[] {
   const result: CharacterTreeNode[] = [];
+  const seenIds = new Set<string>();
 
   const visit = (node: CharacterTreeNode) => {
-    if (ids.has(node.id)) {
+    if (ids.has(node.id) && !seenIds.has(node.id)) {
+      seenIds.add(node.id);
       result.push(node);
-      return;
     }
 
     node.children?.forEach(visit);
@@ -174,18 +172,103 @@ function collectTreeNodes(nodes: CharacterTreeNode[], ids: Set<string>): Charact
   return result;
 }
 
-function collectCharacterIds(nodes: CharacterTreeNode[]) {
-  const ids = new Set<string>();
+export function mergeVisibleCharacters(
+  treeNodes: CharacterTreeNode[],
+  studioCharacters: StudioCharacter[],
+): CharacterTreeNode[] {
+  const visibleCharacterIds = new Set(
+    studioCharacters
+      .filter((character) => character?.character_id)
+      .map((character) => String(character.character_id)),
+  );
 
-  const visit = (node: CharacterTreeNode) => {
-    if (node.character_id) {
-      ids.add(node.character_id);
-    }
-    node.children?.forEach(visit);
+  const seenCharacterIds = new Set<string>();
+  const pruneTree = (nodes: CharacterTreeNode[]): CharacterTreeNode[] => {
+    const result: CharacterTreeNode[] = [];
+    nodes.forEach((node) => {
+      const children = node.children ? pruneTree(node.children) : undefined;
+      if (!node.is_folder) {
+        const characterId = node.character_id ? String(node.character_id) : null;
+        if (!characterId || !visibleCharacterIds.has(characterId) || seenCharacterIds.has(characterId)) {
+          return;
+        }
+        seenCharacterIds.add(characterId);
+      }
+      result.push(children === undefined ? node : {...node, children});
+    });
+    return result;
   };
 
-  nodes.forEach(visit);
-  return Array.from(ids);
+  const prunedTree = pruneTree(treeNodes);
+  const syntheticRoots = studioCharacters
+    .filter((character) => character?.character_id && !seenCharacterIds.has(String(character.character_id)))
+    .map((character): CharacterTreeNode => {
+      const characterId = String(character.character_id);
+      seenCharacterIds.add(characterId);
+      return {
+        id: characterId,
+        key: characterId,
+        name: character.name || '—',
+        is_folder: false,
+        character_id: characterId,
+        __synthetic: true,
+      };
+    });
+
+  return [...prunedTree, ...syntheticRoots];
+}
+
+export async function deleteSelectedTreeNodes(
+  projectId: string,
+  nodes: CharacterTreeNode[],
+  pendingNodeIds: Set<string>,
+): Promise<{
+  deletedCharacterIds: string[];
+  deletedNodeIds: string[];
+  failed: boolean;
+}> {
+  const results = await Promise.all(nodes.map(async (node) => {
+    if (pendingNodeIds.has(node.id)) {
+      return {node, succeeded: true};
+    }
+
+    try {
+      if (!node.is_folder && node.character_id) {
+        await characterApi.delete(projectId, String(node.character_id));
+      } else {
+        await characterTreeApi.delete(projectId, node.id);
+      }
+      return {node, succeeded: true};
+    } catch {
+      return {node, succeeded: false};
+    }
+  }));
+  const succeededNodes = results
+    .filter((result) => result.succeeded)
+    .map((result) => result.node);
+
+  return {
+    deletedCharacterIds: succeededNodes
+      .filter((node) => !node.is_folder && node.character_id)
+      .map((node) => String(node.character_id)),
+    deletedNodeIds: succeededNodes.map((node) => node.id),
+    failed: results.some((result) => !result.succeeded),
+  };
+}
+
+export async function renameTreeNode(
+  projectId: string,
+  node: CharacterTreeNode,
+  name: string,
+): Promise<string | null> {
+  if (node.__synthetic && node.character_id) {
+    const characterId = String(node.character_id);
+    await characterApi.update(projectId, characterId, {name});
+    return characterId;
+  }
+
+  const response = await characterTreeApi.rename(projectId, node.id, name);
+  return response.character_id ? String(response.character_id) : node.character_id || null;
 }
 
 function countTreeNodes(nodes: CharacterTreeNode[]) {
@@ -200,16 +283,36 @@ function countTreeNodes(nodes: CharacterTreeNode[]) {
   return count;
 }
 
+export function getDeleteConfirmationKind(
+  nodes: CharacterTreeNode[],
+): 'character' | 'folder' | 'mixed' {
+  const hasFolder = nodes.some((node) => node.is_folder);
+  const hasCharacter = nodes.some((node) => !node.is_folder);
+  if (hasFolder && hasCharacter) {
+    return 'mixed';
+  }
+  return hasFolder ? 'folder' : 'character';
+}
+
 function confirmDelete(nodes: CharacterTreeNode[]) {
+  const firstFolder = nodes.find((node) => node.is_folder);
   const firstCharacter = nodes.find((node) => !node.is_folder);
-  const title = firstCharacter
-    ? tx('characterStudio.tree.confirmDeleteCharacter', {name: firstCharacter.name})
-    : tx('characterStudio.tree.confirmDeleteFolder', {name: nodes[0]?.name || ''});
+  const confirmationKind = getDeleteConfirmationKind(nodes);
+  const title = confirmationKind === 'mixed'
+    ? tx('characterStudio.tree.confirmDeleteMixed')
+    : confirmationKind === 'folder'
+      ? tx('characterStudio.tree.confirmDeleteFolder', {name: firstFolder?.name || ''})
+      : tx('characterStudio.tree.confirmDeleteCharacter', {name: firstCharacter?.name || ''});
+  const content = confirmationKind === 'mixed'
+    ? tx('characterStudio.tree.confirmDeleteMixedDescription')
+    : confirmationKind === 'folder'
+      ? tx('characterStudio.tree.confirmDeleteFolderDescription')
+      : tx('characterStudio.tree.confirmDeleteCharacterDescription');
 
   return new Promise<boolean>((resolve) => {
     Modal.confirm({
       title,
-      content: nodes.length > 1 ? tx('characterStudio.tree.deletionWarning') : undefined,
+      content,
       okText: tx('common.delete'),
       cancelText: tx('common.cancel'),
       okButtonProps: {danger: true},
@@ -298,8 +401,8 @@ function InlineNameEditor({node}: {node: NodeApi<CharacterTreeNode>}) {
       style={{
         minWidth: 0,
         flex: 1,
-        color: '#ffffff',
-        background: 'rgba(255, 255, 255, 0.08)',
+        color: 'var(--craft-text)',
+        background: 'var(--craft-surface-hover)',
         caretColor: 'var(--craft-accent)',
         border: '1px solid rgba(250, 176, 5, 0.55)',
         outline: 'none',
@@ -397,7 +500,7 @@ function TreeNode({
         gap: 8,
         paddingRight: 8,
         borderLeft: isSelectedCharacter ? '3px solid var(--craft-accent)' : '3px solid transparent',
-        color: '#ffffff',
+        color: 'var(--craft-text)',
         background: isSelectedCharacter || node.state.isSelected ? 'linear-gradient(90deg, rgba(250, 176, 5, 0.2), rgba(250, 176, 5, 0.06))' : 'transparent',
         borderRadius: 4,
       }}
@@ -429,8 +532,8 @@ function TreeNode({
         <Tooltip title={tx('characterStudio.tree.renameAction')}>
           <Button size="small" type="text" icon={<EditOutlined />} onClick={renameNode} aria-label={tx('characterStudio.tree.renameAction')} />
         </Tooltip>
-        <Tooltip title={tx('characterStudio.tree.removeFromTreeAction')}>
-          <Button size="small" type="text" icon={<CloseOutlined />} onClick={deleteNode} aria-label={tx('characterStudio.tree.removeFromTreeAction')} />
+        <Tooltip title={tx('characterStudio.tree.deleteAction')}>
+          <Button size="small" type="text" icon={<CloseOutlined />} onClick={deleteNode} aria-label={tx('characterStudio.tree.deleteAction')} />
         </Tooltip>
       </span>
     </div>
@@ -456,72 +559,13 @@ export default function CharacterTreeSidebar({
     if (!projectId) return;
     setLoading(true);
     try {
-      // The legacy MenuFolder-backed tree is the source of truth for folder
-      // hierarchy, but it gets out of sync with StudioCharacter rows (e.g.
-      // create flows that didn't persist a MenuFolder, fixtures, or older
-      // characters created before the tree-sync code existed). We fetch both
-      // and merge any visible studio characters that aren't yet present in
-      // the tree, so the sidebar reflects exactly the same set the gallery
-      // shows — no drafts, no dangling tree-only ghosts.
-      //
-      // No status filter on the list call: by default the gallery endpoint
-      // hides drafts on the server, which is exactly what we want here too.
       const [treeResponse, charactersResponse] = await Promise.all([
-        get_all_character_for_project(projectId),
+        characterTreeApi.list(projectId),
         characterApi.list(projectId),
       ]);
       const treeNodes: CharacterTreeNode[] = treeResponse;
       const studioCharacters: StudioCharacter[] = charactersResponse.data || [];
-
-      // Build a lookup of which character_ids the gallery considers visible.
-      // Any tree leaf whose character_id is NOT in this set is either a draft
-      // or a dangling tree artifact — both should be hidden, even if the
-      // backend tree endpoint forgot to filter them (defence in depth).
-      const visibleCharacterIds = new Set(
-        studioCharacters
-          .filter((character) => character?.character_id)
-          .map((character) => String(character.character_id)),
-      );
-
-      const seenCharacterIds = new Set<string>();
-      const pruneTree = (nodes: CharacterTreeNode[]): CharacterTreeNode[] => {
-        const result: CharacterTreeNode[] = [];
-        nodes.forEach((node) => {
-          const children = node.children ? pruneTree(node.children) : undefined;
-          const isLeaf = !node.is_folder;
-          if (isLeaf) {
-            const characterId = node.character_id ? String(node.character_id) : null;
-            // Hide leaves without a real character link, leaves linked to a
-            // character that isn't visible (draft / deleted), and any
-            // repeat of a character we've already shown in the tree.
-            if (!characterId) return;
-            if (!visibleCharacterIds.has(characterId)) return;
-            if (seenCharacterIds.has(characterId)) return;
-            seenCharacterIds.add(characterId);
-          }
-          result.push(children !== undefined ? {...node, children} : node);
-        });
-        return result;
-      };
-
-      const prunedTree = pruneTree(treeNodes);
-
-      const orphans: CharacterTreeNode[] = studioCharacters
-        .filter((character) => character?.character_id && !seenCharacterIds.has(String(character.character_id)))
-        .map((character) => {
-          seenCharacterIds.add(String(character.character_id));
-          return {
-            id: String(character.character_id),
-            key: String(character.character_id),
-            name: character.name || '—',
-            is_folder: false,
-            character_id: String(character.character_id),
-            legacy_hero_id: null,
-            __synthetic: true,
-          };
-        });
-
-      setTreeData([...prunedTree, ...orphans]);
+      setTreeData(mergeVisibleCharacters(treeNodes, studioCharacters));
     } catch {
       setTreeData([]);
       message.error(tx('characterStudio.tree.reloadError'));
@@ -577,8 +621,7 @@ export default function CharacterTreeSidebar({
     }
 
     try {
-      const response = await renameCharacterFromTree(id, name);
-      const characterId = response.character_id || node.data.character_id;
+      const characterId = await renameTreeNode(projectId, node.data, name);
       if (characterId) {
         notifyCharacterRenamed(characterId, name);
         notifyCharacterListUpdated();
@@ -592,46 +635,34 @@ export default function CharacterTreeSidebar({
   const handleTreeDelete: DeleteHandler<CharacterTreeNode> = async ({ids}) => {
     const idsToDelete = new Set(ids);
     const deletedNodes = collectTreeNodes(treeData, idsToDelete);
-    const confirmed = await confirmDelete(deletedNodes);
-    if (!confirmed) {
-      return;
+    const hasPersistedNodes = deletedNodes.some((node) => !pendingNodeIdsRef.current.has(node.id));
+    if (hasPersistedNodes) {
+      const confirmed = await confirmDelete(deletedNodes);
+      if (!confirmed) {
+        return;
+      }
     }
 
-    // Two delete paths:
-    //   - Real MenuFolder/ItemFolder rows go through the legacy tree API,
-    //     which also cascades to the linked StudioCharacter.
-    //   - Synthetic orphan nodes (StudioCharacters with no tree row) have
-    //     nothing to delete on the tree side — calling the tree API would
-    //     either 404 or 500 on UUID-vs-int FK lookups. Delete the studio
-    //     character directly instead.
-    const persistedNodes = deletedNodes.filter((node) => !pendingNodeIdsRef.current.has(node.id));
-    const treeDeleteNodes = persistedNodes.filter((node) => !node.__synthetic);
-    const syntheticNodes = persistedNodes.filter((node) => node.__synthetic && node.character_id);
-
-    try {
-      await Promise.all(
-        treeDeleteNodes.map((node) => deleteCharacterFromTree(node.id)),
-      );
-
-      await Promise.all(
-        syntheticNodes.map((node) =>
-          characterApi.delete(projectId, String(node.character_id)),
-        ),
-      );
-    } catch {
-      message.error(tx('characterStudio.tree.deleteError'));
-      await loadTree();
-      return;
-    }
-
-    ids.forEach((id) => pendingNodeIdsRef.current.delete(id));
-    setTreeData((currentTreeData) => removeTreeNodes(currentTreeData, idsToDelete));
-    collectCharacterIds(deletedNodes).forEach((characterId) => {
+    const result = await deleteSelectedTreeNodes(
+      projectId,
+      deletedNodes,
+      pendingNodeIdsRef.current,
+    );
+    const deletedNodeIds = new Set(result.deletedNodeIds);
+    result.deletedNodeIds.forEach((id) => pendingNodeIdsRef.current.delete(id));
+    setTreeData((currentTreeData) => removeTreeNodes(currentTreeData, deletedNodeIds));
+    result.deletedCharacterIds.forEach((characterId) => {
       notifyCharacterDeleted(characterId);
       onDeletedCharacter?.(characterId);
     });
-    notifyCharacterListUpdated();
-    notifyCharacterTreeUpdated();
+    if (result.deletedNodeIds.length > 0) {
+      notifyCharacterListUpdated();
+      notifyCharacterTreeUpdated();
+    }
+    if (result.failed) {
+      message.error(tx('characterStudio.tree.deletePartialError'));
+      await loadTree();
+    }
   };
 
   const createFolder = async () => {
@@ -657,7 +688,13 @@ export default function CharacterTreeSidebar({
         return;
       }
 
-      await createCharacterFromTreeAPI(node.id, name, 'node', projectId, getNodeParentId(currentNode));
+      const parentId = getNodeParentId(currentNode);
+      await characterTreeApi.create(projectId, {
+        id: node.id,
+        name,
+        type: 'folder',
+        ...(parentId ? {parent_id: parentId} : {}),
+      });
 
       pendingNodeIdsRef.current.delete(node.id);
       persisted = true;
@@ -696,7 +733,13 @@ export default function CharacterTreeSidebar({
         return;
       }
 
-      await createCharacterFromTreeAPI(node.id, name, 'leaf', projectId, getNodeParentId(currentNode));
+      const parentId = getNodeParentId(currentNode);
+      await characterTreeApi.create(projectId, {
+        id: node.id,
+        name,
+        type: 'character',
+        ...(parentId ? {parent_id: parentId} : {}),
+      });
 
       pendingNodeIdsRef.current.delete(node.id);
       persisted = true;
@@ -715,7 +758,7 @@ export default function CharacterTreeSidebar({
 
   if (collapsed) {
     return (
-      <aside className="character-tree-sidebar character-tree-sidebar--collapsed custom-scrollbar" style={{width: 58, height: '100%', minHeight: 0, background: '#111318', borderRight: '1px solid #30343d', padding: '12px 8px', overflow: 'hidden', scrollbarGutter: 'auto'}}>
+      <aside className="character-tree-sidebar character-tree-sidebar--collapsed custom-scrollbar" style={{width: 58, height: '100%', minHeight: 0, background: 'var(--craft-bg-elevated)', borderRight: '1px solid var(--craft-border)', padding: '12px 8px', overflow: 'hidden', scrollbarGutter: 'auto'}}>
         <Tooltip title={tx('characterStudio.tree.openTree')} overlayClassName="character-tree-sidebar__tooltip">
           <TreeSidebarIconButton
             ariaLabel={tx('characterStudio.tree.openTreeAria')}
@@ -728,9 +771,9 @@ export default function CharacterTreeSidebar({
   }
 
   return (
-    <aside className="character-tree-sidebar custom-scrollbar" style={{width: 280, height: '100%', minHeight: 0, display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', background: '#111318', borderRight: '1px solid #30343d', padding: 12, overflow: 'hidden', scrollbarGutter: 'auto'}}>
+    <aside className="character-tree-sidebar custom-scrollbar" style={{width: 280, height: '100%', minHeight: 0, display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', background: 'var(--craft-bg-elevated)', borderRight: '1px solid var(--craft-border)', padding: 12, overflow: 'hidden', scrollbarGutter: 'auto'}}>
       <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}}>
-        <div style={{color: '#ffffff', fontWeight: 600}}>{tx('characterStudio.tree.title')}</div>
+        <div style={{color: 'var(--craft-text)', fontWeight: 600}}>{tx('characterStudio.tree.title')}</div>
         <div style={{display: 'flex', gap: 4}}>
           <Tooltip title={tx('characterStudio.tree.closeTree')} overlayClassName="character-tree-sidebar__tooltip">
             <TreeSidebarIconButton

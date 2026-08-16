@@ -194,6 +194,9 @@ jest.mock('../events', () => ({
 }));
 
 jest.mock('../api/characterApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  confirmGenerationCost: () => Promise.resolve({routingMode: 'manual'}),
+}));
 const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
 
 beforeEach(() => {

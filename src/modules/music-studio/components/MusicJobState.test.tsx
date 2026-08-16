@@ -75,7 +75,8 @@ test.each(['failed', 'cancelled'] as const)(
 );
 
 test('keeps available mutation actions visible to editors', () => {
-  const {rerender} = renderJob(job, true);
+  const queuedJob: MusicGenerationJob = {...job, stage: 'queued', status: 'queued'};
+  const {rerender} = renderJob(queuedJob, true);
   expect(screen.getByRole('button', {
     name: i18n.t('musicStudio.job.cancel'),
   })).toBeInTheDocument();
@@ -95,4 +96,13 @@ test('keeps available mutation actions visible to editors', () => {
   expect(screen.getByRole('button', {
     name: i18n.t('musicStudio.job.retry'),
   })).toBeInTheDocument();
+});
+
+test('hides cancellation after processing starts', () => {
+  renderJob(job, true);
+
+  expect(screen.queryByRole('button', {
+    name: i18n.t('musicStudio.job.cancel'),
+  })).not.toBeInTheDocument();
+  expect(screen.getByText(i18n.t('musicStudio.job.cancelUnavailable'))).toBeInTheDocument();
 });

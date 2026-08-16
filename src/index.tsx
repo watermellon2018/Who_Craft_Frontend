@@ -4,6 +4,9 @@ import './index.css';
 import './i18n';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import {initializeCraftTheme} from './theme/craftTheme';
+
+initializeCraftTheme();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

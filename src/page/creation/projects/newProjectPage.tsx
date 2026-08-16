@@ -48,25 +48,26 @@ const BOTTOM_LEN_ANNOT = 0;
 const UP_LEN_ANNOT = PROJECT_ANNOTATION_MAX_LENGTH;
 const BOTTOM_LEN_DESC = 0;
 const UP_LEN_DESC = PROJECT_SYNOPSIS_MAX_LENGTH;
+type ProjectFormat = NonNullable<ProjectEditPayload['format']>;
 
 // ============== Design tokens ==============
 const COLORS = {
-    pageBg: '#0B1220',
-    cardBg: '#111827',
-    fieldBg: '#0F172A',
-    cardBorder: 'rgba(148, 163, 184, 0.18)',
-    fieldBorder: '#334155',
-    fieldBorderHover: '#475569',
-    accent: '#FBBF24',
-    accentHover: '#FCD34D',
-    accentSoft: 'rgba(251, 191, 36, 0.12)',
-    accentSoftHover: 'rgba(251, 191, 36, 0.18)',
-    textPrimary: '#F8FAFC',
-    textSecondary: '#94A3B8',
-    textMuted: '#64748B',
-    textChip: '#CBD5E1',
-    danger: '#EF4444',
-    dangerSoft: 'rgba(239, 68, 68, 0.12)',
+    pageBg: 'var(--craft-bg-deep)',
+    cardBg: 'var(--craft-surface)',
+    fieldBg: 'var(--craft-field)',
+    cardBorder: 'var(--craft-border-subtle)',
+    fieldBorder: 'var(--craft-border)',
+    fieldBorderHover: 'var(--craft-border-strong)',
+    accent: 'var(--craft-action-primary)',
+    accentHover: 'var(--craft-action-primary-hover)',
+    accentSoft: 'var(--craft-accent-soft)',
+    accentSoftHover: 'var(--craft-accent-deep)',
+    textPrimary: 'var(--craft-text)',
+    textSecondary: 'var(--craft-text-muted)',
+    textMuted: 'var(--craft-placeholder)',
+    textChip: 'var(--craft-text-soft)',
+    danger: 'var(--craft-danger)',
+    dangerSoft: 'var(--craft-danger-soft)',
 };
 
 // ============== Field wrapper ==============
@@ -216,7 +217,7 @@ export const ProjectCreatePage = () => {
     const [title, setTitle] = useState<string>('');
     // Single genre value, e.g. "fantasy". Empty string means no selection.
     const [genre, setGenre] = useState<string>('');
-    const [format, setFormat] = useState<string>('feature_film');
+    const [format, setFormat] = useState<ProjectFormat>('feature_film');
     const [selectedAudience, setSelectedAudience] = useState<string[]>(['all']);
     const [annotation, setAnnotation] = useState<string>('');
     const [description, setDescription] = useState<string>('');
@@ -272,12 +273,12 @@ export const ProjectCreatePage = () => {
                 const incoming = location.state?.imgUrl;
                 if (incoming) {
                     setImageUrl(incoming);
-                    // If the user just came back from /create-project/gen-poster,
+                    // If the user just came back from the project's poster studio,
                     // ``imgUrl`` is a freshly generated base64 data URL. Stash it
                     // in ``posterDataUrl`` too — that's what the next "Сохранить
                     // изменения" PATCH actually uploads as ``poster_image_data``.
                     // Without this the new poster is only a preview and the
-                    // server-side ``project.image`` stays at the old value.
+                    // server-side ``project.cover_image`` stays at the old value.
                     if (typeof incoming === 'string' && incoming.startsWith('data:')) {
                         setPosterDataUrl(incoming);
                     }
@@ -403,7 +404,7 @@ export const ProjectCreatePage = () => {
         if (projectId) {
             // No dedicated project-detail route exists yet — fall back to the
             // project list, where the user came from. ``navigate(-1)`` would
-            // sometimes land back on /create-project/gen-poster, which is the
+            // sometimes land back on the poster studio, which is the
             // wrong direction for a "Назад" affordance on the settings page.
             navigate(PathConstants.PROJECTS);
             return;

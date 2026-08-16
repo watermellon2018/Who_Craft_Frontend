@@ -45,7 +45,7 @@ const ProfileDashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#0f1117] overflow-hidden">
+    <div className="profile-theme-page flex h-screen overflow-hidden">
       <ProfileSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col overflow-hidden">

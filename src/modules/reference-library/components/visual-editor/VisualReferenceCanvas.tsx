@@ -21,6 +21,7 @@ interface VisualReferenceCanvasProps {
   addingToDrafts: boolean;
   canGenerate: boolean;
   canAddActiveToDrafts: boolean;
+  costPreview?: React.ReactNode;
   disabled: boolean;
   generating: boolean;
   primaryImageId: string | null;
@@ -40,6 +41,7 @@ export default function VisualReferenceCanvas({
   addingToDrafts,
   canGenerate,
   canAddActiveToDrafts,
+  costPreview,
   disabled,
   generating,
   primaryImageId,
@@ -251,6 +253,7 @@ export default function VisualReferenceCanvas({
                 ? 'referenceLibrary.editor.generate.again'
                 : 'referenceLibrary.editor.generate.action')}
             </Button>
+            {costPreview}
           </span>
         </Tooltip>
         {!canGenerate && (

@@ -95,8 +95,137 @@ function buildClient() {
     createProject: operationPath('createProject'),
     updateProject: operationPath('updateProject'),
     createInvitation: operationPath('createProjectInvitation'),
+    getCreditSummary: operationPath('getCreditSummary'),
+    listCreditHistory: operationPath('listCreditHistory'),
+    getCreditSpendingStatistics: operationPath('getCreditSpendingStatistics'),
+    createCreditDemoTopUp: operationPath('createCreditDemoTopUp'),
+    createCreditTransfer: operationPath('createCreditTransfer'),
+    createCreditAdminOperation: operationPath('createCreditAdminOperation'),
+    getCreditAdminAudit: operationPath('getCreditAdminAudit'),
+    listProjectCreditBudgets: operationPath('listProjectCreditBudgets'),
+    updateProjectCreditBudget: operationPath('updateProjectCreditBudget'),
+    estimateGenerationCost: operationPath('estimateGenerationCost'),
   };
-  return `// Generated from openapi/w_craft.openapi.json. Do not edit manually.\n\nimport type {AxiosInstance} from 'axios';\nimport type {\n  CharacterTreeCreateRequest,\n  CharacterTreeDeleteRequest,\n  CharacterTreeNode,\n  CharacterTreeRenameRequest,\n  CharacterTreeRenameResponse,\n  DeleteResponse,\n  ProjectId,\n  ProjectInvitationRequest,\n  ProjectInvitationResponse,\n  ProjectMutationRequest,\n  ProjectMutationResponse,\n} from './contracts';\n\nconst projectPath = (template: string, projectId: ProjectId) =>\n  template.replace('{projectId}', encodeURIComponent(String(projectId)));\n\nexport function createGeneratedApiClient(http: AxiosInstance) {\n  return {\n    async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {\n      const response = await http.get<CharacterTreeNode[]>('${paths.listTree}', {params: {projectId}});\n      return response.data;\n    },\n    async createCharacterTreeNode(payload: CharacterTreeCreateRequest): Promise<void> {\n      await http.post<void>('${paths.createTree}', payload);\n    },\n    async renameCharacterTreeNode(payload: CharacterTreeRenameRequest): Promise<CharacterTreeRenameResponse> {\n      const response = await http.post<CharacterTreeRenameResponse>('${paths.renameTree}', payload);\n      return response.data;\n    },\n    async deleteCharacterTreeNode(payload: CharacterTreeDeleteRequest): Promise<DeleteResponse> {\n      const response = await http.post<DeleteResponse>('${paths.deleteTree}', payload);\n      return response.data;\n    },\n    async getProject(projectId: ProjectId): Promise<ProjectMutationResponse> {\n      const response = await http.get<ProjectMutationResponse>(projectPath('${paths.getProject}', projectId));\n      return response.data;\n    },\n    async createProject(payload: ProjectMutationRequest): Promise<ProjectMutationResponse> {\n      const response = await http.post<ProjectMutationResponse>('${paths.createProject}', payload);\n      return response.data;\n    },\n    async updateProject(projectId: ProjectId, payload: ProjectMutationRequest): Promise<ProjectMutationResponse> {\n      const response = await http.patch<ProjectMutationResponse>(projectPath('${paths.updateProject}', projectId), payload);\n      return response.data;\n    },\n    async createProjectInvitation(projectId: ProjectId, payload: ProjectInvitationRequest): Promise<ProjectInvitationResponse> {\n      const response = await http.post<ProjectInvitationResponse>(projectPath('${paths.createInvitation}', projectId), payload);\n      return response.data;\n    },\n  };\n}\n\nexport type GeneratedApiClient = ReturnType<typeof createGeneratedApiClient>;\n`;
+  return `// Generated from openapi/w_craft.openapi.json. Do not edit manually.
+
+import type {AxiosInstance} from 'axios';
+import type {
+  CharacterTreeCreateRequest,
+  CharacterTreeNode,
+  CharacterTreeUpdateRequest,
+  CreditDemoTopUpRequest,
+  CreditAdminAudit,
+  CreditAdminOperationRequest,
+  CreditAdminOperationResponse,
+  CreditHistoryPage,
+  CreditMutationResponse,
+  CreditOperationType,
+  CreditSummary,
+  CreditSpendingStatistics,
+  CreditTransferRequest,
+  CreditTransferResponse,
+  GenerationCostEstimate,
+  GenerationCostEstimateRequest,
+  ProjectCreditBudget,
+  ProjectCreditBudgetList,
+  ProjectCreditBudgetUpdateRequest,
+  ProjectId,
+  ProjectInvitationRequest,
+  ProjectInvitationResponse,
+  ProjectMutationRequest,
+  ProjectMutationResponse,
+} from './contracts';
+
+const projectPath = (template: string, projectId: ProjectId) =>
+  template.replace('{projectId}', encodeURIComponent(String(projectId)));
+
+const treeNodePath = (template: string, projectId: ProjectId, nodeId: string) =>
+  projectPath(template, projectId).replace('{nodeId}', encodeURIComponent(String(nodeId)));
+
+export function createGeneratedApiClient(http: AxiosInstance) {
+  return {
+    async getCreditSummary(): Promise<CreditSummary> {
+      const response = await http.get<CreditSummary>('${paths.getCreditSummary}');
+      return response.data;
+    },
+    async listCreditHistory(params: {limit?: number; offset?: number; operationType?: CreditOperationType} = {}): Promise<CreditHistoryPage> {
+      const response = await http.get<CreditHistoryPage>('${paths.listCreditHistory}', {params});
+      return response.data;
+    },
+    async getCreditSpendingStatistics(params: {periodDays?: number; projectId?: number} = {}): Promise<CreditSpendingStatistics> {
+      const response = await http.get<CreditSpendingStatistics>('${paths.getCreditSpendingStatistics}', {params});
+      return response.data;
+    },
+    async createCreditDemoTopUp(payload: CreditDemoTopUpRequest, idempotencyKey: string): Promise<CreditMutationResponse> {
+      const response = await http.post<CreditMutationResponse>('${paths.createCreditDemoTopUp}', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async createCreditTransfer(payload: CreditTransferRequest, idempotencyKey: string): Promise<CreditTransferResponse> {
+      const response = await http.post<CreditTransferResponse>('${paths.createCreditTransfer}', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async createCreditAdminOperation(payload: CreditAdminOperationRequest, idempotencyKey: string): Promise<CreditAdminOperationResponse> {
+      const response = await http.post<CreditAdminOperationResponse>('${paths.createCreditAdminOperation}', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async getCreditAdminAudit(username: string): Promise<CreditAdminAudit> {
+      const response = await http.get<CreditAdminAudit>('${paths.getCreditAdminAudit}', {params: {username}});
+      return response.data;
+    },
+    async listProjectCreditBudgets(): Promise<ProjectCreditBudgetList> {
+      const response = await http.get<ProjectCreditBudgetList>('${paths.listProjectCreditBudgets}');
+      return response.data;
+    },
+    async updateProjectCreditBudget(projectId: ProjectId, payload: ProjectCreditBudgetUpdateRequest): Promise<ProjectCreditBudget> {
+      const response = await http.patch<ProjectCreditBudget>(projectPath('${paths.updateProjectCreditBudget}', projectId), payload);
+      return response.data;
+    },
+    async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {
+      const response = await http.post<GenerationCostEstimate>('${paths.estimateGenerationCost}', payload);
+      return response.data;
+    },
+    async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {
+      const response = await http.get<CharacterTreeNode[]>(projectPath('${paths.listTree}', projectId));
+      return response.data;
+    },
+    async createCharacterTreeNode(projectId: ProjectId, payload: CharacterTreeCreateRequest): Promise<CharacterTreeNode> {
+      const response = await http.post<CharacterTreeNode>(projectPath('${paths.createTree}', projectId), payload);
+      return response.data;
+    },
+    async renameCharacterTreeNode(projectId: ProjectId, nodeId: string, payload: CharacterTreeUpdateRequest): Promise<CharacterTreeNode> {
+      const response = await http.patch<CharacterTreeNode>(treeNodePath('${paths.renameTree}', projectId, nodeId), payload);
+      return response.data;
+    },
+    async deleteCharacterTreeNode(projectId: ProjectId, nodeId: string): Promise<void> {
+      await http.delete(treeNodePath('${paths.deleteTree}', projectId, nodeId));
+    },
+    async getProject(projectId: ProjectId): Promise<ProjectMutationResponse> {
+      const response = await http.get<ProjectMutationResponse>(projectPath('${paths.getProject}', projectId));
+      return response.data;
+    },
+    async createProject(payload: ProjectMutationRequest): Promise<ProjectMutationResponse> {
+      const response = await http.post<ProjectMutationResponse>('${paths.createProject}', payload);
+      return response.data;
+    },
+    async updateProject(projectId: ProjectId, payload: ProjectMutationRequest): Promise<ProjectMutationResponse> {
+      const response = await http.patch<ProjectMutationResponse>(projectPath('${paths.updateProject}', projectId), payload);
+      return response.data;
+    },
+    async createProjectInvitation(projectId: ProjectId, payload: ProjectInvitationRequest): Promise<ProjectInvitationResponse> {
+      const response = await http.post<ProjectInvitationResponse>(projectPath('${paths.createInvitation}', projectId), payload);
+      return response.data;
+    },
+  };
+}
+
+export type GeneratedApiClient = ReturnType<typeof createGeneratedApiClient>;
+`;
 }
 
 const outputs = new Map([

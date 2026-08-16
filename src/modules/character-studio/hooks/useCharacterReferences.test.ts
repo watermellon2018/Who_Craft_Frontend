@@ -1,13 +1,20 @@
 import {act, cleanup, renderHook, waitFor} from '@testing-library/react';
 import {message} from 'antd';
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import {characterApi} from '../api/characterApi';
 import type {ReferencesState} from '../types/character.types';
 import {useCharacterReferences} from './useCharacterReferences';
 
 jest.mock('antd', () => ({message: {error: jest.fn()}}));
 jest.mock('../api/characterApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  confirmGenerationCost: jest.fn().mockResolvedValue({}),
+}));
 
 const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
+const mockedConfirmGenerationCost = confirmGenerationCost as jest.MockedFunction<
+  typeof confirmGenerationCost
+>;
 const mockedMessageError = message.error as jest.Mock;
 
 interface Deferred<T> {
@@ -54,6 +61,7 @@ function makeReferencesState(characterId: string): ReferencesState {
 }
 
 beforeEach(() => {
+  mockedConfirmGenerationCost.mockResolvedValue({} as never);
   mockedApi.getReferences.mockImplementation((_projectId, characterId) =>
     Promise.resolve({data: makeReferencesState(characterId)}) as never,
   );
@@ -113,7 +121,9 @@ describe('useCharacterReferences route ownership', () => {
     act(() => {
       generatePromise = result.current.generate('portrait');
     });
-    expect(result.current.state?.references[0].status).toBe('generating');
+    await waitFor(() => {
+      expect(result.current.state?.references[0].status).toBe('generating');
+    });
 
     rerender({projectId: 'project-b', characterId: 'character-b'});
     await waitFor(() => {
@@ -137,7 +147,6 @@ describe('useCharacterReferences route ownership', () => {
   });
 
   it('discards a late poll response owned by A after switching to B', async () => {
-    jest.useFakeTimers();
     const pollA = deferred<unknown>();
     mockedApi.generateReference.mockResolvedValueOnce({
       data: {
@@ -153,10 +162,10 @@ describe('useCharacterReferences route ownership', () => {
         useCharacterReferences(projectId, characterId),
       {initialProps: {projectId: 'project-a', characterId: 'character-a'}},
     );
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(result.current.state?.character.character_id).toBe('character-a');
     });
+    jest.useFakeTimers();
     await act(async () => {
       await result.current.generate('portrait');
     });

@@ -6,6 +6,13 @@ import {newReferenceIdempotencyKey, referenceApi} from '../api/referenceApi';
 import VisualReferenceCreatePage from './VisualReferenceCreatePage';
 
 jest.mock('../api/referenceApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  GenerationCostPreview: () => null,
+  runGenerationWithCredits: (
+    intent: {modelKey?: string},
+    operation: (estimate: unknown) => unknown,
+  ) => operation({modelKey: intent.modelKey ?? 'gemini-flash-image', routingMode: 'manual'}),
+}));
 jest.mock('../components/ReferenceLibraryShell', () => ({
   __esModule: true,
   default: ({children}: {children: React.ReactNode}) => <>{children}</>,

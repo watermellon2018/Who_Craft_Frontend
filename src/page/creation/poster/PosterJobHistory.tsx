@@ -13,6 +13,8 @@ import type {
     PosterVariant,
 } from '../../../api/posters';
 import {getApiErrorMessage} from '../../../api/errors';
+import {notifyCreditBalanceUpdated} from '../../../modules/credits/api/creditApi';
+import GenerationBillingSummary from '../../../modules/credits/components/GenerationBillingSummary';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -56,6 +58,7 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
     const [actionJobId, setActionJobId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const previewedJobIds = useRef(new Set<number>());
+    const settledCreditJobIds = useRef(new Set<number>());
     const loadSequenceRef = useRef(0);
 
     const publishLatestVariant = useCallback(async (nextJobs: PosterJob[], alive?: () => boolean) => {
@@ -86,6 +89,17 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
             const response = await listPosterJobs(projectId);
             if (isStale()) return;
             const nextJobs = response.data.jobs ?? [];
+            let hasNewSettlement = false;
+            nextJobs.forEach((job) => {
+                if (
+                    ['completed', 'failed', 'cancelled'].includes(job.status)
+                    && !settledCreditJobIds.current.has(job.id)
+                ) {
+                    settledCreditJobIds.current.add(job.id);
+                    hasNewSettlement = true;
+                }
+            });
+            if (hasNewSettlement) notifyCreditBalanceUpdated();
             setJobs(nextJobs);
             setError(null);
             await publishLatestVariant(nextJobs, () => !isStale());
@@ -137,7 +151,6 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
         loadSequenceRef.current += 1;
         setActionJobId(sourceJob.id);
         setError(null);
-        setJobs((current) => upsertJob(current, {...sourceJob, status: 'cancellation_requested'}));
         try {
             const response = await requestPosterJobCancellation(projectId, sourceJob.id);
             loadSequenceRef.current += 1;
@@ -189,13 +202,18 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
                                         {busy ? 'Запускаем…' : 'Повторить'}
                                     </button>
                                 )}
-                                {(job.status === 'queued' || job.status === 'processing') && (
+                                {job.status === 'queued' && (
                                     <button disabled={busy} onClick={() => void requestCancellation(job)} type="button">
-                                        {busy ? 'Запрашиваем…' : 'Запросить отмену'}
+                                        {busy ? 'Отменяем…' : 'Отменить генерацию'}
                                     </button>
                                 )}
                             </div>
                         </div>
+                        {job.status === 'processing' && (
+                            <p style={{color: '#94A3B8', fontSize: 11, lineHeight: 1.45, margin: 0}}>
+                                Генерация уже запущена, отменить её нельзя.
+                            </p>
+                        )}
                         {job.status === 'cancellation_requested' && (
                             <p style={{color: '#94A3B8', fontSize: 11, lineHeight: 1.45, margin: 0}}>
                                 Уже начатая генерация может завершиться, но результат не будет применён.
@@ -204,6 +222,7 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
                         {job.status === 'failed' && job.errorMessage && (
                             <p style={{color: '#EF4444', fontSize: 11, margin: 0}}>{job.errorMessage}</p>
                         )}
+                        <GenerationBillingSummary billing={job.billing} compact />
                     </div>
                 );
             })}

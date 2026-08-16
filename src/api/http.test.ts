@@ -75,6 +75,17 @@ describe('token persistence', () => {
         expect(localStorage.getItem('authToken')).toBeNull();
         expect(getStoredUserToken()).toBe('access');
     });
+
+    it('purges userId storage without authenticating or migrating it', () => {
+        localStorage.setItem('userId', 'retired-access');
+        sessionStorage.setItem('userId', 'retired-session-access');
+
+        expect(getStoredUserToken()).toBeNull();
+        expect(getStoredRefreshToken()).toBeNull();
+        expect(localStorage.getItem('authToken')).toBeNull();
+        expect(localStorage.getItem('userId')).toBeNull();
+        expect(sessionStorage.getItem('userId')).toBeNull();
+    });
 });
 
 describe('auth refresh lifecycle', () => {

@@ -2,10 +2,10 @@
   text-align: center;
 }
 .p-treenode-label {
-  color: white;
+  color: var(--craft-text);
 }
 .p-tree-toggler {
-  color: white;
+  color: var(--craft-text);
 }
 
 .p-tree-container {
@@ -13,7 +13,7 @@
 }
 
 .ant-layout-sider {
-  background-color: rgb(27, 29, 34) !important;
+  background-color: var(--craft-bg-elevated) !important;
 }
 
 .p-tree-toggler {

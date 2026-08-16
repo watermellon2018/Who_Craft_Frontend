@@ -8,6 +8,7 @@ import type {
   MusicReferenceAsset,
   MusicSceneOption,
 } from '../types';
+import {GenerationCostPreview} from '../../credits/components/GenerationCostGuard';
 
 export type MusicCreationMode = 'ai' | 'upload';
 
@@ -150,16 +151,24 @@ export default function MusicCreationSummary({
 
       <div className="music-summary__action">
         {mode === 'ai' ? (
-          <Button
-            block
-            type="primary"
-            size="large"
-            disabled={!canGenerate || generateDisabled}
-            loading={submitting}
-            onClick={onGenerate}
-          >
-            {t('musicStudio.create.generate', {count: variantCount})}
-          </Button>
+          <>
+            <Button
+              block
+              type="primary"
+              size="large"
+              disabled={!canGenerate || generateDisabled}
+              loading={submitting}
+              onClick={onGenerate}
+            >
+              {t('musicStudio.create.generate', {count: variantCount})}
+            </Button>
+            <GenerationCostPreview intent={{
+              domain: 'music',
+              operation: 'generate',
+              variantCount,
+              promptLength: JSON.stringify(brief).length,
+            }} />
+          </>
         ) : (
           <Button block type="primary" size="large" disabled>
             {t('musicStudio.upload.addToLibrary')}

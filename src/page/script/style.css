@@ -1,15 +1,13 @@
 .script-workspace {
   --script-amber: #f5a623;
   --script-amber-soft: #ffc15a;
-  --script-bg: #08131c;
-  --script-panel: #0d1b26;
-  --script-panel-2: #11222e;
-  --script-border: rgba(164, 190, 207, 0.18);
-  --script-muted: #8b9aa6;
-  --script-text: #edf2f4;
-  background:
-    radial-gradient(circle at 48% 0%, rgba(32, 67, 86, 0.24), transparent 32%),
-    var(--script-bg);
+  --script-bg: var(--craft-bg-deep);
+  --script-panel: var(--craft-surface);
+  --script-panel-2: var(--craft-surface-raised);
+  --script-border: var(--craft-border-subtle);
+  --script-muted: var(--craft-text-muted);
+  --script-text: var(--craft-text);
+  background: var(--craft-feature-gradient);
   color: var(--script-text);
   display: grid;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -55,7 +53,7 @@
 
 .script-topbar {
   align-items: center;
-  background: rgba(7, 17, 25, 0.95);
+  background: var(--craft-overlay-raised);
   border-bottom: 1px solid var(--script-border);
   display: grid;
   grid-column: 1 / -1;
@@ -344,7 +342,7 @@
 .script-field textarea,
 .script-field select,
 .script-number-input {
-  background: #0a1720;
+  background: var(--craft-field);
   border: 1px solid rgba(157, 181, 194, 0.3);
   border-radius: 6px;
   color: #e9eef1;
@@ -376,7 +374,7 @@
 .script-muted { color: var(--script-muted); font-size: 12px; }
 
 .screenplay-layout { grid-template-columns: 250px minmax(480px, 1fr) 360px; }
-.scene-navigator { background: rgba(9, 23, 32, 0.86); border-right: 1px solid var(--script-border); min-height: 0; overflow-y: auto; }
+.scene-navigator { background: var(--craft-overlay); border-right: 1px solid var(--script-border); min-height: 0; overflow-y: auto; }
 .scene-navigator__header { align-items: center; display: flex; justify-content: space-between; padding: 21px 17px 15px; }
 .scene-navigator__header h2 { font-size: 18px; margin: 4px 0 0; }
 .scene-navigator__header > button { background: transparent; border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 6px; color: var(--script-amber); cursor: pointer; height: 32px; width: 32px; }
@@ -411,7 +409,7 @@
 .screenplay-block--sound textarea,
 .screenplay-block--note textarea { color: #6a6257; font-style: italic; }
 .screenplay-paper__empty { border: 1px dashed #c5bba9; color: #968d80; padding: 45px 20px; text-align: center; }
-.block-toolbar { background: rgba(9, 22, 30, 0.96); border: 1px solid var(--script-border); border-radius: 9px; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin: 20px auto 0; max-width: 720px; padding: 7px; position: relative; width: fit-content; z-index: 5; }
+.block-toolbar { background: var(--craft-overlay-raised); border: 1px solid var(--script-border); border-radius: 9px; display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin: 20px auto 0; max-width: 720px; padding: 7px; position: relative; width: fit-content; z-index: 5; }
 .block-toolbar button { background: transparent; border: 0; border-radius: 5px; color: #aab5bc; cursor: pointer; font-size: 10px; padding: 7px 8px; }
 .block-toolbar button:hover { background: rgba(245, 166, 35, 0.1); color: var(--script-amber); }
 .script-center-empty { align-content: center; display: grid; height: 100%; justify-items: center; padding: 30px; text-align: center; }
@@ -574,7 +572,7 @@
 .locations-placeholder__orb--one { background: #265f68; height: 360px; left: 12%; top: 8%; width: 360px; }
 .locations-placeholder__orb--two { background: #6b4b25; bottom: 0; height: 300px; right: 12%; width: 300px; }
 
-.script-state-page { align-content: center; background: radial-gradient(circle at 50% 25%, #16303f, #08131c 58%); color: #edf2f4; display: grid; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; justify-items: center; min-height: 100vh; padding: 30px; text-align: center; }
+.script-state-page { align-content: center; background: var(--craft-feature-gradient); color: var(--craft-text); display: grid; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; justify-items: center; min-height: 100vh; padding: 30px; text-align: center; }
 .script-state-page > .anticon { color: #f5a623; font-size: 48px; }
 .script-state-page h1 { margin: 22px 0 7px; }
 .script-state-page p { color: #8b9aa6; margin: 0 0 22px; }

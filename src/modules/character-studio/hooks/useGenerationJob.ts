@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
+import {notifyCreditBalanceUpdated} from '../../credits/api/creditApi';
 import {characterApi} from '../api/characterApi';
 import {isGenerationJobActive, isGenerationJobTerminal} from '../types/character.types';
 import type {GenerationJob} from '../types/character.types';
@@ -75,6 +76,7 @@ export function useGenerationJob(
         }
         setState({...initialState(requestKey), job: data});
         if (isGenerationJobTerminal(data.status)) {
+          notifyCreditBalanceUpdated();
           stopPolling();
         } else {
           timeoutId = window.setTimeout(() => void load(), 3000);

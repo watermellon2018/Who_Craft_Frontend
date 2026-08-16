@@ -77,7 +77,7 @@ export interface MusicLibraryItem {
   activeVersion: MusicTrackVersionSummary | null;
   author: string;
   id: number;
-  source?: 'generated' | 'legacy' | 'manual';
+  source: 'generated' | 'manual';
   status: 'active' | 'archived';
   tags: string[];
   title: string;
@@ -199,6 +199,7 @@ export interface MusicVariant {
 }
 
 export interface MusicGenerationJob {
+  billing?: GenerationBilling | null;
   attempts: number;
   brief: MusicBrief;
   canCancel: boolean;
@@ -282,3 +283,4 @@ export interface MusicAssignmentsResponse {
 export function isMusicJobTerminal(status: MusicJobStatus): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
 }
+import type {GenerationBilling} from '../../api/generated/contracts';

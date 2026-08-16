@@ -5,6 +5,7 @@ import {useTranslation} from 'react-i18next';
 
 import {referenceJobErrorMessage} from '../errors';
 import type {ReferenceGenerationJob} from '../types';
+import GenerationBillingSummary from '../../credits/components/GenerationBillingSummary';
 
 interface ReferenceJobStateProps {
   actionLoading?: boolean;
@@ -23,20 +24,28 @@ export default function ReferenceJobState({
   const terminal = job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled';
   if (job.status === 'failed') {
     return (
-      <Result
-        status="error"
-        title={t('referenceLibrary.job.failed')}
-        subTitle={referenceJobErrorMessage(job.error?.code)}
-        extra={job.canRetry ? (
-          <Button icon={<ReloadOutlined />} loading={actionLoading} onClick={onRetry}>
-            {t('referenceLibrary.job.retry')}
-          </Button>
-        ) : undefined}
-      />
+      <>
+        <Result
+          status="error"
+          title={t('referenceLibrary.job.failed')}
+          subTitle={referenceJobErrorMessage(job.error?.code)}
+          extra={job.canRetry ? (
+            <Button icon={<ReloadOutlined />} loading={actionLoading} onClick={onRetry}>
+              {t('referenceLibrary.job.retry')}
+            </Button>
+          ) : undefined}
+        />
+        <GenerationBillingSummary billing={job.billing} />
+      </>
     );
   }
   if (job.status === 'cancelled') {
-    return <Result status="warning" title={t('referenceLibrary.job.cancelled')} />;
+    return (
+      <>
+        <Result status="warning" title={t('referenceLibrary.job.cancelled')} />
+        <GenerationBillingSummary billing={job.billing} />
+      </>
+    );
   }
   return (
     <section className="reference-card-panel reference-job-state" aria-live="polite">
@@ -49,7 +58,9 @@ export default function ReferenceJobState({
         <Tag color={terminal ? 'success' : 'processing'}>{t(`referenceLibrary.job.stage.${job.stage}`)}</Tag>
       </div>
       <Progress percent={Math.max(0, Math.min(100, job.progress))} status={terminal ? 'success' : 'active'} />
-      {job.canCancel && (
+      <GenerationBillingSummary billing={job.billing} />
+      {job.status === 'processing' && <p>{t('referenceLibrary.job.cancelUnavailable')}</p>}
+      {job.status === 'queued' && job.canCancel && (
         <Button danger icon={<CloseOutlined />} loading={actionLoading} onClick={onCancel}>
           {t('referenceLibrary.job.cancel')}
         </Button>

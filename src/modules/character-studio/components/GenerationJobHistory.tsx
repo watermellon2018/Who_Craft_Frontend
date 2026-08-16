@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {getApiErrorMessage} from '../../../api/errors';
+import GenerationBillingSummary from '../../credits/components/GenerationBillingSummary';
 import {characterApi} from '../api/characterApi';
 import {isGenerationJobActive} from '../types/character.types';
 import type {GenerationJob} from '../types/character.types';
@@ -168,7 +169,6 @@ export default function GenerationJobHistory({
     loadSequenceRef.current += 1;
     setActionJobId(sourceJob.job_id);
     setError(null);
-    setJobs((current) => upsertJob(current, {...sourceJob, status: 'cancellation_requested'}));
     try {
       const response = await characterApi.requestGenerationJobCancellation(sourceJob.job_id);
       loadSequenceRef.current += 1;
@@ -222,12 +222,17 @@ export default function GenerationJobHistory({
                       {busy ? 'Запускаем…' : 'Повторить'}
                     </button>
                   )}
-                  {(job.status === 'queued' || job.status === 'processing') && (
+                  {job.status === 'queued' && (
                     <button disabled={busy} onClick={() => void requestCancellation(job)} type="button">
-                      {busy ? 'Запрашиваем…' : 'Запросить отмену'}
+                      {busy ? 'Отменяем…' : 'Отменить генерацию'}
                     </button>
                   )}
                 </div>
+                {job.status === 'processing' && (
+                  <p className="generation-history__notice">
+                    Генерация уже запущена, отменить её нельзя.
+                  </p>
+                )}
                 {job.status === 'cancellation_requested' && (
                   <p className="generation-history__notice">
                     Уже начатая генерация может завершиться, но результат не будет применён.
@@ -236,6 +241,7 @@ export default function GenerationJobHistory({
                 {job.status === 'failed' && (
                   <p className="generation-history__notice generation-history__notice--error">{publicFailureMessage(job)}</p>
                 )}
+                <GenerationBillingSummary billing={job.billing} compact />
               </div>
             );
           })}

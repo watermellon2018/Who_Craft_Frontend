@@ -220,7 +220,7 @@ const SubscriptionsPage: React.FC = () => {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#0d1016' }}>
+    <div className="profile-theme-page flex h-screen overflow-hidden">
       <ProfileSidebar
         mobileOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

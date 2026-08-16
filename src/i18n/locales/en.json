@@ -23,6 +23,170 @@
     "select": "Select",
     "refresh": "Refresh"
   },
+  "credits": {
+    "pageTitle": "Craft wallet",
+    "subtitle": "One balance for generation and transfers inside Craft.",
+    "openWallet": "Open Craft wallet",
+    "balance": "Balance",
+    "balanceUnavailable": "Balance is temporarily unavailable",
+    "balanceDetails": "Balance details",
+    "available": "Available",
+    "reserved": "Reserved",
+    "total": "Total",
+    "units": "credits",
+    "availableHint": "Available to spend or transfer",
+    "reservedHint": "Held for operations in progress",
+    "totalHint": "Available and reserved credits",
+    "amount": "Amount in credits",
+    "processing": "Processing...",
+    "stats": {
+      "eyebrow": "STATISTICS",
+      "title": "Movement over {{days}} days",
+      "received": "Received",
+      "sent": "Sent",
+      "spent": "Spent",
+      "refunded": "Refunded"
+    },
+    "topUp": {
+      "eyebrow": "BALANCE",
+      "demoBadge": "DEMO",
+      "title": "Balance top-up",
+      "description": "A test top-up without a bank or payment processor. Available in demo mode only.",
+      "submit": "Add credits",
+      "presets": "Quick amount selection",
+      "success": "Added {{amount}} credits."
+    },
+    "transfer": {
+      "title": "Administrative transfer",
+      "description": "Move available credits between two users. The operation is recorded in the audit trail.",
+      "sender": "Sender login",
+      "senderPlaceholder": "Wallet to debit",
+      "recipient": "Recipient login",
+      "recipientPlaceholder": "Exact Craft login",
+      "reason": "Transfer reason",
+      "reasonPlaceholder": "For example, moving credits between teammates",
+      "submit": "Send credits",
+      "hint": "Staff only. Reserved credits cannot be transferred, and frozen wallets cannot send or receive credits.",
+      "limits": "Limit: {{perTransfer}} C per transfer, {{day}} C and {{count}} operations per 24 hours.",
+      "success": "Transferred {{amount}} credits: @{{sender}} → @{{recipient}}."
+    },
+    "history": {
+      "eyebrow": "ACTIVITY",
+      "title": "Balance history",
+      "filter": "Operation type",
+      "all": "All operations",
+      "empty": "No operations yet.",
+      "counterparty": "User @{{username}}",
+      "systemOperation": "Craft operation",
+      "loadMore": "Show more"
+    },
+    "operations": {
+      "demo_top_up": "Demo top-up",
+      "transfer_out": "Outgoing transfer",
+      "transfer_in": "Incoming transfer",
+      "reserve": "Reserved",
+      "capture": "Generation charge",
+      "release": "Reservation released",
+      "refund": "Refund",
+      "adjustment": "Adjustment"
+    },
+    "generation": {
+      "confirmTitle": "Confirm generation",
+      "confirmDescription": "This amount will be temporarily reserved in your wallet before the job starts.",
+      "estimatedCost": "Estimated cost",
+      "maxWithFallback": "Maximum with fallback route",
+      "routingMode": "Routing mode",
+      "fallbackRoute": "Primary model: {{primary}}. {{fallback}} is used if it is temporarily unavailable.",
+      "previewTitle": "Approximately {{amount}} credits",
+      "balanceAfterReserve": "Available after reservation",
+      "finalCostHint": "The final charge uses the provider's actual usage report. Any unused reservation returns to your balance.",
+      "confirm": "Start generation",
+      "insufficientTitle": "Not enough credits",
+      "insufficientDescription": "About {{required}} C is required; {{available}} C is currently available.",
+      "estimateErrorTitle": "Could not estimate cost",
+      "estimateError": "The selected model's provider price is temporarily unavailable."
+    },
+    "routing": {
+      "eyebrow": "ROUTING",
+      "title": "How to select a model",
+      "description": "Craft can select a configured provider and one fallback route based on your priority.",
+      "saved": "Routing mode saved.",
+      "priceGuard": "The maximum reservation is shown before launch. Automatic routing never charges more than the confirmed amount.",
+      "modes": {
+        "manual": {"title": "Manual", "description": "Use the model selected on the generation screen."},
+        "economy": {"title": "Lower cost", "description": "Try the model with the lowest estimated cost first."},
+        "fast": {"title": "Faster", "description": "Prioritize models with a shorter expected response time."},
+        "balanced": {"title": "Balanced", "description": "Balance speed, quality and cost."},
+        "quality": {"title": "Best quality", "description": "Try the model with the best expected quality first."}
+      }
+    },
+    "billing": {
+      "final": "Final cost:",
+      "reserved": "Reserved:",
+      "fallbackUsed": "Fallback provider used"
+    },
+    "frozen": {
+      "title": "Wallet frozen.",
+      "badge": "Frozen",
+      "description": "New charges, top-ups and transfers are temporarily unavailable.",
+      "generation": "New generation is unavailable until an administrator unfreezes the wallet."
+    },
+    "lowBalance": "Your balance is below {{threshold}} C. Add demo credits to avoid interrupted generation.",
+    "spending": {
+      "eyebrow": "GENERATION SPENDING",
+      "title": "Where credits went",
+      "period": "Period",
+      "days": "{{days}} days",
+      "total": "Charged",
+      "jobs": "Jobs: {{count}}",
+      "byType": "By type",
+      "byProject": "By project",
+      "noProject": "No project",
+      "domains": {"character": "Characters", "poster": "Posters", "reference": "References", "music": "Music", "model3d": "3D models"}
+    },
+    "budgets": {
+      "eyebrow": "PROJECT LIMITS",
+      "title": "Generation budgets",
+      "description": "Set a lifetime project spending limit. Users still pay from their own wallets, while every project generation counts toward the same limit.",
+      "empty": "You do not own any projects that can have a budget yet.",
+      "unlimited": "No limit",
+      "unlimitedPlaceholder": "Empty means no limit",
+      "limit": "Maximum budget",
+      "limitValue": "Limit {{amount}} C",
+      "spent": "Spent",
+      "remaining": "Remaining",
+      "overLimit": "Limit exceeded",
+      "save": "Save",
+      "hint": "Leave the field empty to remove the limit. Active reservations also reduce the remaining budget.",
+      "success": "Budget for “{{project}}” saved.",
+      "validation": "Enter a non-negative amount with no more than two decimal places, or leave the field empty.",
+      "error": "Could not save the project budget."
+    },
+    "admin": {
+      "title": "Wallet administration",
+      "description": "Freezing controls your own wallet, while transfers let staff move credits between users. Every action is recorded in the audit trail.",
+      "reason": "Operation reason",
+      "reasonPlaceholder": "Briefly explain why",
+      "success": {"freeze": "Your wallet is frozen.", "unfreeze": "Your wallet is active again."},
+      "validation": "Enter a reason for the operation.",
+      "error": "Could not complete the administrative operation.",
+      "walletState": {
+        "activeTitle": "Your wallet is active",
+        "activeDescription": "Freezing blocks new generations, demo top-ups, and sending or receiving transfers.",
+        "frozenTitle": "Your wallet is frozen",
+        "frozenDescription": "Unfreeze it to allow generations, top-ups, and transfers again."
+      },
+      "actions": {"freeze": "Freeze my wallet", "unfreeze": "Unfreeze my wallet", "transfer": "Administrative transfer"}
+    },
+    "errors": {
+      "load": "Could not load the wallet.",
+      "history": "Could not load the history.",
+      "invalidAmount": "Enter a positive amount with no more than two decimal places.",
+      "transferFields": "Enter sender and recipient logins, a valid amount, and a reason.",
+      "topUp": "Could not add demo credits.",
+      "transfer": "Could not transfer credits."
+    }
+  },
   "auth": {
     "login": {
       "title": "Welcome back",
@@ -70,6 +234,18 @@
   "profile": {
     "settings": {
       "title": "⚙️ Settings",
+      "theme": {
+        "title": "Color theme",
+        "description": "Choose the interface appearance. It will be saved in this browser.",
+        "light": "Light",
+        "blue": "Blue",
+        "dark": "Dark"
+      },
+      "wallet": {
+        "title": "Craft Wallet",
+        "description": "Balance, spending, and project limits",
+        "open": "Open Craft Wallet"
+      },
       "language": "Interface language",
       "privateAccount": "Private account",
       "notifications": "Notifications",
@@ -141,7 +317,7 @@
       "title": "Characters",
       "treeTitle": "Characters tree",
       "renameAction": "Rename",
-      "removeFromTreeAction": "Remove from tree",
+      "deleteAction": "Delete",
       "openTree": "Open tree",
       "closeTree": "Close tree",
       "createFolder": "Create folder",
@@ -149,11 +325,15 @@
       "loadError": "Could not refresh the character tree",
       "openTreeAria": "Open characters tree",
       "closeTreeAria": "Close characters tree",
-      "confirmDeleteCharacter": "Are you sure you want to delete the character \"{{name}}\"?",
-      "confirmDeleteFolder": "Are you sure you want to delete \"{{name}}\"?",
-      "deletionWarning": "The selected item and nested characters will be deleted.",
+      "confirmDeleteCharacter": "Delete the character \"{{name}}\"?",
+      "confirmDeleteCharacterDescription": "This permanently deletes the character and removes it from the tree.",
+      "confirmDeleteFolder": "Delete the folder \"{{name}}\"?",
+      "confirmDeleteFolderDescription": "Characters in this folder will be kept and will appear at the top level.",
+      "confirmDeleteMixed": "Delete the selected items?",
+      "confirmDeleteMixedDescription": "Selected characters will be permanently deleted. Selected folders will be removed, but the characters inside them will be kept at the top level.",
       "renameError": "Could not rename the tree item",
       "deleteError": "Could not delete the tree item",
+      "deletePartialError": "Some items could not be deleted. The character tree has been refreshed.",
       "createFolderError": "Could not create the folder",
       "reloadError": "Could not refresh the character tree",
       "createCharacterError": "Could not create the character",
@@ -365,6 +545,11 @@
       "typicalTime": "This usually takes 10–30 seconds. You can switch sections — generation will continue in the background.",
       "generationError": "Generation error",
       "tryAgain": "Try creating the character again.",
+      "providerBlocked": "The provider rejected this request under its safety rules. Edit the parameters or choose another model.",
+      "childGenerationBlocked": "This model does not support generating characters of the specified age.",
+      "childModelRecommendations": "For a safe depiction of a fictional child, you can try these available OpenAI GPT Image models:",
+      "childModelDisclaimer": "These suggestions do not guarantee a result or bypass the provider's safety filters.",
+      "retryWithModel": "Try {{model}}",
       "noVariants": "No variants were generated",
       "securityCheckFailed": "Character parameters may have failed the safety check.",
       "selectVariant": "Pick a character variant",
@@ -388,7 +573,24 @@
       "selectedPrefix": "Selected:",
       "applying": "Saving…",
       "continue": "Continue",
-      "continueHint": "You will be taken to the character editor"
+      "continueHint": "You will be taken to the character editor",
+      "secondaryGeneration": {
+        "title": "Create additional images?",
+        "description": "The portrait is ready. Choose which additional images to create after saving it.",
+        "chooseAssets": "Additional images",
+        "assets": {
+          "full_body": "Full body",
+          "scene": "In a scene"
+        },
+        "total": "Total for selected images",
+        "costHint": "The cost applies only to the selected additional images. Saving the portrait does not start a new generation.",
+        "costUnavailable": "Cost unavailable",
+        "estimating": "Calculating the cost of the additional images…",
+        "estimateUnavailable": "The cost could not be calculated. You can still save the portrait without additional generations.",
+        "portraitSavedGenerationFailed": "The portrait was saved, but the additional images were not started. Retry or save the portrait only.",
+        "saveOnly": "Save portrait only",
+        "saveAndGenerate": "Save and generate"
+      }
     },
     "variant": {
       "label": "Variant {{index}}",
@@ -537,7 +739,7 @@
       "empty": "No tracks yet. Create or upload the first one.",
       "emptyArchived": "There are no archived tracks",
       "usage": "Scenes: {{count}}",
-      "source": {"ai": "AI", "uploaded": "Uploaded", "legacy": "Previously added"}
+      "source": {"ai": "AI", "uploaded": "Uploaded"}
     },
     "history": {"title": "History", "count": "Jobs: {{count}}", "empty": "Generation history is empty"},
     "create": {
@@ -691,7 +893,8 @@
       "failed": "Could not create the track",
       "checkBrief": "Check the music brief",
       "cancelled": "Generation was cancelled",
-      "cancel": "Cancel",
+      "cancel": "Cancel generation",
+      "cancelUnavailable": "Generation has already started and can no longer be cancelled.",
       "retry": "Retry",
       "status": {"queued": "Queued", "processing": "Generating", "cancellation_requested": "Stopping", "completed": "Ready", "failed": "Failed", "cancelled": "Cancelled"},
       "stage": {"queued": "Waiting for a worker", "reference_validation": "Checking the audio reference", "generating": "Generating audio", "finalized": "Ready"}
@@ -761,7 +964,7 @@
       "save": "Save new version",
       "saving": "Saving a new version",
       "duration": "Duration {{duration}}",
-      "source": {"ai": "Created with AI", "uploaded": "Uploaded", "localDraft": "Local draft", "legacy": "Previously added"},
+      "source": {"ai": "Created with AI", "uploaded": "Uploaded", "localDraft": "Local draft"},
       "undo": "Undo action",
       "redo": "Redo action",
       "tools": {"label": "Editing tools", "select": "Selection", "trim": "Trim to selection", "split": "Split at playhead", "delete": "Delete selection", "fadeIn": "Fade in", "fadeOut": "Fade out", "volume": "Selection volume", "zoomIn": "Zoom in", "zoomOut": "Zoom out"},
@@ -875,9 +1078,9 @@
     "form": {"heading": "Properties and visual brief", "helper": "Description and distinctive details help preserve visual continuity.", "title": "Title", "category": "Category", "description": "Description", "materials": "Materials, comma separated", "palette": "Color palette, comma separated", "condition": "Condition", "scale": "Size and scale", "features": "Distinctive features, comma separated", "continuity": "Continuity notes", "tags": "Tags, comma separated", "aspectRatio": "Aspect ratio"},
     "upload": {"title": "Upload a finished image", "helper": "JPEG, PNG, or WebP up to {{maxMb}} MB. The file is stored as a new immutable version.", "choose": "Choose an image", "rights": "I confirm I have the right to use and store this image in the project", "action": "Upload and make active", "success": "The image was uploaded and is now the active version"},
     "generate": {"title": "Generate variants", "helper": "Generation continues in the background even if you leave this page.", "new": "New generation", "edit": "Edit active version", "editInstruction": "What should be changed", "variantCount": "Number of variants", "action": "Generate {{count}} variants"},
-    "job": {"title": "Generation job", "working": "Creating variants. You can leave this page — the work will continue.", "completedHelper": "Variants are ready. Choose the image that should become the active version.", "failed": "Could not create an image", "cancelled": "Generation cancelled", "cancel": "Cancel", "retry": "Retry", "status": {"queued": "Job queued", "processing": "Creating variants", "cancellation_requested": "Stopping generation", "completed": "Variants ready", "failed": "Generation failed", "cancelled": "Cancelled"}, "stage": {"queued": "Queued", "compiling": "Compiling brief", "generating": "Creating image", "validating": "Validating result", "storing": "Saving variants", "finalized": "Ready", "failed": "Failed", "cancelled": "Cancelled"}},
+    "job": {"title": "Generation job", "working": "Creating variants. You can leave this page — the work will continue.", "completedHelper": "Variants are ready. Choose the image that should become the active version.", "failed": "Could not create an image", "cancelled": "Generation cancelled", "cancel": "Cancel generation", "cancelUnavailable": "Generation has already started and can no longer be cancelled.", "retry": "Retry", "status": {"queued": "Job queued", "processing": "Creating variants", "cancellation_requested": "Stopping generation", "completed": "Variants ready", "failed": "Generation failed", "cancelled": "Cancelled"}, "stage": {"queued": "Queued", "compiling": "Compiling brief", "generating": "Creating image", "validating": "Validating result", "storing": "Saving variants", "finalized": "Ready", "failed": "Failed", "cancelled": "Cancelled"}},
     "variants": {"title": "Variants", "helper": "Selecting a card changes nothing until you explicitly apply the variant.", "item": "Variant {{number}}", "alt": "Generated variant {{number}}", "apply": "Make active version", "applyConfirmTitle": "Apply the selected variant?", "applyConfirmDescription": "A new immutable version will be created. Existing scenes remain pinned to their previous versions.", "applied": "Active version updated: v{{version}}"},
-    "versions": {"title": "Version history", "helper": "Versions are immutable; scenes preserve the version selected earlier.", "empty": "No versions yet", "active": "Active", "open": "Open", "origin": {"upload": "Uploaded", "generated": "AI generated", "edit": "AI edited", "legacy": "Imported"}},
+    "versions": {"title": "Version history", "helper": "Versions are immutable; scenes preserve the version selected earlier.", "empty": "No versions yet", "active": "Active", "open": "Open", "origin": {"upload": "Uploaded", "generated": "AI generated", "edit": "AI edited"}},
     "archive": {"title": "Archive this reference?", "description": "It will leave the main library, while versions and existing scene assignments remain available.", "action": "Archive", "restoreTitle": "Restore this reference?", "restoreDescription": "It will become available in the main library again.", "restore": "Restore"},
     "validation": {"title": "Enter a reference title", "titleLength": "The title must not exceed 255 characters", "primaryImage": "Select a primary image before saving", "generateDescription": "Add a description before generation", "editInstruction": "Describe what should change in the active version", "saveBeforeMediaAction": "Save the reference changes before uploading or generating an image"},
     "unsaved": {"description": "This reference has unsaved changes. Leave the page?"},
@@ -898,6 +1101,7 @@
       "script": "Script",
       "music": "Music",
       "references": "Visual library",
+      "credits": "Craft wallet",
       "home": "Home"
     }
   }

@@ -123,18 +123,24 @@ export const musicApi = {
   setActiveVersion(
     projectId: ProjectId,
     trackId: number,
-    version: number,
+    expectedTrackVersion: number,
     activeVersionId: string,
   ) {
     return api.patch<MusicTrackDetail>(`${base(projectId)}/${trackId}/`, {
       activeVersionId,
-      version,
+      expectedTrackVersion,
     });
   },
   updateTrack(
     projectId: ProjectId,
     trackId: number,
-    payload: {author?: string; tags?: string[]; title?: string; version: number},
+    payload: {
+      author?: string;
+      durationSeconds?: number;
+      expectedTrackVersion: number;
+      tags?: string[];
+      title?: string;
+    },
   ) {
     return api.patch<MusicTrackDetail>(`${base(projectId)}/${trackId}/`, payload);
   },

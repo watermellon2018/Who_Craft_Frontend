@@ -116,8 +116,7 @@ function sourceLabelKey(track: MusicTrackDetail) {
   if (track.source === 'generated' || track.activeVersion?.provenance?.createdByAi) {
     return 'ai';
   }
-  if (track.source === 'manual') return 'uploaded';
-  return 'legacy';
+  return 'uploaded';
 }
 
 function waveformForDocument(
@@ -903,7 +902,7 @@ export default function AudioTrackEditorPage() {
                 setWaveformRevision((revision) => revision + 1);
                 return;
               }
-              const refreshKey = activeVersion.versionId ?? activeVersion.audioUrl ?? 'legacy';
+              const refreshKey = activeVersion.versionId ?? activeVersion.audioUrl ?? 'unversioned';
               if (signedUrlRefreshKeyRef.current !== refreshKey) {
                 signedUrlRefreshKeyRef.current = refreshKey;
                 setTrackRevision((revision) => revision + 1);

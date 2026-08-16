@@ -37,7 +37,7 @@
     "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
     "api:generate": "node scripts/generate-api-contracts.mjs",
     "api:check": "node scripts/generate-api-contracts.mjs --check",
-    "contract:test": "react-scripts test --watchAll=false --runInBand src/api/generation/characters/tree_structure.test.tsx src/api/errors.test.ts src/page/creation/projects/projectFormContract.test.ts src/modules/character-studio/pages/CharacterVariantsPage.test.tsx"
+    "contract:test": "react-scripts test --watchAll=false --runInBand src/api/generated/client.test.ts src/modules/credits/components/CreditBalanceBadge.test.tsx src/modules/credits/components/GenerationBillingSummary.test.tsx src/modules/credits/components/GenerationCostGuard.test.tsx src/modules/credits/pages/CreditWalletPage.test.tsx src/modules/character-studio/api/treeApi.test.ts src/modules/character-studio/components/CharacterTreeSidebar.test.tsx src/modules/character-studio/pages/CharacterVariantsPage.test.tsx src/api/errors.test.ts src/page/creation/projects/projectFormContract.test.ts src/App.test.tsx src/routes/pathConstant.reference.test.ts"
   },
   "jest": {
     "transformIgnorePatterns": [

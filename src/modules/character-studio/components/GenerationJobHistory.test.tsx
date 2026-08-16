@@ -15,40 +15,55 @@ const processingJob: GenerationJob = {
   progress: 35,
   variants: [],
 };
+const queuedJob: GenerationJob = {...processingJob, status: 'queued', progress: 0};
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockedApi.listGenerationJobs.mockResolvedValue({data: {jobs: [processingJob]}} as never);
 });
 
-test('requests cancellation without presenting the job as already cancelled', async () => {
+test('cancels a queued job immediately', async () => {
   mockedApi.requestGenerationJobCancellation.mockResolvedValue({
-    data: {...processingJob, status: 'cancellation_requested'},
+    data: {...queuedJob, status: 'cancelled'},
   } as never);
   mockedApi.listGenerationJobs
-    .mockResolvedValueOnce({data: {jobs: [processingJob]}} as never)
+    .mockResolvedValueOnce({data: {jobs: [queuedJob]}} as never)
     .mockResolvedValue({
-      data: {jobs: [{...processingJob, status: 'cancellation_requested'}]},
+      data: {jobs: [{...queuedJob, status: 'cancelled'}]},
     } as never);
 
   render(
     <GenerationJobHistory
       characterId="char-1"
-      currentJob={processingJob}
+      currentJob={queuedJob}
       currentJobId="job-1"
       projectId="project-1"
     />,
   );
 
   fireEvent.click(await screen.findByRole('button', {expanded: false}));
-  fireEvent.click(await screen.findByRole('button', {name: 'Запросить отмену'}));
+  fireEvent.click(await screen.findByRole('button', {name: 'Отменить генерацию'}));
 
   await waitFor(() => {
     expect(mockedApi.requestGenerationJobCancellation).toHaveBeenCalledWith('job-1');
-    expect(screen.getByText('Отмена запрошена')).toBeInTheDocument();
+    expect(screen.getByText('Отменено')).toBeInTheDocument();
   });
-  expect(screen.queryByText('Отменено')).not.toBeInTheDocument();
-  expect(screen.getByText(/результат не будет применён/i)).toBeInTheDocument();
+  expect(screen.queryByText('Отмена запрошена')).not.toBeInTheDocument();
+});
+
+test('does not offer cancellation after processing starts', async () => {
+  render(
+    <GenerationJobHistory
+      characterId="char-1"
+      currentJob={processingJob}
+      currentJobId="job-1"
+      defaultOpen
+      projectId="project-1"
+    />,
+  );
+
+  expect(await screen.findByText('Генерация уже запущена, отменить её нельзя.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', {name: 'Отменить генерацию'})).not.toBeInTheDocument();
 });
 
 test('retries a failed job and reports the new job id', async () => {

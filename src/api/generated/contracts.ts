@@ -9,6 +9,52 @@ export const API_CONSTRAINTS = {
   "projectPosterMaxBytes": 5242880
 } as const;
 
+export type CharacterSecondaryAssetType = "full_body" | "scene";
+
+export interface CharacterSecondaryAssetsQuoteRequest {
+  variant_id: string;
+  image_types: Array<CharacterSecondaryAssetType>;
+  image_model?: string | null;
+  routing_mode?: "manual" | "economy" | "fast" | "balanced" | "quality";
+}
+
+export interface CharacterSecondaryAssetQuoteItem {
+  image_type: CharacterSecondaryAssetType;
+  estimated_cost: CreditAmount;
+  reservation_amount: CreditAmount;
+  provider: string;
+  model_key: string;
+  model_name: string;
+  routing_mode: string;
+}
+
+export interface CharacterSecondaryAssetsQuote {
+  quote_token: string;
+  expires_in_seconds: number;
+  items: Array<CharacterSecondaryAssetQuoteItem>;
+  totals: { estimated_cost: CreditAmount; reservation_amount: CreditAmount; };
+  available_balance: CreditAmount;
+  sufficient_balance: boolean;
+  account_frozen: boolean;
+}
+
+export interface CharacterSecondaryAssetsGenerateRequest {
+  quote_token: string;
+}
+
+export interface CharacterSecondaryAssetJob {
+  job_id: string;
+  status: string;
+  image_type: CharacterSecondaryAssetType;
+  error_code: string;
+  error_message: string;
+}
+
+export interface CharacterSecondaryAssetsGenerateResponse {
+  jobs: Array<CharacterSecondaryAssetJob>;
+  total_reservation_amount: CreditAmount;
+}
+
 export interface ApiErrorDetail {
   code: string;
   message: string;
@@ -22,43 +68,245 @@ export interface ApiErrorEnvelope {
   errors?: Record<string, unknown>;
 }
 
+export type CreditAmount = string;
+
+export interface CreditAccount {
+  availableBalance: CreditAmount;
+  reservedBalance: CreditAmount;
+  totalBalance: CreditAmount;
+  isFrozen: boolean;
+  freezeReason: string;
+}
+
+export interface CreditStatistics {
+  periodDays: number;
+  received: CreditAmount;
+  sent: CreditAmount;
+  spent: CreditAmount;
+  refunded: CreditAmount;
+}
+
+export interface CreditCapabilities {
+  demoTopUpEnabled: boolean;
+  transfersEnabled: boolean;
+  adminWalletManagement: boolean;
+}
+
+export interface CreditAlerts {
+  lowBalance: boolean;
+  lowBalanceThreshold: CreditAmount;
+}
+
+export interface CreditTransferLimits {
+  perTransfer: CreditAmount;
+  rollingDay: CreditAmount;
+  rollingDayCount: number;
+}
+
+export interface CreditSummary {
+  account: CreditAccount;
+  stats: CreditStatistics;
+  capabilities: CreditCapabilities;
+  alerts: CreditAlerts;
+  transferLimits: CreditTransferLimits;
+}
+
+export type CreditOperationType = "demo_top_up" | "transfer_out" | "transfer_in" | "reserve" | "capture" | "release" | "refund" | "adjustment";
+
+export interface CreditCounterparty {
+  username: string;
+  displayName: string;
+}
+
+export interface CreditLedgerEntry {
+  id: string;
+  operationType: CreditOperationType;
+  availableDelta: CreditAmount;
+  reservedDelta: CreditAmount;
+  availableBalanceAfter: CreditAmount;
+  reservedBalanceAfter: CreditAmount;
+  correlationId: string;
+  counterparty: CreditCounterparty | null;
+  description: string;
+  createdAt: string;
+}
+
+export interface CreditHistoryPage {
+  items: Array<CreditLedgerEntry>;
+  total: number;
+  limit: number;
+  offset: number;
+  nextOffset: number | null;
+}
+
+export interface CreditDemoTopUpRequest {
+  amount: string;
+}
+
+export interface CreditMutationResponse {
+  account: CreditAccount;
+  transaction: CreditLedgerEntry;
+  replayed: boolean;
+}
+
+export interface CreditTransferRequest {
+  senderUsername: string;
+  recipientUsername: string;
+  amount: string;
+  reason: string;
+}
+
+export interface CreditTransfer {
+  id: string;
+  amount: CreditAmount;
+  sender: string;
+  recipient: CreditCounterparty;
+  note: string;
+  createdAt: string;
+}
+
+export interface CreditTransferResponse {
+  account: CreditAccount;
+  transfer: CreditTransfer;
+  auditEvent: CreditAdminAuditEvent;
+  replayed: boolean;
+}
+
+export interface ProjectCreditBudget {
+  projectId: number;
+  projectTitle: string;
+  limit: CreditAmount | null;
+  spent: CreditAmount;
+  reserved: CreditAmount;
+  remaining: CreditAmount | null;
+  overLimit: boolean;
+}
+
+export interface ProjectCreditBudgetList {
+  items: Array<ProjectCreditBudget>;
+}
+
+export interface ProjectCreditBudgetUpdateRequest {
+  limit: CreditAmount | null;
+}
+
+export interface CreditSpendingGroup {
+  domain?: string;
+  projectId?: number | null;
+  projectTitle?: string;
+  date?: string;
+  charged: CreditAmount;
+  jobCount: number;
+}
+
+export interface CreditSpendingStatistics {
+  periodDays: number;
+  totalCharged: CreditAmount;
+  jobCount: number;
+  byDomain: Array<CreditSpendingGroup>;
+  byProject: Array<CreditSpendingGroup>;
+  timeline: Array<CreditSpendingGroup>;
+}
+
+export interface CreditAdminOperationRequest {
+  action: "freeze" | "unfreeze";
+  reason: string;
+}
+
+export interface CreditAdminAuditEvent {
+  id: string;
+  eventType: "adjustment" | "refund" | "freeze" | "unfreeze" | "transfer";
+  amount: CreditAmount | null;
+  reason: string;
+  actor: string | null;
+  createdAt: string;
+}
+
+export interface CreditAdminOperationResponse {
+  account: CreditAccount;
+  auditEvent: CreditAdminAuditEvent;
+  replayed: boolean;
+}
+
+export interface CreditAdminAudit {
+  username: string;
+  account: CreditAccount;
+  items: Array<CreditAdminAuditEvent>;
+}
+
+export type GenerationRoutingMode = "manual" | "economy" | "fast" | "balanced" | "quality";
+
+export interface GenerationRouteCandidate {
+  modelKey: string;
+  modelName: string;
+  provider: string;
+  estimatedCost: CreditAmount;
+}
+
+export interface GenerationCostEstimateRequest {
+  domain: "character" | "poster" | "reference" | "music" | "model3d";
+  operation?: "generate" | "edit" | "reference";
+  modelKey?: string;
+  variantCount?: number;
+  promptLength?: number;
+  resolution?: "512" | "1K" | "2K" | "4K";
+  routingMode?: GenerationRoutingMode;
+}
+
+export interface GenerationCostEstimate {
+  domain: string;
+  operation: string;
+  provider: string;
+  modelKey: string;
+  modelName: string;
+  currency: "USD";
+  estimatedCost: CreditAmount;
+  reservationAmount: CreditAmount;
+  pricingSource: string;
+  costIsEstimate: boolean;
+  availableBalance: CreditAmount;
+  sufficientBalance: boolean;
+  accountFrozen: boolean;
+  routingMode: GenerationRoutingMode;
+  routingReason: string;
+  routeCandidates: Array<GenerationRouteCandidate>;
+}
+
+export interface GenerationBilling {
+  status: "reserved" | "captured" | "released";
+  currency: "USD";
+  estimatedCost: CreditAmount;
+  reservedAmount: CreditAmount;
+  actualCost: CreditAmount | null;
+  chargedAmount: CreditAmount;
+  uncoveredCost: CreditAmount;
+  costIsEstimate: boolean;
+  provider: string;
+  model: string;
+  operation: string;
+  routingMode: GenerationRoutingMode;
+  routingAttempts: Array<Record<string, unknown>>;
+}
+
 export interface CharacterTreeNode {
   id: string;
   key: string;
   name: string;
   is_folder: boolean;
-  character_id?: string | null;
-  legacy_hero_id?: number | null;
+  character_id: string | null;
   children?: Array<CharacterTreeNode>;
 }
 
 export interface CharacterTreeCreateRequest {
   id: string;
   name: string;
-  type: "leaf" | "node";
-  projectId: number | string;
-  parent?: string | null;
-  heroID?: number | null;
-  studioCharacterId?: string | null;
+  type: "folder" | "character";
+  parent_id?: string | null;
+  studio_character_id?: string | null;
 }
 
-export interface CharacterTreeRenameRequest {
-  id: string;
+export interface CharacterTreeUpdateRequest {
   name: string;
-}
-
-export interface CharacterTreeRenameResponse {
-  id: string;
-  name: string;
-  character_id?: string | null;
-}
-
-export interface CharacterTreeDeleteRequest {
-  id: string;
-}
-
-export interface DeleteResponse {
-  message: string;
 }
 
 export interface PosterGenerateRequest {
@@ -68,6 +316,7 @@ export interface PosterGenerateRequest {
   reference_image_url?: string;
   reference_image_asset_id?: number;
   image_model?: string;
+  routing_mode?: GenerationRoutingMode;
 }
 
 export type PosterGenerateMultipartRequest = PosterGenerateRequest & { reference_image?: File; };
@@ -81,11 +330,12 @@ export interface PosterOperationResponse {
   jobId?: number;
   status?: "queued" | "processing" | "completed" | "failed" | "cancelled";
   variants: Array<PosterVariant>;
+  billing?: GenerationBilling | null;
 }
 
 export interface ProjectMutationRequest {
   title?: string;
-  format?: string;
+  format?: "short_film" | "feature_film" | "series" | "clip" | "commercial" | "other";
   genre?: Array<string>;
   audience?: Array<string>;
   annotation?: string;
@@ -108,7 +358,7 @@ export interface ProjectMutationResponse {
   isFavorite?: boolean;
   tags?: Array<string>;
   stats?: Record<string, unknown>;
-  format?: string;
+  format?: "short_film" | "feature_film" | "series" | "clip" | "commercial" | "other";
   genre?: Array<string>;
   audience?: Array<string>;
   annotation?: string;
@@ -176,7 +426,6 @@ export interface MusicTrackVersion {
   createdAt?: string | null;
   createdById?: number | null;
   provenance?: Record<string, unknown>;
-  legacy?: boolean;
 }
 
 export interface MusicTrackSummary {
@@ -185,7 +434,7 @@ export interface MusicTrackSummary {
   author: string;
   tags: Array<string>;
   status: "active" | "archived";
-  source: "manual" | "generated" | "legacy";
+  source: "manual" | "generated";
   version: number;
   activeVersion: MusicTrackVersion | null;
   usageCount: number;
@@ -214,7 +463,7 @@ export interface DashboardMusicTrack {
   activeVersionNumber?: number | null;
   activeVersion: DashboardMusicTrackVersion | null;
   version: number;
-  source: "manual" | "generated" | "legacy";
+  source: "manual" | "generated";
   usageCount: number;
   usageLabel: string;
 }
@@ -226,18 +475,6 @@ export interface MusicTrackPage {
 }
 
 export type MusicTrackDetail = MusicTrackSummary & { versions: Array<MusicTrackVersion>; assignments: Array<MusicAssignment>; permissions: MusicPermissions; };
-
-export interface LegacyMusicTrackRequest {
-  title: string;
-  author?: string;
-  duration_seconds?: number;
-  tags?: Array<string>;
-}
-
-export interface LegacyMusicTrackResponse {
-  id: number;
-  title: string;
-}
 
 export interface MusicCapabilities {
   contentModes: Array<"instrumental" | "song">;
@@ -399,11 +636,10 @@ export interface MusicVariantApplyResponse {
 }
 
 export interface MusicTrackPatchRequest {
-  version?: number;
+  expectedTrackVersion: number;
   title?: string;
   author?: string;
   durationSeconds?: number;
-  duration_seconds?: number;
   tags?: Array<string>;
   activeVersionId?: string;
 }
@@ -490,7 +726,7 @@ export interface ReferenceCharacterLink {
 export interface ReferenceVersion {
   id: string;
   number: number;
-  origin: "upload" | "generated" | "edit" | "legacy";
+  origin: "upload" | "generated" | "edit";
   imageUrl: string | null;
   thumbnailUrl: string | null;
   provider: string | null;
@@ -532,6 +768,11 @@ export interface ReferencePage {
   page: number;
   pageSize: number;
   total: number;
+}
+
+export interface ReferenceLinkOptions {
+  characters: Array<{ id: string; name: string; }>;
+  locations: Array<{ id: number; name: string; }>;
 }
 
 export interface ReferenceCreateRequest {
@@ -590,6 +831,7 @@ export interface ReferenceGenerationCreateRequest {
   sourceVersionId?: string | null;
   variantCount: 1 | 2 | 4;
   imageModel?: string;
+  routingMode?: GenerationRoutingMode;
   brief?: ReferenceBrief;
   editInstruction?: string;
 }
@@ -621,6 +863,7 @@ export interface ReferenceGenerationJobSummary {
   attempts: number;
   canCancel: boolean;
   canRetry: boolean;
+  billing?: GenerationBilling | null;
   error: ReferenceGenerationError | null | null;
   createdAt: string;
   completedAt: string | null;

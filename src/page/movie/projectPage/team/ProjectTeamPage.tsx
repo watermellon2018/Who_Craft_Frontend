@@ -237,6 +237,7 @@ const ProjectTeamPage: React.FC = () => {
                 type="primary"
                 icon={<UserAddOutlined />}
                 onClick={() => setInviteOpen(true)}
+                className="craft-action-button team-invite-button"
               >
                 Пригласить
               </Button>

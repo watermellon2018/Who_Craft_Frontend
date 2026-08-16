@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
+import {getGenerationRoutingMode} from '../../credits/api/creditApi';
 import type {CharacterImageType, GenerationJob, StudioCharacter} from '../types/character.types';
 
 export type AssetJobStatus = 'idle' | 'queued' | 'processing' | 'cancellation_requested' | 'completed' | 'failed';
@@ -189,6 +190,7 @@ export function useCharacterAssetJobs(
           variant_count: 1,
           current_image_url: character.images?.portrait?.image_url || null,
           current_asset_id: character.images?.portrait?.asset_id || null,
+          routing_mode: getGenerationRoutingMode(),
         } as never,
         `${character.character_id}:${type}:${revisionId}`);
         if (activeOwnerKeyRef.current !== requestOwnerKey) return undefined;
