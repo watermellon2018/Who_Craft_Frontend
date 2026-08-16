@@ -148,38 +148,6 @@
   transform: scale(1);
 }
 
-.craft-theme-quick-switcher {
-  display: inline-flex;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 12px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--craft-text-soft);
-  border: 1px solid var(--craft-border-subtle);
-  border-radius: 999px;
-  background: var(--craft-surface-translucent);
-  cursor: pointer;
-  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
-}
-
-.craft-theme-quick-switcher:hover {
-  color: var(--craft-text);
-  border-color: var(--craft-accent-border);
-  background: var(--craft-surface-hover);
-}
-
-.craft-theme-quick-switcher:focus-visible {
-  outline: 2px solid var(--craft-focus-ring);
-  outline-offset: 2px;
-}
-
-.craft-theme-quick-switcher__label {
-  font-size: 12px;
-  font-weight: 650;
-}
-
 @media (max-width: 720px) {
   .craft-theme-picker__options {
     grid-template-columns: 1fr;
@@ -193,10 +161,6 @@
 
   .craft-theme-option__preview {
     height: 52px;
-  }
-
-  .craft-theme-quick-switcher__label {
-    display: none;
   }
 }
 

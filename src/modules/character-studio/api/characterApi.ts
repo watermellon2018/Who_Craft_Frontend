@@ -1,4 +1,9 @@
 import api from '../../../api/http';
+import type {
+  CharacterSecondaryAssetsGenerateResponse,
+  CharacterSecondaryAssetsQuote,
+  CharacterSecondaryAssetsQuoteRequest,
+} from '../../../api/generated/contracts';
 import {notifyCreditBalanceUpdated} from '../../credits/api/creditApi';
 import type {
   CreateCharacterFromReferencePayload,
@@ -187,6 +192,36 @@ export const characterApi = {
       `${base(projectId, characterId)}/generate-edit-variants`,
       data,
       generationRequestConfig(`${projectId}:${characterId}:edit`, data, idempotencyKey),
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
+  },
+  quoteSecondaryAssets(
+    projectId: string | number,
+    characterId: string,
+    payload: CharacterSecondaryAssetsQuoteRequest,
+  ) {
+    return api.post<CharacterSecondaryAssetsQuote>(
+      `${base(projectId, characterId)}/secondary-assets/quote`,
+      payload,
+    );
+  },
+  generateSecondaryAssets(
+    projectId: string | number,
+    characterId: string,
+    quoteToken: string,
+    idempotencyKey?: string,
+  ) {
+    const payload = {quote_token: quoteToken};
+    return api.post<CharacterSecondaryAssetsGenerateResponse>(
+      `${base(projectId, characterId)}/secondary-assets/generate`,
+      payload,
+      generationRequestConfig(
+        `${projectId}:${characterId}:secondary-assets`,
+        payload,
+        idempotencyKey,
+      ),
     ).then((response) => {
       notifyCreditBalanceUpdated();
       return response;

@@ -239,8 +239,7 @@
         "description": "Choose the interface appearance. It will be saved in this browser.",
         "light": "Light",
         "blue": "Blue",
-        "dark": "Dark",
-        "quickSwitch": "Theme: {{current}}. Switch to {{next}}"
+        "dark": "Dark"
       },
       "wallet": {
         "title": "Craft Wallet",
@@ -546,6 +545,11 @@
       "typicalTime": "This usually takes 10–30 seconds. You can switch sections — generation will continue in the background.",
       "generationError": "Generation error",
       "tryAgain": "Try creating the character again.",
+      "providerBlocked": "The provider rejected this request under its safety rules. Edit the parameters or choose another model.",
+      "childGenerationBlocked": "This model does not support generating characters of the specified age.",
+      "childModelRecommendations": "For a safe depiction of a fictional child, you can try these available OpenAI GPT Image models:",
+      "childModelDisclaimer": "These suggestions do not guarantee a result or bypass the provider's safety filters.",
+      "retryWithModel": "Try {{model}}",
       "noVariants": "No variants were generated",
       "securityCheckFailed": "Character parameters may have failed the safety check.",
       "selectVariant": "Pick a character variant",
@@ -569,7 +573,24 @@
       "selectedPrefix": "Selected:",
       "applying": "Saving…",
       "continue": "Continue",
-      "continueHint": "You will be taken to the character editor"
+      "continueHint": "You will be taken to the character editor",
+      "secondaryGeneration": {
+        "title": "Create additional images?",
+        "description": "The portrait is ready. Choose which additional images to create after saving it.",
+        "chooseAssets": "Additional images",
+        "assets": {
+          "full_body": "Full body",
+          "scene": "In a scene"
+        },
+        "total": "Total for selected images",
+        "costHint": "The cost applies only to the selected additional images. Saving the portrait does not start a new generation.",
+        "costUnavailable": "Cost unavailable",
+        "estimating": "Calculating the cost of the additional images…",
+        "estimateUnavailable": "The cost could not be calculated. You can still save the portrait without additional generations.",
+        "portraitSavedGenerationFailed": "The portrait was saved, but the additional images were not started. Retry or save the portrait only.",
+        "saveOnly": "Save portrait only",
+        "saveAndGenerate": "Save and generate"
+      }
     },
     "variant": {
       "label": "Variant {{index}}",
@@ -872,7 +893,8 @@
       "failed": "Could not create the track",
       "checkBrief": "Check the music brief",
       "cancelled": "Generation was cancelled",
-      "cancel": "Cancel",
+      "cancel": "Cancel generation",
+      "cancelUnavailable": "Generation has already started and can no longer be cancelled.",
       "retry": "Retry",
       "status": {"queued": "Queued", "processing": "Generating", "cancellation_requested": "Stopping", "completed": "Ready", "failed": "Failed", "cancelled": "Cancelled"},
       "stage": {"queued": "Waiting for a worker", "reference_validation": "Checking the audio reference", "generating": "Generating audio", "finalized": "Ready"}
@@ -1056,7 +1078,7 @@
     "form": {"heading": "Properties and visual brief", "helper": "Description and distinctive details help preserve visual continuity.", "title": "Title", "category": "Category", "description": "Description", "materials": "Materials, comma separated", "palette": "Color palette, comma separated", "condition": "Condition", "scale": "Size and scale", "features": "Distinctive features, comma separated", "continuity": "Continuity notes", "tags": "Tags, comma separated", "aspectRatio": "Aspect ratio"},
     "upload": {"title": "Upload a finished image", "helper": "JPEG, PNG, or WebP up to {{maxMb}} MB. The file is stored as a new immutable version.", "choose": "Choose an image", "rights": "I confirm I have the right to use and store this image in the project", "action": "Upload and make active", "success": "The image was uploaded and is now the active version"},
     "generate": {"title": "Generate variants", "helper": "Generation continues in the background even if you leave this page.", "new": "New generation", "edit": "Edit active version", "editInstruction": "What should be changed", "variantCount": "Number of variants", "action": "Generate {{count}} variants"},
-    "job": {"title": "Generation job", "working": "Creating variants. You can leave this page — the work will continue.", "completedHelper": "Variants are ready. Choose the image that should become the active version.", "failed": "Could not create an image", "cancelled": "Generation cancelled", "cancel": "Cancel", "retry": "Retry", "status": {"queued": "Job queued", "processing": "Creating variants", "cancellation_requested": "Stopping generation", "completed": "Variants ready", "failed": "Generation failed", "cancelled": "Cancelled"}, "stage": {"queued": "Queued", "compiling": "Compiling brief", "generating": "Creating image", "validating": "Validating result", "storing": "Saving variants", "finalized": "Ready", "failed": "Failed", "cancelled": "Cancelled"}},
+    "job": {"title": "Generation job", "working": "Creating variants. You can leave this page — the work will continue.", "completedHelper": "Variants are ready. Choose the image that should become the active version.", "failed": "Could not create an image", "cancelled": "Generation cancelled", "cancel": "Cancel generation", "cancelUnavailable": "Generation has already started and can no longer be cancelled.", "retry": "Retry", "status": {"queued": "Job queued", "processing": "Creating variants", "cancellation_requested": "Stopping generation", "completed": "Variants ready", "failed": "Generation failed", "cancelled": "Cancelled"}, "stage": {"queued": "Queued", "compiling": "Compiling brief", "generating": "Creating image", "validating": "Validating result", "storing": "Saving variants", "finalized": "Ready", "failed": "Failed", "cancelled": "Cancelled"}},
     "variants": {"title": "Variants", "helper": "Selecting a card changes nothing until you explicitly apply the variant.", "item": "Variant {{number}}", "alt": "Generated variant {{number}}", "apply": "Make active version", "applyConfirmTitle": "Apply the selected variant?", "applyConfirmDescription": "A new immutable version will be created. Existing scenes remain pinned to their previous versions.", "applied": "Active version updated: v{{version}}"},
     "versions": {"title": "Version history", "helper": "Versions are immutable; scenes preserve the version selected earlier.", "empty": "No versions yet", "active": "Active", "open": "Open", "origin": {"upload": "Uploaded", "generated": "AI generated", "edit": "AI edited"}},
     "archive": {"title": "Archive this reference?", "description": "It will leave the main library, while versions and existing scene assignments remain available.", "action": "Archive", "restoreTitle": "Restore this reference?", "restoreDescription": "It will become available in the main library again.", "restore": "Restore"},

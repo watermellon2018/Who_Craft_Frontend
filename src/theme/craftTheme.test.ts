@@ -2,7 +2,6 @@ import {
   applyCraftTheme,
   CRAFT_THEME_STORAGE_KEY,
   initializeCraftTheme,
-  nextCraftTheme,
   readStoredCraftTheme,
 } from './craftTheme';
 
@@ -28,11 +27,5 @@ describe('craft theme', () => {
     expect(window.localStorage.getItem(CRAFT_THEME_STORAGE_KEY)).toBe('light');
     expect(document.documentElement.dataset.craftTheme).toBe('light');
     expect(document.documentElement.style.colorScheme).toBe('light');
-  });
-
-  it('cycles through all three themes', () => {
-    expect(nextCraftTheme('light')).toBe('blue');
-    expect(nextCraftTheme('blue')).toBe('dark');
-    expect(nextCraftTheme('dark')).toBe('light');
   });
 });

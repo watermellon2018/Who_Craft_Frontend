@@ -87,7 +87,8 @@ export default function MusicJobState({
         <p>{t(`musicStudio.job.stage.${job.stage}`, {defaultValue: t('musicStudio.job.working')})}</p>
         <Progress percent={job.status === 'queued' ? 10 : 55} showInfo={false} status="active" />
         <GenerationBillingSummary billing={job.billing} />
-        {!cancellationRequested && canMutate && job.canCancel && (
+        {job.status === 'processing' && <p>{t('musicStudio.job.cancelUnavailable')}</p>}
+        {!cancellationRequested && job.status === 'queued' && canMutate && job.canCancel && (
           <Space>
             <Button danger loading={actionLoading} onClick={onCancel}>
               {t('musicStudio.job.cancel')}

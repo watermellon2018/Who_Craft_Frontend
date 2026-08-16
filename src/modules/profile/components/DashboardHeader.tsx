@@ -8,7 +8,6 @@ import { logout } from '../../../api/http';
 import { safeImageUrl } from '../../../utils/safeUrl';
 import i18n from '../../../i18n';
 import CreditBalanceBadge from '../../credits/components/CreditBalanceBadge';
-import ThemeQuickSwitcher from '../../../components/theme/ThemeQuickSwitcher';
 import './dashboardHeader.css';
 
 export interface BreadcrumbItem {
@@ -121,7 +120,6 @@ const DashboardHeader: React.FC<Props> = ({
 
         <div className="app-header__right">
           <CreditBalanceBadge />
-          <ThemeQuickSwitcher />
           <div className="app-header__user-wrap" ref={dropdownRef}>
             <button
               type="button"

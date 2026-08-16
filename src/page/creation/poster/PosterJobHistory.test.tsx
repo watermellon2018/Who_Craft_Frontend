@@ -28,19 +28,29 @@ test('restores the preview from the latest completed job detail', async () => {
     });
 });
 
-test('shows cancellation requested while the provider may still be running', async () => {
-    const processingJob: postersApi.PosterJob = {id: 9, status: 'processing'};
+test('cancels queued work before the provider starts', async () => {
+    const queuedJob: postersApi.PosterJob = {id: 9, status: 'queued'};
     mockedApi.listPosterJobs
-        .mockResolvedValueOnce({data: {jobs: [processingJob]}} as never)
-        .mockResolvedValue({data: {jobs: [{...processingJob, status: 'cancellation_requested'}]}} as never);
+        .mockResolvedValueOnce({data: {jobs: [queuedJob]}} as never)
+        .mockResolvedValue({data: {jobs: [{...queuedJob, status: 'cancelled'}]}} as never);
     mockedApi.requestPosterJobCancellation.mockResolvedValue({
-        data: {...processingJob, status: 'cancellation_requested'},
+        data: {...queuedJob, status: 'cancelled'},
     } as never);
 
     render(<PosterJobHistory projectId="42" onVariantReady={jest.fn()} />);
 
-    fireEvent.click(await screen.findByRole('button', {name: 'Запросить отмену'}));
+    fireEvent.click(await screen.findByRole('button', {name: 'Отменить генерацию'}));
 
-    await waitFor(() => expect(screen.getByText('Отмена запрошена')).toBeInTheDocument());
-    expect(screen.getByText(/результат не будет применён/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Отменено')).toBeInTheDocument());
+});
+
+test('does not offer cancellation after poster processing starts', async () => {
+    mockedApi.listPosterJobs.mockResolvedValue({
+        data: {jobs: [{id: 9, status: 'processing'}]},
+    } as never);
+
+    render(<PosterJobHistory projectId="42" onVariantReady={jest.fn()} />);
+
+    expect(await screen.findByText('Генерация уже запущена, отменить её нельзя.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: 'Отменить генерацию'})).not.toBeInTheDocument();
 });

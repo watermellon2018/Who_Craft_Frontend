@@ -28,9 +28,8 @@ amount, and reason. Adjustment and manual-refund controls are not exposed.
 Automatic generation always confirms its maximum primary-plus-fallback
 reservation before enqueue.
 
-The interface has three color themes: Light, Blue, and Dark. The full selector
-is in the profile Settings card; the compact control in the page header cycles
-through the same options. Blue is the default. The selected value is stored as
+The interface has three color themes: Light, Blue, and Dark. The selector is in
+the profile Settings card. Blue is the default. The selected value is stored as
 `craft.theme` in the current browser and is applied before React renders, so it
 survives reloads without requiring backend configuration. Theme choice is not
 currently synchronized between browsers or devices.

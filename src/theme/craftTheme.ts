@@ -58,8 +58,3 @@ export function applyCraftTheme(theme: CraftTheme) {
     window.setTimeout(restoreTransitions, 0);
   }
 }
-
-export function nextCraftTheme(theme: CraftTheme): CraftTheme {
-  const currentIndex = CRAFT_THEMES.indexOf(theme);
-  return CRAFT_THEMES[(currentIndex + 1) % CRAFT_THEMES.length];
-}

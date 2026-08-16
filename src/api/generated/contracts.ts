@@ -9,6 +9,52 @@ export const API_CONSTRAINTS = {
   "projectPosterMaxBytes": 5242880
 } as const;
 
+export type CharacterSecondaryAssetType = "full_body" | "scene";
+
+export interface CharacterSecondaryAssetsQuoteRequest {
+  variant_id: string;
+  image_types: Array<CharacterSecondaryAssetType>;
+  image_model?: string | null;
+  routing_mode?: "manual" | "economy" | "fast" | "balanced" | "quality";
+}
+
+export interface CharacterSecondaryAssetQuoteItem {
+  image_type: CharacterSecondaryAssetType;
+  estimated_cost: CreditAmount;
+  reservation_amount: CreditAmount;
+  provider: string;
+  model_key: string;
+  model_name: string;
+  routing_mode: string;
+}
+
+export interface CharacterSecondaryAssetsQuote {
+  quote_token: string;
+  expires_in_seconds: number;
+  items: Array<CharacterSecondaryAssetQuoteItem>;
+  totals: { estimated_cost: CreditAmount; reservation_amount: CreditAmount; };
+  available_balance: CreditAmount;
+  sufficient_balance: boolean;
+  account_frozen: boolean;
+}
+
+export interface CharacterSecondaryAssetsGenerateRequest {
+  quote_token: string;
+}
+
+export interface CharacterSecondaryAssetJob {
+  job_id: string;
+  status: string;
+  image_type: CharacterSecondaryAssetType;
+  error_code: string;
+  error_message: string;
+}
+
+export interface CharacterSecondaryAssetsGenerateResponse {
+  jobs: Array<CharacterSecondaryAssetJob>;
+  total_reservation_amount: CreditAmount;
+}
+
 export interface ApiErrorDetail {
   code: string;
   message: string;

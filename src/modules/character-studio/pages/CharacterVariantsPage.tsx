@@ -1,27 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import { message } from 'antd';
+import {Button, Checkbox, message, Modal} from 'antd';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import { useTranslation } from 'react-i18next';
 import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
+import type {
+    CharacterSecondaryAssetsQuote,
+    CharacterSecondaryAssetType,
+} from '../../../api/generated/contracts';
 import {getApiStatus} from '../../../api/errors';
-import { characterApi } from '../api/characterApi';
+import i18n from '../../../i18n';
+import {characterCreatePath} from '../../../routes/pathConstant';
+import {getGenerationRoutingMode} from '../../credits/api/creditApi';
+import {
+    formatGenerationCost,
+    GENERATION_COST_MODAL_THEME,
+    runGenerationWithCredits,
+} from '../../credits/components/GenerationCostGuard';
+import GenerationJobHistory from '../components/GenerationJobHistory';
+import {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
+import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
+import {characterApi} from '../api/characterApi';
 import {characterTreeApi} from '../api/treeApi';
 import { notifyCharacterListUpdated, notifyCharacterTreeUpdated } from '../events';
 import { useGenerationJob } from '../hooks/useGenerationJob';
-import {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
-import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
-import GenerationJobHistory from '../components/GenerationJobHistory';
+import {useImageModelCatalog} from '../hooks/useImageModelCatalog';
 import type {
-    CharacterImageType,
-    CharacterRegion,
     CharacterVariant,
     GenerationJob,
     StudioCharacter,
 } from '../types/character.types';
 import {characterToFormValues} from '../types/characterForm';
-import {characterCreatePath} from '../../../routes/pathConstant';
 import './CharacterVariantsPage.css';
-import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
 
 interface VariantsPageState {
   formValues?: Record<string, unknown>;
@@ -29,16 +38,224 @@ interface VariantsPageState {
   characterName?: string;
   generationOptions?: GenerationOptions;
 }
-const INITIAL_SECONDARY_ASSETS: Array<{
-    imageType: CharacterImageType;
-    region: CharacterRegion;
-}> = [
-    {imageType: 'full_body', region: 'body'},
-    {imageType: 'scene', region: 'style'},
-];
+const INITIAL_SECONDARY_ASSETS = ['full_body', 'scene'] as const satisfies readonly CharacterSecondaryAssetType[];
+type SecondaryGenerationDecision =
+    | {kind: 'cancel'}
+    | {kind: 'save-only'}
+    | {imageTypes: CharacterSecondaryAssetType[]; kind: 'generate'; quote: CharacterSecondaryAssetsQuote};
 const VARIANT_GENERATION_JOB_TYPES = ['initial_variants', 'reference_variants'] as const;
 const CANCELLATION_REQUESTED_LABEL = '\u041e\u0442\u043c\u0435\u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u0430';
 const CANCELLATION_REQUESTED_NOTICE = '\u0423\u0436\u0435 \u043d\u0430\u0447\u0430\u0442\u0430\u044f \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c\u0441\u044f, \u043d\u043e \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043d\u0435 \u0431\u0443\u0434\u0435\u0442 \u043f\u0440\u0438\u043c\u0435\u043d\u0451\u043d.';
+
+interface SecondaryGenerationConfirmationProps {
+    characterId: string;
+    imageModel?: string;
+    onDecision: (decision: SecondaryGenerationDecision) => void;
+    projectId: string;
+    routingMode: ReturnType<typeof getGenerationRoutingMode>;
+    variantId: string;
+}
+
+function SecondaryGenerationConfirmation({
+    characterId,
+    imageModel,
+    onDecision,
+    projectId,
+    routingMode,
+    variantId,
+}: SecondaryGenerationConfirmationProps) {
+    const {t} = useTranslation();
+    const [selectedTypes, setSelectedTypes] = useState<CharacterSecondaryAssetType[]>(
+        [...INITIAL_SECONDARY_ASSETS],
+    );
+    const selectedImageTypes = useMemo(
+        () => INITIAL_SECONDARY_ASSETS.filter((imageType) => selectedTypes.includes(imageType)),
+        [selectedTypes],
+    );
+    const selectionKey = selectedImageTypes.join(',');
+    const [quoteState, setQuoteState] = useState<{
+        failed: boolean;
+        loading: boolean;
+        quote: CharacterSecondaryAssetsQuote | null;
+        selectionKey: string;
+    }>({failed: false, loading: true, quote: null, selectionKey});
+    const quoteStateIsCurrent = quoteState.selectionKey === selectionKey;
+    const quote = quoteStateIsCurrent ? quoteState.quote : null;
+    const estimateLoading = selectedImageTypes.length > 0 && (
+        !quoteStateIsCurrent || quoteState.loading
+    );
+    const quoteFailed = quoteStateIsCurrent && quoteState.failed;
+    useEffect(() => {
+        let active = true;
+        setQuoteState({failed: false, loading: true, quote: null, selectionKey});
+        if (selectedImageTypes.length === 0) {
+            setQuoteState({failed: false, loading: false, quote: null, selectionKey});
+            return () => {
+                active = false;
+            };
+        }
+        void characterApi.quoteSecondaryAssets(projectId, characterId, {
+            variant_id: variantId,
+            image_types: [...selectedImageTypes],
+            ...(imageModel ? {image_model: imageModel} : {}),
+            routing_mode: routingMode,
+        })
+            .then((response) => {
+                if (!active) return;
+                setQuoteState({failed: false, loading: false, quote: response.data, selectionKey});
+            })
+            .catch(() => {
+                if (active) {
+                    setQuoteState({failed: true, loading: false, quote: null, selectionKey});
+                }
+            });
+        return () => {
+            active = false;
+        };
+    }, [characterId, imageModel, projectId, routingMode, selectedImageTypes, selectionKey, variantId]);
+    const canGenerate = Boolean(
+        selectedImageTypes.length > 0
+        && quote?.quote_token
+        && quote.account_frozen !== true
+        && quote.sufficient_balance !== false,
+    );
+    const unavailableReason = selectedImageTypes.length === 0
+        ? null
+        : estimateLoading
+            ? t('characterStudio.variants.secondaryGeneration.estimating')
+            : quoteFailed || !quote
+            ? t('characterStudio.variants.secondaryGeneration.estimateUnavailable')
+            : quote.account_frozen
+                ? t('credits.frozen.generation')
+                : quote.sufficient_balance === false
+                    ? t('credits.generation.insufficientDescription', {
+                        required: formatGenerationCost(quote.totals.reservation_amount),
+                        available: formatGenerationCost(quote.available_balance ?? '0'),
+                    })
+                    : null;
+
+    const toggleType = (imageType: CharacterSecondaryAssetType, checked: boolean) => {
+        setSelectedTypes((current) => checked
+            ? [...current, imageType]
+            : current.filter((value) => value !== imageType));
+    };
+
+    return (
+        <div className="generation-cost-confirmation">
+            <p>{t('characterStudio.variants.secondaryGeneration.description')}</p>
+            <fieldset style={{border: 0, margin: '16px 0', padding: 0}}>
+                <legend style={{color: 'var(--craft-text)', fontWeight: 700, marginBottom: 10}}>
+                    {t('characterStudio.variants.secondaryGeneration.chooseAssets')}
+                </legend>
+                <div style={{display: 'grid', gap: 10}}>
+                    {INITIAL_SECONDARY_ASSETS.map((imageType) => {
+                        const quoteItem = quote?.items.find((item) => item.image_type === imageType);
+                        return (
+                        <Checkbox
+                            checked={selectedTypes.includes(imageType)}
+                            key={imageType}
+                            onChange={(event) => toggleType(imageType, event.target.checked)}
+                        >
+                            <span style={{color: 'var(--craft-text)'}}>
+                                {t(`characterStudio.variants.secondaryGeneration.assets.${imageType}`)}
+                            </span>
+                            <strong style={{color: 'var(--craft-accent)', marginLeft: 8}}>
+                                {quoteItem
+                                    ? `≈ ${formatGenerationCost(quoteItem.estimated_cost)} C`
+                                    : t('characterStudio.variants.secondaryGeneration.costUnavailable')}
+                            </strong>
+                            {quoteItem && (
+                                <small style={{color: 'var(--craft-text-muted)', display: 'block', marginLeft: 24}}>
+                                    {quoteItem.model_name}
+                                </small>
+                            )}
+                        </Checkbox>
+                        );
+                    })}
+                </div>
+            </fieldset>
+            <dl>
+                <div>
+                    <dt>{t('characterStudio.variants.secondaryGeneration.total')}</dt>
+                    <dd>
+                        {selectedImageTypes.length === 0
+                            ? '0 C'
+                            : quote
+                                ? `≈ ${formatGenerationCost(quote.totals.estimated_cost)} C`
+                                : t('characterStudio.variants.secondaryGeneration.costUnavailable')}
+                    </dd>
+                </div>
+                {quote?.items[0] && (
+                    <div>
+                        <dt>{t('credits.generation.routingMode')}</dt>
+                        <dd>{t(`credits.routing.modes.${quote.items[0].routing_mode}.title`)}</dd>
+                    </div>
+                )}
+            </dl>
+            <small>{t('characterStudio.variants.secondaryGeneration.costHint')}</small>
+            {unavailableReason && (
+                <p role="status" style={{color: 'var(--craft-warning)', marginBottom: 0}}>
+                    {unavailableReason}
+                </p>
+            )}
+            <div style={{display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', marginTop: 20}}>
+                <Button onClick={() => onDecision({kind: 'cancel'})}>
+                    {t('common.cancel')}
+                </Button>
+                <Button onClick={() => onDecision({kind: 'save-only'})}>
+                    {t('characterStudio.variants.secondaryGeneration.saveOnly')}
+                </Button>
+                <Button
+                    disabled={!canGenerate}
+                    type="primary"
+                    onClick={() => {
+                        if (quote) {
+                            onDecision({imageTypes: selectedImageTypes, kind: 'generate', quote});
+                        }
+                    }}
+                >
+                    {t('characterStudio.variants.secondaryGeneration.saveAndGenerate')}
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+function confirmSecondaryGeneration(
+    intent: Omit<SecondaryGenerationConfirmationProps, 'onDecision'>,
+    signal: AbortSignal,
+): Promise<SecondaryGenerationDecision> {
+    return new Promise((resolve) => {
+        let settled = false;
+        let modal: ReturnType<typeof Modal.confirm> | null = null;
+        const settle = (decision: SecondaryGenerationDecision) => {
+            if (settled) return;
+            settled = true;
+            signal.removeEventListener('abort', handleAbort);
+            modal?.destroy();
+            resolve(decision);
+        };
+        const handleAbort = () => settle({kind: 'cancel'});
+        if (signal.aborted) {
+            settle({kind: 'cancel'});
+            return;
+        }
+        signal.addEventListener('abort', handleAbort, {once: true});
+        modal = Modal.confirm({
+            ...GENERATION_COST_MODAL_THEME,
+            closable: true,
+            content: <SecondaryGenerationConfirmation {...intent} onDecision={settle} />,
+            footer: null,
+            icon: null,
+            maskClosable: true,
+            maskTransitionName: '',
+            title: i18n.t('characterStudio.variants.secondaryGeneration.title'),
+            transitionName: '',
+            width: 620,
+            onCancel: () => settle({kind: 'cancel'}),
+        });
+    });
+}
 
 
 function generationOptionsFromJob(job: GenerationJob | null): GenerationOptions {
@@ -82,6 +299,7 @@ function CharacterVariantsPageContent() {
         loading: jobLoading,
         retry: retryJobPolling,
     } = useGenerationJob(currentJobId, projectId, characterId);
+    const {catalog: imageModelCatalog} = useImageModelCatalog(projectId);
     const [characterName, setCharacterName] = useState(state.characterName ?? '');
     const [characterData, setCharacterData] = useState<StudioCharacter | null>(null);
     const [characterLoading, setCharacterLoading] = useState(!state.characterName);
@@ -91,6 +309,16 @@ function CharacterVariantsPageContent() {
     const [applying, setApplying] = useState(false);
     const [regenerating, setRegenerating] = useState(false);
     const [regenError, setRegenError] = useState<string | undefined>();
+    const [continueError, setContinueError] = useState<string | undefined>();
+    const [appliedPortraitVariantId, setAppliedPortraitVariantId] = useState<string | null>(null);
+    const mountedRef = useRef(true);
+    const placementPersistedRef = useRef(false);
+    const secondaryConfirmationControllerRef = useRef<AbortController | null>(null);
+
+    useEffect(() => () => {
+        mountedRef.current = false;
+        secondaryConfirmationControllerRef.current?.abort();
+    }, []);
 
     const recoveredCharacterValues = characterData ? characterToFormValues(characterData) : undefined;
     const hasFormContext = Boolean(recoveredCharacterValues || job?.request_payload || state.formValues);
@@ -110,6 +338,30 @@ function CharacterVariantsPageContent() {
             || (job.project_id != null && String(job.project_id) !== projectId)
         ),
     );
+    const characterAge = Number(effectiveFormValues?.age);
+    const isProviderBlocked = job?.error_code === 'IMAGE_PROVIDER_BLOCKED';
+    const isChildProviderBlocked = Boolean(
+        isProviderBlocked
+        && Number.isFinite(characterAge)
+        && characterAge >= 0
+        && characterAge < 18,
+    );
+    const currentImageModel = effectiveGenerationOptions.imageModel || imageModelCatalog?.current || '';
+    const childModelRecommendations = useMemo(() => (
+        imageModelCatalog?.available.filter((model) => {
+            const modelIdentifier = `${model.key} ${model.model_id}`.toLowerCase();
+            return model.configured
+                && model.supports_generate
+                && model.key !== currentImageModel
+                && model.key.startsWith('openrouter-images:')
+                && modelIdentifier.includes('openai/gpt-image');
+        }) ?? []
+    ), [currentImageModel, imageModelCatalog]);
+    const jobFailureMessage = isChildProviderBlocked
+        ? t('characterStudio.variants.childGenerationBlocked')
+        : isProviderBlocked
+            ? t('characterStudio.variants.providerBlocked')
+            : job?.error_message || t('characterStudio.variants.tryAgain');
 
     useEffect(() => {
         if (characterName) {
@@ -160,13 +412,13 @@ function CharacterVariantsPageContent() {
         }
         if (job?.status === 'failed') {
             setRegenerating(false);
-            setRegenError(job.error_message || t('characterStudio.variants.generationFailedRetry'));
+            setRegenError(jobFailureMessage);
         }
         if (job?.status === 'cancellation_requested') {
             setRegenerating(false);
             setRegenError(CANCELLATION_REQUESTED_LABEL);
         }
-    }, [job, t]);
+    }, [job, jobFailureMessage, t]);
 
     const effectiveSelectedId = selectedVariantId ?? displayVariants[0]?.variant_id ?? null;
 
@@ -214,10 +466,11 @@ function CharacterVariantsPageContent() {
     };
 
     // Regenerate: re-run generation with the same params, stay on this page.
-    const handleRegenerate = async () => {
+    const handleRegenerate = async (modelOverride?: string) => {
         if (regenerating) return;
         const formValues = effectiveFormValues;
         const opts = effectiveGenerationOptions;
+        const imageModel = modelOverride ?? opts.imageModel;
         if (!formValues) {
             message.error(t('characterStudio.variants.missingParams'));
             return;
@@ -229,7 +482,7 @@ function CharacterVariantsPageContent() {
             const payload = {
                 variant_count: opts.count,
                 image_type: 'portrait',
-                image_model: opts.imageModel,
+                image_model: imageModel,
                 creativity: opts.creativity,
                 seed: opts.lockSeed && opts.seed ? Number(opts.seed) : undefined,
                 lock_seed: opts.lockSeed,
@@ -247,9 +500,10 @@ function CharacterVariantsPageContent() {
                 {
                     domain: 'character',
                     operation: 'generate',
-                    modelKey: opts.imageModel,
+                    modelKey: imageModel,
                     variantCount: opts.count,
                     promptLength: String(formValues.appearance_description ?? '').length,
+                    routingMode: modelOverride ? 'manual' : undefined,
                 },
                 (estimate) => characterApi.generateInitial(
                     projectId,
@@ -291,83 +545,83 @@ function CharacterVariantsPageContent() {
         const variantId = effectiveSelectedId;
         if (!variantId) return;
         setApplying(true);
+        setContinueError(undefined);
         try {
-            const appliedRevision = await characterApi.applyVariant(
-                projectId,
+            const confirmationController = new AbortController();
+            secondaryConfirmationControllerRef.current?.abort();
+            secondaryConfirmationControllerRef.current = confirmationController;
+            const decision = await confirmSecondaryGeneration({
                 characterId,
+                imageModel: effectiveGenerationOptions.imageModel || undefined,
+                projectId,
+                routingMode: getGenerationRoutingMode(),
                 variantId,
-                t('characterStudio.variants.portaitSelected'),
-                'portrait',
-            );
+            }, confirmationController.signal);
+            if (secondaryConfirmationControllerRef.current === confirmationController) {
+                secondaryConfirmationControllerRef.current = null;
+            }
+            if (!mountedRef.current || decision.kind === 'cancel') return;
 
-            // Tree node creation and list notifications are deferred here so that
-            // draft characters never appear in UI lists before the user confirms a variant.
-            const treeNodeId = sourceTreeNodeId || placementTreeNodeId;
-            const charName = characterName;
-            if (charName) {
-                await characterTreeApi.create(projectId, {
-                    id: treeNodeId,
-                    name: charName,
-                    type: 'character',
-                    studio_character_id: characterId,
+            if (appliedPortraitVariantId !== variantId) {
+                await characterApi.applyVariant(
+                    projectId,
+                    characterId,
+                    variantId,
+                    t('characterStudio.variants.portaitSelected'),
+                    'portrait',
+                );
+
+                // Tree node creation and list notifications are deferred here so that
+                // draft characters never appear in UI lists before the user confirms a variant.
+                if (!placementPersistedRef.current && characterName) {
+                    const treeNodeId = sourceTreeNodeId || placementTreeNodeId;
+                    await characterTreeApi.create(projectId, {
+                        id: treeNodeId,
+                        name: characterName,
+                        type: 'character',
+                        studio_character_id: characterId,
+                    });
+                    placementPersistedRef.current = true;
+                    notifyCharacterTreeUpdated();
+                }
+                notifyCharacterListUpdated();
+                setAppliedPortraitVariantId(variantId);
+            }
+
+            if (decision.kind === 'save-only') {
+                navigate(`/project/${projectId}/characters/${characterId}/edit`, {
+                    state: {secondaryJobIds: {}},
                 });
-            }
-            notifyCharacterTreeUpdated();
-            notifyCharacterListUpdated();
-
-            const revisionId = appliedRevision.data?.revision_id;
-            let secondaryLaunchFailed = false;
-            const launchSecondary = (modelKey: string, routingMode: string) => Promise.all(INITIAL_SECONDARY_ASSETS.map(async ({imageType, region}) => {
-                    try {
-                        const response = await characterApi.generateEdit(
-                            projectId,
-                            characterId,
-                            {
-                                region,
-                                image_type: imageType,
-                                controls: {},
-                                preserve: {identity: true},
-                                variant_count: 1,
-                                activate_image: true,
-                                image_model: modelKey,
-                                routing_mode: routingMode as 'manual' | 'economy' | 'fast' | 'balanced' | 'quality',
-                            },
-                            `${characterId}:${imageType}:${revisionId}`,
-                        );
-                        const nextJobId = response.data?.job_id;
-                        if (!nextJobId) secondaryLaunchFailed = true;
-                        return nextJobId ? [imageType, nextJobId] as const : null;
-                    } catch {
-                        secondaryLaunchFailed = true;
-                        return null;
-                    }
-                }));
-            const launchedJobs = revisionId
-                ? (await runGenerationWithCredits(
-                    {
-                        domain: 'character',
-                        operation: 'generate',
-                        modelKey: effectiveGenerationOptions.imageModel,
-                        variantCount: INITIAL_SECONDARY_ASSETS.length,
-                        promptLength: String(effectiveFormValues?.appearance_description ?? '').length,
-                    },
-                    (estimate) => launchSecondary(estimate.modelKey, estimate.routingMode),
-                ) ?? [])
-                : [];
-            const secondaryJobIds = Object.fromEntries(
-                launchedJobs.filter((entry): entry is readonly [CharacterImageType, string] => entry !== null),
-            );
-            if (!revisionId || secondaryLaunchFailed) {
-                message.warning(t('characterStudio.editor.generationError'));
+                return;
             }
 
-            navigate(`/project/${projectId}/characters/${characterId}/edit`, {
-                state: {secondaryJobIds},
-            });
+            try {
+                const response = await characterApi.generateSecondaryAssets(
+                    projectId,
+                    characterId,
+                    decision.quote.quote_token,
+                );
+                const failedJob = response.data.jobs.find((jobItem) => (
+                    jobItem.status === 'failed' || !jobItem.job_id
+                ));
+                if (failedJob) throw new Error(failedJob.error_message || 'secondary generation failed');
+                const secondaryJobIds = Object.fromEntries(
+                    response.data.jobs.map((jobItem) => [jobItem.image_type, jobItem.job_id]),
+                );
+                navigate(`/project/${projectId}/characters/${characterId}/edit`, {
+                    state: {secondaryJobIds},
+                });
+            } catch {
+                if (mountedRef.current) {
+                    const errorText = t('characterStudio.variants.secondaryGeneration.portraitSavedGenerationFailed');
+                    setContinueError(errorText);
+                    message.error(errorText);
+                }
+            }
         } catch {
-            message.error(t('characterStudio.variants.selectError'));
+            if (mountedRef.current) message.error(t('characterStudio.variants.selectError'));
         } finally {
-            setApplying(false);
+            if (mountedRef.current) setApplying(false);
         }
     };
 
@@ -475,7 +729,29 @@ function CharacterVariantsPageContent() {
             <div className="cvp-page">
                 <div className="cvp-error">
                     <p className="cvp-error__title">{t('characterStudio.variants.generationError')}</p>
-                    <p className="cvp-error__text">{job?.error_message || t('characterStudio.variants.tryAgain')}</p>
+                    <p className="cvp-error__text">{jobFailureMessage}</p>
+                    {isChildProviderBlocked && childModelRecommendations.length > 0 && (
+                        <div>
+                            <p className="cvp-error__text">
+                                {t('characterStudio.variants.childModelRecommendations')}
+                            </p>
+                            <div style={{display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center'}}>
+                                {childModelRecommendations.map((model) => (
+                                    <button
+                                        className="cvp-btn-secondary"
+                                        key={model.key}
+                                        type="button"
+                                        onClick={() => void handleRegenerate(model.key)}
+                                    >
+                                        {t('characterStudio.variants.retryWithModel', {model: model.label})}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="cvp-error__text">
+                                {t('characterStudio.variants.childModelDisclaimer')}
+                            </p>
+                        </div>
+                    )}
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
                         {t('characterStudio.variants.backToForm')}
                     </button>
@@ -556,7 +832,7 @@ function CharacterVariantsPageContent() {
                     </button>
                     <button
                         className="cvp-btn-accent"
-                        onClick={handleRegenerate}
+                        onClick={() => void handleRegenerate()}
                         disabled={regenerating}
                     >
                         {regenerating ? (
@@ -574,6 +850,12 @@ function CharacterVariantsPageContent() {
             {regenError && (
                 <div className="cvp-regen-error">
                     {regenError}
+                </div>
+            )}
+
+            {continueError && (
+                <div className="cvp-regen-error" role="alert">
+                    {continueError}
                 </div>
             )}
 
@@ -602,7 +884,10 @@ function CharacterVariantsPageContent() {
                             <div
                                 key={variant.variant_id}
                                 className={`cvp-card${isSelected ? ' cvp-card--selected' : ''}`}
-                                onClick={() => setSelectedVariantId(variant.variant_id)}
+                                onClick={() => {
+                                    setSelectedVariantId(variant.variant_id);
+                                    setContinueError(undefined);
+                                }}
                             >
                                 {variant.image_url ? (
                                     <img

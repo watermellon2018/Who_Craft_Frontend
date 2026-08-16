@@ -77,6 +77,36 @@
   white-space: nowrap;
 }
 
+.generation-cost-modal.ant-modal.ant-modal-confirm .ant-modal-content {
+  color: var(--craft-text) !important;
+  border: 1px solid var(--craft-border) !important;
+  background: var(--craft-surface-raised) !important;
+  box-shadow: var(--craft-shadow-elevated) !important;
+}
+
+.generation-cost-modal.ant-modal.ant-modal-confirm .ant-modal-confirm-title {
+  color: var(--craft-text) !important;
+}
+
+.generation-cost-modal.ant-modal.ant-modal-confirm .ant-modal-confirm-content,
+.generation-cost-confirmation {
+  color: var(--craft-text-soft) !important;
+}
+
+.generation-cost-modal.ant-modal.ant-modal-confirm .ant-btn-default {
+  color: var(--craft-text) !important;
+  border-color: var(--craft-border) !important;
+  background: var(--craft-surface) !important;
+  box-shadow: none !important;
+}
+
+.generation-cost-modal.ant-modal.ant-modal-confirm .ant-btn-default:hover,
+.generation-cost-modal.ant-modal.ant-modal-confirm .ant-btn-default:focus-visible {
+  color: var(--craft-text) !important;
+  border-color: var(--craft-border-strong) !important;
+  background: var(--craft-surface-hover) !important;
+}
+
 .generation-cost-confirmation dl {
   display: grid;
   gap: 8px;
@@ -91,11 +121,11 @@
 
 .generation-cost-confirmation dt,
 .generation-cost-confirmation small {
-  color: #8fa1b5;
+  color: var(--craft-text-muted);
 }
 
 .generation-cost-confirmation dd {
-  color: #ffbd1a;
+  color: var(--craft-accent);
   font-weight: 700;
   margin: 0;
 }

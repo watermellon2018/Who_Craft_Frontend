@@ -59,7 +59,8 @@ export default function ReferenceJobState({
       </div>
       <Progress percent={Math.max(0, Math.min(100, job.progress))} status={terminal ? 'success' : 'active'} />
       <GenerationBillingSummary billing={job.billing} />
-      {job.canCancel && (
+      {job.status === 'processing' && <p>{t('referenceLibrary.job.cancelUnavailable')}</p>}
+      {job.status === 'queued' && job.canCancel && (
         <Button danger icon={<CloseOutlined />} loading={actionLoading} onClick={onCancel}>
           {t('referenceLibrary.job.cancel')}
         </Button>

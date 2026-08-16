@@ -16,7 +16,18 @@ import {formatCreditAmount} from './CreditBalanceBadge';
 
 export type GenerationCostIntent = GenerationCostEstimateRequest;
 
-function costLabel(value: string): string {
+export const GENERATION_COST_MODAL_THEME = {
+  className: 'generation-cost-modal',
+  styles: {
+    content: {
+      background: 'var(--craft-surface-raised)',
+      border: '1px solid var(--craft-border)',
+      boxShadow: 'var(--craft-shadow-elevated)',
+    },
+  },
+} as const;
+
+export function formatGenerationCost(value: string): string {
   return formatCreditAmount(value, i18n.language);
 }
 
@@ -24,6 +35,7 @@ function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
   if (Number(estimate.reservationAmount) <= 0) return Promise.resolve(true);
   return new Promise((resolve) => {
     Modal.confirm({
+      ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.generation.confirmTitle'),
       content: (
         <div className="generation-cost-confirmation">
@@ -31,12 +43,12 @@ function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
           <dl>
             <div>
               <dt>{i18n.t('credits.generation.estimatedCost')}</dt>
-              <dd>{costLabel(estimate.estimatedCost)} C</dd>
+              <dd>{formatGenerationCost(estimate.estimatedCost)} C</dd>
             </div>
             {estimate.routeCandidates.length > 1 && (
               <div>
                 <dt>{i18n.t('credits.generation.maxWithFallback')}</dt>
-                <dd>{costLabel(estimate.reservationAmount)} C</dd>
+                <dd>{formatGenerationCost(estimate.reservationAmount)} C</dd>
               </div>
             )}
             <div>
@@ -46,7 +58,7 @@ function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
             <div>
               <dt>{i18n.t('credits.generation.balanceAfterReserve')}</dt>
               <dd>
-                {costLabel(String(
+                {formatGenerationCost(String(
                   Number(estimate.availableBalance) - Number(estimate.reservationAmount),
                 ))} C
               </dd>
@@ -74,14 +86,20 @@ function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
 export async function confirmGenerationCost(
   intent: GenerationCostIntent,
 ): Promise<GenerationCostEstimate | null> {
+  const estimate = await prepareGenerationCost(intent);
+  if (!estimate) return null;
+  return (await confirmation(estimate)) ? estimate : null;
+}
+
+export async function prepareGenerationCost(
+  intent: GenerationCostIntent,
+): Promise<GenerationCostEstimate | null> {
   let estimate: GenerationCostEstimate;
   try {
-    estimate = await estimateGenerationCost({
-      ...intent,
-      routingMode: intent.routingMode ?? getGenerationRoutingMode(),
-    });
+    estimate = await getGenerationCostEstimate(intent);
   } catch (error) {
     Modal.error({
+      ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.generation.estimateErrorTitle'),
       content: getApiErrorMessage(error, i18n.t('credits.generation.estimateError')),
     });
@@ -89,6 +107,7 @@ export async function confirmGenerationCost(
   }
   if (estimate.accountFrozen) {
     Modal.error({
+      ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.frozen.title'),
       content: i18n.t('credits.frozen.generation'),
     });
@@ -96,15 +115,34 @@ export async function confirmGenerationCost(
   }
   if (!estimate.sufficientBalance) {
     Modal.error({
+      ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.generation.insufficientTitle'),
       content: i18n.t('credits.generation.insufficientDescription', {
-        required: costLabel(estimate.reservationAmount),
-        available: costLabel(estimate.availableBalance),
+        required: formatGenerationCost(estimate.reservationAmount),
+        available: formatGenerationCost(estimate.availableBalance),
       }),
     });
     return null;
   }
-  return (await confirmation(estimate)) ? estimate : null;
+  return estimate;
+}
+
+export function getGenerationCostEstimate(
+  intent: GenerationCostIntent,
+): Promise<GenerationCostEstimate> {
+  return estimateGenerationCost({
+    ...intent,
+    routingMode: intent.routingMode ?? getGenerationRoutingMode(),
+  });
+}
+
+export async function runApprovedGeneration<T>(
+  estimate: GenerationCostEstimate,
+  operation: (approvedEstimate: GenerationCostEstimate) => Promise<T>,
+): Promise<T> {
+  const result = await operation(estimate);
+  notifyCreditBalanceUpdated();
+  return result;
 }
 
 export async function runGenerationWithCredits<T>(
@@ -113,9 +151,7 @@ export async function runGenerationWithCredits<T>(
 ): Promise<T | undefined> {
   const estimate = await confirmGenerationCost(intent);
   if (!estimate) return undefined;
-  const result = await operation(estimate);
-  notifyCreditBalanceUpdated();
-  return result;
+  return runApprovedGeneration(estimate, operation);
 }
 
 interface GenerationCostPreviewProps {
@@ -150,10 +186,10 @@ export const GenerationCostPreview: React.FC<GenerationCostPreviewProps> = ({
     <span
       className={`generation-cost-preview ${className}`.trim()}
       title={i18n.t('credits.generation.previewTitle', {
-        amount: costLabel(estimate.reservationAmount),
+        amount: formatGenerationCost(estimate.reservationAmount),
       })}
     >
-      ≈ {costLabel(estimate.estimatedCost)} C
+      ≈ {formatGenerationCost(estimate.estimatedCost)} C
     </span>
   );
 };
