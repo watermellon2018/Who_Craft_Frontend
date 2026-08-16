@@ -1,6 +1,6 @@
 .character-studio-shell {
   display: grid;
-  background: #1b1d22;
+  background: var(--craft-bg-deep);
   transition: grid-template-columns 180ms ease;
 }
 

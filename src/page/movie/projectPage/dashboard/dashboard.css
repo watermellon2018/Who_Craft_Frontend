@@ -6,23 +6,42 @@
    ============================================================ */
 
 .proj-dash {
-  color: rgba(255, 255, 255, 0.92);
+  min-height: 100vh;
+  color: var(--craft-text);
+  background: var(--craft-bg-deep);
 }
 
 .proj-dash * {
   box-sizing: border-box;
 }
 
+.proj-dash [class~='text-white'],
+.proj-dash [class*='text-white/'] {
+  color: var(--craft-text) !important;
+}
+
+.proj-dash [class*='border-white/'] {
+  border-color: var(--craft-border-subtle) !important;
+}
+
+.proj-dash [class*='bg-white/'] {
+  background-color: var(--craft-surface-raised) !important;
+}
+
+.proj-dash [class*='bg-black/'] {
+  color: var(--craft-on-image) !important;
+}
+
 /* --- Card defaults ------------------------------------------ */
 .proj-card {
-  background: #151922;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--craft-surface);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 20px;
   transition: border-color 160ms ease, transform 160ms ease, background-color 160ms ease;
 }
 
 .proj-card:hover {
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: var(--craft-border);
 }
 
 .proj-card-interactive {
@@ -30,7 +49,7 @@
 }
 
 .proj-card-interactive:hover {
-  background: #1a1f2c;
+  background: var(--craft-surface-hover);
 }
 
 .character-card--interactive {
@@ -49,8 +68,8 @@
 
 /* --- Hero --------------------------------------------------- */
 .proj-hero {
-  background: linear-gradient(135deg, #161b27 0%, #131722 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--craft-card-gradient);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 24px;
   /* No overflow: hidden — dropdowns (status pill, "..." menu) must
      escape the hero card. The cover image clips itself separately
@@ -151,9 +170,9 @@
   align-items: center;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.78);
+  background: var(--craft-surface-raised);
+  border: 1px solid var(--craft-border-subtle);
+  color: var(--craft-text-soft);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -181,8 +200,8 @@
   color: #60a5fa;
 }
 .proj-role-viewer {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.78);
+  background: var(--craft-surface-raised);
+  color: var(--craft-text-soft);
 }
 .proj-team-pill {
   display: inline-flex;
@@ -192,14 +211,14 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--craft-text-muted);
+  background: var(--craft-surface-raised);
+  border: 1px solid var(--craft-border-subtle);
 }
 
 .proj-tag-add {
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--craft-text-muted);
   background: transparent;
   border-style: dashed;
 }
@@ -244,15 +263,15 @@
 }
 
 .proj-btn-secondary {
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.88);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--craft-surface-raised);
+  color: var(--craft-text);
+  border-color: var(--craft-border);
 }
 
 .proj-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--craft-surface-hover);
+  color: var(--craft-text);
+  border-color: var(--craft-border-strong);
 }
 
 .proj-btn-icon {
@@ -265,7 +284,7 @@
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  border: 2px solid #151922;
+  border: 2px solid var(--craft-surface);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -299,8 +318,8 @@
 
 .proj-pipeline-step {
   position: relative;
-  background: #151922;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--craft-surface);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 16px;
   padding: 16px;
   transition: border-color 160ms ease, background 160ms ease;
@@ -308,8 +327,8 @@
 }
 
 .proj-pipeline-step:hover:not(:disabled) {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: #1a1f2c;
+  border-color: var(--craft-border-strong);
+  background: var(--craft-surface-hover);
 }
 
 .proj-pipeline-step:not(:last-child)::after {
@@ -319,7 +338,7 @@
   right: -10px;
   width: 8px;
   height: 8px;
-  border-top: 2px dotted rgba(255, 255, 255, 0.15);
+  border-top: 2px dotted var(--craft-border);
   pointer-events: none;
 }
 
@@ -328,7 +347,7 @@
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--craft-border-subtle);
   overflow: hidden;
 }
 
@@ -354,7 +373,7 @@
   position: absolute;
   inset: 14px;
   border-radius: 999px;
-  background: #151922;
+  background: var(--craft-surface);
 }
 
 .proj-ring-content {
@@ -385,15 +404,15 @@
 
 /* --- Dashed "create" card ----------------------------------- */
 .proj-create-card {
-  border: 1.5px dashed rgba(255, 255, 255, 0.2);
+  border: 1.5px dashed var(--craft-border-strong);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--craft-surface-subtle);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--craft-text-muted);
   cursor: pointer;
   transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
   min-height: 200px;
@@ -423,7 +442,7 @@
   top: 38px;
   bottom: -4px;
   width: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--craft-border-subtle);
 }
 
 .proj-activity-icon {
@@ -449,7 +468,7 @@
 }
 
 .proj-action-row:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--craft-surface-hover);
 }
 
 .proj-action-icon {
@@ -469,14 +488,14 @@
   gap: 14px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--craft-surface-subtle);
   border: 1px solid transparent;
   transition: border-color 160ms ease, background 160ms ease;
 }
 
 .proj-track-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--craft-surface-hover);
+  border-color: var(--craft-border-subtle);
 }
 
 .proj-track-title {
@@ -515,12 +534,12 @@
   width: 36px;
   height: 36px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--craft-surface-raised);
+  border: 1px solid var(--craft-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: var(--craft-text);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 160ms ease, color 160ms ease;
@@ -534,7 +553,7 @@
 
 /* --- Section header ----------------------------------------- */
 .proj-section-title {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--craft-text);
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -542,9 +561,9 @@
 
 /* --- Visual library ---------------------------------------- */
 .proj-visual-library {
-  --reference-panel: rgba(255, 255, 255, 0.025);
-  --reference-border: rgba(255, 255, 255, 0.09);
-  --reference-muted: rgba(255, 255, 255, 0.58);
+  --reference-panel: var(--craft-surface-subtle);
+  --reference-border: var(--craft-border-subtle);
+  --reference-muted: var(--craft-text-muted);
 }
 
 .proj-section-header {
@@ -557,7 +576,7 @@
 
 .proj-section-header p {
   margin: 6px 0 0;
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--craft-text-muted);
   font-size: 13px;
 }
 
@@ -586,7 +605,7 @@
 }
 
 .proj-reference-grid .reference-card {
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--craft-surface-subtle);
   box-shadow: none;
 }
 
@@ -628,9 +647,9 @@
 .proj-reference-skeleton {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--craft-surface-subtle);
 }
 
 .proj-reference-skeleton span {
@@ -663,9 +682,9 @@
   justify-content: center;
   flex-direction: column;
   gap: 10px;
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--craft-text-muted);
   text-align: center;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border: 1px dashed var(--craft-border);
   border-radius: 12px;
 }
 

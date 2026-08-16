@@ -6,12 +6,8 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(214, 162, 97, 0.16), transparent 360px),
-    radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.08), transparent 460px),
-    radial-gradient(circle at 85% 70%, rgba(214, 162, 97, 0.05), transparent 380px),
-    linear-gradient(180deg, #050914 0%, #0b111c 45%, #070b12 100%);
-  color: #f8fafc;
+  background: var(--craft-page-gradient);
+  color: var(--craft-text);
   padding: 28px 24px 24px;
 }
 
@@ -84,7 +80,7 @@ body {
   font-size: 38px;
   font-weight: 600;
   letter-spacing: -0.6px;
-  color: #f8fafc;
+  color: var(--craft-text);
   line-height: 1;
 }
 
@@ -115,7 +111,7 @@ body {
   max-width: 580px;
   font-size: 15px;
   line-height: 1.5;
-  color: rgba(203, 213, 225, 0.78);
+  color: var(--craft-text-muted);
 }
 
 /* Actions grid */
@@ -133,9 +129,9 @@ body {
   min-height: 144px;
   padding: 20px 22px;
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(8, 13, 24, 0.96));
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  color: #f8fafc;
+  background: var(--craft-card-gradient);
+  border: 1px solid var(--craft-border-subtle);
+  color: var(--craft-text);
   text-decoration: none;
   display: flex;
   flex-direction: column;
@@ -161,7 +157,7 @@ body {
 .home-action-card:hover {
   transform: translateY(-3px);
   border-color: rgba(214, 162, 97, 0.52);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.38);
+  box-shadow: var(--craft-shadow-elevated);
 }
 
 .home-action-card:hover::after {
@@ -169,7 +165,7 @@ body {
 }
 
 .home-action-card:focus-visible {
-  outline: 2px solid rgba(214, 162, 97, 0.7);
+  outline: 2px solid var(--craft-focus-ring);
   outline-offset: 3px;
 }
 
@@ -197,14 +193,14 @@ body {
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.2px;
-  color: #f8fafc;
+  color: var(--craft-text);
 }
 
 .home-action-card__description {
   margin: 0;
   font-size: 13.5px;
   line-height: 1.45;
-  color: rgba(203, 213, 225, 0.72);
+  color: var(--craft-text-muted);
 }
 
 .home-action-card__arrow {
@@ -225,7 +221,7 @@ body {
   border-color: rgba(214, 162, 97, 0.65);
   background:
     radial-gradient(circle at 0% 0%, rgba(214, 162, 97, 0.16), transparent 55%),
-    linear-gradient(180deg, rgba(20, 28, 48, 0.92), rgba(10, 15, 28, 0.96));
+    var(--craft-card-gradient);
   box-shadow:
     0 0 0 1px rgba(214, 162, 97, 0.12),
     0 20px 60px rgba(214, 162, 97, 0.08);
@@ -254,7 +250,7 @@ body {
 .home-action-card--disabled .home-action-card__icon {
   background: linear-gradient(180deg, rgba(148, 163, 184, 0.12), rgba(148, 163, 184, 0.04));
   border-color: rgba(148, 163, 184, 0.2);
-  color: rgba(203, 213, 225, 0.7);
+  color: var(--craft-text-muted);
 }
 
 .home-action-card__badge {
@@ -266,8 +262,14 @@ body {
   padding: 3px 9px;
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.12);
-  color: rgba(203, 213, 225, 0.85);
+  color: var(--craft-text-muted);
   border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+:root[data-craft-theme='light'] .home-hero__title {
+  color: var(--craft-text);
+  background: none;
+  -webkit-text-fill-color: currentColor;
 }
 
 /* ─── Compact mode for short-viewport laptops (≈1366×768, 1440×900) ─── */

@@ -2,8 +2,8 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Button, Empty, Modal, Spin, Tooltip, message} from 'antd';
 
 const TREE_SIDEBAR_ICON_BUTTON_CLASS =
-  'inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent ' +
-  'text-[#dce1e8] transition-colors duration-150 ' +
+  'character-tree-sidebar__icon-button inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent ' +
+  'transition-colors duration-150 ' +
   'hover:border-accent/40 hover:bg-accent/10 hover:text-accent ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40';
 
@@ -401,8 +401,8 @@ function InlineNameEditor({node}: {node: NodeApi<CharacterTreeNode>}) {
       style={{
         minWidth: 0,
         flex: 1,
-        color: '#ffffff',
-        background: 'rgba(255, 255, 255, 0.08)',
+        color: 'var(--craft-text)',
+        background: 'var(--craft-surface-hover)',
         caretColor: 'var(--craft-accent)',
         border: '1px solid rgba(250, 176, 5, 0.55)',
         outline: 'none',
@@ -500,7 +500,7 @@ function TreeNode({
         gap: 8,
         paddingRight: 8,
         borderLeft: isSelectedCharacter ? '3px solid var(--craft-accent)' : '3px solid transparent',
-        color: '#ffffff',
+        color: 'var(--craft-text)',
         background: isSelectedCharacter || node.state.isSelected ? 'linear-gradient(90deg, rgba(250, 176, 5, 0.2), rgba(250, 176, 5, 0.06))' : 'transparent',
         borderRadius: 4,
       }}
@@ -758,7 +758,7 @@ export default function CharacterTreeSidebar({
 
   if (collapsed) {
     return (
-      <aside className="character-tree-sidebar character-tree-sidebar--collapsed custom-scrollbar" style={{width: 58, height: '100%', minHeight: 0, background: '#111318', borderRight: '1px solid #30343d', padding: '12px 8px', overflow: 'hidden', scrollbarGutter: 'auto'}}>
+      <aside className="character-tree-sidebar character-tree-sidebar--collapsed custom-scrollbar" style={{width: 58, height: '100%', minHeight: 0, background: 'var(--craft-bg-elevated)', borderRight: '1px solid var(--craft-border)', padding: '12px 8px', overflow: 'hidden', scrollbarGutter: 'auto'}}>
         <Tooltip title={tx('characterStudio.tree.openTree')} overlayClassName="character-tree-sidebar__tooltip">
           <TreeSidebarIconButton
             ariaLabel={tx('characterStudio.tree.openTreeAria')}
@@ -771,9 +771,9 @@ export default function CharacterTreeSidebar({
   }
 
   return (
-    <aside className="character-tree-sidebar custom-scrollbar" style={{width: 280, height: '100%', minHeight: 0, display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', background: '#111318', borderRight: '1px solid #30343d', padding: 12, overflow: 'hidden', scrollbarGutter: 'auto'}}>
+    <aside className="character-tree-sidebar custom-scrollbar" style={{width: 280, height: '100%', minHeight: 0, display: 'grid', gridTemplateRows: 'auto minmax(0, 1fr)', background: 'var(--craft-bg-elevated)', borderRight: '1px solid var(--craft-border)', padding: 12, overflow: 'hidden', scrollbarGutter: 'auto'}}>
       <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12}}>
-        <div style={{color: '#ffffff', fontWeight: 600}}>{tx('characterStudio.tree.title')}</div>
+        <div style={{color: 'var(--craft-text)', fontWeight: 600}}>{tx('characterStudio.tree.title')}</div>
         <div style={{display: 'flex', gap: 4}}>
           <Tooltip title={tx('characterStudio.tree.closeTree')} overlayClassName="character-tree-sidebar__tooltip">
             <TreeSidebarIconButton

@@ -33,20 +33,20 @@ import {
 
 // ============== Design tokens ==============
 const COLORS = {
-    pageBg: '#0B1220',
-    cardBg: '#111827',
-    fieldBg: '#0F172A',
-    cardBorder: 'rgba(148, 163, 184, 0.18)',
-    fieldBorder: '#334155',
-    fieldBorderHover: '#475569',
-    accent: '#FBBF24',
-    accentHover: '#FCD34D',
-    accentSoft: 'rgba(251, 191, 36, 0.12)',
-    textPrimary: '#F8FAFC',
-    textSecondary: '#94A3B8',
-    textMuted: '#64748B',
-    textChip: '#CBD5E1',
-    danger: '#EF4444',
+    pageBg: 'var(--craft-bg-deep)',
+    cardBg: 'var(--craft-surface)',
+    fieldBg: 'var(--craft-field)',
+    cardBorder: 'var(--craft-border-subtle)',
+    fieldBorder: 'var(--craft-border)',
+    fieldBorderHover: 'var(--craft-border-strong)',
+    accent: 'var(--craft-action-primary)',
+    accentHover: 'var(--craft-action-primary-hover)',
+    accentSoft: 'var(--craft-accent-soft)',
+    textPrimary: 'var(--craft-text)',
+    textSecondary: 'var(--craft-text-muted)',
+    textMuted: 'var(--craft-placeholder)',
+    textChip: 'var(--craft-text-soft)',
+    danger: 'var(--craft-danger)',
 };
 
 const PROMPT_MAX = API_CONSTRAINTS.posterPromptMaxLength;

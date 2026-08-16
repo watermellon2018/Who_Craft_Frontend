@@ -249,7 +249,7 @@
   display: block;
   width: 100%;
   min-height: 40px;
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .music-library__error,
@@ -724,7 +724,7 @@
 
 .music-upload__audio {
   width: 100%;
-  color-scheme: dark;
+  color-scheme: inherit;
 }
 
 .music-upload__actions {

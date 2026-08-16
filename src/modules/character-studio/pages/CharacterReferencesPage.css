@@ -580,15 +580,15 @@
 }
 
 .references-bottom-actions {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--craft-border-subtle);
   padding-top: 14px;
 }
 
 /* --- Modals: drop zone + compare ---------------------------------------- */
 .references-drop {
-  border: 1.5px dashed rgba(255, 255, 255, 0.18);
+  border: 1.5px dashed var(--craft-border-strong);
   border-radius: 12px;
-  background: #10141b;
+  background: var(--craft-bg-deep);
   min-height: 220px;
   display: flex;
   align-items: center;
@@ -606,7 +606,7 @@
 }
 
 .references-drop__hint {
-  color: #aeb6c3;
+  color: var(--craft-text-muted);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -630,7 +630,7 @@
 }
 
 .references-compare__caption {
-  color: #8f98a7;
+  color: var(--craft-text-soft);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -641,8 +641,8 @@
   width: 100%;
   height: auto;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: #10141b;
+  border: 1px solid var(--craft-border-subtle);
+  background: var(--craft-bg-deep);
 }
 
 .references-compare__empty {
@@ -650,10 +650,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #8f98a7;
-  background: #10141b;
+  color: var(--craft-text-soft);
+  background: var(--craft-bg-deep);
   border-radius: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border: 1px dashed var(--craft-border-strong);
 }
 
 /* --- Right panel scroll fits the column without spawning a stray

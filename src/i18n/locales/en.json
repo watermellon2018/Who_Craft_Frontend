@@ -234,6 +234,19 @@
   "profile": {
     "settings": {
       "title": "⚙️ Settings",
+      "theme": {
+        "title": "Color theme",
+        "description": "Choose the interface appearance. It will be saved in this browser.",
+        "light": "Light",
+        "blue": "Blue",
+        "dark": "Dark",
+        "quickSwitch": "Theme: {{current}}. Switch to {{next}}"
+      },
+      "wallet": {
+        "title": "Craft Wallet",
+        "description": "Balance, spending, and project limits",
+        "open": "Open Craft Wallet"
+      },
       "language": "Interface language",
       "privateAccount": "Private account",
       "notifications": "Notifications",

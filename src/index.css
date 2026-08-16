@@ -21,7 +21,7 @@
   --craft-border-strong: #2d4962;
   --craft-text: #f3f6fa;
   --craft-text-muted: #a5b2c2;
-  --craft-placeholder: #64778d;
+  --craft-placeholder: #74879d;
   --craft-ai: #1d4ed8;
   --craft-ai-hover: #2563eb;
   --craft-ai-soft: rgba(37, 99, 235, 0.18);
@@ -50,6 +50,126 @@
   --craft-font-size-body: 14px;
   --craft-font-size-h1: 28px;
   --craft-font-size-h2: 18px;
+  --craft-text-soft: #cbd5e1;
+  --craft-border-subtle: rgba(148, 163, 184, 0.16);
+  --craft-surface-subtle: rgba(15, 23, 36, 0.72);
+  --craft-surface-translucent: rgba(15, 23, 36, 0.82);
+  --craft-surface-hover: rgba(30, 41, 59, 0.85);
+  --craft-surface-selected: rgba(98, 65, 23, 0.44);
+  --craft-page-gradient:
+    radial-gradient(circle at 12% 22%, rgba(214, 162, 97, 0.1), transparent 32%),
+    radial-gradient(circle at 88% 40%, rgba(59, 130, 246, 0.08), transparent 30%),
+    linear-gradient(180deg, #050914 0%, #0a101a 46%, #060a11 100%);
+  --craft-header-gradient:
+    radial-gradient(120% 180% at 0% 0%, rgba(214, 162, 97, 0.08) 0%, rgba(214, 162, 97, 0) 55%),
+    linear-gradient(180deg, #111827 0%, #070b12 100%);
+  --craft-feature-gradient:
+    radial-gradient(circle at top right, rgba(250, 176, 5, 0.11), transparent 34rem),
+    linear-gradient(180deg, #07111d 0%, #091522 100%);
+  --craft-card-gradient: linear-gradient(135deg, #102132 0%, #0d1b2a 100%);
+  --craft-shadow-elevated: 0 18px 60px rgba(2, 8, 16, 0.42);
+  --craft-on-image: #ffffff;
+  --craft-focus-ring: rgba(250, 176, 5, 0.66);
+}
+
+:root[data-craft-theme='dark'] {
+  --craft-bg-deep: #111318;
+  --craft-bg-elevated: #171a20;
+  --craft-surface: #141820;
+  --craft-surface-raised: #191e28;
+  --craft-field: #11151d;
+  --craft-canvas: #0f1116;
+  --craft-border: #313741;
+  --craft-border-strong: #3b414d;
+  --craft-text: #f6f1e6;
+  --craft-text-muted: #b8bdc7;
+  --craft-text-soft: #d9dee7;
+  --craft-placeholder: #77808d;
+  --craft-disabled-bg: #252932;
+  --craft-disabled-text: #6f7784;
+  --craft-overlay: rgba(17, 19, 24, 0.9);
+  --craft-overlay-raised: rgba(25, 30, 40, 0.97);
+  --craft-shadow: rgba(0, 0, 0, 0.48);
+  --craft-scrollbar-hover: #4a505b;
+  --craft-action-secondary-text: #d9dee7;
+  --craft-action-secondary-border: #3b414d;
+  --craft-action-secondary-border-hover: #565d69;
+  --craft-action-secondary-hover: rgba(255, 255, 255, 0.05);
+  --craft-action-disabled: #4a505b;
+  --craft-border-subtle: rgba(255, 255, 255, 0.09);
+  --craft-surface-subtle: rgba(20, 24, 32, 0.76);
+  --craft-surface-translucent: rgba(20, 24, 32, 0.88);
+  --craft-surface-hover: #20252f;
+  --craft-surface-selected: rgba(92, 64, 22, 0.5);
+  --craft-page-gradient:
+    radial-gradient(circle at 14% 20%, rgba(250, 176, 5, 0.08), transparent 31%),
+    linear-gradient(180deg, #0c0d10 0%, #111318 48%, #0b0c0f 100%);
+  --craft-header-gradient:
+    radial-gradient(120% 180% at 0% 0%, rgba(250, 176, 5, 0.07) 0%, transparent 55%),
+    linear-gradient(180deg, #171a20 0%, #0d0f13 100%);
+  --craft-feature-gradient:
+    radial-gradient(circle at top right, rgba(250, 176, 5, 0.11), transparent 34rem),
+    linear-gradient(180deg, #111318 0%, #171a20 100%);
+  --craft-card-gradient: linear-gradient(135deg, #191e28 0%, #141820 100%);
+  --craft-shadow-elevated: 0 18px 60px rgba(0, 0, 0, 0.42);
+}
+
+:root[data-craft-theme='light'] {
+  --craft-accent-disabled: #dbc37f;
+  --craft-accent-soft: rgba(196, 132, 0, 0.12);
+  --craft-accent-border: rgba(160, 106, 0, 0.42);
+  --craft-bg-deep: #f4f2ed;
+  --craft-bg-elevated: #faf8f3;
+  --craft-surface: #ffffff;
+  --craft-surface-raised: #f4efe5;
+  --craft-field: #ffffff;
+  --craft-canvas: #ece8df;
+  --craft-border: #d8d2c7;
+  --craft-border-strong: #bfb5a6;
+  --craft-text: #20242c;
+  --craft-text-muted: #69717e;
+  --craft-text-soft: #4d5663;
+  --craft-placeholder: #6e7580;
+  --craft-danger: #b4232d;
+  --craft-danger-soft: rgba(180, 35, 45, 0.09);
+  --craft-danger-border: rgba(180, 35, 45, 0.32);
+  --craft-disabled-bg: #e8e3da;
+  --craft-disabled-text: #858b94;
+  --craft-on-accent: rgba(0, 0, 0, 0.76);
+  --craft-on-primary-disabled: rgba(0, 0, 0, 0.58);
+  --craft-overlay: rgba(255, 255, 255, 0.92);
+  --craft-overlay-raised: rgba(255, 255, 255, 0.98);
+  --craft-shadow: rgba(57, 47, 34, 0.16);
+  --craft-scrollbar-hover: #aaa294;
+  --craft-action-secondary-text: #374151;
+  --craft-action-secondary-border: #c9c1b5;
+  --craft-action-secondary-border-hover: #9f9587;
+  --craft-action-secondary-hover: rgba(32, 36, 44, 0.05);
+  --craft-action-disabled: #c9c1b5;
+  --craft-border-subtle: rgba(61, 52, 41, 0.15);
+  --craft-surface-subtle: rgba(255, 255, 255, 0.82);
+  --craft-surface-translucent: rgba(255, 255, 255, 0.92);
+  --craft-surface-hover: #f1ece3;
+  --craft-surface-selected: rgba(250, 176, 5, 0.14);
+  --craft-page-gradient:
+    radial-gradient(circle at 12% 22%, rgba(214, 162, 97, 0.16), transparent 32%),
+    radial-gradient(circle at 88% 40%, rgba(59, 130, 246, 0.05), transparent 30%),
+    linear-gradient(180deg, #faf8f3 0%, #f4f2ed 52%, #ece8df 100%);
+  --craft-header-gradient:
+    radial-gradient(120% 180% at 0% 0%, rgba(214, 162, 97, 0.13) 0%, transparent 55%),
+    linear-gradient(180deg, #ffffff 0%, #f4f1ea 100%);
+  --craft-feature-gradient:
+    radial-gradient(circle at top right, rgba(250, 176, 5, 0.13), transparent 34rem),
+    linear-gradient(180deg, #faf8f3 0%, #f4f2ed 100%);
+  --craft-card-gradient: linear-gradient(135deg, #ffffff 0%, #f4efe5 100%);
+  --craft-shadow-elevated: 0 18px 48px rgba(57, 47, 34, 0.13);
+  --craft-focus-ring: rgba(151, 101, 0, 0.72);
+}
+
+html.craft-theme-switching *,
+html.craft-theme-switching *::before,
+html.craft-theme-switching *::after {
+  transition: none !important;
 }
 
 /* One project-wide placeholder style for native and Ant Design fields. */
@@ -152,11 +272,9 @@ body,
 #root {
   min-height: 100%;
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(214, 162, 97, 0.08), transparent 320px),
-    linear-gradient(180deg, #0b111c 0%, #111827 100%);
+  background: var(--craft-page-gradient);
   background-attachment: fixed;
-  color: #f8fafc;
+  color: var(--craft-text);
   box-sizing: border-box;
 }
 

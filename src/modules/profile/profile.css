@@ -1,6 +1,126 @@
 .profile-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+  scrollbar-color: var(--craft-border) transparent;
+}
+
+.profile-settings-card {
+  color: var(--craft-text);
+  border: 1px solid var(--craft-border-subtle);
+  background: var(--craft-surface-translucent);
+}
+
+.profile-settings-card__title {
+  color: var(--craft-text);
+}
+
+.profile-settings-card__saving {
+  color: var(--craft-text-muted);
+}
+
+.profile-settings-row {
+  color: var(--craft-text);
+  border: 1px solid var(--craft-border-subtle);
+  background: var(--craft-surface-subtle);
+}
+
+.profile-settings-row:hover {
+  background: var(--craft-surface-hover);
+}
+
+.profile-settings-row--theme {
+  display: block;
+}
+
+.profile-settings-wallet-link {
+  text-decoration: none;
+}
+
+.profile-settings-wallet-link:focus-visible {
+  outline: 2px solid var(--craft-focus-ring);
+  outline-offset: 2px;
+}
+
+.profile-settings-wallet-icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--craft-accent-border);
+  border-radius: 999px;
+  background: var(--craft-accent-soft);
+  color: var(--craft-accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.profile-settings-wallet-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.profile-settings-wallet-copy strong {
+  color: var(--craft-text);
+  font-size: 14px;
+}
+
+.profile-settings-wallet-copy small {
+  color: var(--craft-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.profile-settings-wallet-arrow {
+  color: var(--craft-accent);
+  font-size: 18px;
+}
+
+.profile-settings-label {
+  color: var(--craft-text);
+}
+
+.profile-theme-page {
+  color: var(--craft-text);
+  background: var(--craft-bg-deep);
+}
+
+.profile-theme-page [class*='bg-[#16191f]'],
+.profile-theme-page [class*='bg-[#0f1117]'] {
+  background-color: var(--craft-surface) !important;
+}
+
+.profile-theme-page [class*='bg-[#13151a]'] {
+  background-color: var(--craft-bg-elevated) !important;
+}
+
+.profile-theme-page [class*='bg-[#1e2330]'],
+.profile-theme-page [class*='bg-[#1b1f27]'],
+.profile-theme-page [class*='bg-[#262a32]'],
+.profile-theme-page [class*='bg-[#2f343d]'] {
+  background-color: var(--craft-surface-raised) !important;
+}
+
+.profile-theme-page [class~='text-white'],
+.profile-theme-page [class*='text-white/'] {
+  color: var(--craft-text) !important;
+}
+
+.profile-theme-page [class*='border-white/'] {
+  border-color: var(--craft-border-subtle) !important;
+}
+
+.profile-theme-page [class*='bg-white/'] {
+  background-color: var(--craft-surface-raised) !important;
+}
+
+.profile-theme-page input,
+.profile-theme-page textarea {
+  color: var(--craft-text);
+}
+
+.profile-theme-page [class*='bg-black/'] {
+  color: var(--craft-on-image) !important;
 }
 
 .profile-scroll::-webkit-scrollbar {
@@ -13,13 +133,13 @@
 }
 
 .profile-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--craft-border);
   border-radius: 999px;
   transition: background-color 0.15s ease;
 }
 
 .profile-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(250, 176, 5, 0.4);
+  background-color: var(--craft-accent-border);
 }
 
 .profile-scroll::-webkit-scrollbar-corner {

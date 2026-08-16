@@ -1,17 +1,17 @@
 .app-header {
   position: relative;
   z-index: 100;
-  max-width: 1860px;
-  margin: 0 auto;
-  background:
-    radial-gradient(120% 180% at 0% 0%, rgba(214, 162, 97, 0.08) 0%, rgba(214, 162, 97, 0) 55%),
-    linear-gradient(180deg, #111827 0%, #070b12 100%);
-  border-left: 1px solid rgba(148, 163, 184, 0.16);
-  border-right: 1px solid rgba(148, 163, 184, 0.16);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
+  background: var(--craft-header-gradient);
+  border-left: 1px solid var(--craft-border-subtle);
+  border-right: 1px solid var(--craft-border-subtle);
+  border-bottom: 1px solid var(--craft-border-subtle);
   border-top: none;
   border-radius: 0 0 18px 18px;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--craft-shadow-elevated);
   overflow: visible;
 }
 
@@ -39,7 +39,7 @@
 .app-header__menu-btn {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--craft-text-muted);
   font-size: 20px;
   cursor: pointer;
   padding: 6px 10px;
@@ -48,8 +48,8 @@
 }
 
 .app-header__menu-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: var(--craft-surface-hover);
+  color: var(--craft-text);
 }
 
 @media (min-width: 1024px) {
@@ -60,7 +60,7 @@
 
 .app-header__subtitle {
   margin-left: 6px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--craft-text-muted);
   font-size: 13px;
 }
 
@@ -75,21 +75,21 @@
   align-items: center;
   gap: 12px;
   padding: 6px 16px 6px 6px;
-  background: rgba(15, 23, 42, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--craft-surface-translucent);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 999px;
   cursor: pointer;
-  color: #F8FAFC;
+  color: var(--craft-text);
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .app-header__user-pill:hover {
-  background: rgba(30, 41, 59, 0.85);
-  border-color: rgba(214, 162, 97, 0.4);
+  background: var(--craft-surface-hover);
+  border-color: var(--craft-accent-border);
 }
 
 .app-header__user-pill:focus-visible {
-  outline: 2px solid rgba(214, 162, 97, 0.55);
+  outline: 2px solid var(--craft-focus-ring);
   outline-offset: 2px;
 }
 
@@ -122,12 +122,12 @@
   font-size: 14px;
   font-weight: 500;
   line-height: 1;
-  color: #F8FAFC;
+  color: var(--craft-text);
   white-space: nowrap;
 }
 
 .app-header__chevron {
-  color: rgba(148, 163, 184, 0.85);
+  color: var(--craft-text-muted);
   flex-shrink: 0;
 }
 
@@ -137,10 +137,10 @@
   right: 0;
   top: calc(100% + 8px);
   min-width: 220px;
-  background: #0F1724;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--craft-overlay-raised);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 12px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--craft-shadow-elevated);
   overflow: hidden;
   z-index: 1000;
   padding: 4px;
@@ -154,19 +154,19 @@
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: rgba(248, 250, 252, 0.9);
+  color: var(--craft-text);
   font-size: 15px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .app-header__dropdown-item:hover {
-  background: rgba(214, 162, 97, 0.12);
-  color: #fff;
+  background: var(--craft-accent-soft);
+  color: var(--craft-text);
 }
 
 .app-header__dropdown-item:focus-visible {
-  outline: 2px solid rgba(214, 162, 97, 0.55);
+  outline: 2px solid var(--craft-focus-ring);
   outline-offset: -2px;
 }
 
@@ -178,14 +178,14 @@
   min-width: 0;
   height: 56px;
   padding: 0 22px;
-  border-top: 1px solid rgba(217, 160, 92, 0.35);
-  background: linear-gradient(180deg, rgba(15, 23, 36, 0) 0%, rgba(11, 17, 28, 0.6) 100%);
+  border-top: 1px solid var(--craft-accent-border);
+  background: linear-gradient(180deg, transparent 0%, var(--craft-surface-subtle) 100%);
 }
 
 .app-header__crumb-link {
   display: inline-flex;
   align-items: center;
-  color: rgba(203, 213, 225, 0.78);
+  color: var(--craft-text-soft);
   text-decoration: none;
   font-size: 15px;
   font-weight: 500;
@@ -196,12 +196,12 @@
 }
 
 .app-header__crumb-link:hover {
-  color: #F8FAFC;
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--craft-text);
+  background: var(--craft-surface-hover);
 }
 
 .app-header__crumb-link:focus-visible {
-  outline: 2px solid rgba(214, 162, 97, 0.55);
+  outline: 2px solid var(--craft-focus-ring);
   outline-offset: 2px;
 }
 
@@ -211,11 +211,11 @@
 
 .app-header__crumb-link--static:hover {
   background: transparent;
-  color: rgba(203, 213, 225, 0.78);
+  color: var(--craft-text-soft);
 }
 
 .app-header__crumb-separator {
-  color: rgba(148, 163, 184, 0.55);
+  color: var(--craft-text-muted);
   font-size: 15px;
   user-select: none;
 }

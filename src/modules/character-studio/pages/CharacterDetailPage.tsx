@@ -9,7 +9,7 @@ export default function CharacterDetailPage() {
   const navigate = useNavigate();
   const {character} = useCharacter(projectId, characterId);
   if (!character) return null;
-  return <div style={{padding: 24, minHeight: '100vh', background: '#1b1d22'}}>
+  return <div style={{padding: 24, minHeight: '100vh', background: 'var(--craft-bg-deep)'}}>
     <Button type="primary" onClick={() => navigate(`/project/${projectId}/characters/${characterId}/edit`)}>Open Editor</Button>
     <Descriptions title={character.name} bordered style={{marginTop: 20}}>
       <Descriptions.Item label="Роль">{character.role ? (roleLabelMap[character.role] ?? character.role) : '—'}</Descriptions.Item>

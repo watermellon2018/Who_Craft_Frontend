@@ -93,7 +93,7 @@ export default function CharacterGalleryPage() {
   const drafts = characters.filter((character) => character.status === 'draft');
   const visibleCharacters = characters.filter((character) => character.status !== 'draft');
 
-  return <div className="character-gallery-page" style={{padding: 24, minHeight: '100vh', background: '#1b1d22'}}>
+  return <div className="character-gallery-page" style={{padding: 24, minHeight: '100vh', background: 'var(--craft-bg-deep)'}}>
     <div className="character-gallery-page__toolbar">
       <Input.Search
         value={search}
@@ -125,14 +125,14 @@ export default function CharacterGalleryPage() {
     {isInitialLoad ? (
       <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 0'}}>
         <Spin aria-label={t('characterStudio.gallery.loadingTip')} />
-        <span style={{color: 'rgba(255,255,255,0.65)'}}>
+        <span style={{color: 'var(--craft-text-muted)'}}>
           {t('characterStudio.gallery.loadingTip')}
         </span>
       </div>
     ) : !hasResults && !error ? (
       <Empty
         description={
-          <span style={{color: 'rgba(255,255,255,0.65)'}}>
+          <span style={{color: 'var(--craft-text-muted)'}}>
             {isSearching
               ? t('characterStudio.gallery.noResults', {query: search})
               : t('characterStudio.gallery.emptyTitle')}

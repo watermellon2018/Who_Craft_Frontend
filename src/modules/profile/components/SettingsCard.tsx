@@ -1,45 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { ConfigProvider, Switch, Select, message } from 'antd';
+import { Switch, Select, message } from 'antd';
 import { useTranslation } from 'react-i18next';
+import {Link} from 'react-router-dom';
 import { ProfileSettings } from '../types';
 import { updateSettings } from '../api/profileApi';
-import {CRAFT_ACCENT} from '../../../constants/theme';
+import ThemePicker from '../../../components/theme/ThemePicker';
+import PathConstants from '../../../routes/pathConstant';
 
 interface Props {
   settings: ProfileSettings;
   onChange: (updated: ProfileSettings) => void;
 }
 
-const cardTheme = {
-  token: {
-    colorPrimary: CRAFT_ACCENT,
-  },
-  components: {
-    Switch: {
-      colorPrimary: CRAFT_ACCENT,
-      colorPrimaryHover: '#fcc419',
-      colorTextQuaternary: 'rgba(255, 255, 255, 0.18)',
-      handleBg: '#ffffff',
-    },
-    Select: {
-      colorBgContainer: '#1b1f27',
-      colorBgElevated: '#1b2029',
-      colorText: 'rgba(255, 255, 255, 0.92)',
-      colorBorder: 'rgba(255, 255, 255, 0.08)',
-      colorPrimaryHover: CRAFT_ACCENT,
-      controlOutline: 'rgba(250, 176, 5, 0.15)',
-      optionSelectedBg: 'rgba(250, 176, 5, 0.12)',
-      optionSelectedColor: CRAFT_ACCENT,
-      optionActiveBg: 'rgba(255, 255, 255, 0.05)',
-      selectorBg: '#1b1f27',
-      borderRadius: 10,
-    },
-  },
-};
-
 const rowClass =
-  'flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-xl px-3.5 py-3 transition-colors';
-const labelClass = 'flex items-center gap-2.5 text-white/90 text-sm font-medium';
+  'profile-settings-row flex items-center justify-between rounded-xl px-3.5 py-3 transition-colors';
+const labelClass = 'profile-settings-label flex items-center gap-2.5 text-sm font-medium';
 
 const SettingsCard: React.FC<Props> = ({ settings, onChange }) => {
   const { t, i18n } = useTranslation();
@@ -76,14 +51,32 @@ const SettingsCard: React.FC<Props> = ({ settings, onChange }) => {
   };
 
   return (
-    <ConfigProvider theme={cardTheme}>
-      <div className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
+      <div className="profile-settings-card rounded-2xl p-5 shadow-md">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-semibold text-base">{t('profile.settings.title')}</h3>
-          {saving && <span className="text-white/40 text-xs">{t('common.saving')}</span>}
+          <h3 className="profile-settings-card__title font-semibold text-base">{t('profile.settings.title')}</h3>
+          {saving && <span className="profile-settings-card__saving text-xs">{t('common.saving')}</span>}
         </div>
 
         <div className="space-y-2">
+          <div className="profile-settings-row profile-settings-row--theme rounded-xl px-3.5 py-3">
+            <ThemePicker />
+          </div>
+
+          <Link
+            to={PathConstants.CREDITS}
+            className={`${rowClass} profile-settings-wallet-link`}
+            aria-label={t('profile.settings.wallet.open')}
+          >
+            <span className={labelClass}>
+              <span className="profile-settings-wallet-icon" aria-hidden="true">C</span>
+              <span className="profile-settings-wallet-copy">
+                <strong>{t('profile.settings.wallet.title')}</strong>
+                <small>{t('profile.settings.wallet.description')}</small>
+              </span>
+            </span>
+            <span className="profile-settings-wallet-arrow" aria-hidden="true">→</span>
+          </Link>
+
           <div className={rowClass}>
             <span className={labelClass}>
               <span className="text-base">🌐</span>
@@ -124,7 +117,6 @@ const SettingsCard: React.FC<Props> = ({ settings, onChange }) => {
           {t('profile.settings.openAll')}
         </button>
       </div>
-    </ConfigProvider>
   );
 };
 

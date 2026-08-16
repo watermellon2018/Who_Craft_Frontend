@@ -134,7 +134,7 @@ export const ProjectListPage = () => {
   return (
     <>
       <DashboardHeader title="" />
-      <main className="app-main library-projects-page text-white">
+      <main className="app-main library-projects-page">
         <InvitationsBlock onAccepted={loadProjects} />
         {loading && (
           <div className="projects-state" role="status">

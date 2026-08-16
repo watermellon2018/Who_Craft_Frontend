@@ -37,12 +37,13 @@ import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceW
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
 import CreditWalletPage from './modules/credits/pages/CreditWalletPage';
 import withAuth from "./utils/auth/check_auth";
-import {CRAFT_ACCENT, CRAFT_ACCENT_HOVER, CRAFT_PLACEHOLDER} from './constants/theme';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import NotFoundPage from './page/errors/NotFoundPage';
 import {AUTH_EXPIRED_EVENT} from './api/http';
 import type {AuthExpiredEventDetail} from './api/http';
 import {safeReturnTo} from './utils/auth/returnTo';
+import {createAntTheme} from './theme/antdTheme';
+import {CraftThemeProvider, useCraftTheme} from './theme/CraftThemeProvider';
 
 // All private pages are wrapped once here so adding a new private route is a
 // one-line change and we can't forget the auth gate on any single page.
@@ -81,98 +82,6 @@ const AuthExpiryRedirect: React.FC = () => {
 
     return null;
 };
-// https://ant.design/theme-editor#component-color настройка цветов
-const theme = {
-    "token": {
-        "colorPrimary": CRAFT_ACCENT,
-        "colorInfo": CRAFT_ACCENT,
-        "colorBgBase": "#1b1d22",
-        "colorTextBase": "#ffffff",
-        "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-        "fontSize": 16,
-        "sizeStep": 3,
-        "sizeUnit": 3,
-        "borderRadius": 3,
-        "wireframe": false,
-        "backgroundColor": '#1b1d22',
-        "background": '#1b1d22',
-        "algorithm": true,
-    },
-    "components": {
-        "Button": {
-            "defaultBorderColor": "rgb(250, 176, 5)",
-            "colorPrimaryBorder": "rgb(27, 29, 34) !important",
-            "colorPrimary": "rgb(250, 176, 5) !important",
-            "colorError": "rgba(255, 77, 79, 0.57)",
-            "colorTextLightSolid": "rgb(27, 29, 34)",
-            "colorText": "rgb(250, 176, 5)",
-            "defaultColor": "rgb(250, 176, 5)",
-            "colorPrimaryHover": "rgb(252, 209, 95)",
-            "primaryShadow": "0 0px 0",
-            "transition": "transform 0.3s ease",
-            "&:active": {
-                "transform": "scale(0.95)",
-            },
-        },
-        "Input": {
-            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-            "colorBorder": "rgb(250, 176, 5)",
-            "colorBgContainer": "rgb(27, 29, 34)"
-        },
-        "Sidebar": {
-            "textColor": "#fff",
-        },
-        "Switch": {
-            "colorPrimary": "rgb(27, 29, 34)",
-            "colorTextQuaternary": "rgb(27, 29, 34) !important",
-            "colorPrimaryHover": "rgb(208, 154, 26)",
-            "colorPrimaryBorder": "rgb(27, 29, 34)",
-        },
-        "InputNumber": {
-            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-            "colorBorder": "rgb(250, 176, 5)",
-        },
-        "Select": {
-            "colorBgContainer": "#141820",
-            "colorBgElevated": "#1b2029",
-            "colorText": "rgba(255, 255, 255, 0.88)",
-            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-            "colorBorder": "#3b414d",
-            "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
-            "optionSelectedColor": CRAFT_ACCENT,
-            "optionActiveBg": "rgba(255, 255, 255, 0.05)",
-            "selectorBg": "#141820",
-        },
-        "Checkbox": {
-            "colorText": "#f3f6fa",
-            "colorTextDisabled": "#718196",
-            "colorBgContainer": "#0b1926",
-            "colorBgContainerDisabled": "#152536",
-            "colorBorder": "rgba(255, 255, 255, 0.62)",
-            "colorPrimary": CRAFT_ACCENT,
-            "colorPrimaryHover": CRAFT_ACCENT_HOVER,
-            "colorPrimaryBorder": "rgba(250, 176, 5, 0.4)",
-            "colorWhite": "rgba(0, 0, 0, 0.7)",
-        },
-        "Radio": {
-            "colorText": "rgb(27, 29, 34)",
-        },
-        "Tabs": {
-            "itemSelectedColor":  "rgb(27, 29, 34)",
-            "itemActiveColor":  "rgb(27, 29, 34)",
-            "itemColor":  "rgb(27, 29, 34)",
-            "itemHoverColor":  "rgba(27, 29, 34, 0.7)",
-        },
-        "Form": {
-            "labelColor": "rgb(27, 29, 34)",
-        },
-        "Empty": {
-            "colorText": CRAFT_ACCENT,
-            "colorTextDisabled": CRAFT_ACCENT,
-        }
-    }
-}
-
 export const APP_ROUTES = [
         // Public.
         { key: 'register', path: PathConstants.REGISTER, component: <RegistrationPage /> },
@@ -212,7 +121,10 @@ export const APP_ROUTES = [
         { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
     ];
 
-function App() {
+function ThemedApp() {
+
+    const {theme} = useCraftTheme();
+    const antdTheme = useMemo(() => createAntTheme(theme), [theme]);
 
     const router = useMemo(() => createBrowserRouter([{
         element: <><AuthExpiryRedirect /><Outlet /></>,
@@ -226,10 +138,18 @@ function App() {
 
     return (
         <AppErrorBoundary>
-            <ConfigProvider theme={theme}>
+            <ConfigProvider theme={antdTheme}>
                 <RouterProvider router={router} />
             </ConfigProvider>
         </AppErrorBoundary>
+    );
+}
+
+function App() {
+    return (
+        <CraftThemeProvider>
+            <ThemedApp />
+        </CraftThemeProvider>
     );
 }
 

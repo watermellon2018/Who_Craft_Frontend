@@ -4,7 +4,7 @@
   gap: 9px;
   min-height: 46px;
   padding: 6px 14px 6px 7px;
-  color: #f8fafc;
+  color: var(--craft-text);
   text-decoration: none;
   background: rgba(214, 162, 97, 0.1);
   border: 1px solid rgba(214, 162, 97, 0.32);
@@ -13,7 +13,7 @@
 }
 
 .credit-balance-badge:hover {
-  color: #fff;
+  color: var(--craft-text);
   background: rgba(214, 162, 97, 0.18);
   border-color: rgba(224, 177, 111, 0.62);
   transform: translateY(-1px);
@@ -62,7 +62,7 @@
 }
 
 .credit-balance-badge__label {
-  color: rgba(203, 213, 225, 0.72);
+  color: var(--craft-text-muted);
   font-size: 10px;
   line-height: 1;
   letter-spacing: 0.08em;
@@ -117,7 +117,7 @@
   gap: 8px 14px;
   margin-top: 12px;
   padding: 10px 12px;
-  color: rgba(226, 232, 240, 0.84);
+  color: var(--craft-text-soft);
   background: rgba(214, 162, 97, 0.08);
   border: 1px solid rgba(214, 162, 97, 0.18);
   border-radius: 10px;
@@ -128,7 +128,7 @@
 }
 
 .generation-billing small {
-  color: rgba(148, 163, 184, 0.82);
+  color: var(--craft-text-muted);
 }
 
 .generation-billing--compact {
@@ -139,18 +139,16 @@
 
 .credit-wallet-page {
   min-height: 100vh;
-  padding: 0 20px 60px;
-  color: #f8fafc;
-  background:
-    radial-gradient(circle at 12% 22%, rgba(214, 162, 97, 0.1), transparent 32%),
-    radial-gradient(circle at 88% 40%, rgba(59, 130, 246, 0.08), transparent 30%),
-    linear-gradient(180deg, #050914 0%, #0a101a 46%, #060a11 100%);
+  padding-bottom: 60px;
+  color: var(--craft-text);
+  background: var(--craft-page-gradient);
 }
 
 .credit-wallet {
-  width: min(1180px, 100%);
+  width: min(1220px, 100%);
   margin: 0 auto;
-  padding-top: 42px;
+  padding: 42px 20px 0;
+  box-sizing: border-box;
 }
 
 .credit-wallet__hero {
@@ -160,12 +158,10 @@
   gap: 32px;
   padding: 32px;
   overflow: hidden;
-  background:
-    linear-gradient(120deg, rgba(22, 31, 47, 0.96), rgba(11, 17, 28, 0.96)),
-    #0b111c;
+  background: var(--craft-card-gradient);
   border: 1px solid rgba(214, 162, 97, 0.26);
   border-radius: 24px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.26);
+  box-shadow: var(--craft-shadow-elevated);
 }
 
 .credit-wallet__eyebrow,
@@ -185,7 +181,7 @@
 .credit-wallet__hero p,
 .credit-wallet__panel p {
   margin: 0;
-  color: rgba(203, 213, 225, 0.76);
+  color: var(--craft-text-muted);
   line-height: 1.6;
 }
 
@@ -197,7 +193,7 @@
 
 .credit-wallet__hero-balance span,
 .credit-wallet__hero-balance small {
-  color: rgba(203, 213, 225, 0.68);
+  color: var(--craft-text-muted);
 }
 
 .credit-wallet__hero-balance strong {
@@ -236,10 +232,10 @@
 .credit-wallet__empty {
   margin-top: 24px;
   padding: 36px;
-  color: rgba(203, 213, 225, 0.7);
+  color: var(--craft-text-muted);
   text-align: center;
-  background: rgba(15, 23, 36, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--craft-surface-subtle);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 16px;
 }
 
@@ -254,14 +250,14 @@
 .credit-wallet__spending {
   margin-top: 34px;
   padding: 24px;
-  background: rgba(15, 23, 36, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--craft-surface-subtle);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 20px;
 }
 
 .credit-wallet__routing > p,
 .credit-wallet__routing > small {
-  color: rgba(203, 213, 225, 0.72);
+  color: var(--craft-text-muted);
 }
 
 .credit-wallet__routing-grid {
@@ -277,22 +273,22 @@
   padding: 14px;
   flex-direction: column;
   gap: 8px;
-  color: #f8fafc;
+  color: var(--craft-text);
   text-align: left;
-  background: #09111d;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--craft-field);
+  border: 1px solid var(--craft-border);
   border-radius: 12px;
   cursor: pointer;
 }
 
 .credit-wallet__routing-grid button span {
-  color: rgba(148, 163, 184, 0.82);
+  color: var(--craft-text-muted);
   font-size: 12px;
   line-height: 1.45;
 }
 
 .credit-wallet__routing-grid button.is-active {
-  background: rgba(98, 65, 23, 0.44);
+  background: var(--craft-surface-selected);
   border-color: rgba(214, 162, 97, 0.72);
   box-shadow: 0 0 0 3px rgba(214, 162, 97, 0.08);
 }
@@ -306,7 +302,7 @@
 
 .credit-wallet__spending-total span,
 .credit-wallet__spending-total small {
-  color: rgba(148, 163, 184, 0.82);
+  color: var(--craft-text-muted);
 }
 
 .credit-wallet__spending-total strong {
@@ -322,7 +318,7 @@
 
 .credit-wallet__spending-columns > div {
   padding: 16px;
-  background: rgba(5, 9, 20, 0.45);
+  background: var(--craft-bg-elevated);
   border-radius: 14px;
 }
 
@@ -336,12 +332,12 @@
   justify-content: space-between;
   gap: 12px;
   padding: 9px 0;
-  color: rgba(203, 213, 225, 0.78);
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  color: var(--craft-text-muted);
+  border-top: 1px solid var(--craft-border-subtle);
 }
 
 .credit-wallet__spending-row strong {
-  color: #f8fafc;
+  color: var(--craft-text);
 }
 
 .credit-card {
@@ -349,18 +345,18 @@
   flex-direction: column;
   min-height: 150px;
   padding: 22px;
-  background: rgba(15, 23, 36, 0.82);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--craft-surface-translucent);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 18px;
 }
 
 .credit-card--primary {
-  background: linear-gradient(145deg, rgba(79, 53, 19, 0.65), rgba(15, 23, 36, 0.92));
+  background: linear-gradient(145deg, var(--craft-accent-deep), var(--craft-surface-translucent));
   border-color: rgba(214, 162, 97, 0.38);
 }
 
 .credit-card > span {
-  color: rgba(203, 213, 225, 0.72);
+  color: var(--craft-text-muted);
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -368,12 +364,12 @@
 
 .credit-card strong {
   margin: 12px 0 auto;
-  color: #f8fafc;
+  color: var(--craft-text);
   font-size: 34px;
 }
 
 .credit-card small {
-  color: rgba(148, 163, 184, 0.76);
+  color: var(--craft-text-muted);
 }
 
 .credit-wallet__stats,
@@ -406,13 +402,13 @@
   flex-direction: column;
   gap: 8px;
   padding: 17px 18px;
-  background: rgba(15, 23, 36, 0.66);
-  border: 1px solid rgba(148, 163, 184, 0.13);
+  background: var(--craft-surface-subtle);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 14px;
 }
 
 .credit-wallet__stats-grid span {
-  color: rgba(203, 213, 225, 0.7);
+  color: var(--craft-text-muted);
   font-size: 13px;
 }
 
@@ -425,7 +421,7 @@
 }
 
 .credit-wallet__top-up > p {
-  color: rgba(203, 213, 225, 0.72);
+  color: var(--craft-text-muted);
 }
 
 .credit-wallet__top-up .credit-wallet__panel {
@@ -439,8 +435,8 @@
 .credit-wallet__panel {
   position: relative;
   padding: 26px;
-  background: rgba(15, 23, 36, 0.78);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--craft-surface-translucent);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 20px;
 }
 
@@ -471,7 +467,7 @@
 
 .credit-wallet__panel label,
 .credit-budget-card label {
-  color: rgba(226, 232, 240, 0.86);
+  color: var(--craft-text-soft);
   font-size: 13px;
   font-weight: 600;
 }
@@ -483,9 +479,9 @@
   width: 100%;
   min-height: 46px;
   padding: 10px 13px;
-  color: #f8fafc;
-  background: #09111d;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--craft-text);
+  background: var(--craft-field);
+  border: 1px solid var(--craft-border);
   border-radius: 10px;
   outline: none;
 }
@@ -504,7 +500,7 @@
 
 .credit-wallet__admin > p,
 .credit-wallet__budgets > p {
-  color: rgba(203, 213, 225, 0.72);
+  color: var(--craft-text-muted);
 }
 
 .credit-wallet__admin-grid,
@@ -530,8 +526,8 @@
 
 .credit-budget-card {
   padding: 22px;
-  background: rgba(15, 23, 36, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--craft-surface-subtle);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 18px;
 }
 
@@ -558,7 +554,7 @@
 
 .credit-budget-card__heading span,
 .credit-budget-card form > small {
-  color: rgba(148, 163, 184, 0.82);
+  color: var(--craft-text-muted);
 }
 
 .credit-budget-card__heading em {
@@ -579,18 +575,18 @@
 
 .credit-budget-card dl > div {
   padding: 10px;
-  background: rgba(5, 9, 20, 0.42);
+  background: var(--craft-bg-elevated);
   border-radius: 10px;
 }
 
 .credit-budget-card dt {
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--craft-text-muted);
   font-size: 12px;
 }
 
 .credit-budget-card dd {
   margin: 5px 0 0;
-  color: #f8fafc;
+  color: var(--craft-text);
   font-weight: 700;
 }
 
@@ -620,7 +616,7 @@
 }
 
 .credit-wallet__panel form > small {
-  color: rgba(148, 163, 184, 0.76);
+  color: var(--craft-text-muted);
   line-height: 1.45;
 }
 
@@ -647,7 +643,7 @@
   display: grid;
   gap: 5px;
   min-width: 220px;
-  color: rgba(203, 213, 225, 0.7);
+  color: var(--craft-text-muted);
   font-size: 12px;
 }
 
@@ -655,25 +651,24 @@
   width: 100%;
   min-height: 42px;
   padding: 9px 38px 9px 13px;
-  color: #f8fafc;
+  color: var(--craft-text);
   font: inherit;
   font-size: 14px;
-  background-color: #09111d;
+  background-color: var(--craft-field);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23d6a261' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 13px center;
   background-size: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid var(--craft-border);
   border-radius: 10px;
   outline: none;
   appearance: none;
-  color-scheme: dark;
   cursor: pointer;
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
 .credit-wallet__section-heading--history select:hover {
-  background-color: #0d1726;
+  background-color: var(--craft-surface-hover);
   border-color: rgba(214, 162, 97, 0.52);
 }
 
@@ -683,14 +678,14 @@
 }
 
 .credit-wallet__section-heading--history select option {
-  color: #f8fafc;
-  background: #09111d;
+  color: var(--craft-text);
+  background: var(--craft-field);
 }
 
 .credit-wallet__ledger {
   overflow: hidden;
-  background: rgba(15, 23, 36, 0.72);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--craft-surface-subtle);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 18px;
 }
 
@@ -700,7 +695,7 @@
   align-items: center;
   gap: 14px;
   padding: 16px 18px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.11);
+  border-bottom: 1px solid var(--craft-border-subtle);
 }
 
 .credit-ledger-entry:last-child {
@@ -729,7 +724,7 @@
 
 .credit-ledger-entry__body span,
 .credit-ledger-entry__meta time {
-  color: rgba(148, 163, 184, 0.76);
+  color: var(--craft-text-muted);
   font-size: 12px;
 }
 
@@ -751,13 +746,8 @@
 }
 
 @media (max-width: 820px) {
-  .credit-wallet-page {
-    padding-right: 12px;
-    padding-left: 12px;
-  }
-
   .credit-wallet {
-    padding-top: 24px;
+    padding: 24px 12px 0;
   }
 
   .credit-wallet__hero {
