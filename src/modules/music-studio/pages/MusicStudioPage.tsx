@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {Alert, Button, Empty, Modal, Result, Segmented, Skeleton, Space, Spin} from 'antd';
+import {Alert, Button, Empty, Result, Segmented, Skeleton, Space, Spin} from 'antd';
 import {PlusOutlined, ReloadOutlined, SoundOutlined, UploadOutlined} from '@ant-design/icons';
 import {flushSync} from 'react-dom';
 import {useTranslation} from 'react-i18next';
@@ -13,6 +13,7 @@ import {
   musicUploadDraftEditorPath,
 } from '../../../routes/pathConstant';
 import {currentReturnTo} from '../../../utils/auth/returnTo';
+import {craftModal} from '../../../theme/CraftModalHost';
 import type {AppliedTrackContext} from '../api/musicApi';
 import {musicApi, newMusicIdempotencyKey} from '../api/musicApi';
 import AudioReferenceField from '../components/AudioReferenceField';
@@ -534,7 +535,7 @@ export default function MusicStudioPage() {
     enqueueInFlightRef.current = true;
     if (uploadDirty) {
       const discardUploadDraft = await new Promise<boolean>((resolve) => {
-        Modal.confirm({
+        craftModal.confirm({
           cancelText: t('musicStudio.upload.discardDraftCancel'),
           content: t('musicStudio.upload.discardDraftDescription'),
           okText: t('musicStudio.upload.discardDraftConfirm'),

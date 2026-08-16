@@ -28,6 +28,7 @@ import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 
 import {backendAssetUrl} from '../../../api/http';
+import {craftModal} from '../../../theme/CraftModalHost';
 import {
   referenceEditPath,
   referenceJobPath,
@@ -440,7 +441,7 @@ export default function ReferenceWorkspacePage() {
 
   const applySelected = () => {
     if (!referenceId || !jobId || !reference || !selectedVariantId) return;
-    Modal.confirm({
+    craftModal.confirm({
       cancelText: t('common.cancel'),
       content: t('referenceLibrary.variants.applyConfirmDescription'),
       okText: t('referenceLibrary.variants.apply'),
@@ -477,7 +478,7 @@ export default function ReferenceWorkspacePage() {
     }
     const archived = reference.status === 'archived';
     const action = archived ? referenceApi.restore : referenceApi.archive;
-    Modal.confirm({
+    craftModal.confirm({
       cancelText: t('common.cancel'),
       content: archived
         ? t('referenceLibrary.archive.restoreDescription')

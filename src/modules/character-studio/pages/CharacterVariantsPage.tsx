@@ -1,4 +1,4 @@
-import {Button, Checkbox, message, Modal} from 'antd';
+import {Button, Checkbox, message} from 'antd';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import { useTranslation } from 'react-i18next';
 import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
@@ -10,6 +10,7 @@ import type {
 import {getApiStatus} from '../../../api/errors';
 import i18n from '../../../i18n';
 import {characterCreatePath} from '../../../routes/pathConstant';
+import {craftModal} from '../../../theme/CraftModalHost';
 import {getGenerationRoutingMode} from '../../credits/api/creditApi';
 import {
     formatGenerationCost,
@@ -227,7 +228,7 @@ function confirmSecondaryGeneration(
 ): Promise<SecondaryGenerationDecision> {
     return new Promise((resolve) => {
         let settled = false;
-        let modal: ReturnType<typeof Modal.confirm> | null = null;
+        let modal: ReturnType<typeof craftModal.confirm> | null = null;
         const settle = (decision: SecondaryGenerationDecision) => {
             if (settled) return;
             settled = true;
@@ -241,7 +242,7 @@ function confirmSecondaryGeneration(
             return;
         }
         signal.addEventListener('abort', handleAbort, {once: true});
-        modal = Modal.confirm({
+        modal = craftModal.confirm({
             ...GENERATION_COST_MODAL_THEME,
             closable: true,
             content: <SecondaryGenerationConfirmation {...intent} onDecision={settle} />,

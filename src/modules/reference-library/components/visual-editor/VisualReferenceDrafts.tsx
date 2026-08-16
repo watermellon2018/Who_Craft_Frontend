@@ -1,9 +1,10 @@
 import {MoreOutlined, PictureOutlined} from '@ant-design/icons';
 import type {MenuProps} from 'antd';
-import {Button, Dropdown, Modal, Tooltip} from 'antd';
+import {Button, Dropdown, Tooltip} from 'antd';
 import React from 'react';
 import {useTranslation} from 'react-i18next';
 
+import {craftModal} from '../../../../theme/CraftModalHost';
 import type {VisualReferenceDraft} from './types';
 
 const TOOLTIP_ROOT_CLASS_NAME = 'visual-reference-tooltip';
@@ -30,7 +31,7 @@ export default function VisualReferenceDrafts({
   const {t} = useTranslation();
 
   const confirmDelete = (draft: VisualReferenceDraft) => {
-    Modal.confirm({
+    craftModal.confirm({
       cancelText: t('common.cancel'),
       content: t('referenceLibrary.editor.drafts.removeConfirmDescription', {
         name: draft.name,

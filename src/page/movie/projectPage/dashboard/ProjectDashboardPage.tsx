@@ -48,7 +48,8 @@ import {
 import type { DashboardPayload, ProjectStatusValue } from './api';
 import InviteMemberModal from '../team/InviteMemberModal';
 import { fetchTeamSummary, leaveProject, teamErrorCode } from '../../../../api/projects/team';
-import { Modal, message } from 'antd';
+import { message } from 'antd';
+import {craftModal} from '../../../../theme/CraftModalHost';
 import { getApiStatus } from '../../../../api/errors';
 
 import '../../../../modules/profile/profile.css';
@@ -385,7 +386,7 @@ export const ProjectDashboardPage: React.FC = () => {
 
   const handleArchive = useCallback(() => {
     if (!projectId) return;
-    Modal.confirm({
+    craftModal.confirm({
       title: 'Архивировать проект?',
       content:
         'Проект будет перемещён в архив. Вы сможете восстановить его позже.',
@@ -440,7 +441,7 @@ export const ProjectDashboardPage: React.FC = () => {
 
   const handleLeave = useCallback(() => {
     if (!projectId) return;
-    Modal.confirm({
+    craftModal.confirm({
       title: 'Покинуть проект?',
       content:
         'Ваш доступ будет отозван немедленно. Созданные вами материалы останутся в проекте.',
@@ -467,7 +468,7 @@ export const ProjectDashboardPage: React.FC = () => {
 
   const handleDelete = useCallback(() => {
     if (!projectId) return;
-    Modal.confirm({
+    craftModal.confirm({
       title: 'Удалить проект?',
       content:
         'Это действие нельзя отменить. Проект, персонажи, сцены, музыка, ассеты и история активности будут удалены.',

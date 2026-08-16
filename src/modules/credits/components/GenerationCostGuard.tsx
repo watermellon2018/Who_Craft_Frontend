@@ -1,6 +1,6 @@
-import {Modal} from 'antd';
 import React, {useEffect, useMemo, useState} from 'react';
 import i18n from '../../../i18n';
+import {craftModal} from '../../../theme/CraftModalHost';
 
 import type {
   GenerationCostEstimate,
@@ -34,7 +34,7 @@ export function formatGenerationCost(value: string): string {
 function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
   if (Number(estimate.reservationAmount) <= 0) return Promise.resolve(true);
   return new Promise((resolve) => {
-    Modal.confirm({
+    craftModal.confirm({
       ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.generation.confirmTitle'),
       content: (
@@ -98,7 +98,7 @@ export async function prepareGenerationCost(
   try {
     estimate = await getGenerationCostEstimate(intent);
   } catch (error) {
-    Modal.error({
+    craftModal.error({
       ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.generation.estimateErrorTitle'),
       content: getApiErrorMessage(error, i18n.t('credits.generation.estimateError')),
@@ -106,7 +106,7 @@ export async function prepareGenerationCost(
     return null;
   }
   if (estimate.accountFrozen) {
-    Modal.error({
+    craftModal.error({
       ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.frozen.title'),
       content: i18n.t('credits.frozen.generation'),
@@ -114,7 +114,7 @@ export async function prepareGenerationCost(
     return null;
   }
   if (!estimate.sufficientBalance) {
-    Modal.error({
+    craftModal.error({
       ...GENERATION_COST_MODAL_THEME,
       title: i18n.t('credits.generation.insufficientTitle'),
       content: i18n.t('credits.generation.insufficientDescription', {

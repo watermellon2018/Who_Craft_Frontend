@@ -43,6 +43,7 @@ import {AUTH_EXPIRED_EVENT} from './api/http';
 import type {AuthExpiredEventDetail} from './api/http';
 import {safeReturnTo} from './utils/auth/returnTo';
 import {createAntTheme} from './theme/antdTheme';
+import {CraftModalHost} from './theme/CraftModalHost';
 import {CraftThemeProvider, useCraftTheme} from './theme/CraftThemeProvider';
 
 // All private pages are wrapped once here so adding a new private route is a
@@ -139,6 +140,7 @@ function ThemedApp() {
     return (
         <AppErrorBoundary>
             <ConfigProvider theme={antdTheme}>
+                <CraftModalHost />
                 <RouterProvider router={router} />
             </ConfigProvider>
         </AppErrorBoundary>

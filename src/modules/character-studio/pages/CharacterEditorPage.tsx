@@ -1,9 +1,10 @@
 import React, {useEffect, useRef, useState} from 'react';
-import {Button, Collapse, Modal, message} from 'antd';
+import {Button, Collapse, message} from 'antd';
 import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
+import {craftModal} from '../../../theme/CraftModalHost';
 import {characterApi} from '../api/characterApi';
 import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import CharacterCategorySidebar from '../components/CharacterCategorySidebar';
@@ -107,7 +108,7 @@ function regionForImageType(imageType: CharacterImageType, activeTab: string): C
 
 function confirmDeleteCharacter(name: string) {
   return new Promise<boolean>((resolve) => {
-    Modal.confirm({
+    craftModal.confirm({
       title: `Вы точно уверены в удалении персонажа «${name}»?`,
       okText: 'Удалить',
       cancelText: 'Отмена',
