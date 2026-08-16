@@ -48,24 +48,27 @@
       "refunded": "Refunded"
     },
     "topUp": {
+      "eyebrow": "BALANCE",
       "demoBadge": "DEMO",
-      "title": "Add credits",
+      "title": "Balance top-up",
       "description": "A test top-up without a bank or payment processor. Available in demo mode only.",
       "submit": "Add credits",
       "presets": "Quick amount selection",
       "success": "Added {{amount}} credits."
     },
     "transfer": {
-      "title": "Send to a user",
-      "description": "Transfer any available credits, including bonuses and credits received from another user.",
+      "title": "Administrative transfer",
+      "description": "Move available credits between two users. The operation is recorded in the audit trail.",
+      "sender": "Sender login",
+      "senderPlaceholder": "Wallet to debit",
       "recipient": "Recipient login",
       "recipientPlaceholder": "Exact Craft login",
-      "note": "Note",
-      "notePlaceholder": "For example, thanks for helping with the project",
+      "reason": "Transfer reason",
+      "reasonPlaceholder": "For example, moving credits between teammates",
       "submit": "Send credits",
-      "hint": "Reserved credits cannot be transferred. A transfer in this demo project is not a bank payment.",
+      "hint": "Staff only. Reserved credits cannot be transferred, and frozen wallets cannot send or receive credits.",
       "limits": "Limit: {{perTransfer}} C per transfer, {{day}} C and {{count}} operations per 24 hours.",
-      "success": "Sent {{amount}} credits to @{{username}}."
+      "success": "Transferred {{amount}} credits: @{{sender}} → @{{recipient}}."
     },
     "history": {
       "eyebrow": "ACTIVITY",
@@ -141,24 +144,45 @@
       "noProject": "No project",
       "domains": {"character": "Characters", "poster": "Posters", "reference": "References", "music": "Music", "model3d": "3D models"}
     },
+    "budgets": {
+      "eyebrow": "PROJECT LIMITS",
+      "title": "Generation budgets",
+      "description": "Set a lifetime project spending limit. Users still pay from their own wallets, while every project generation counts toward the same limit.",
+      "empty": "You do not own any projects that can have a budget yet.",
+      "unlimited": "No limit",
+      "unlimitedPlaceholder": "Empty means no limit",
+      "limit": "Maximum budget",
+      "limitValue": "Limit {{amount}} C",
+      "spent": "Spent",
+      "remaining": "Remaining",
+      "overLimit": "Limit exceeded",
+      "save": "Save",
+      "hint": "Leave the field empty to remove the limit. Active reservations also reduce the remaining budget.",
+      "success": "Budget for “{{project}}” saved.",
+      "validation": "Enter a non-negative amount with no more than two decimal places, or leave the field empty.",
+      "error": "Could not save the project budget."
+    },
     "admin": {
       "title": "Wallet administration",
-      "description": "Manual operations are staff-only and always recorded in an immutable audit trail.",
-      "username": "User login",
-      "action": "Operation",
+      "description": "Freezing controls your own wallet, while transfers let staff move credits between users. Every action is recorded in the audit trail.",
       "reason": "Operation reason",
-      "submit": "Run operation",
-      "audit": "Audit for @{{username}}",
-      "success": "Operation completed and recorded in the audit trail.",
-      "validation": "Enter a user, a reason and a valid non-zero amount.",
+      "reasonPlaceholder": "Briefly explain why",
+      "success": {"freeze": "Your wallet is frozen.", "unfreeze": "Your wallet is active again."},
+      "validation": "Enter a reason for the operation.",
       "error": "Could not complete the administrative operation.",
-      "actions": {"adjustment": "Adjustment", "refund": "Refund", "freeze": "Freeze", "unfreeze": "Unfreeze"}
+      "walletState": {
+        "activeTitle": "Your wallet is active",
+        "activeDescription": "Freezing blocks new generations, demo top-ups, and sending or receiving transfers.",
+        "frozenTitle": "Your wallet is frozen",
+        "frozenDescription": "Unfreeze it to allow generations, top-ups, and transfers again."
+      },
+      "actions": {"freeze": "Freeze my wallet", "unfreeze": "Unfreeze my wallet", "transfer": "Administrative transfer"}
     },
     "errors": {
       "load": "Could not load the wallet.",
       "history": "Could not load the history.",
       "invalidAmount": "Enter a positive amount with no more than two decimal places.",
-      "transferFields": "Enter the exact recipient login and a valid amount.",
+      "transferFields": "Enter sender and recipient logins, a valid amount, and a reason.",
       "topUp": "Could not add demo credits.",
       "transfer": "Could not transfer credits."
     }

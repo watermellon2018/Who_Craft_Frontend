@@ -15,6 +15,9 @@ import type {
   GenerationCostEstimate,
   GenerationCostEstimateRequest,
   GenerationRoutingMode,
+  ProjectCreditBudget,
+  ProjectCreditBudgetList,
+  ProjectCreditBudgetUpdateRequest,
 } from '../../../api/generated/contracts';
 
 const generatedClient = createGeneratedApiClient(api);
@@ -71,6 +74,17 @@ export function createCreditAdminOperation(
 
 export function fetchCreditAdminAudit(username: string): Promise<CreditAdminAudit> {
   return generatedClient.getCreditAdminAudit(username);
+}
+
+export function fetchProjectCreditBudgets(): Promise<ProjectCreditBudgetList> {
+  return generatedClient.listProjectCreditBudgets();
+}
+
+export function updateProjectCreditBudget(
+  projectId: number,
+  payload: ProjectCreditBudgetUpdateRequest,
+): Promise<ProjectCreditBudget> {
+  return generatedClient.updateProjectCreditBudget(projectId, payload);
 }
 
 export function estimateGenerationCost(

@@ -326,14 +326,12 @@
   border-radius: 14px;
 }
 
-.credit-wallet__spending-columns h3,
-.credit-wallet__admin-audit h3 {
+.credit-wallet__spending-columns h3 {
   margin: 0 0 12px;
   font-size: 15px;
 }
 
-.credit-wallet__spending-row,
-.credit-wallet__admin-audit > div {
+.credit-wallet__spending-row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -422,11 +420,20 @@
   font-size: 22px;
 }
 
-.credit-wallet__actions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+.credit-wallet__top-up {
   margin-top: 42px;
+}
+
+.credit-wallet__top-up > p {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.credit-wallet__top-up .credit-wallet__panel {
+  margin-top: 18px;
+}
+
+.credit-wallet__top-up .credit-wallet__panel form {
+  max-width: 680px;
 }
 
 .credit-wallet__panel {
@@ -462,7 +469,8 @@
   margin-top: 22px;
 }
 
-.credit-wallet__panel label {
+.credit-wallet__panel label,
+.credit-budget-card label {
   color: rgba(226, 232, 240, 0.86);
   font-size: 13px;
   font-weight: 600;
@@ -470,6 +478,7 @@
 
 .credit-wallet__panel input,
 .credit-wallet__panel select,
+.credit-budget-card input,
 .credit-wallet__history select {
   width: 100%;
   min-height: 46px;
@@ -483,6 +492,7 @@
 
 .credit-wallet__panel input:focus,
 .credit-wallet__panel select:focus,
+.credit-budget-card input:focus,
 .credit-wallet__history select:focus {
   border-color: rgba(214, 162, 97, 0.72);
   box-shadow: 0 0 0 3px rgba(214, 162, 97, 0.1);
@@ -490,32 +500,107 @@
 
 .credit-wallet__admin {
   margin-top: 42px;
+}
+
+.credit-wallet__admin > p,
+.credit-wallet__budgets > p {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+.credit-wallet__admin-grid,
+.credit-wallet__budget-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.credit-wallet__admin-grid .credit-wallet__panel {
   border-color: rgba(96, 165, 250, 0.28);
 }
 
-.credit-wallet__admin form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.credit-wallet__admin-grid h3 {
+  margin: 0 0 8px;
+  font-size: 19px;
 }
 
-.credit-wallet__admin form button,
-.credit-wallet__admin form > label:last-of-type,
-.credit-wallet__admin form > input:last-of-type {
-  grid-column: 1 / -1;
+.credit-wallet__budgets {
+  margin-top: 42px;
 }
 
-.credit-wallet__admin-audit {
-  margin-top: 24px;
-  padding: 16px;
-  background: rgba(5, 9, 20, 0.42);
-  border-radius: 14px;
+.credit-budget-card {
+  padding: 22px;
+  background: rgba(15, 23, 36, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 18px;
 }
 
-.credit-wallet__admin-audit > div {
+.credit-budget-card--over {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+.credit-budget-card__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.credit-budget-card__heading > div {
+  display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.credit-budget-card__heading strong {
+  font-size: 18px;
+}
+
+.credit-budget-card__heading span,
+.credit-budget-card form > small {
+  color: rgba(148, 163, 184, 0.82);
+}
+
+.credit-budget-card__heading em {
+  padding: 4px 8px;
+  color: #fecaca;
+  font-size: 11px;
+  font-style: normal;
+  background: rgba(127, 29, 29, 0.35);
+  border-radius: 999px;
+}
+
+.credit-budget-card dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.credit-budget-card dl > div {
+  padding: 10px;
+  background: rgba(5, 9, 20, 0.42);
+  border-radius: 10px;
+}
+
+.credit-budget-card dt {
+  color: rgba(148, 163, 184, 0.8);
+  font-size: 12px;
+}
+
+.credit-budget-card dd {
+  margin: 5px 0 0;
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.credit-budget-card form {
+  display: grid;
+  gap: 8px;
 }
 
 .credit-wallet__panel button,
+.credit-budget-card button,
 .credit-wallet__load-more {
   min-height: 46px;
   padding: 10px 18px;
@@ -528,6 +613,7 @@
 }
 
 .credit-wallet__panel button:disabled,
+.credit-budget-card button:disabled,
 .credit-wallet__load-more:disabled {
   cursor: wait;
   opacity: 0.58;
@@ -563,6 +649,42 @@
   min-width: 220px;
   color: rgba(203, 213, 225, 0.7);
   font-size: 12px;
+}
+
+.credit-wallet__section-heading--history select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 38px 9px 13px;
+  color: #f8fafc;
+  font: inherit;
+  font-size: 14px;
+  background-color: #09111d;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23d6a261' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  background-size: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  outline: none;
+  appearance: none;
+  color-scheme: dark;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.credit-wallet__section-heading--history select:hover {
+  background-color: #0d1726;
+  border-color: rgba(214, 162, 97, 0.52);
+}
+
+.credit-wallet__section-heading--history select:focus-visible {
+  border-color: rgba(214, 162, 97, 0.86);
+  box-shadow: 0 0 0 3px rgba(214, 162, 97, 0.13);
+}
+
+.credit-wallet__section-heading--history select option {
+  color: #f8fafc;
+  background: #09111d;
 }
 
 .credit-wallet__ledger {
@@ -648,7 +770,8 @@
   }
 
   .credit-wallet__balance-grid,
-  .credit-wallet__actions-grid,
+  .credit-wallet__admin-grid,
+  .credit-wallet__budget-list,
   .credit-wallet__spending-columns {
     grid-template-columns: 1fr;
   }
@@ -661,8 +784,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .credit-wallet__routing-grid,
-  .credit-wallet__admin form {
+  .credit-wallet__routing-grid {
     grid-template-columns: 1fr;
   }
 }

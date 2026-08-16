@@ -7,9 +7,11 @@ subscription experiences.
 
 The protected `/credits` route is the Craft wallet. It shows available and
 reserved credits, 30-day movement statistics, and the append-only operation
-history. In demo environments it can add test credits; users can transfer any
-available credits to an exact Craft login. The client never connects to a bank
-or provider balance directly.
+history. In demo environments it can add test credits; staff can transfer
+available credits between user wallets through the administration controls. Project
+owners can set a lifetime generation budget and see spent, reserved, and
+remaining credits. The client never connects to a bank or provider balance
+directly.
 
 Paid generation screens request a backend estimate before enqueue. They block
 when the available balance is insufficient and otherwise show a confirmation
@@ -20,8 +22,10 @@ visible balance when the request starts.
 The wallet also stores the user's generation-routing preference (manual,
 lower-cost, faster, balanced, or quality), shows low-balance/frozen warnings,
 generation spending by project and type, and provider-billed totals in job
-history. Staff users see audited adjustment/refund/freeze controls on the same
-page. Automatic generation always confirms its maximum primary-plus-fallback
+history. Staff users can freeze or unfreeze their own wallet without entering a
+login and can perform an audited transfer by specifying sender, recipient,
+amount, and reason. Adjustment and manual-refund controls are not exposed.
+Automatic generation always confirms its maximum primary-plus-fallback
 reservation before enqueue.
 
 System-wide documentation is in the parent workspace:

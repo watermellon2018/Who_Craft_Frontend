@@ -102,6 +102,8 @@ function buildClient() {
     createCreditTransfer: operationPath('createCreditTransfer'),
     createCreditAdminOperation: operationPath('createCreditAdminOperation'),
     getCreditAdminAudit: operationPath('getCreditAdminAudit'),
+    listProjectCreditBudgets: operationPath('listProjectCreditBudgets'),
+    updateProjectCreditBudget: operationPath('updateProjectCreditBudget'),
     estimateGenerationCost: operationPath('estimateGenerationCost'),
   };
   return `// Generated from openapi/w_craft.openapi.json. Do not edit manually.
@@ -124,6 +126,9 @@ import type {
   CreditTransferResponse,
   GenerationCostEstimate,
   GenerationCostEstimateRequest,
+  ProjectCreditBudget,
+  ProjectCreditBudgetList,
+  ProjectCreditBudgetUpdateRequest,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -171,6 +176,14 @@ export function createGeneratedApiClient(http: AxiosInstance) {
     },
     async getCreditAdminAudit(username: string): Promise<CreditAdminAudit> {
       const response = await http.get<CreditAdminAudit>('${paths.getCreditAdminAudit}', {params: {username}});
+      return response.data;
+    },
+    async listProjectCreditBudgets(): Promise<ProjectCreditBudgetList> {
+      const response = await http.get<ProjectCreditBudgetList>('${paths.listProjectCreditBudgets}');
+      return response.data;
+    },
+    async updateProjectCreditBudget(projectId: ProjectId, payload: ProjectCreditBudgetUpdateRequest): Promise<ProjectCreditBudget> {
+      const response = await http.patch<ProjectCreditBudget>(projectPath('${paths.updateProjectCreditBudget}', projectId), payload);
       return response.data;
     },
     async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {

@@ -3,7 +3,6 @@ import {useTranslation} from 'react-i18next';
 
 import {getApiErrorMessage} from '../../../api/errors';
 import type {
-  CreditAdminAudit,
   CreditAdminOperationRequest,
   CreditHistoryPage,
   CreditLedgerEntry,
@@ -11,6 +10,7 @@ import type {
   CreditSpendingStatistics,
   CreditSummary,
   GenerationRoutingMode,
+  ProjectCreditBudget,
 } from '../../../api/generated/contracts';
 import DashboardHeader from '../../profile/components/DashboardHeader';
 import {
@@ -18,13 +18,14 @@ import {
   createCreditTransfer,
   createDemoTopUp,
   createIdempotencyKey,
-  fetchCreditAdminAudit,
   fetchCreditHistory,
+  fetchProjectCreditBudgets,
   fetchCreditSpendingStatistics,
   fetchCreditSummary,
   getGenerationRoutingMode,
   notifyCreditBalanceUpdated,
   setGenerationRoutingMode,
+  updateProjectCreditBudget,
 } from '../api/creditApi';
 import {formatCreditAmount} from '../components/CreditBalanceBadge';
 import '../credits.css';
@@ -43,6 +44,13 @@ function normalizedAmount(value: string): string | null {
   return Number.isFinite(amount) && amount > 0 ? amount.toFixed(2) : null;
 }
 
+function normalizedBudget(value: string): string | null {
+  const normalized = value.trim().replace(',', '.');
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount >= 0 ? amount.toFixed(2) : null;
+}
+
 function mutationKey(
   pending: React.MutableRefObject<PendingMutation | null>,
   prefix: 'topup' | 'transfer' | 'admin',
@@ -59,6 +67,9 @@ const CreditWalletPage: React.FC = () => {
   const [summary, setSummary] = useState<CreditSummary | null>(null);
   const [history, setHistory] = useState<CreditHistoryPage | null>(null);
   const [spending, setSpending] = useState<CreditSpendingStatistics | null>(null);
+  const [projectBudgets, setProjectBudgets] = useState<ProjectCreditBudget[]>([]);
+  const [budgetDrafts, setBudgetDrafts] = useState<Record<number, string>>({});
+  const [budgetPending, setBudgetPending] = useState<number | null>(null);
   const [spendingPeriod, setSpendingPeriod] = useState(30);
   const [historyFilter, setHistoryFilter] = useState<CreditOperationType | ''>('');
   const [loading, setLoading] = useState(true);
@@ -67,17 +78,14 @@ const CreditWalletPage: React.FC = () => {
   const [notice, setNotice] = useState('');
   const [topUpAmount, setTopUpAmount] = useState('500');
   const [topUpPending, setTopUpPending] = useState(false);
+  const [sender, setSender] = useState('');
   const [recipient, setRecipient] = useState('');
   const [transferAmount, setTransferAmount] = useState('');
-  const [transferNote, setTransferNote] = useState('');
+  const [transferReason, setTransferReason] = useState('');
   const [transferPending, setTransferPending] = useState(false);
   const [routingMode, setRoutingModeState] = useState<GenerationRoutingMode>(getGenerationRoutingMode);
-  const [adminUsername, setAdminUsername] = useState('');
-  const [adminAction, setAdminAction] = useState<CreditAdminOperationRequest['action']>('adjustment');
-  const [adminAmount, setAdminAmount] = useState('');
   const [adminReason, setAdminReason] = useState('');
   const [adminPending, setAdminPending] = useState(false);
-  const [adminAudit, setAdminAudit] = useState<CreditAdminAudit | null>(null);
   const topUpMutation = useRef<PendingMutation | null>(null);
   const transferMutation = useRef<PendingMutation | null>(null);
   const adminMutation = useRef<PendingMutation | null>(null);
@@ -86,7 +94,7 @@ const CreditWalletPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const [nextSummary, nextHistory, nextSpending] = await Promise.all([
+      const [nextSummary, nextHistory, nextSpending, nextBudgets] = await Promise.all([
         fetchCreditSummary(),
         fetchCreditHistory({
           limit: HISTORY_LIMIT,
@@ -94,10 +102,15 @@ const CreditWalletPage: React.FC = () => {
           ...(historyFilter ? {operationType: historyFilter} : {}),
         }),
         fetchCreditSpendingStatistics(spendingPeriod),
+        fetchProjectCreditBudgets(),
       ]);
       setSummary(nextSummary);
       setHistory(nextHistory);
       setSpending(nextSpending);
+      setProjectBudgets(nextBudgets.items);
+      setBudgetDrafts(Object.fromEntries(
+        nextBudgets.items.map((budget) => [budget.projectId, budget.limit ?? '']),
+      ));
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, t('credits.errors.load')));
     } finally {
@@ -148,31 +161,41 @@ const CreditWalletPage: React.FC = () => {
 
   const handleTransfer = async (event: FormEvent) => {
     event.preventDefault();
-    const username = recipient.trim();
+    const senderUsername = sender.trim();
+    const recipientUsername = recipient.trim();
+    const reason = transferReason.trim();
     const amount = normalizedAmount(transferAmount);
-    if (!username || !amount) {
+    if (!senderUsername || !recipientUsername || !amount || !reason) {
       setError(t('credits.errors.transferFields'));
       return;
     }
-    const fingerprint = JSON.stringify([username, amount, transferNote.trim()]);
+    const fingerprint = JSON.stringify([
+      senderUsername,
+      recipientUsername,
+      amount,
+      reason,
+    ]);
     const key = mutationKey(transferMutation, 'transfer', fingerprint);
     setTransferPending(true);
     setError('');
     setNotice('');
     try {
       await createCreditTransfer({
-        username,
+        senderUsername,
+        recipientUsername,
         amount,
-        ...(transferNote.trim() ? {note: transferNote.trim()} : {}),
+        reason,
       }, key);
       transferMutation.current = null;
+      setSender('');
       setRecipient('');
       setTransferAmount('');
-      setTransferNote('');
+      setTransferReason('');
       await refreshAfterMutation();
       setNotice(t('credits.transfer.success', {
         amount: formatCreditAmount(amount, i18n.language),
-        username,
+        sender: senderUsername,
+        recipient: recipientUsername,
       }));
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, t('credits.errors.transfer')));
@@ -189,24 +212,14 @@ const CreditWalletPage: React.FC = () => {
 
   const handleAdminOperation = async (event: FormEvent) => {
     event.preventDefault();
-    const username = adminUsername.trim();
     const reason = adminReason.trim();
-    const needsAmount = adminAction === 'adjustment' || adminAction === 'refund';
-    const normalized = adminAmount.trim().replace(',', '.');
-    const amountNumber = Number(normalized);
-    const amountValid = /^-?\d+(?:\.\d{1,2})?$/.test(normalized)
-      && Number.isFinite(amountNumber)
-      && amountNumber !== 0
-      && (adminAction !== 'refund' || amountNumber > 0);
-    if (!username || !reason || (needsAmount && !amountValid)) {
+    if (!reason) {
       setError(t('credits.admin.validation'));
       return;
     }
     const payload: CreditAdminOperationRequest = {
-      username,
-      action: adminAction,
+      action: summary?.account.isFrozen ? 'unfreeze' : 'freeze',
       reason,
-      ...(needsAmount ? {amount: amountNumber.toFixed(2)} : {}),
     };
     const fingerprint = JSON.stringify(payload);
     setAdminPending(true);
@@ -218,13 +231,41 @@ const CreditWalletPage: React.FC = () => {
         mutationKey(adminMutation, 'admin', fingerprint),
       );
       adminMutation.current = null;
-      setAdminAudit(await fetchCreditAdminAudit(username));
+      setAdminReason('');
       await refreshAfterMutation();
-      setNotice(t('credits.admin.success'));
+      setNotice(t(`credits.admin.success.${payload.action}`));
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, t('credits.admin.error')));
     } finally {
       setAdminPending(false);
+    }
+  };
+
+  const handleBudgetUpdate = async (event: FormEvent, budget: ProjectCreditBudget) => {
+    event.preventDefault();
+    const draft = (budgetDrafts[budget.projectId] ?? '').trim();
+    const limit = draft ? normalizedBudget(draft) : null;
+    if (draft && limit === null) {
+      setError(t('credits.budgets.validation'));
+      return;
+    }
+    setBudgetPending(budget.projectId);
+    setError('');
+    setNotice('');
+    try {
+      const updated = await updateProjectCreditBudget(budget.projectId, {limit});
+      setProjectBudgets((current) => current.map((item) => (
+        item.projectId === updated.projectId ? updated : item
+      )));
+      setBudgetDrafts((current) => ({
+        ...current,
+        [updated.projectId]: updated.limit ?? '',
+      }));
+      setNotice(t('credits.budgets.success', {project: updated.projectTitle}));
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, t('credits.budgets.error')));
+    } finally {
+      setBudgetPending(null);
     }
   };
 
@@ -354,6 +395,48 @@ const CreditWalletPage: React.FC = () => {
               </article>
             </section>
 
+            {summary?.capabilities.demoTopUpEnabled && (
+              <section
+                aria-labelledby="credit-top-up-title"
+                className="credit-wallet__top-up"
+              >
+                <div className="credit-wallet__section-heading">
+                  <div>
+                    <span>{t('credits.topUp.eyebrow')}</span>
+                    <h2 id="credit-top-up-title">{t('credits.topUp.title')}</h2>
+                  </div>
+                </div>
+                <p>{t('credits.topUp.description')}</p>
+                <div className="credit-wallet__panel credit-wallet__panel--demo">
+                  <span className="credit-wallet__demo-badge">{t('credits.topUp.demoBadge')}</span>
+                  <form onSubmit={handleTopUp}>
+                    <label htmlFor="credit-top-up-amount">{t('credits.amount')}</label>
+                    <div className="credit-wallet__amount-row">
+                      <input
+                        id="credit-top-up-amount"
+                        inputMode="decimal"
+                        value={topUpAmount}
+                        onChange={(event) => setTopUpAmount(event.target.value)}
+                      />
+                      <button
+                        type="submit"
+                        disabled={topUpPending || summary?.account.isFrozen}
+                      >
+                        {topUpPending ? t('credits.processing') : t('credits.topUp.submit')}
+                      </button>
+                    </div>
+                    <div className="credit-wallet__presets" aria-label={t('credits.topUp.presets')}>
+                      {['100', '500', '1000'].map((amount) => (
+                        <button key={amount} type="button" onClick={() => setTopUpAmount(amount)}>
+                          +{amount}
+                        </button>
+                      ))}
+                    </div>
+                  </form>
+                </div>
+              </section>
+            )}
+
             <section className="credit-wallet__spending">
               <div className="credit-wallet__section-heading credit-wallet__section-heading--history">
                 <div>
@@ -413,114 +496,163 @@ const CreditWalletPage: React.FC = () => {
               </div>
             </section>
 
-            <div className="credit-wallet__actions-grid">
-              {summary?.capabilities.demoTopUpEnabled && (
-                <section className="credit-wallet__panel credit-wallet__panel--demo">
-                  <span className="credit-wallet__demo-badge">{t('credits.topUp.demoBadge')}</span>
-                  <h2>{t('credits.topUp.title')}</h2>
-                  <p>{t('credits.topUp.description')}</p>
-                  <form onSubmit={handleTopUp}>
-                    <label htmlFor="credit-top-up-amount">{t('credits.amount')}</label>
-                    <div className="credit-wallet__amount-row">
-                      <input
-                        id="credit-top-up-amount"
-                        inputMode="decimal"
-                        value={topUpAmount}
-                        onChange={(event) => setTopUpAmount(event.target.value)}
-                      />
-                      <button type="submit" disabled={topUpPending}>
-                        {topUpPending ? t('credits.processing') : t('credits.topUp.submit')}
-                      </button>
-                    </div>
-                    <div className="credit-wallet__presets" aria-label={t('credits.topUp.presets')}>
-                      {['100', '500', '1000'].map((amount) => (
-                        <button key={amount} type="button" onClick={() => setTopUpAmount(amount)}>
-                          +{amount}
-                        </button>
-                      ))}
-                    </div>
-                  </form>
-                </section>
+            <section className="credit-wallet__budgets">
+              <div className="credit-wallet__section-heading">
+                <div>
+                  <span>{t('credits.budgets.eyebrow')}</span>
+                  <h2>{t('credits.budgets.title')}</h2>
+                </div>
+              </div>
+              <p>{t('credits.budgets.description')}</p>
+              {!projectBudgets.length ? (
+                <div className="credit-wallet__empty">{t('credits.budgets.empty')}</div>
+              ) : (
+                <div className="credit-wallet__budget-list">
+                  {projectBudgets.map((budget) => (
+                    <article
+                      className={`credit-budget-card${budget.overLimit ? ' credit-budget-card--over' : ''}`}
+                      key={budget.projectId}
+                    >
+                      <div className="credit-budget-card__heading">
+                        <div>
+                          <strong>{budget.projectTitle}</strong>
+                          <span>{budget.limit === null
+                            ? t('credits.budgets.unlimited')
+                            : t('credits.budgets.limitValue', {
+                              amount: formatCreditAmount(budget.limit, i18n.language),
+                            })}</span>
+                        </div>
+                        {budget.overLimit && <em>{t('credits.budgets.overLimit')}</em>}
+                      </div>
+                      <dl>
+                        <div>
+                          <dt>{t('credits.budgets.spent')}</dt>
+                          <dd>{formatCreditAmount(budget.spent, i18n.language)} C</dd>
+                        </div>
+                        <div>
+                          <dt>{t('credits.reserved')}</dt>
+                          <dd>{formatCreditAmount(budget.reserved, i18n.language)} C</dd>
+                        </div>
+                        <div>
+                          <dt>{t('credits.budgets.remaining')}</dt>
+                          <dd>{budget.remaining === null
+                            ? t('credits.budgets.unlimited')
+                            : `${formatCreditAmount(budget.remaining, i18n.language)} C`}</dd>
+                        </div>
+                      </dl>
+                      <form onSubmit={(event) => handleBudgetUpdate(event, budget)}>
+                        <label htmlFor={`credit-budget-${budget.projectId}`}>
+                          {t('credits.budgets.limit')}
+                        </label>
+                        <div className="credit-wallet__amount-row">
+                          <input
+                            id={`credit-budget-${budget.projectId}`}
+                            inputMode="decimal"
+                            placeholder={t('credits.budgets.unlimitedPlaceholder')}
+                            value={budgetDrafts[budget.projectId] ?? ''}
+                            onChange={(event) => setBudgetDrafts((current) => ({
+                              ...current,
+                              [budget.projectId]: event.target.value,
+                            }))}
+                          />
+                          <button disabled={budgetPending === budget.projectId} type="submit">
+                            {budgetPending === budget.projectId
+                              ? t('credits.processing')
+                              : t('credits.budgets.save')}
+                          </button>
+                        </div>
+                        <small>{t('credits.budgets.hint')}</small>
+                      </form>
+                    </article>
+                  ))}
+                </div>
               )}
-
-              {summary?.capabilities.transfersEnabled && (
-                <section className="credit-wallet__panel">
-                  <h2>{t('credits.transfer.title')}</h2>
-                  <p>{t('credits.transfer.description')}</p>
-                  <form onSubmit={handleTransfer}>
-                    <label htmlFor="credit-recipient">{t('credits.transfer.recipient')}</label>
-                    <input
-                      id="credit-recipient"
-                      autoComplete="off"
-                      placeholder={t('credits.transfer.recipientPlaceholder')}
-                      value={recipient}
-                      onChange={(event) => setRecipient(event.target.value)}
-                    />
-                    <label htmlFor="credit-transfer-amount">{t('credits.amount')}</label>
-                    <input
-                      id="credit-transfer-amount"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={transferAmount}
-                      onChange={(event) => setTransferAmount(event.target.value)}
-                    />
-                    <label htmlFor="credit-transfer-note">{t('credits.transfer.note')}</label>
-                    <input
-                      id="credit-transfer-note"
-                      maxLength={140}
-                      placeholder={t('credits.transfer.notePlaceholder')}
-                      value={transferNote}
-                      onChange={(event) => setTransferNote(event.target.value)}
-                    />
-                    <button type="submit" disabled={transferPending}>
-                      {transferPending ? t('credits.processing') : t('credits.transfer.submit')}
-                    </button>
-                    <small>{t('credits.transfer.hint')}</small>
-                    <small>{t('credits.transfer.limits', {
-                      perTransfer: formatCreditAmount(summary.transferLimits.perTransfer, i18n.language),
-                      day: formatCreditAmount(summary.transferLimits.rollingDay, i18n.language),
-                      count: summary.transferLimits.rollingDayCount,
-                    })}</small>
-                  </form>
-                </section>
-              )}
-            </div>
+            </section>
 
             {summary?.capabilities.adminWalletManagement && (
-              <section className="credit-wallet__panel credit-wallet__admin">
-                <span className="credit-wallet__demo-badge">ADMIN</span>
-                <h2>{t('credits.admin.title')}</h2>
-                <p>{t('credits.admin.description')}</p>
-                <form onSubmit={handleAdminOperation}>
-                  <label htmlFor="credit-admin-username">{t('credits.admin.username')}</label>
-                  <input id="credit-admin-username" value={adminUsername} onChange={(event) => setAdminUsername(event.target.value)} />
-                  <label htmlFor="credit-admin-action">{t('credits.admin.action')}</label>
-                  <select id="credit-admin-action" value={adminAction} onChange={(event) => setAdminAction(event.target.value as CreditAdminOperationRequest['action'])}>
-                    {(['adjustment', 'refund', 'freeze', 'unfreeze'] as const).map((action) => (
-                      <option key={action} value={action}>{t(`credits.admin.actions.${action}`)}</option>
-                    ))}
-                  </select>
-                  {(adminAction === 'adjustment' || adminAction === 'refund') && (
-                    <>
-                      <label htmlFor="credit-admin-amount">{t('credits.amount')}</label>
-                      <input id="credit-admin-amount" inputMode="decimal" value={adminAmount} onChange={(event) => setAdminAmount(event.target.value)} />
-                    </>
-                  )}
-                  <label htmlFor="credit-admin-reason">{t('credits.admin.reason')}</label>
-                  <input id="credit-admin-reason" maxLength={300} value={adminReason} onChange={(event) => setAdminReason(event.target.value)} />
-                  <button disabled={adminPending} type="submit">{adminPending ? t('credits.processing') : t('credits.admin.submit')}</button>
-                </form>
-                {adminAudit && (
-                  <div className="credit-wallet__admin-audit">
-                    <h3>{t('credits.admin.audit', {username: adminAudit.username})}</h3>
-                    {adminAudit.items.map((event) => (
-                      <div key={event.id}>
-                        <strong>{t(`credits.admin.actions.${event.eventType}`)}</strong>
-                        <span>{event.amount ? `${formatCreditAmount(event.amount, i18n.language)} C · ` : ''}{event.reason}</span>
-                      </div>
-                    ))}
+              <section className="credit-wallet__admin">
+                <div className="credit-wallet__section-heading">
+                  <div>
+                    <span>ADMIN</span>
+                    <h2>{t('credits.admin.title')}</h2>
                   </div>
-                )}
+                </div>
+                <p>{t('credits.admin.description')}</p>
+                <div className="credit-wallet__admin-grid">
+                  <article className="credit-wallet__panel">
+                    <h3>{summary.account.isFrozen
+                      ? t('credits.admin.walletState.frozenTitle')
+                      : t('credits.admin.walletState.activeTitle')}</h3>
+                    <p>{summary.account.isFrozen
+                      ? t('credits.admin.walletState.frozenDescription')
+                      : t('credits.admin.walletState.activeDescription')}</p>
+                    <form onSubmit={handleAdminOperation}>
+                      <label htmlFor="credit-admin-reason">{t('credits.admin.reason')}</label>
+                      <input
+                        id="credit-admin-reason"
+                        maxLength={255}
+                        placeholder={t('credits.admin.reasonPlaceholder')}
+                        value={adminReason}
+                        onChange={(event) => setAdminReason(event.target.value)}
+                      />
+                      <button disabled={adminPending} type="submit">
+                        {adminPending
+                          ? t('credits.processing')
+                          : t(`credits.admin.actions.${summary.account.isFrozen ? 'unfreeze' : 'freeze'}`)}
+                      </button>
+                    </form>
+                  </article>
+
+                  {summary.capabilities.transfersEnabled && (
+                    <article className="credit-wallet__panel">
+                      <h3>{t('credits.transfer.title')}</h3>
+                      <p>{t('credits.transfer.description')}</p>
+                      <form onSubmit={handleTransfer}>
+                        <label htmlFor="credit-sender">{t('credits.transfer.sender')}</label>
+                        <input
+                          id="credit-sender"
+                          autoComplete="off"
+                          placeholder={t('credits.transfer.senderPlaceholder')}
+                          value={sender}
+                          onChange={(event) => setSender(event.target.value)}
+                        />
+                        <label htmlFor="credit-recipient">{t('credits.transfer.recipient')}</label>
+                        <input
+                          id="credit-recipient"
+                          autoComplete="off"
+                          placeholder={t('credits.transfer.recipientPlaceholder')}
+                          value={recipient}
+                          onChange={(event) => setRecipient(event.target.value)}
+                        />
+                        <label htmlFor="credit-transfer-amount">{t('credits.amount')}</label>
+                        <input
+                          id="credit-transfer-amount"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={transferAmount}
+                          onChange={(event) => setTransferAmount(event.target.value)}
+                        />
+                        <label htmlFor="credit-transfer-reason">{t('credits.transfer.reason')}</label>
+                        <input
+                          id="credit-transfer-reason"
+                          maxLength={255}
+                          placeholder={t('credits.transfer.reasonPlaceholder')}
+                          value={transferReason}
+                          onChange={(event) => setTransferReason(event.target.value)}
+                        />
+                        <button type="submit" disabled={transferPending}>
+                          {transferPending ? t('credits.processing') : t('credits.transfer.submit')}
+                        </button>
+                        <small>{t('credits.transfer.hint')}</small>
+                        <small>{t('credits.transfer.limits', {
+                          perTransfer: formatCreditAmount(summary.transferLimits.perTransfer, i18n.language),
+                          day: formatCreditAmount(summary.transferLimits.rollingDay, i18n.language),
+                          count: summary.transferLimits.rollingDayCount,
+                        })}</small>
+                      </form>
+                    </article>
+                  )}
+                </div>
               </section>
             )}
 

@@ -18,6 +18,9 @@ import type {
   CreditTransferResponse,
   GenerationCostEstimate,
   GenerationCostEstimateRequest,
+  ProjectCreditBudget,
+  ProjectCreditBudgetList,
+  ProjectCreditBudgetUpdateRequest,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -65,6 +68,14 @@ export function createGeneratedApiClient(http: AxiosInstance) {
     },
     async getCreditAdminAudit(username: string): Promise<CreditAdminAudit> {
       const response = await http.get<CreditAdminAudit>('api/credits/admin/audit/', {params: {username}});
+      return response.data;
+    },
+    async listProjectCreditBudgets(): Promise<ProjectCreditBudgetList> {
+      const response = await http.get<ProjectCreditBudgetList>('api/credits/project-budgets/');
+      return response.data;
+    },
+    async updateProjectCreditBudget(projectId: ProjectId, payload: ProjectCreditBudgetUpdateRequest): Promise<ProjectCreditBudget> {
+      const response = await http.patch<ProjectCreditBudget>(projectPath('api/credits/project-budgets/{projectId}/', projectId), payload);
       return response.data;
     },
     async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {

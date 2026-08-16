@@ -104,14 +104,16 @@ export interface CreditMutationResponse {
 }
 
 export interface CreditTransferRequest {
-  username: string;
+  senderUsername: string;
+  recipientUsername: string;
   amount: string;
-  note?: string;
+  reason: string;
 }
 
 export interface CreditTransfer {
   id: string;
   amount: CreditAmount;
+  sender: string;
   recipient: CreditCounterparty;
   note: string;
   createdAt: string;
@@ -120,7 +122,26 @@ export interface CreditTransfer {
 export interface CreditTransferResponse {
   account: CreditAccount;
   transfer: CreditTransfer;
+  auditEvent: CreditAdminAuditEvent;
   replayed: boolean;
+}
+
+export interface ProjectCreditBudget {
+  projectId: number;
+  projectTitle: string;
+  limit: CreditAmount | null;
+  spent: CreditAmount;
+  reserved: CreditAmount;
+  remaining: CreditAmount | null;
+  overLimit: boolean;
+}
+
+export interface ProjectCreditBudgetList {
+  items: Array<ProjectCreditBudget>;
+}
+
+export interface ProjectCreditBudgetUpdateRequest {
+  limit: CreditAmount | null;
 }
 
 export interface CreditSpendingGroup {
@@ -142,15 +163,13 @@ export interface CreditSpendingStatistics {
 }
 
 export interface CreditAdminOperationRequest {
-  username: string;
-  action: "adjustment" | "refund" | "freeze" | "unfreeze";
-  amount?: CreditAmount;
+  action: "freeze" | "unfreeze";
   reason: string;
 }
 
 export interface CreditAdminAuditEvent {
   id: string;
-  eventType: "adjustment" | "refund" | "freeze" | "unfreeze";
+  eventType: "adjustment" | "refund" | "freeze" | "unfreeze" | "transfer";
   amount: CreditAmount | null;
   reason: string;
   actor: string | null;

@@ -10,6 +10,7 @@ describe('generated API client', () => {
       capabilities: {demoTopUpEnabled: true, transfersEnabled: true},
     };
     const history = {items: [], total: 0, limit: 20, offset: 0, nextOffset: null};
+    const budgets = {items: []};
     const estimate = {
       domain: 'character', operation: 'generate', provider: 'mock', modelKey: 'mock',
       modelName: 'mock', currency: 'USD', estimatedCost: '0', reservationAmount: '0',
@@ -19,7 +20,12 @@ describe('generated API client', () => {
     const http = {
       get: jest.fn()
         .mockResolvedValueOnce({data: summary})
-        .mockResolvedValueOnce({data: history}),
+        .mockResolvedValueOnce({data: history})
+        .mockResolvedValueOnce({data: budgets}),
+      patch: jest.fn().mockResolvedValueOnce({data: {
+        projectId: 7, projectTitle: 'Film', limit: '100.00', spent: '0.00',
+        reserved: '0.00', remaining: '100.00', overLimit: false,
+      }}),
       post: jest.fn()
         .mockResolvedValueOnce({data: {account: summary.account, transaction: {}, replayed: false}})
         .mockResolvedValueOnce({data: {account: summary.account, transfer: {}, replayed: false}})
@@ -31,22 +37,36 @@ describe('generated API client', () => {
     await expect(client.listCreditHistory({limit: 10, offset: 20, operationType: 'transfer_out'}))
       .resolves.toEqual(history);
     await client.createCreditDemoTopUp({amount: '100.00'}, 'topup-key-1');
-    await client.createCreditTransfer({username: 'test', amount: '25.00'}, 'transfer-key-1');
+    await client.createCreditTransfer({
+      senderUsername: 'alice',
+      recipientUsername: 'test',
+      amount: '25.00',
+      reason: 'Support',
+    }, 'transfer-key-1');
+    await expect(client.listProjectCreditBudgets()).resolves.toEqual(budgets);
+    await client.updateProjectCreditBudget(7, {limit: '100.00'});
     await expect(client.estimateGenerationCost({domain: 'character'})).resolves.toEqual(estimate);
 
     expect(http.get).toHaveBeenNthCalledWith(1, 'api/credits/summary/');
     expect(http.get).toHaveBeenNthCalledWith(2, 'api/credits/history/', {
       params: {limit: 10, offset: 20, operationType: 'transfer_out'},
     });
+    expect(http.get).toHaveBeenNthCalledWith(3, 'api/credits/project-budgets/');
     expect(http.post).toHaveBeenNthCalledWith(1, 'api/credits/demo-top-up/', {amount: '100.00'}, {
       headers: {'Idempotency-Key': 'topup-key-1'},
     });
     expect(http.post).toHaveBeenNthCalledWith(2, 'api/credits/transfers/', {
-      username: 'test',
+      senderUsername: 'alice',
+      recipientUsername: 'test',
       amount: '25.00',
+      reason: 'Support',
     }, {
       headers: {'Idempotency-Key': 'transfer-key-1'},
     });
+    expect(http.patch).toHaveBeenCalledWith(
+      'api/credits/project-budgets/7/',
+      {limit: '100.00'},
+    );
     expect(http.post).toHaveBeenNthCalledWith(3, 'api/credits/generation-estimate/', {
       domain: 'character',
     });
