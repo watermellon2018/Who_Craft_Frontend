@@ -1,27 +1,50 @@
 import React from 'react';
-import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {Modal} from 'antd';
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
+import {getGenerationRoutingMode} from '../../credits/api/creditApi';
+import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
 import {characterApi} from '../api/characterApi';
 import CharacterVariantsPage from './CharacterVariantsPage';
 
 jest.mock('../api/characterApi');
+jest.mock('../../credits/api/creditApi', () => ({
+  getGenerationRoutingMode: jest.fn(() => 'manual'),
+  notifyCreditBalanceUpdated: jest.fn(),
+}));
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  ...jest.requireActual('../../credits/components/GenerationCostGuard'),
+  GenerationCostPreview: () => null,
+  formatGenerationCost: (value: string) => Number(value).toFixed(6).replace(/0+$/, '').replace(/\.$/, ''),
+  GENERATION_COST_MODAL_THEME: {className: 'generation-cost-modal'},
+  runGenerationWithCredits: jest.fn(),
+}));
 jest.mock('../hooks/useGenerationJob', () => ({
   useGenerationJob: jest.fn(),
 }));
-jest.mock('../../../api/generation/characters/tree_structure', () => ({
-  createCharacterFromTreeAPI: jest.fn().mockResolvedValue(undefined),
+jest.mock('../hooks/useImageModelCatalog', () => ({
+  useImageModelCatalog: jest.fn(),
+}));
+jest.mock('../api/treeApi', () => ({
+  characterTreeApi: {
+    create: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 jest.mock('../events', () => ({
   notifyCharacterListUpdated: jest.fn(),
   notifyCharacterTreeUpdated: jest.fn(),
 }));
 
-import {createCharacterFromTreeAPI} from '../../../api/generation/characters/tree_structure';
+import {characterTreeApi} from '../api/treeApi';
 import {useGenerationJob} from '../hooks/useGenerationJob';
+import {useImageModelCatalog} from '../hooks/useImageModelCatalog';
 
 const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
-const mockedCreateTreeNode = createCharacterFromTreeAPI as jest.MockedFunction<typeof createCharacterFromTreeAPI>;
+const mockedGetGenerationRoutingMode = getGenerationRoutingMode as jest.MockedFunction<typeof getGenerationRoutingMode>;
+const mockedCreateTreeNode = characterTreeApi.create as jest.MockedFunction<typeof characterTreeApi.create>;
 const mockedUseGenerationJob = useGenerationJob as jest.MockedFunction<typeof useGenerationJob>;
+const mockedUseImageModelCatalog = useImageModelCatalog as jest.MockedFunction<typeof useImageModelCatalog>;
+const mockedRunGenerationWithCredits = runGenerationWithCredits as jest.MockedFunction<typeof runGenerationWithCredits>;
 
 const PROJECT_ID = 'proj-1';
 const CHARACTER_ID = 'char-1';
@@ -56,6 +79,73 @@ const PAGE_STATE = {
   },
 };
 
+const COST_ESTIMATE = {
+  domain: 'character',
+  operation: 'generate',
+  provider: 'openrouter',
+  modelKey: 'openrouter-images:openai/gpt-image-1',
+  modelName: 'openai/gpt-image-1',
+  currency: 'USD' as const,
+  estimatedCost: '0.134002',
+  reservationAmount: '0.134002',
+  pricingSource: 'openrouter',
+  costIsEstimate: true,
+  availableBalance: '4.45',
+  sufficientBalance: true,
+  accountFrozen: false,
+  routingMode: 'manual' as const,
+  routingReason: 'manual-selection',
+  routeCandidates: [],
+};
+
+const SECONDARY_QUOTE = {
+  quote_token: 'quote-full_body-scene',
+  expires_in_seconds: 300,
+  items: [
+    {
+      image_type: 'full_body' as const,
+      estimated_cost: '0.060001',
+      reservation_amount: '0.060001',
+      provider: 'openrouter',
+      model_key: 'openrouter-images:openai/gpt-image-1',
+      model_name: 'GPT Image 1',
+      routing_mode: 'manual' as const,
+    },
+    {
+      image_type: 'scene' as const,
+      estimated_cost: '0.074001',
+      reservation_amount: '0.074001',
+      provider: 'openrouter',
+      model_key: 'openrouter-images:openai/gpt-image-1',
+      model_name: 'GPT Image 1',
+      routing_mode: 'manual' as const,
+    },
+  ],
+  totals: {
+    estimated_cost: '0.134002',
+    reservation_amount: '0.134002',
+  },
+  available_balance: '4.45',
+  sufficient_balance: true,
+  account_frozen: false,
+};
+
+function secondaryQuoteFor(imageTypes: Array<'full_body' | 'scene'>) {
+  const items = SECONDARY_QUOTE.items.filter((item) => imageTypes.includes(item.image_type));
+  const singleItem = items.length === 1 ? items[0] : null;
+  return {
+    ...SECONDARY_QUOTE,
+    quote_token: `quote-${imageTypes.join('-')}`,
+    items,
+    totals: singleItem
+      ? {
+          estimated_cost: singleItem.estimated_cost,
+          reservation_amount: singleItem.reservation_amount,
+        }
+      : SECONDARY_QUOTE.totals,
+  };
+}
+
 function CreatePageProbe() {
   const location = useLocation();
   return <><div>Create page</div><pre>{JSON.stringify({path: `${location.pathname}${location.search}`, state: location.state})}</pre></>;
@@ -67,7 +157,7 @@ function EditPageProbe() {
 }
 
 function renderPage(
-  locationState = PAGE_STATE,
+  locationState: Partial<typeof PAGE_STATE> & Record<string, unknown> = PAGE_STATE,
   jobId: string | null = PAGE_STATE.jobId,
   treeNodeId: string | null = PAGE_STATE.sourceTreeNodeId,
 ) {
@@ -93,6 +183,12 @@ function renderPage(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedGetGenerationRoutingMode.mockReturnValue('manual');
+  mockedUseImageModelCatalog.mockReturnValue({catalog: null, error: false, loading: false});
+  mockedRunGenerationWithCredits.mockImplementation(async (intent, operation) => operation({
+    ...COST_ESTIMATE,
+    modelKey: intent.modelKey ?? COST_ESTIMATE.modelKey,
+  }));
   mockedApi.applyVariant.mockResolvedValue({data: {revision_id: 'revision-1'}} as never);
   mockedApi.get.mockResolvedValue({data: {
     character_id: CHARACTER_ID,
@@ -107,14 +203,30 @@ beforeEach(() => {
     identity_locked: false,
     appearance: {appearance_prompt: 'Recovered hero'},
   }} as never);
-  mockedCreateTreeNode.mockResolvedValue(undefined);
+  mockedCreateTreeNode.mockResolvedValue({
+    id: 'tree-1',
+    key: 'tree-1',
+    name: 'Hero',
+    is_folder: false,
+    character_id: CHARACTER_ID,
+  });
   mockedApi.generateInitial.mockResolvedValue({
     data: {job_id: 'job-regen', status: 'queued', progress: 0, variants: []},
   } as never);
-  mockedApi.generateEdit.mockImplementation(async (_projectId, _characterId, payload) => ({
+  mockedApi.quoteSecondaryAssets.mockImplementation(async (_projectId, _characterId, payload) => ({
+    data: secondaryQuoteFor(payload.image_types),
+  }) as never);
+  mockedApi.generateSecondaryAssets.mockImplementation(async (_projectId, _characterId, quoteToken) => ({
     data: {
-      job_id: payload.image_type === 'full_body' ? 'full-body-job' : 'scene-job',
-      status: 'queued',
+      jobs: [
+        ...(quoteToken.includes('full_body')
+          ? [{job_id: 'full-body-job', status: 'queued', image_type: 'full_body', error_code: null, error_message: null}]
+          : []),
+        ...(quoteToken.includes('scene')
+          ? [{job_id: 'scene-job', status: 'queued', image_type: 'scene', error_code: null, error_message: null}]
+          : []),
+      ],
+      total_reservation_amount: quoteToken === 'quote-full_body-scene' ? '0.134002' : '0.060001',
     },
   }) as never);
   mockedApi.listGenerationJobs.mockResolvedValue({data: {jobs: []}} as never);
@@ -122,6 +234,25 @@ beforeEach(() => {
     data: {job_id: 'job-1', status: 'cancellation_requested', progress: 40, variants: []},
   } as never);
 });
+
+afterEach(async () => {
+  await act(async () => {
+    Modal.destroyAll();
+    await Promise.resolve();
+  });
+  await waitFor(() => expect(screen.queryAllByRole('dialog')).toHaveLength(0));
+});
+
+async function openSecondaryGenerationDialog() {
+  const existingDialogs = new Set(screen.queryAllByRole('dialog'));
+  fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+  let dialog: HTMLElement | undefined;
+  await waitFor(() => {
+    dialog = screen.queryAllByRole('dialog').find((candidate) => !existingDialogs.has(candidate));
+    expect(dialog).toBeDefined();
+  });
+  return dialog as HTMLElement;
+}
 
 // ---------------------------------------------------------------------------
 // Initial state
@@ -135,16 +266,29 @@ describe('CharacterVariantsPage – initial state', () => {
   });
 
 
-  it('allows cancellation from the initial loading state', async () => {
+  it('allows cancellation while the initial generation is queued', async () => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: {job_id: 'job-1', status: 'queued', progress: 0, variants: []},
+      loading: false,
+    } as never);
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', {name: 'Отменить генерацию'}));
+
+    await waitFor(() => expect(mockedApi.requestGenerationJobCancellation).toHaveBeenCalledWith('job-1'));
+  });
+
+  it('does not allow cancellation after the initial generation starts', async () => {
     mockedUseGenerationJob.mockReturnValue({
       job: {job_id: 'job-1', status: 'processing', progress: 40, variants: []},
       loading: false,
     } as never);
 
     renderPage();
-    fireEvent.click(await screen.findByRole('button', {name: 'Запросить отмену'}));
 
-    await waitFor(() => expect(mockedApi.requestGenerationJobCancellation).toHaveBeenCalledWith('job-1'));
+    expect(await screen.findByText('Генерация уже запущена, отменить её нельзя.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: 'Отменить генерацию'})).not.toBeInTheDocument();
+    expect(mockedApi.requestGenerationJobCancellation).not.toHaveBeenCalled();
   });
   it('displays variant cards when job is completed', () => {
     mockedUseGenerationJob.mockReturnValue({
@@ -232,10 +376,16 @@ describe('CharacterVariantsPage – initial state', () => {
 
     renderPage({} as never, 'job-1', 'tree-1');
     await waitFor(() => expect(screen.getByRole('button', {name: /продолжить/i})).not.toBeDisabled());
-    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+    const dialog = await openSecondaryGenerationDialog();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
 
     await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalled());
-    expect(mockedCreateTreeNode.mock.calls[0][0]).toBe('tree-1');
+    expect(mockedCreateTreeNode).toHaveBeenCalledWith(PROJECT_ID, {
+      id: 'tree-1',
+      name: 'Hero',
+      type: 'character',
+      studio_character_id: CHARACTER_ID,
+    });
   });
 
   it('shows an explicit forbidden error returned by the job endpoint', () => {
@@ -281,6 +431,107 @@ describe('CharacterVariantsPage – initial state', () => {
     renderPage();
     expect(screen.getByText(/ошибка генерации/i)).toBeInTheDocument();
     expect(screen.getAllByText('Что-то пошло не так')).not.toHaveLength(0);
+  });
+
+  it('explains a blocked child generation and retries with a configured OpenRouter GPT Image model', async () => {
+    mockedUseGenerationJob.mockReturnValue({
+      job: {
+        job_id: 'job-child',
+        status: 'failed',
+        progress: 0,
+        variants: [],
+        error_code: 'IMAGE_PROVIDER_BLOCKED',
+        request_payload: {
+          age: 5,
+          appearance_description: 'A fictional child adventurer',
+          image_model: 'openrouter-images:openai/gpt-image-current',
+          variant_count: 2,
+        },
+      },
+    } as never);
+    mockedUseImageModelCatalog.mockReturnValue({
+      error: false,
+      loading: false,
+      catalog: {
+        current: 'openrouter-images:openai/gpt-image-current',
+        source: 'profile',
+        configured: true,
+        stored: null,
+        available: [
+          {
+            key: 'openrouter-images:openai/gpt-image-current',
+            label: 'Current GPT Image',
+            backend: 'openrouter',
+            model_id: 'openrouter/openai/gpt-image-current',
+            mode: 'generate',
+            supports_generate: true,
+            supports_edit: true,
+            supports_reference: true,
+            supported_parameters: {},
+            input_modalities: ['text'],
+            output_modalities: ['image'],
+            default: true,
+            configured: true,
+            requires_env: [],
+          },
+          {
+            key: 'openrouter-images:openai/gpt-image-1.5',
+            label: 'GPT Image 1.5',
+            backend: 'openrouter',
+            model_id: 'openrouter/openai/gpt-image-1.5',
+            mode: 'generate',
+            supports_generate: true,
+            supports_edit: true,
+            supports_reference: true,
+            supported_parameters: {},
+            input_modalities: ['text'],
+            output_modalities: ['image'],
+            default: false,
+            configured: true,
+            requires_env: [],
+          },
+          {
+            key: 'openrouter-images:openai/gpt-image-unconfigured',
+            label: 'Unavailable GPT Image',
+            backend: 'openrouter',
+            model_id: 'openrouter/openai/gpt-image-unconfigured',
+            mode: 'generate',
+            supports_generate: true,
+            supports_edit: true,
+            supports_reference: true,
+            supported_parameters: {},
+            input_modalities: ['text'],
+            output_modalities: ['image'],
+            default: false,
+            configured: false,
+            requires_env: ['OPENROUTER_API_KEY'],
+          },
+        ],
+      },
+    });
+
+    renderPage();
+
+    expect(screen.getByText('Эта модель не поддерживает генерацию персонажей указанного возраста.')).toBeInTheDocument();
+    expect(screen.getByText(/безопасного образа вымышленного ребёнка/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /Current GPT Image/})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /Unavailable GPT Image/})).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', {name: 'Попробовать GPT Image 1.5'}));
+
+    await waitFor(() => expect(mockedApi.generateInitial).toHaveBeenCalledTimes(1));
+    expect(mockedRunGenerationWithCredits).toHaveBeenCalledWith(
+      expect.objectContaining({
+        modelKey: 'openrouter-images:openai/gpt-image-1.5',
+        routingMode: 'manual',
+      }),
+      expect.any(Function),
+    );
+    expect(mockedApi.generateInitial.mock.calls[0][2]).toEqual(expect.objectContaining({
+      image_model: 'openrouter-images:openai/gpt-image-1.5',
+      routing_mode: 'manual',
+      age: 5,
+    }));
   });
 
   it('shows "no context" error when navigated to without state', () => {
@@ -439,11 +690,162 @@ describe('CharacterVariantsPage – Continue button', () => {
     } as never);
   });
 
+  it('keeps the user on variants and performs no mutations when the dialog is cancelled', async () => {
+    renderPage();
+    const dialog = await openSecondaryGenerationDialog();
+
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Отмена'}));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Создать дополнительные изображения?')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('img', {name: 'Вариант 1'})).toBeInTheDocument();
+    expect(mockedApi.applyVariant).not.toHaveBeenCalled();
+    expect(mockedCreateTreeNode).not.toHaveBeenCalled();
+    expect(mockedApi.generateSecondaryAssets).not.toHaveBeenCalled();
+    expect(screen.queryByText('Edit page')).not.toBeInTheDocument();
+  });
+
+  it('explains the two extra generations and shows individual and total costs', async () => {
+    renderPage();
+    const dialog = await openSecondaryGenerationDialog();
+
+    expect(within(dialog).getByRole('checkbox', {name: /В полный рост/})).toBeChecked();
+    expect(within(dialog).getByRole('checkbox', {name: /В сцене/})).toBeChecked();
+    await waitFor(() => {
+      expect(within(dialog).getByText('≈ 0.060001 C')).toBeInTheDocument();
+      expect(within(dialog).getByText('≈ 0.074001 C')).toBeInTheDocument();
+    });
+    expect(within(dialog).getByText('Итого за выбранные изображения')).toBeInTheDocument();
+    expect(within(dialog).getByText('≈ 0.134002 C')).toBeInTheDocument();
+    expect(within(dialog).getByText(/Сохранение портрета не требует новой генерации/)).toBeInTheDocument();
+    expect(mockedApi.quoteSecondaryAssets).toHaveBeenCalledTimes(1);
+    expect(mockedApi.quoteSecondaryAssets).toHaveBeenCalledWith(PROJECT_ID, CHARACTER_ID, {
+      variant_id: 'v1',
+      image_types: ['full_body', 'scene'],
+      image_model: 'openrouter-images:openai/gpt-image-1',
+      routing_mode: 'manual',
+    });
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Отмена'}));
+  });
+
+  it('saves only the portrait without launching secondary jobs', async () => {
+    renderPage();
+    const dialog = await openSecondaryGenerationDialog();
+
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
+
+    await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
+    expect(mockedApi.applyVariant).toHaveBeenCalledTimes(1);
+    expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
+    expect(mockedApi.generateSecondaryAssets).not.toHaveBeenCalled();
+  });
+
+  it('still allows saving only the portrait when cost estimates are unavailable', async () => {
+    mockedApi.quoteSecondaryAssets.mockRejectedValue(new Error('pricing unavailable'));
+    renderPage();
+
+    const dialog = await openSecondaryGenerationDialog();
+
+    await waitFor(() => {
+      expect(within(dialog).getByText(/Не удалось рассчитать стоимость/)).toBeInTheDocument();
+    });
+    expect(within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'})).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
+
+    await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
+    expect(mockedApi.applyVariant).toHaveBeenCalledTimes(1);
+    expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
+    expect(mockedApi.generateSecondaryAssets).not.toHaveBeenCalled();
+  });
+
+  it('opens immediately and saves the portrait while the cost estimate is still pending', async () => {
+    mockedApi.quoteSecondaryAssets.mockImplementation(() => new Promise(() => {}));
+    renderPage();
+
+    const dialog = await openSecondaryGenerationDialog();
+
+    expect(within(dialog).getByText(/Рассчитываем стоимость/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'})).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
+
+    await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
+    expect(mockedApi.applyVariant).toHaveBeenCalledTimes(1);
+    expect(mockedApi.generateSecondaryAssets).not.toHaveBeenCalled();
+  });
+
+  it('allows one selected image when the balance covers one but not two', async () => {
+    mockedApi.quoteSecondaryAssets.mockImplementation(async (_projectId, _characterId, payload) => ({
+      data: {
+        ...secondaryQuoteFor(payload.image_types),
+        available_balance: '0.10',
+        sufficient_balance: payload.image_types.length === 1,
+      },
+    }) as never);
+    renderPage();
+
+    const dialog = await openSecondaryGenerationDialog();
+    const generateButton = within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'});
+    fireEvent.click(within(dialog).getByRole('checkbox', {name: /В сцене/}));
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    await waitFor(() => expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledTimes(1));
+    expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledWith(
+      PROJECT_ID,
+      CHARACTER_ID,
+      'quote-full_body',
+    );
+  });
+
+  it('does not apply the portrait or partially start jobs when two edits exceed the balance', async () => {
+    mockedApi.quoteSecondaryAssets.mockResolvedValue({
+      data: {
+        ...SECONDARY_QUOTE,
+        available_balance: '0.10',
+        sufficient_balance: false,
+      },
+    } as never);
+    renderPage();
+
+    const dialog = await openSecondaryGenerationDialog();
+    const generateButton = within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'});
+    await waitFor(() => {
+      expect(within(dialog).getByText(/Для запуска нужно примерно/)).toBeInTheDocument();
+    });
+    expect(generateButton).toBeDisabled();
+    fireEvent.click(generateButton);
+
+    expect(mockedApi.applyVariant).not.toHaveBeenCalled();
+    expect(mockedCreateTreeNode).not.toHaveBeenCalled();
+    expect(mockedApi.generateSecondaryAssets).not.toHaveBeenCalled();
+    expect(screen.queryByText('Edit page')).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Отмена'}));
+  });
+
+  it('allows saving only the portrait when the wallet is frozen', async () => {
+    mockedApi.quoteSecondaryAssets.mockResolvedValue({
+      data: {...SECONDARY_QUOTE, account_frozen: true},
+    } as never);
+    renderPage();
+
+    const dialog = await openSecondaryGenerationDialog();
+    await waitFor(() => {
+      expect(within(dialog).getByText(/администратор не разморозит кошелёк/)).toBeInTheDocument();
+    });
+    expect(within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'})).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
+
+    await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
+    expect(mockedApi.generateSecondaryAssets).not.toHaveBeenCalled();
+  });
+
   it('does not navigate or emit success when tree persistence fails', async () => {
     mockedCreateTreeNode.mockRejectedValue(new Error('tree persistence failed'));
 
     renderPage();
-    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+    const dialog = await openSecondaryGenerationDialog();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
 
     await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Edit page')).not.toBeInTheDocument();
@@ -452,24 +854,130 @@ describe('CharacterVariantsPage – Continue button', () => {
     });
   });
 
+  it('reuses a generated tree node id when persistence is retried', async () => {
+    mockedCreateTreeNode.mockRejectedValueOnce(
+      new Error('response lost after persistence'),
+    );
+    renderPage({...PAGE_STATE, sourceTreeNodeId: undefined}, 'job-1', null);
+
+    let dialog = await openSecondaryGenerationDialog();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
+    await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(screen.getByRole('button', {name: /продолжить/i})).not.toBeDisabled();
+    });
+    const firstNodeId = mockedCreateTreeNode.mock.calls[0][1].id;
+
+    dialog = await openSecondaryGenerationDialog();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
+    await waitFor(() => expect(mockedApi.applyVariant).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockedCreateTreeNode).toHaveBeenCalledTimes(2));
+
+    expect(mockedCreateTreeNode.mock.calls[1][1].id).toBe(firstNodeId);
+  });
+
   it('navigates only after tree persistence succeeds', async () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+    const dialog = await openSecondaryGenerationDialog();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
 
     await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
     expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
   });
 
-  it('starts full-body and scene generation after applying the portrait', async () => {
+  it('starts full-body and scene atomically with the approved quote token', async () => {
     renderPage();
-    fireEvent.click(screen.getByRole('button', {name: /продолжить/i}));
+    const dialog = await openSecondaryGenerationDialog();
+    const generateButton = within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'});
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
 
-    await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalledTimes(2));
-    expect(mockedApi.generateEdit.mock.calls.map((call) => call[2])).toEqual([
-      expect.objectContaining({image_type: 'full_body', region: 'body'}),
-      expect.objectContaining({image_type: 'scene', region: 'style'}),
-    ]);
+    await waitFor(() => expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledTimes(1));
+    expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledWith(
+      PROJECT_ID,
+      CHARACTER_ID,
+      'quote-full_body-scene',
+    );
     expect(await screen.findByText(/"full_body":"full-body-job"/)).toBeInTheDocument();
     expect(screen.getByText(/"scene":"scene-job"/)).toBeInTheDocument();
+  });
+
+  it('launches only the selected secondary image type', async () => {
+    renderPage();
+    const dialog = await openSecondaryGenerationDialog();
+
+    fireEvent.click(within(dialog).getByRole('checkbox', {name: /В сцене/}));
+    await waitFor(() => expect(within(dialog).getAllByText('≈ 0.060001 C')).toHaveLength(2));
+    const generateButton = within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'});
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    await waitFor(() => expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledTimes(1));
+    expect(mockedApi.quoteSecondaryAssets).toHaveBeenLastCalledWith(
+      PROJECT_ID,
+      CHARACTER_ID,
+      expect.objectContaining({image_types: ['full_body']}),
+    );
+    expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledWith(
+      PROJECT_ID,
+      CHARACTER_ID,
+      'quote-full_body',
+    );
+    expect(screen.getByText(/"full_body":"full-body-job"/)).toBeInTheDocument();
+    expect(screen.queryByText(/"scene":"scene-job"/)).not.toBeInTheDocument();
+  });
+
+  it('ignores a stale quote after the selected image types change', async () => {
+    let resolveInitialQuote: ((value: unknown) => void) | undefined;
+    mockedApi.quoteSecondaryAssets.mockImplementation(async (_projectId, _characterId, payload) => {
+      if (payload.image_types.length === 2) {
+        return new Promise((resolve) => {
+          resolveInitialQuote = resolve;
+        }) as never;
+      }
+      return {data: secondaryQuoteFor(payload.image_types)} as never;
+    });
+    renderPage();
+    const dialog = await openSecondaryGenerationDialog();
+
+    fireEvent.click(within(dialog).getByRole('checkbox', {name: /В сцене/}));
+    const generateButton = within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'});
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+
+    await act(async () => {
+      resolveInitialQuote?.({data: SECONDARY_QUOTE});
+      await Promise.resolve();
+    });
+    expect(generateButton).not.toBeDisabled();
+    fireEvent.click(generateButton);
+
+    await waitFor(() => expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledWith(
+      PROJECT_ID,
+      CHARACTER_ID,
+      'quote-full_body',
+    ));
+  });
+
+  it('keeps the applied portrait on variants when the atomic batch launch fails', async () => {
+    mockedApi.generateSecondaryAssets.mockRejectedValue(new Error('batch rejected'));
+    renderPage();
+    let dialog = await openSecondaryGenerationDialog();
+    const generateButton = within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'});
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Портрет сохранён, но дополнительные изображения не запущены',
+    );
+    expect(screen.queryByText('Edit page')).not.toBeInTheDocument();
+    expect(mockedApi.applyVariant).toHaveBeenCalledTimes(1);
+    expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
+
+    dialog = await openSecondaryGenerationDialog();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Сохранить только портрет'}));
+
+    await waitFor(() => expect(screen.getByText('Edit page')).toBeInTheDocument());
+    expect(mockedApi.applyVariant).toHaveBeenCalledTimes(1);
+    expect(mockedCreateTreeNode).toHaveBeenCalledTimes(1);
   });
 });

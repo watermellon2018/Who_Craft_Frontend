@@ -58,6 +58,7 @@ const track: MusicTrackDetail = {
   ],
   author: 'Project team',
   id: 12,
+  source: 'manual',
   status: 'active',
   tags: [],
   title: 'Heroine theme',

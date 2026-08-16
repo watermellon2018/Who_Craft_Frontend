@@ -5,8 +5,8 @@
     height: 100%;
     min-height: 0;
     overflow-y: auto;
-    background: #0d0f13;
-    color: #f7efe0;
+    background: var(--craft-bg-deep);
+    color: var(--craft-text);
     /* Компенсация высоты fixed нижней панели (~80px) + запас */
     padding-bottom: 104px;
     font-family: inherit;
@@ -33,26 +33,26 @@
     gap: 8px;
     background: none;
     border: none;
-    color: #929aa8;
+    color: var(--craft-text-muted);
     font-size: 14px;
     cursor: pointer;
     padding: 0;
     transition: color 0.2s;
     width: fit-content;
 }
-.cvp-back-btn:hover { color: #f7efe0; }
+.cvp-back-btn:hover { color: var(--craft-text); }
 
 .cvp-title {
     font-size: 24px;
     font-weight: 600;
-    color: #f7efe0;
+    color: var(--craft-text);
     margin: 0;
     line-height: 1.2;
 }
 
 .cvp-subtitle {
     font-size: 14px;
-    color: #929aa8;
+    color: var(--craft-text-muted);
     margin: 4px 0 0;
     max-width: 520px;
     line-height: 1.5;
@@ -68,8 +68,8 @@
 
 .cvp-btn-secondary {
     background: none;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #f7efe0;
+    border: 1px solid var(--craft-border);
+    color: var(--craft-text);
     padding: 8px 16px;
     border-radius: 8px;
     font-size: 14px;
@@ -167,16 +167,16 @@
     min-width: 220px;
     max-width: 340px;
     border-radius: 12px;
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    border: 2px solid var(--craft-border-subtle);
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    background: #141820;
+    background: var(--craft-surface);
     transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 
 .cvp-card:hover:not(.cvp-card--selected) {
-    border-color: rgba(255, 255, 255, 0.25);
+    border-color: var(--craft-border-strong);
     transform: translateY(-2px);
 }
 
@@ -203,14 +203,14 @@
     position: absolute;
     top: 10px;
     left: 10px;
-    background: rgba(13, 15, 19, 0.75);
+    background: var(--craft-overlay);
     backdrop-filter: blur(6px);
-    color: #f7efe0;
+    color: var(--craft-text);
     font-size: 12px;
     font-weight: 600;
     padding: 4px 10px;
     border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--craft-border-subtle);
     letter-spacing: 0.03em;
 }
 
@@ -268,8 +268,8 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: #141820;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--craft-surface);
+    border-top: 1px solid var(--craft-border-subtle);
     padding: 14px 32px;
     display: flex;
     justify-content: space-between;
@@ -304,7 +304,7 @@
 .cvp-selected-label {
     font-size: 15px;
     font-weight: 500;
-    color: #f7efe0;
+    color: var(--craft-text);
 }
 .cvp-selected-label span {
     color: var(--craft-accent);
@@ -339,7 +339,7 @@
 
 .cvp-continue-hint {
     font-size: 11px;
-    color: #929aa8;
+    color: var(--craft-text-muted);
 }
 
 /* Loading state */
@@ -369,13 +369,13 @@
 .cvp-loading__title {
     font-size: 18px;
     font-weight: 600;
-    color: #f7efe0;
+    color: var(--craft-text);
     margin: 0;
 }
 
 .cvp-loading__sub {
     font-size: 14px;
-    color: #929aa8;
+    color: var(--craft-text-muted);
     margin: 0;
 }
 
@@ -421,13 +421,13 @@
 .cvp-error__title {
     font-size: 18px;
     font-weight: 600;
-    color: #f7efe0;
+    color: var(--craft-text);
     margin: 0;
 }
 
 .cvp-error__text {
     font-size: 14px;
-    color: #929aa8;
+    color: var(--craft-text-muted);
     margin: 0 0 8px;
     max-width: 400px;
 }

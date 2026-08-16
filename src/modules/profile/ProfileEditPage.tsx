@@ -95,7 +95,6 @@ function isDirty(
   form: ProfileEditFormState,
   media: DraftMedia,
   saved: ProfileEditFormState,
-  savedMedia: DraftMedia,
 ): boolean {
   if (
     form.username !== saved.username ||
@@ -344,7 +343,7 @@ const ProfileEditPage: React.FC = () => {
     navigate(PathConstants.PROFILE);
   };
 
-  const dirty = draft && saved ? isDirty(draft, media, saved, savedMedia) : false;
+  const dirty = draft && saved ? isDirty(draft, media, saved) : false;
 
   // draft is the view source; media provides avatar/cover URLs for preview
   const viewState: ProfileEditFormState | null = draft
@@ -352,7 +351,7 @@ const ProfileEditPage: React.FC = () => {
     : null;
 
   return (
-    <div className="flex h-screen bg-[#0f1117] overflow-hidden">
+    <div className="profile-theme-page flex h-screen overflow-hidden">
       <ProfileSidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col overflow-hidden">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Checkbox } from 'antd';
+import { Form, Input, Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 // Auth token storage is centralized in api/http.ts — see register() below.
@@ -11,7 +11,6 @@ import {
     EyeOutlined,
     EyeInvisibleOutlined,
     ThunderboltOutlined,
-    VideoCameraOutlined,
     PlayCircleOutlined,
 } from '@ant-design/icons';
 

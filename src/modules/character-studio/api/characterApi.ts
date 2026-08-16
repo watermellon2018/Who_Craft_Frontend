@@ -1,5 +1,11 @@
 import api from '../../../api/http';
 import type {
+  CharacterSecondaryAssetsGenerateResponse,
+  CharacterSecondaryAssetsQuote,
+  CharacterSecondaryAssetsQuoteRequest,
+} from '../../../api/generated/contracts';
+import {notifyCreditBalanceUpdated} from '../../credits/api/creditApi';
+import type {
   CreateCharacterFromReferencePayload,
   EditRequest,
   GenerationJob,
@@ -60,6 +66,11 @@ export interface CharacterGenerationPreview {
   image_types: string[];
   provider_call_count: number;
   estimated_cost_usd: string | null;
+  reservation_amount: string;
+  currency: 'USD';
+  pricing_source: string;
+  available_balance: string;
+  sufficient_balance: boolean;
   budgets: {
     user: {used: number; limit: number};
     project: {used: number; limit: number};
@@ -121,7 +132,10 @@ export const characterApi = {
       `${base(projectId)}/from-reference`,
       form,
       generationRequestConfig(`${projectId}:from-reference`, fileIntent),
-    );
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
   },
   get(projectId: string | number, characterId: string) {
     return api.get(base(projectId, characterId));
@@ -163,7 +177,10 @@ export const characterApi = {
       `${base(projectId, characterId)}/generate-initial-variants`,
       data,
       generationRequestConfig(`${projectId}:${characterId}:initial`, data, idempotencyKey),
-    );
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
   },
   generateEdit(
     projectId: string | number,
@@ -175,7 +192,40 @@ export const characterApi = {
       `${base(projectId, characterId)}/generate-edit-variants`,
       data,
       generationRequestConfig(`${projectId}:${characterId}:edit`, data, idempotencyKey),
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
+  },
+  quoteSecondaryAssets(
+    projectId: string | number,
+    characterId: string,
+    payload: CharacterSecondaryAssetsQuoteRequest,
+  ) {
+    return api.post<CharacterSecondaryAssetsQuote>(
+      `${base(projectId, characterId)}/secondary-assets/quote`,
+      payload,
     );
+  },
+  generateSecondaryAssets(
+    projectId: string | number,
+    characterId: string,
+    quoteToken: string,
+    idempotencyKey?: string,
+  ) {
+    const payload = {quote_token: quoteToken};
+    return api.post<CharacterSecondaryAssetsGenerateResponse>(
+      `${base(projectId, characterId)}/secondary-assets/generate`,
+      payload,
+      generationRequestConfig(
+        `${projectId}:${characterId}:secondary-assets`,
+        payload,
+        idempotencyKey,
+      ),
+    ).then((response) => {
+      notifyCreditBalanceUpdated();
+      return response;
+    });
   },
   zoneEdit(projectId: string | number, characterId: string, data: ZoneEditRequest, idempotencyKey?: string) {
     return api.post(
@@ -274,7 +324,13 @@ export const characterApi = {
   generateReference(
     projectId: string | number,
     characterId: string,
-    payload: { reference_type: ReferenceType; correction_prompt?: string; preserve_identity?: boolean },
+    payload: {
+      reference_type: ReferenceType;
+      correction_prompt?: string;
+      preserve_identity?: boolean;
+      image_model?: string;
+      routing_mode?: import('../../../api/generated/contracts').GenerationRoutingMode;
+    },
   ) {
     return api.post(
       `${base(projectId, characterId)}/references/generate`,
@@ -297,7 +353,12 @@ export const characterApi = {
     projectId: string | number,
     characterId: string,
     referenceId: string,
-    payload: { correction_prompt: string; preserve_identity?: boolean },
+    payload: {
+      correction_prompt: string;
+      preserve_identity?: boolean;
+      image_model?: string;
+      routing_mode?: import('../../../api/generated/contracts').GenerationRoutingMode;
+    },
   ) {
     return api.post(
       `${base(projectId, characterId)}/references/${referenceId}/correct`,

@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 
+import {notifyCreditBalanceUpdated} from '../../credits/api/creditApi';
 import {referenceApi} from '../api/referenceApi';
 import {referenceErrorDescriptor} from '../errors';
 import {isReferenceJobTerminal} from '../types';
@@ -81,7 +82,9 @@ export function useReferenceGenerationJob(
           return;
         }
         setState({...initialState(requestKey), job});
-        if (!isReferenceJobTerminal(job.status)) {
+        if (isReferenceJobTerminal(job.status)) {
+          notifyCreditBalanceUpdated();
+        } else {
           timeoutId = window.setTimeout(() => void load(), pollDelay(job.progress));
         }
       } catch (error: unknown) {

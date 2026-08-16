@@ -29,7 +29,7 @@
 
 /* "— необязательно" hint next to Email label */
 .wc-register__optional {
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--craft-text-muted);
     font-weight: 400;
     font-size: 12px;
     margin-left: 2px;
@@ -48,7 +48,7 @@
 .wc-register__signin {
     margin-top: 14px;
     text-align: center;
-    color: rgba(255, 255, 255, 0.65);
+    color: var(--craft-text-muted);
     font-size: 13px;
 }
 .wc-register__signin a {

@@ -8,6 +8,13 @@ import {characterApi} from '../api/characterApi';
 import CharacterCreatePage from './CharacterCreatePage';
 
 jest.mock('../api/characterApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  GenerationCostPreview: () => null,
+  runGenerationWithCredits: (
+    intent: {modelKey?: string},
+    operation: (estimate: unknown) => unknown,
+  ) => operation({modelKey: intent.modelKey ?? 'gemini-flash-image', routingMode: 'manual'}),
+}));
 jest.mock('../hooks/useProjectIdFromRoute', () => ({
   useProjectIdFromRoute: () => 'proj-1',
 }));

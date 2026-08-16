@@ -3,11 +3,24 @@
 import type {AxiosInstance} from 'axios';
 import type {
   CharacterTreeCreateRequest,
-  CharacterTreeDeleteRequest,
   CharacterTreeNode,
-  CharacterTreeRenameRequest,
-  CharacterTreeRenameResponse,
-  DeleteResponse,
+  CharacterTreeUpdateRequest,
+  CreditDemoTopUpRequest,
+  CreditAdminAudit,
+  CreditAdminOperationRequest,
+  CreditAdminOperationResponse,
+  CreditHistoryPage,
+  CreditMutationResponse,
+  CreditOperationType,
+  CreditSummary,
+  CreditSpendingStatistics,
+  CreditTransferRequest,
+  CreditTransferResponse,
+  GenerationCostEstimate,
+  GenerationCostEstimateRequest,
+  ProjectCreditBudget,
+  ProjectCreditBudgetList,
+  ProjectCreditBudgetUpdateRequest,
   ProjectId,
   ProjectInvitationRequest,
   ProjectInvitationResponse,
@@ -18,22 +31,71 @@ import type {
 const projectPath = (template: string, projectId: ProjectId) =>
   template.replace('{projectId}', encodeURIComponent(String(projectId)));
 
+const treeNodePath = (template: string, projectId: ProjectId, nodeId: string) =>
+  projectPath(template, projectId).replace('{nodeId}', encodeURIComponent(String(nodeId)));
+
 export function createGeneratedApiClient(http: AxiosInstance) {
   return {
+    async getCreditSummary(): Promise<CreditSummary> {
+      const response = await http.get<CreditSummary>('api/credits/summary/');
+      return response.data;
+    },
+    async listCreditHistory(params: {limit?: number; offset?: number; operationType?: CreditOperationType} = {}): Promise<CreditHistoryPage> {
+      const response = await http.get<CreditHistoryPage>('api/credits/history/', {params});
+      return response.data;
+    },
+    async getCreditSpendingStatistics(params: {periodDays?: number; projectId?: number} = {}): Promise<CreditSpendingStatistics> {
+      const response = await http.get<CreditSpendingStatistics>('api/credits/spending-statistics/', {params});
+      return response.data;
+    },
+    async createCreditDemoTopUp(payload: CreditDemoTopUpRequest, idempotencyKey: string): Promise<CreditMutationResponse> {
+      const response = await http.post<CreditMutationResponse>('api/credits/demo-top-up/', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async createCreditTransfer(payload: CreditTransferRequest, idempotencyKey: string): Promise<CreditTransferResponse> {
+      const response = await http.post<CreditTransferResponse>('api/credits/transfers/', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async createCreditAdminOperation(payload: CreditAdminOperationRequest, idempotencyKey: string): Promise<CreditAdminOperationResponse> {
+      const response = await http.post<CreditAdminOperationResponse>('api/credits/admin/operations/', payload, {
+        headers: {'Idempotency-Key': idempotencyKey},
+      });
+      return response.data;
+    },
+    async getCreditAdminAudit(username: string): Promise<CreditAdminAudit> {
+      const response = await http.get<CreditAdminAudit>('api/credits/admin/audit/', {params: {username}});
+      return response.data;
+    },
+    async listProjectCreditBudgets(): Promise<ProjectCreditBudgetList> {
+      const response = await http.get<ProjectCreditBudgetList>('api/credits/project-budgets/');
+      return response.data;
+    },
+    async updateProjectCreditBudget(projectId: ProjectId, payload: ProjectCreditBudgetUpdateRequest): Promise<ProjectCreditBudget> {
+      const response = await http.patch<ProjectCreditBudget>(projectPath('api/credits/project-budgets/{projectId}/', projectId), payload);
+      return response.data;
+    },
+    async estimateGenerationCost(payload: GenerationCostEstimateRequest): Promise<GenerationCostEstimate> {
+      const response = await http.post<GenerationCostEstimate>('api/credits/generation-estimate/', payload);
+      return response.data;
+    },
     async listCharacterTree(projectId: ProjectId): Promise<CharacterTreeNode[]> {
-      const response = await http.get<CharacterTreeNode[]>('api/character/select/', {params: {projectId}});
+      const response = await http.get<CharacterTreeNode[]>(projectPath('api/projects/{projectId}/character-tree/', projectId));
       return response.data;
     },
-    async createCharacterTreeNode(payload: CharacterTreeCreateRequest): Promise<void> {
-      await http.post<void>('api/character/create/', payload);
-    },
-    async renameCharacterTreeNode(payload: CharacterTreeRenameRequest): Promise<CharacterTreeRenameResponse> {
-      const response = await http.post<CharacterTreeRenameResponse>('api/character/rename/', payload);
+    async createCharacterTreeNode(projectId: ProjectId, payload: CharacterTreeCreateRequest): Promise<CharacterTreeNode> {
+      const response = await http.post<CharacterTreeNode>(projectPath('api/projects/{projectId}/character-tree/nodes/', projectId), payload);
       return response.data;
     },
-    async deleteCharacterTreeNode(payload: CharacterTreeDeleteRequest): Promise<DeleteResponse> {
-      const response = await http.post<DeleteResponse>('api/character/delete/', payload);
+    async renameCharacterTreeNode(projectId: ProjectId, nodeId: string, payload: CharacterTreeUpdateRequest): Promise<CharacterTreeNode> {
+      const response = await http.patch<CharacterTreeNode>(treeNodePath('api/projects/{projectId}/character-tree/nodes/{nodeId}/', projectId, nodeId), payload);
       return response.data;
+    },
+    async deleteCharacterTreeNode(projectId: ProjectId, nodeId: string): Promise<void> {
+      await http.delete(treeNodePath('api/projects/{projectId}/character-tree/nodes/{nodeId}/', projectId, nodeId));
     },
     async getProject(projectId: ProjectId): Promise<ProjectMutationResponse> {
       const response = await http.get<ProjectMutationResponse>(projectPath('api/projects/{projectId}/', projectId));

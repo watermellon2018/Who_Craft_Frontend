@@ -6,6 +6,7 @@ import PathConstants from '../../routes/pathConstant';
 import { ProfileUser } from '../../modules/profile/types';
 import { fetchProfileMe } from '../../modules/profile/api/profileApi';
 import { logout } from '../../api/http';
+import CreditBalanceBadge from '../../modules/credits/components/CreditBalanceBadge';
 import '../../modules/profile/components/dashboardHeader.css';
 import './main.css';
 
@@ -75,12 +76,6 @@ const IconPackage = () => (
   </svg>
 );
 
-const IconArrow = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none">
-    <path d="M5 12H19M19 12L13 6M19 12L13 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
 interface HomeUserPillProps {
   user: ProfileUser | null;
 }
@@ -118,6 +113,7 @@ const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
 
   return (
     <div className="home-user-pill-wrap">
+      <CreditBalanceBadge />
       <div className="app-header__user-wrap" ref={ref}>
         <button
           type="button"
@@ -275,7 +271,7 @@ export const MainPage: React.FC = () => {
             description="Откройте существующие проекты и продолжите работу."
           />
           <ActionCard
-            to={PathConstants.SCRIPT_PAGE_LEGACY}
+            to={PathConstants.PROJECTS}
             icon={<IconClapperboard />}
             title="Сценарии"
             description="Пишите истории, сцены и структуру будущих фильмов."

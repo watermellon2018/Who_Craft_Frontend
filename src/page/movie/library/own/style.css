@@ -20,10 +20,10 @@
     flex-direction: column;
     gap: 10px;
     padding: 32px 20px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--craft-border-subtle);
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.03);
-    color: rgba(255, 255, 255, 0.64);
+    background: var(--craft-surface-subtle);
+    color: var(--craft-text-muted);
     text-align: center;
 }
 
@@ -33,7 +33,7 @@
 }
 
 .projects-state h2 {
-    color: rgba(255, 255, 255, 0.92);
+    color: var(--craft-text);
     font-size: 18px;
     font-weight: 600;
 }
@@ -87,9 +87,9 @@
 
 .archived-projects {
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--craft-border-subtle);
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--craft-surface-subtle);
 }
 
 .archived-projects-summary {
@@ -98,7 +98,7 @@
     align-items: center;
     gap: 10px;
     padding: 0 18px;
-    color: rgba(255, 255, 255, 0.82);
+    color: var(--craft-text);
     cursor: pointer;
     font-size: 15px;
     font-weight: 600;
@@ -111,7 +111,7 @@
 
 .archived-projects-summary::after {
     margin-left: auto;
-    color: rgba(255, 255, 255, 0.46);
+    color: var(--craft-text-muted);
     content: '⌄';
     font-size: 20px;
     line-height: 1;
@@ -135,8 +135,8 @@
     justify-content: center;
     padding: 0 7px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.62);
+    background: var(--craft-surface-raised);
+    color: var(--craft-text-muted);
     font-size: 12px;
 }
 
@@ -336,4 +336,7 @@
 .invitation-actions {
     display: flex;
     gap: 8px;
+}
+.library-projects-page {
+    color: var(--craft-text);
 }

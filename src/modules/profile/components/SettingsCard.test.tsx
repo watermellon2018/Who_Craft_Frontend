@@ -1,7 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
 import SettingsCard from './SettingsCard';
-import { ProfileSettings } from '../types';
+import type { ProfileSettings } from '../types';
+import {CraftThemeProvider} from '../../../theme/CraftThemeProvider';
+import {CRAFT_THEME_STORAGE_KEY} from '../../../theme/craftTheme';
 
 const mockUpdateSettings = jest.fn();
 jest.mock('../api/profileApi', () => ({
@@ -15,16 +18,44 @@ const defaultSettings: ProfileSettings = {
   notifications_enabled: true,
 };
 
+const renderSettings = (onChange: (updated: ProfileSettings) => void = jest.fn()) => render(
+  <MemoryRouter>
+    <SettingsCard settings={defaultSettings} onChange={onChange} />
+  </MemoryRouter>,
+);
+
 describe('SettingsCard', () => {
   beforeEach(() => {
     mockUpdateSettings.mockReset();
+    window.localStorage.removeItem(CRAFT_THEME_STORAGE_KEY);
   });
 
   it('renders current settings values', () => {
-    render(<SettingsCard settings={defaultSettings} onChange={jest.fn()} />);
+    renderSettings();
     expect(screen.getByText('Язык интерфейса')).toBeInTheDocument();
     expect(screen.getByText('Закрытый аккаунт')).toBeInTheDocument();
     expect(screen.getByText('Уведомления')).toBeInTheDocument();
+    expect(screen.getByText('Цветовая тема')).toBeInTheDocument();
+    expect(screen.getByLabelText('Светлая')).toBeInTheDocument();
+    expect(screen.getByLabelText('Синяя')).toBeChecked();
+    expect(screen.getByLabelText('Тёмная')).toBeInTheDocument();
+  });
+
+  it('changes and persists the interface theme without a backend request', () => {
+    render(
+      <MemoryRouter>
+        <CraftThemeProvider>
+          <SettingsCard settings={defaultSettings} onChange={jest.fn()} />
+        </CraftThemeProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByLabelText('Светлая'));
+
+    expect(screen.getByLabelText('Светлая')).toBeChecked();
+    expect(document.documentElement.dataset.craftTheme).toBe('light');
+    expect(window.localStorage.getItem(CRAFT_THEME_STORAGE_KEY)).toBe('light');
+    expect(mockUpdateSettings).not.toHaveBeenCalled();
   });
 
   it('calls updateSettings and onChange when private_account toggle changes', async () => {
@@ -32,7 +63,7 @@ describe('SettingsCard', () => {
     mockUpdateSettings.mockResolvedValueOnce(updated);
     const onChange = jest.fn();
 
-    render(<SettingsCard settings={defaultSettings} onChange={onChange} />);
+    renderSettings(onChange);
 
     const switches = screen.getAllByRole('switch');
     await act(async () => { fireEvent.click(switches[0]); });
@@ -48,7 +79,7 @@ describe('SettingsCard', () => {
     mockUpdateSettings.mockResolvedValueOnce(updated);
     const onChange = jest.fn();
 
-    render(<SettingsCard settings={defaultSettings} onChange={onChange} />);
+    renderSettings(onChange);
 
     const switches = screen.getAllByRole('switch');
     await act(async () => { fireEvent.click(switches[1]); });
@@ -62,7 +93,7 @@ describe('SettingsCard', () => {
     mockUpdateSettings.mockRejectedValueOnce(new Error('Network error'));
     const onChange = jest.fn();
 
-    render(<SettingsCard settings={defaultSettings} onChange={onChange} />);
+    renderSettings(onChange);
 
     const switches = screen.getAllByRole('switch');
     await act(async () => { fireEvent.click(switches[0]); });
@@ -72,7 +103,14 @@ describe('SettingsCard', () => {
   });
 
   it('renders "Перейти ко всем настройкам" button', () => {
-    render(<SettingsCard settings={defaultSettings} onChange={jest.fn()} />);
+    renderSettings();
     expect(screen.getByText('Перейти ко всем настройкам')).toBeInTheDocument();
+  });
+
+  it('links to the Craft wallet from settings', () => {
+    renderSettings();
+
+    expect(screen.getByRole('link', {name: 'Открыть кошелёк Craft'}))
+      .toHaveAttribute('href', '/credits');
   });
 });

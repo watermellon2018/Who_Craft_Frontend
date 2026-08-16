@@ -5,6 +5,35 @@ App 5. It consumes the sibling Django backend and contains project/team, poster,
 script, Character Studio, Music Studio, Reference Library, profile, and social
 subscription experiences.
 
+The protected `/credits` route is the Craft wallet. It shows available and
+reserved credits, 30-day movement statistics, and the append-only operation
+history. In demo environments it can add test credits; staff can transfer
+available credits between user wallets through the administration controls. Project
+owners can set a lifetime generation budget and see spent, reserved, and
+remaining credits. The client never connects to a bank or provider balance
+directly.
+
+Paid generation screens request a backend estimate before enqueue. They block
+when the available balance is insufficient and otherwise show a confirmation
+with the provider-native estimated cost. The backend remains authoritative: it
+reserves at enqueue, settles after provider completion, and refreshes the
+visible balance when the request starts.
+
+The wallet also stores the user's generation-routing preference (manual,
+lower-cost, faster, balanced, or quality), shows low-balance/frozen warnings,
+generation spending by project and type, and provider-billed totals in job
+history. Staff users can freeze or unfreeze their own wallet without entering a
+login and can perform an audited transfer by specifying sender, recipient,
+amount, and reason. Adjustment and manual-refund controls are not exposed.
+Automatic generation always confirms its maximum primary-plus-fallback
+reservation before enqueue.
+
+The interface has three color themes: Light, Blue, and Dark. The selector is in
+the profile Settings card. Blue is the default. The selected value is stored as
+`craft.theme` in the current browser and is applied before React renders, so it
+survives reloads without requiring backend configuration. Theme choice is not
+currently synchronized between browsers or devices.
+
 System-wide documentation is in the parent workspace:
 `../README.md`, `../AGENTS.md`, and `../docs/`.
 
@@ -48,12 +77,12 @@ when behavior, permissions, APIs, configuration, and data are unchanged.
 
 ## Architecture map
 
-- Entry/router: `src/index.tsx`, `src/App.tsx`, `src/constants/path.tsx`.
+- Entry/router: `src/index.tsx`, `src/App.tsx`, `src/routes/pathConstant.ts`.
 - Shared HTTP/auth: `src/api/http.ts`.
 - Generated API surface: `openapi/w_craft.openapi.json` ->
   `src/api/generated/`.
 - Feature modules: `src/modules/character-studio/`, `music-studio/`,
-  `reference-library/`, `profile/`, and `subscriptions/`.
+  `reference-library/`, `credits/`, `profile/`, and `subscriptions/`.
 - Project, poster, dashboard, and script pages: `src/page/`.
 - Localization: `src/i18n/` and locale resources.
 
@@ -66,6 +95,9 @@ The shared Axios client stores distinct opaque access/refresh tokens in local or
 session storage, injects the access token as `X-User-Token`, coordinates a
 single refresh rotation after a 401, retries once, and emits an auth-expired
 event when recovery fails. Never add tokens to URLs or request logging.
+Only `authToken` and `authRefreshToken` are recognized storage keys. Retired
+credential keys are purged without authenticating the user, who must sign in
+again.
 
 Use `backendAssetUrl()` or URLs returned by the API for media. Private media is
 served by the backend through signed URLs; frontend code must not construct

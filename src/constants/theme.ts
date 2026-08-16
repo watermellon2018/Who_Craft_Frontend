@@ -12,4 +12,4 @@
 export const CRAFT_ACCENT = '#fab005';
 export const CRAFT_ACCENT_HOVER = '#fcc419';
 export const CRAFT_ACCENT_SECONDARY = '#d97706';
-export const CRAFT_PLACEHOLDER = '#64778d';
+export const CRAFT_PLACEHOLDER = '#74879d';

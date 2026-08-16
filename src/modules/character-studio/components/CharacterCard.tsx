@@ -43,7 +43,7 @@ export default function CharacterCard({busy = false, character, onEdit, onDelete
       <Card
         loading={busy}
         style={{position: 'relative'}}
-        cover={image ? <img src={image} alt={character.name} style={{height: 220, objectFit: 'cover'}} /> : <div style={{height: 220, display: 'grid', placeItems: 'center', background: '#111318'}}>{isDraft ? t('characterStudio.gallery.draftPlaceholder') : t('characterStudio.gallery.noImage')}</div>}
+        cover={image ? <img src={image} alt={character.name} style={{height: 220, objectFit: 'cover'}} /> : <div style={{height: 220, display: 'grid', placeItems: 'center', background: 'var(--craft-bg-elevated)'}}>{isDraft ? t('characterStudio.gallery.draftPlaceholder') : t('characterStudio.gallery.noImage')}</div>}
       >
         <Card.Meta
           title={character.name}

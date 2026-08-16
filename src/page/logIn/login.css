@@ -10,10 +10,10 @@
     display: grid;
     place-items: center;
     padding: clamp(16px, 4vw, 48px);
-    background: #0b0c10;
+    background: var(--craft-bg-deep);
     position: relative;
     overflow: hidden;
-    color: #f5f5f7;
+    color: var(--craft-text);
     font-family: inherit;
 }
 
@@ -22,7 +22,7 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background-color: #0b0c10;
+    background-color: var(--craft-bg-deep);
     background-image:
         radial-gradient(60% 45% at 18% 20%, rgba(250, 176, 5, 0.18), transparent 60%),
         radial-gradient(55% 45% at 88% 85%, rgba(120, 90, 250, 0.10), transparent 60%),
@@ -45,7 +45,7 @@
     align-items: center;
     justify-content: center;
     margin-bottom: clamp(16px, 3vh, 28px);
-    color: #fff;
+    color: var(--craft-text);
     font-weight: 600;
     letter-spacing: 0.04em;
     font-size: 18px;
@@ -69,14 +69,14 @@
 .wc-login__card {
     display: grid;
     grid-template-columns: 1fr;
-    background: rgba(20, 22, 28, 0.72);
+    background: var(--craft-surface-translucent);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--craft-border-subtle);
     border-radius: 22px;
     overflow: hidden;
     box-shadow:
-        0 30px 80px rgba(0, 0, 0, 0.5),
+        var(--craft-shadow-elevated),
         0 0 60px rgba(250, 176, 5, 0.06);
     position: relative;
 }
@@ -99,14 +99,14 @@
     max-width: 380px;
 }
 .wc-login__title {
-    color: #f5f5f7;
+    color: var(--craft-text);
     font-size: clamp(22px, 2.4vw, 28px);
     margin: 0 0 8px;
     font-weight: 600;
     letter-spacing: -0.01em;
 }
 .wc-login__subtitle {
-    color: #9ca3af;
+    color: var(--craft-text-muted);
     margin: 0 0 24px;
     font-size: 14px;
     line-height: 1.45;
@@ -115,7 +115,7 @@
 /* ----- AntD overrides — scoped to .wc-login ----- */
 
 .wc-login .ant-form-item-label > label {
-    color: rgba(255, 255, 255, 0.75) !important;
+    color: var(--craft-text-soft) !important;
     font-size: 13px;
     height: auto;
 }
@@ -124,9 +124,9 @@
 .wc-login .ant-input,
 .wc-login .ant-input-affix-wrapper,
 .wc-login .ant-input-password {
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.10) !important;
-    color: #fff !important;
+    background: var(--craft-field) !important;
+    border: 1px solid var(--craft-border) !important;
+    color: var(--craft-text) !important;
     border-radius: 12px !important;
     transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
@@ -137,31 +137,31 @@
 .wc-login .ant-input-affix-wrapper > input.ant-input {
     background: transparent !important;
     border: none !important;
-    color: #fff !important;
+    color: var(--craft-text) !important;
     height: 100%;
     font-size: 15px;
 }
 .wc-login .ant-input::placeholder,
 .wc-login .ant-input-affix-wrapper input::placeholder {
-    color: rgba(255, 255, 255, 0.32) !important;
+    color: var(--craft-placeholder) !important;
 }
 .wc-login .ant-input-affix-wrapper:hover {
-    border-color: rgba(255, 255, 255, 0.18) !important;
-    background: rgba(255, 255, 255, 0.05) !important;
+    border-color: var(--craft-border-strong) !important;
+    background: var(--craft-surface-hover) !important;
 }
 .wc-login .ant-input-affix-wrapper:focus-within,
 .wc-login .ant-input-affix-wrapper-focused {
     border-color: rgba(250, 176, 5, 0.65) !important;
     box-shadow: 0 0 0 4px rgba(250, 176, 5, 0.12) !important;
-    background: rgba(255, 255, 255, 0.06) !important;
+    background: var(--craft-field) !important;
 }
 .wc-login .ant-input-prefix {
-    color: rgba(255, 255, 255, 0.45);
+    color: var(--craft-text-muted);
     margin-right: 10px;
     font-size: 16px;
 }
 .wc-login .ant-input-suffix .anticon {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--craft-text-muted);
     transition: color 0.15s;
 }
 .wc-login .ant-input-suffix .anticon:hover { color: var(--craft-accent); }
@@ -180,7 +180,7 @@
 
 /* Checkbox */
 .wc-login .ant-checkbox-wrapper {
-    color: rgba(255, 255, 255, 0.78) !important;
+    color: var(--craft-text) !important;
     font-size: 13px;
 }
 /* Row: remember + forgot */

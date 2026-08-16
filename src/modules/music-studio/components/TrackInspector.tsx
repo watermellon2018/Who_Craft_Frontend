@@ -105,7 +105,7 @@ export default function TrackInspector({
             onPlay={(event) => onAudioPlay(event.currentTarget)}
             onError={() => {
               const refreshKey = track.activeVersion?.versionId
-                ?? ['legacy', track.id].join('-');
+                ?? ['unversioned', track.id].join('-');
               if (signedUrlRefreshKeyRef.current === refreshKey) return;
               signedUrlRefreshKeyRef.current = refreshKey;
               onSignedUrlExpired(refreshKey);
@@ -185,7 +185,7 @@ export default function TrackInspector({
             return (
               <article
                 className={active ? 'music-version-row music-version-row--active' : 'music-version-row'}
-                key={version.versionId ?? ['legacy', version.createdAt ?? version.audioUrl ?? 'unversioned'].join('-')}
+                key={version.versionId ?? ['unversioned', version.createdAt ?? version.audioUrl ?? 'unknown'].join('-')}
               >
                 <div>
                   <strong>{versionLabel}</strong>

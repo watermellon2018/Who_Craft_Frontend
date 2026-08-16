@@ -12,16 +12,16 @@
 }
 
 .wcraft-brand:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--craft-surface-hover);
 }
 
 .wcraft-brand:hover .wcraft-brand__text {
-  color: #f8fafc;
+  color: var(--craft-text);
 }
 
 .wcraft-brand:focus-visible {
   border-radius: 12px;
-  outline: 2px solid rgba(214, 162, 97, 0.7);
+  outline: 2px solid var(--craft-focus-ring);
   outline-offset: 4px;
 }
 
@@ -43,7 +43,7 @@
 }
 
 .wcraft-brand__text {
-  color: #f8fafc;
+  color: var(--craft-text);
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.5px;

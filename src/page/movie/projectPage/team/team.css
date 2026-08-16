@@ -1,7 +1,7 @@
 /* ===== Team card (project page right column) ===== */
 .team-card {
-  background: #171b24;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--craft-surface);
+  border: 1px solid var(--craft-border-subtle);
   border-radius: 14px;
   padding: 16px;
   display: flex;
@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--craft-text);
   font-weight: 600;
   font-size: 14px;
 }
@@ -59,7 +59,7 @@
   font-size: 12px;
   font-weight: 700;
   color: #111827;
-  border: 2px solid #171b24;
+  border: 2px solid var(--craft-surface);
   margin-left: -8px;
   text-transform: uppercase;
 }
@@ -68,11 +68,11 @@
 }
 .team-card-avatar-extra {
   background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--craft-text);
 }
 .team-card-count {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--craft-text-muted);
 }
 .team-card-meta {
   display: flex;

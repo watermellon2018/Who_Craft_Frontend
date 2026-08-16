@@ -131,7 +131,7 @@ export default function CharacterStudioShell({children}: {children: React.ReactN
     return (
       <>
         <DashboardHeader breadcrumbItems={breadcrumbItems} />
-        <div style={{minHeight: '100vh', background: '#1b1d22', padding: 24}}>
+        <div style={{minHeight: '100vh', background: 'var(--craft-bg-deep)', padding: 24}}>
           <Empty description={t('characterStudio.shell.noProject')} />
         </div>
       </>

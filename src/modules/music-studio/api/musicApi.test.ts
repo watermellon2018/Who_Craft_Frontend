@@ -4,9 +4,10 @@ import type {MusicEnqueueRequest} from '../types';
 
 jest.mock('../../../api/http', () => ({
   __esModule: true,
-  default: {post: jest.fn()},
+  default: {patch: jest.fn(), post: jest.fn()},
 }));
 
+const mockedPatch = api.patch as jest.Mock;
 const mockedPost = api.post as jest.Mock;
 
 const payload: MusicEnqueueRequest = {
@@ -55,5 +56,27 @@ test('sends the expected track version when archiving', async () => {
   expect(mockedPost).toHaveBeenCalledWith(
     'api/projects/7/music/9/archive/',
     {expectedTrackVersion: 4},
+  );
+});
+
+test('sends the canonical lock when selecting an active version', async () => {
+  await musicApi.setActiveVersion('7', 9, 4, 'version-2');
+
+  expect(mockedPatch).toHaveBeenCalledWith(
+    'api/projects/7/music/9/',
+    {activeVersionId: 'version-2', expectedTrackVersion: 4},
+  );
+});
+
+test('uses canonical update fields for track metadata', async () => {
+  await musicApi.updateTrack('7', 9, {
+    durationSeconds: 42,
+    expectedTrackVersion: 4,
+    title: 'Final theme',
+  });
+
+  expect(mockedPatch).toHaveBeenCalledWith(
+    'api/projects/7/music/9/',
+    {durationSeconds: 42, expectedTrackVersion: 4, title: 'Final theme'},
   );
 });

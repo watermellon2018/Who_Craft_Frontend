@@ -18,6 +18,10 @@ import {characterVariantsPath} from '../../../routes/pathConstant';
 import {characterToFormValues, CharacterCreateFormValues} from '../types/characterForm';
 import {CreateCharacterFromReferenceContent} from './CreateCharacterFromReferencePage';
 import './CharacterCreatePage.css';
+import {
+  GenerationCostPreview,
+  runGenerationWithCredits,
+} from '../../credits/components/GenerationCostGuard';
 
 
 interface CharacterCreatePageProps {
@@ -127,12 +131,26 @@ function CreateCharacterFromDescriptionContent() {
   };
 
   const launchGeneration = async (characterId: string, context: GenerationRetryContext) => {
-    const jobResponse = await characterApi.generateInitial(
-      projectId,
-      characterId,
-      context.generationPayload,
-      `character:${characterId}:portrait:attempt:${uuidv4()}`,
+    const jobResponse = await runGenerationWithCredits(
+      {
+        domain: 'character',
+        operation: 'generate',
+        modelKey: context.generationOptions.imageModel,
+        variantCount: context.generationOptions.count,
+        promptLength: String(context.generationPayload.appearance_description ?? '').length,
+      },
+      (estimate) => characterApi.generateInitial(
+        projectId,
+        characterId,
+        {
+          ...context.generationPayload,
+          image_model: estimate.modelKey,
+          routing_mode: estimate.routingMode,
+        },
+        `character:${characterId}:portrait:attempt:${uuidv4()}`,
+      ),
     );
+    if (!jobResponse) return;
     const jobId = jobResponse.data?.job_id;
     if (jobResponse.data?.status === 'failed') {
       throw new Error(jobResponse.data?.error_message || t('characterStudio.create.generationError'));
@@ -326,6 +344,13 @@ function CreateCharacterFromDescriptionContent() {
               >
                 {t('characterStudio.create.generateButton')}
               </Button>
+              <GenerationCostPreview intent={{
+                domain: 'character',
+                operation: 'generate',
+                modelKey: generationOptions.imageModel || undefined,
+                variantCount: generationOptions.count,
+                promptLength: String(appearanceDescription ?? '').length,
+              }} />
             </div>
             <p>{t('characterStudio.create.afterGenerationHint')}</p>
           </div>

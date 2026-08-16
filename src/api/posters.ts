@@ -8,6 +8,7 @@
 import {v4 as uuidv4} from 'uuid';
 
 import api from './http';
+import type {GenerationBilling, GenerationRoutingMode} from './generated/contracts';
 
 type ProjectId = number | string;
 export type PosterJobStatus =
@@ -32,6 +33,7 @@ export interface PosterJob {
     completedAt?: string | null;
     errorMessage?: string | null;
     variants?: PosterVariant[];
+    billing?: GenerationBilling | null;
 }
 
 export interface PosterOperationResponse {
@@ -46,11 +48,15 @@ interface GeneratePosterOptions {
     style?: string;
     format?: string;
     referenceFile?: File | null;
+    imageModel?: string;
+    routingMode?: GenerationRoutingMode;
 }
 
 interface EditPosterParams {
     sourceVariantId: number;
     instruction: string;
+    imageModel?: string;
+    routingMode?: GenerationRoutingMode;
 }
 
 const POSTER_POLL_INTERVAL_MS = 1000;
@@ -140,7 +146,7 @@ export async function generatePoster(
     prompt: string,
     options: GeneratePosterOptions = {},
 ): Promise<PosterVariant> {
-    const {style, format, referenceFile} = options;
+    const {style, format, referenceFile, imageModel, routingMode} = options;
     const url = `api/projects/${projectId}/poster/generate/`;
     const headers = idempotencyHeaders();
 
@@ -149,6 +155,8 @@ export async function generatePoster(
         form.append('prompt', prompt);
         if (style) form.append('style', style);
         if (format) form.append('format', format);
+        if (imageModel) form.append('image_model', imageModel);
+        if (routingMode) form.append('routing_mode', routingMode);
         form.append('reference_image', referenceFile);
 
         const response = await api.post<PosterOperationResponse>(url, form, {headers});
@@ -157,7 +165,13 @@ export async function generatePoster(
 
     const response = await api.post<PosterOperationResponse>(
         url,
-        {prompt, style, format},
+        {
+            prompt,
+            style,
+            format,
+            image_model: imageModel,
+            routing_mode: routingMode,
+        },
         {headers},
     );
     return waitForVariant(projectId, response.data);
@@ -181,6 +195,8 @@ export async function editPoster(
         {
             source_variant_id: params.sourceVariantId,
             instruction: params.instruction,
+            image_model: params.imageModel,
+            routing_mode: params.routingMode,
         },
         {headers: idempotencyHeaders()},
     );

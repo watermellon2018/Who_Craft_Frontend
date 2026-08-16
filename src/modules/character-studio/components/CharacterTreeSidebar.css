@@ -1,12 +1,12 @@
 .character-delete-confirm-modal .ant-modal-content {
-  background: #151922;
+  background: var(--craft-bg-elevated);
   border: 1px solid rgba(250, 176, 5, 0.35);
   border-radius: 8px;
 }
 
 .character-delete-confirm-modal .ant-modal-confirm-title,
 .character-delete-confirm-modal .ant-modal-confirm-content {
-  color: #f8f9fa;
+  color: var(--craft-text);
 }
 
 .character-delete-confirm-modal .ant-btn-primary {
@@ -17,9 +17,9 @@
 }
 
 .character-delete-confirm-modal .ant-btn-default {
-  background: #111318;
-  border-color: #30343d;
-  color: #f8f9fa;
+  background: var(--craft-bg-deep);
+  border-color: var(--craft-border);
+  color: var(--craft-text);
 }
 
 .character-tree-sidebar,
@@ -30,17 +30,21 @@
 /* Compact accent-themed tooltip for the tree-sidebar header icon buttons.
    Overrides the default antd dark popup to match the WCraft amber/dark palette. */
 .character-tree-sidebar__tooltip .ant-tooltip-inner {
-  background: #111318;
+  background: var(--craft-bg-deep);
   border: 1px solid var(--craft-accent-border);
   border-radius: 6px;
-  color: #f8f9fa;
+  color: var(--craft-text);
   font-size: 12px;
   padding: 4px 8px;
   min-height: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+.character-tree-sidebar__icon-button {
+  color: var(--craft-text-muted);
+}
+
 .character-tree-sidebar__tooltip .ant-tooltip-arrow::before,
 .character-tree-sidebar__tooltip .ant-tooltip-arrow::after {
-  background: #111318;
+  background: var(--craft-bg-deep);
 }

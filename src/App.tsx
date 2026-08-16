@@ -2,10 +2,8 @@ import React, {useEffect, useMemo} from 'react';
 import './App.css';
 import {
     createBrowserRouter,
-    Navigate,
     Outlet,
     RouterProvider,
-    useLocation,
     useNavigate,
 } from 'react-router-dom';
 
@@ -21,7 +19,7 @@ import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
 import ProjectTeamPage from "./page/movie/projectPage/team/ProjectTeamPage";
 import InviteAcceptPage from "./page/movie/projectPage/team/InviteAcceptPage";
-import PathConstants, {projectDashboardPath} from "./routes/pathConstant";
+import PathConstants from "./routes/pathConstant";
 import GenPosterPage from "./page/creation/poster/GenPosterPage";
 import ScriptPage from "./page/script/editor";
 import CharacterGalleryPage from "./modules/character-studio/pages/CharacterGalleryPage";
@@ -35,16 +33,17 @@ import CharacterStudioShell from "./modules/character-studio/components/Characte
 import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
 import AudioTrackEditorPage from "./modules/music-studio/pages/AudioTrackEditorPage";
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
-import ReferenceDetailRedirect from "./modules/reference-library/pages/ReferenceDetailRedirect";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
+import CreditWalletPage from './modules/credits/pages/CreditWalletPage';
 import withAuth from "./utils/auth/check_auth";
-import {CRAFT_ACCENT, CRAFT_ACCENT_HOVER, CRAFT_PLACEHOLDER} from './constants/theme';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import NotFoundPage from './page/errors/NotFoundPage';
 import {AUTH_EXPIRED_EVENT} from './api/http';
 import type {AuthExpiredEventDetail} from './api/http';
 import {safeReturnTo} from './utils/auth/returnTo';
+import {createAntTheme} from './theme/antdTheme';
+import {CraftThemeProvider, useCraftTheme} from './theme/CraftThemeProvider';
 
 // All private pages are wrapped once here so adding a new private route is a
 // one-line change and we can't forget the auth gate on any single page.
@@ -52,6 +51,7 @@ const ProtectedMainPage = withAuth(MainPage);
 const ProtectedProfilePage = withAuth(ProfilePage);
 const ProtectedProfileEditPage = withAuth(ProfileEditPage);
 const ProtectedSubscriptionsPage = withAuth(SubscriptionsPage);
+const ProtectedCreditWalletPage = withAuth(CreditWalletPage);
 const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
 const ProtectedProjectListPage = withAuth(ProjectListPage);
 const ProtectedProjectPage = withAuth(ProjectPage);
@@ -60,21 +60,9 @@ const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
 const ProtectedAudioTrackEditorPage = withAuth(AudioTrackEditorPage);
 const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
-const ProtectedReferenceDetailRedirect = withAuth(ReferenceDetailRedirect);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
 const ProtectedVisualReferenceCreatePage = withAuth(VisualReferenceCreatePage);
 const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
-
-const LegacyProjectDashboardRedirect: React.FC = () => {
-    const location = useLocation();
-    const projectId = (location.state as {project_id?: string | number} | null)?.project_id;
-    return (
-        <Navigate
-            to={projectId ? projectDashboardPath(projectId) : PathConstants.PROJECTS}
-            replace
-        />
-    );
-};
 
 const AuthExpiryRedirect: React.FC = () => {
     const navigate = useNavigate();
@@ -94,103 +82,8 @@ const AuthExpiryRedirect: React.FC = () => {
 
     return null;
 };
-// https://ant.design/theme-editor#component-color настройка цветов
-const theme = {
-    "token": {
-        "colorPrimary": CRAFT_ACCENT,
-        "colorInfo": CRAFT_ACCENT,
-        "colorBgBase": "#1b1d22",
-        "colorTextBase": "#ffffff",
-        "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-        "fontSize": 16,
-        "sizeStep": 3,
-        "sizeUnit": 3,
-        "borderRadius": 3,
-        "wireframe": false,
-        "backgroundColor": '#1b1d22',
-        "background": '#1b1d22',
-        "algorithm": true,
-    },
-    "components": {
-        "Button": {
-            "defaultBorderColor": "rgb(250, 176, 5)",
-            "colorPrimaryBorder": "rgb(27, 29, 34) !important",
-            "colorPrimary": "rgb(250, 176, 5) !important",
-            "colorError": "rgba(255, 77, 79, 0.57)",
-            "colorTextLightSolid": "rgb(27, 29, 34)",
-            "colorText": "rgb(250, 176, 5)",
-            "defaultColor": "rgb(250, 176, 5)",
-            "colorPrimaryHover": "rgb(252, 209, 95)",
-            "primaryShadow": "0 0px 0",
-            "transition": "transform 0.3s ease",
-            "&:active": {
-                "transform": "scale(0.95)",
-            },
-        },
-        "Input": {
-            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-            "colorBorder": "rgb(250, 176, 5)",
-            "colorBgContainer": "rgb(27, 29, 34)"
-        },
-        "Sidebar": {
-            "textColor": "#fff",
-        },
-        "Switch": {
-            "colorPrimary": "rgb(27, 29, 34)",
-            "colorTextQuaternary": "rgb(27, 29, 34) !important",
-            "colorPrimaryHover": "rgb(208, 154, 26)",
-            "colorPrimaryBorder": "rgb(27, 29, 34)",
-        },
-        "InputNumber": {
-            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-            "colorBorder": "rgb(250, 176, 5)",
-        },
-        "Select": {
-            "colorBgContainer": "#141820",
-            "colorBgElevated": "#1b2029",
-            "colorText": "rgba(255, 255, 255, 0.88)",
-            "colorTextPlaceholder": CRAFT_PLACEHOLDER,
-            "colorBorder": "#3b414d",
-            "optionSelectedBg": "rgba(250, 176, 5, 0.12)",
-            "optionSelectedColor": CRAFT_ACCENT,
-            "optionActiveBg": "rgba(255, 255, 255, 0.05)",
-            "selectorBg": "#141820",
-        },
-        "Checkbox": {
-            "colorText": "#f3f6fa",
-            "colorTextDisabled": "#718196",
-            "colorBgContainer": "#0b1926",
-            "colorBgContainerDisabled": "#152536",
-            "colorBorder": "rgba(255, 255, 255, 0.62)",
-            "colorPrimary": CRAFT_ACCENT,
-            "colorPrimaryHover": CRAFT_ACCENT_HOVER,
-            "colorPrimaryBorder": "rgba(250, 176, 5, 0.4)",
-            "colorWhite": "rgba(0, 0, 0, 0.7)",
-        },
-        "Radio": {
-            "colorText": "rgb(27, 29, 34)",
-        },
-        "Tabs": {
-            "itemSelectedColor":  "rgb(27, 29, 34)",
-            "itemActiveColor":  "rgb(27, 29, 34)",
-            "itemColor":  "rgb(27, 29, 34)",
-            "itemHoverColor":  "rgba(27, 29, 34, 0.7)",
-        },
-        "Form": {
-            "labelColor": "rgb(27, 29, 34)",
-        },
-        "Empty": {
-            "colorText": CRAFT_ACCENT,
-            "colorTextDisabled": CRAFT_ACCENT,
-        }
-    }
-}
-
-function App() {
-
-    const routes = useMemo(() => [
+export const APP_ROUTES = [
         // Public.
-        { key: 'startRedirect', path: '/start', component: <Navigate to={PathConstants.LOGIN} replace /> },
         { key: 'register', path: PathConstants.REGISTER, component: <RegistrationPage /> },
         { key: 'login', path: PathConstants.LOGIN, component: <LoginPage /> },
 
@@ -199,18 +92,15 @@ function App() {
         { key: 'profile', path: PathConstants.PROFILE, component: <ProtectedProfilePage /> },
         { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProtectedProfileEditPage /> },
         { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
+        { key: 'credits', path: PathConstants.CREDITS, component: <ProtectedCreditWalletPage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'editProject', path: PathConstants.EDIT_PROJECT, component: <ProtectedProjectCreatePage /> },
-        { key: 'editProjectLegacy', path: PathConstants.EDIT_PROJECT_LEGACY, component: <Navigate to={PathConstants.PROJECTS} replace /> },
         { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },
         { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProtectedProjectPage /> },
-        { key: 'projectPageLegacy', path: PathConstants.PROJECT_PAGE_LEGACY, component: <LegacyProjectDashboardRedirect /> },
         { key: 'projectTeam', path: PathConstants.PROJECT_TEAM, component: <ProjectTeamPage /> },
         { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
-        { key: 'genPosterLegacy', path: PathConstants.GEN_POSTER_LEGACY, component: <Navigate to={PathConstants.CREATE_PROJECT} replace /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
-        { key: 'scriptPageLegacy', path: PathConstants.SCRIPT_PAGE_LEGACY, component: <ProtectedScriptPage /> },
         { key: 'musicStudio', path: PathConstants.MUSIC_STUDIO, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioCreate', path: PathConstants.MUSIC_STUDIO_CREATE, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
@@ -221,7 +111,6 @@ function App() {
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },
         { key: 'referenceLibraryEdit', path: PathConstants.REFERENCE_LIBRARY_EDIT, component: <ProtectedReferenceWorkspacePage /> },
-        { key: 'referenceLibraryDetail', path: PathConstants.REFERENCE_LIBRARY_DETAIL, component: <ProtectedReferenceDetailRedirect /> },
         { key: 'characterStudio', path: PathConstants.CHARACTER_STUDIO, component: <ProtectedCharacterStudioShell><CharacterGalleryPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreate', path: PathConstants.CHARACTER_STUDIO_CREATE, component: <ProtectedCharacterStudioShell><CharacterCreatePage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioCreateReference', path: PathConstants.CHARACTER_STUDIO_CREATE_REFERENCE, component: <ProtectedCharacterStudioShell><CharacterCreatePage activeMode="reference" /></ProtectedCharacterStudioShell> },
@@ -230,24 +119,37 @@ function App() {
         { key: 'characterStudioEditor', path: PathConstants.CHARACTER_STUDIO_EDITOR, component: <ProtectedCharacterStudioShell><CharacterEditorPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudioReferences', path: PathConstants.CHARACTER_STUDIO_REFERENCES, component: <ProtectedCharacterStudioShell><CharacterReferencesPage /></ProtectedCharacterStudioShell> },
         { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
-    ], []);
+    ];
+
+function ThemedApp() {
+
+    const {theme} = useCraftTheme();
+    const antdTheme = useMemo(() => createAntTheme(theme), [theme]);
 
     const router = useMemo(() => createBrowserRouter([{
         element: <><AuthExpiryRedirect /><Outlet /></>,
         children: [
-            ...routes.map(({path, component}) => ({path, element: component})),
+            ...APP_ROUTES.map(({path, component}) => ({path, element: component})),
             {path: '*', element: <NotFoundPage />},
         ],
-    }]), [routes]);
+    }]), []);
 
 
 
     return (
         <AppErrorBoundary>
-            <ConfigProvider theme={theme}>
+            <ConfigProvider theme={antdTheme}>
                 <RouterProvider router={router} />
             </ConfigProvider>
         </AppErrorBoundary>
+    );
+}
+
+function App() {
+    return (
+        <CraftThemeProvider>
+            <ThemedApp />
+        </CraftThemeProvider>
     );
 }
 

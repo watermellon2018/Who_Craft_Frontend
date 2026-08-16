@@ -1,3 +1,4 @@
+import {APP_ROUTES} from './App';
 import PathConstants, {
   characterCreatePath,
   characterVariantsPath,
@@ -24,8 +25,9 @@ test('defines character studio and project routes', () => {
     '/project/42/characters/char-1/variants?jobId=job%201&treeNodeId=tree%201',
   );
   expect(PathConstants.SCRIPT_PAGE).toBe('/project/:projectId/script');
-  expect(PathConstants.SCRIPT_PAGE_LEGACY).toBe('/project/script');
   expect(PathConstants.CHARACTER_STUDIO_EDITOR).toBe('/project/:projectId/characters/:characterId/edit');
+  expect(PathConstants.CREDITS).toBe('/credits');
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.CREDITS)).toBe(true);
 });
 
 test('recognizes canonical project edit and script workspace paths', () => {
@@ -34,6 +36,21 @@ test('recognizes canonical project edit and script workspace paths', () => {
   expect(isProjectEditPath('/projects/42/poster')).toBe(false);
   expect(isScriptWorkspacePath('/project/42/script')).toBe(true);
   expect(isScriptWorkspacePath('/project/42/script/')).toBe(true);
-  expect(isScriptWorkspacePath(PathConstants.SCRIPT_PAGE_LEGACY)).toBe(true);
+  expect(isScriptWorkspacePath('/project/script')).toBe(false);
   expect(isScriptWorkspacePath('/project/42/characters')).toBe(false);
+});
+
+test('does not register removed compatibility routes', () => {
+  const registeredPaths = APP_ROUTES.map(({path}) => path);
+  const removedPaths = [
+    '/start',
+    '/edit-project',
+    '/project-list/project',
+    '/create-project/gen-poster',
+    '/project/script',
+    '/project/:projectId/references/:referenceId',
+  ];
+
+  expect(registeredPaths).not.toEqual(expect.arrayContaining(removedPaths));
+  expect(Object.values(PathConstants)).not.toEqual(expect.arrayContaining(removedPaths));
 });

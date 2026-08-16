@@ -69,3 +69,33 @@ test('requests the model catalog and optionally previews with an explicit model'
     }},
   );
 });
+
+test('quotes and atomically starts the selected secondary assets', async () => {
+  const quotePayload = {
+    variant_id: 'variant-1',
+    image_types: ['full_body', 'scene'] as const,
+    image_model: 'openrouter-images:openai/gpt-image-1',
+    routing_mode: 'manual' as const,
+  };
+
+  await characterApi.quoteSecondaryAssets(42, 'char-1', {
+    ...quotePayload,
+    image_types: [...quotePayload.image_types],
+  });
+  await characterApi.generateSecondaryAssets(42, 'char-1', 'quote-1');
+
+  expect(mockedApi.post).toHaveBeenNthCalledWith(
+    1,
+    'api/projects/42/characters/char-1/secondary-assets/quote',
+    quotePayload,
+  );
+  expect(mockedApi.post).toHaveBeenNthCalledWith(
+    2,
+    'api/projects/42/characters/char-1/secondary-assets/generate',
+    {quote_token: 'quote-1'},
+    {headers: {'Idempotency-Key': expect.stringMatching(/^character:/)}},
+  );
+  const idempotencyKey = mockedApi.post.mock.calls[1][2]?.headers?.['Idempotency-Key'];
+  expect(typeof idempotencyKey).toBe('string');
+  expect(String(idempotencyKey).length).toBeLessThanOrEqual(128);
+});

@@ -22,6 +22,13 @@ import MusicStudioPage, {
 } from './MusicStudioPage';
 
 jest.mock('../hooks/useMusicGenerationJob');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({
+  GenerationCostPreview: () => null,
+  runGenerationWithCredits: (
+    intent: {modelKey?: string},
+    operation: (estimate: unknown) => unknown,
+  ) => operation({modelKey: intent.modelKey ?? 'local', routingMode: 'manual'}),
+}));
 jest.mock('../hooks/useUnsavedMusicGuard', () => ({
   useUnsavedMusicGuard: jest.fn(),
 }));
@@ -94,6 +101,7 @@ const track: MusicTrackDetail = {
   author: 'Craft AI',
   id: 12,
   permissions: {canEdit: true, canRunGeneration: true},
+  source: 'generated',
   status: 'active',
   tags: ['cinematic'],
   title: 'Existing theme',
@@ -555,7 +563,7 @@ test('starts a new-version job from track detail with the exact target snapshot'
   ));
 });
 
-test('hydrates a legacy target when its detail resolves before capabilities', async () => {
+test('hydrates an existing target without a saved brief when detail resolves first', async () => {
   let resolveCapabilities: ((value: unknown) => void) | undefined;
   const pendingCapabilities = new Promise((resolve) => {
     resolveCapabilities = resolve;
