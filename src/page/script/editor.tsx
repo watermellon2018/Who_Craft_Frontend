@@ -34,14 +34,6 @@ const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNo
   {mode: 'characters', label: 'Персонажи', icon: <TeamOutlined />},
 ];
 
-const formatDuration = (seconds: number) => {
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} мин`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return `${hours} ч ${rest ? `${rest} мин` : ''}`.trim();
-};
-
 export default function ScriptPage() {
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
@@ -198,7 +190,7 @@ export default function ScriptPage() {
             <span>{scene.order}</span>
             <span>
               <strong>{scene.title || 'Без названия'}</strong>
-              <small>Акт {scene.act} · {Math.round(scene.durationSeconds / 60)} мин</small>
+              <small>Акт {scene.act}</small>
             </span>
           </button>)}
         </div>
@@ -208,15 +200,14 @@ export default function ScriptPage() {
     <div className="script-main">
       {workspace.mode === 'cards' && <section className="script-stats">
         <div><strong>{workspace.stats.sceneCount}</strong><span>сцен</span></div>
-        <div><strong>{formatDuration(workspace.stats.totalDurationSeconds)}</strong><span>хронометраж</span></div>
         {workspace.stats.acts.map((act) => {
-          const percent = workspace.stats.totalDurationSeconds
-            ? Math.round(act.durationSeconds / workspace.stats.totalDurationSeconds * 100)
+          const percent = workspace.stats.sceneCount
+            ? Math.round(act.sceneCount / workspace.stats.sceneCount * 100)
             : 0;
           return <div key={act.act} className={`script-act-stat script-act-stat--${act.act}`}>
             <span>АКТ {act.act}</span>
             <i><b style={{width: `${percent}%`}} /></i>
-            <small>{percent}% · {formatDuration(act.durationSeconds)}</small>
+            <small>{percent}% · {act.sceneCount} сцен</small>
           </div>;
         })}
         {workspace.canEdit && <button className="script-add-scene" onClick={() => void workspace.addScene()}>

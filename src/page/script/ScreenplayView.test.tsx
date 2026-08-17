@@ -52,6 +52,10 @@ const characters: CompactCharacter[] = [{
   sceneIds: [],
 }];
 
+beforeEach(() => {
+  window.localStorage.removeItem('wcraft.screenplay.zoom');
+});
+
 const renderView = (overrides: Partial<React.ComponentProps<typeof ScreenplayView>> = {}) => {
   const props: React.ComponentProps<typeof ScreenplayView> = {
     characters: [],
@@ -69,6 +73,12 @@ const renderView = (overrides: Partial<React.ComponentProps<typeof ScreenplayVie
   };
   render(<ScreenplayView {...props} />);
   return props;
+};
+
+const selectOption = (selectName: string, optionName: string) => {
+  const select = screen.getByRole('combobox', {name: selectName});
+  fireEvent.mouseDown(select);
+  fireEvent.click(screen.getByText(optionName));
 };
 
 const StatefulScreenplayView = ({
@@ -120,6 +130,8 @@ test('Enter splits a screenplay paragraph and infers the next format', () => {
 test('Shift+Enter keeps a line break native and Tab changes the active format', () => {
   const props = renderView();
   const heading = screen.getByRole('textbox', {name: 'Заголовок сцены'});
+  expect(screen.getByRole('combobox', {name: 'Тип абзаца'}).closest('.ant-select'))
+    .toBeInTheDocument();
 
   fireEvent.keyDown(heading, {key: 'Enter', shiftKey: true});
   expect(props.onChange).not.toHaveBeenCalled();
@@ -130,18 +142,64 @@ test('Shift+Enter keeps a line break native and Tab changes the active format', 
   }));
 });
 
-test('keeps scene parameters closed until the user asks for them', () => {
+test('keeps private scene notes closed until the user asks for them', () => {
   renderView();
 
-  expect(screen.queryByText('Карточка сцены')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', {name: 'Параметры сцены'}));
-  expect(screen.getByText('Карточка сцены')).toBeInTheDocument();
-  expect(screen.getByRole('button', {name: 'Закрыть параметры сцены'})).toHaveFocus();
-  expect(screen.getByText('Заметки')).toBeInTheDocument();
+  expect(screen.queryByRole('complementary', {name: 'Заметки сцены'})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {name: 'Заметки сцены'}));
+  const notesPanel = screen.getByRole('complementary', {name: 'Заметки сцены'});
+  expect(notesPanel).toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Закрыть заметки сцены'})).toHaveFocus();
+  expect(within(notesPanel).getByText('Заметки')).toBeInTheDocument();
+  expect(screen.queryByText('Структура')).not.toBeInTheDocument();
+  expect(screen.queryByText('Описание')).not.toBeInTheDocument();
+  expect(screen.queryByText('Хронометраж')).not.toBeInTheDocument();
+  expect(screen.queryByText('Драматическая функция')).not.toBeInTheDocument();
   expect(screen.queryByText('Участники')).not.toBeInTheDocument();
   expect(screen.queryByText('Настроение')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', {name: /Новый трек/})).not.toBeInTheDocument();
   expect(screen.queryByRole('button', {name: /^Сохранить$/})).not.toBeInTheDocument();
+});
+
+test('zooms only the screenplay sheet and remembers the selected scale', () => {
+  renderView();
+  const zoomControls = screen.getByRole('group', {name: 'Масштаб листа'});
+  const zoomSelect = within(zoomControls).getByRole('combobox', {name: 'Масштаб листа'});
+  const paper = screen.getByRole('textbox', {name: 'Название сцены'}).closest('.screenplay-paper');
+
+  expect(zoomSelect.closest('.ant-select')).toHaveTextContent('100%');
+  expect(paper?.getAttribute('style')).toContain('--screenplay-page-width: 820px');
+  expect(paper?.getAttribute('style')).toContain('--screenplay-page-min-height: 620px');
+
+  fireEvent.click(within(zoomControls).getByRole('button', {name: 'Увеличить масштаб листа'}));
+  expect(zoomSelect.closest('.ant-select')).toHaveTextContent('110%');
+  expect(paper?.getAttribute('style')).toContain('--screenplay-page-width: 902px');
+  expect(window.localStorage.getItem('wcraft.screenplay.zoom')).toBe('110');
+
+  selectOption('Масштаб листа', '50%');
+  expect(zoomSelect.closest('.ant-select')).toHaveTextContent('50%');
+  expect(paper?.getAttribute('style')).toContain('--screenplay-page-width: 410px');
+  expect(paper?.getAttribute('style')).toContain('--screenplay-page-min-height: 310px');
+  expect(within(zoomControls).getByRole('button', {name: 'Уменьшить масштаб листа'})).toBeDisabled();
+
+  selectOption('Масштаб листа', '200%');
+  expect(zoomSelect.closest('.ant-select')).toHaveTextContent('200%');
+  expect(paper?.getAttribute('style')).toContain('--screenplay-page-width: 1640px');
+  expect(paper?.getAttribute('style')).toContain('--screenplay-page-min-height: 1240px');
+  expect(within(zoomControls).getByRole('button', {name: 'Увеличить масштаб листа'})).toBeDisabled();
+  expect(window.localStorage.getItem('wcraft.screenplay.zoom')).toBe('200');
+});
+
+test('restores the remembered screenplay zoom', () => {
+  window.localStorage.setItem('wcraft.screenplay.zoom', '150');
+
+  renderView();
+
+  const zoomControls = screen.getByRole('group', {name: 'Масштаб листа'});
+  expect(within(zoomControls).getByRole('combobox', {name: 'Масштаб листа'}).closest('.ant-select'))
+    .toHaveTextContent('150%');
+  expect(screen.getByRole('textbox', {name: 'Название сцены'}).closest('.screenplay-paper')?.getAttribute('style'))
+    .toContain('--screenplay-page-width: 1230px');
 });
 
 test('deletes an accidentally added block from the page', () => {
@@ -228,9 +286,7 @@ test('keeps dialogue character membership while typing and through undo', () => 
   const dialogue = screen.getByRole('textbox', {name: 'Диалог'});
   fireEvent.focus(dialogue);
 
-  fireEvent.change(screen.getByRole('combobox', {name: 'Персонаж реплики'}), {
-    target: {value: 'henry'},
-  });
+  selectOption('Персонаж реплики', 'Энтри Дог');
   expect(onSceneChange).toHaveBeenLastCalledWith(expect.objectContaining({
     characters: [expect.objectContaining({id: 'henry'})],
   }));
@@ -288,9 +344,7 @@ test('restores legacy scene participants when undoing a dialogue assignment', ()
   const dialogue = screen.getByRole('textbox', {name: 'Диалог'});
   fireEvent.focus(dialogue);
 
-  fireEvent.change(screen.getByRole('combobox', {name: 'Персонаж реплики'}), {
-    target: {value: 'henry'},
-  });
+  selectOption('Персонаж реплики', 'Энтри Дог');
   fireEvent.keyDown(dialogue, {key: 'z', ctrlKey: true});
 
   const restoredScene = onSceneChange.mock.calls.at(-1)?.[0] as Scene;
@@ -316,9 +370,7 @@ test('clears a hidden character link when changing to an unrelated paragraph typ
   />);
   fireEvent.focus(screen.getByRole('textbox', {name: 'Персонаж'}));
 
-  fireEvent.change(screen.getByRole('combobox', {name: 'Тип абзаца'}), {
-    target: {value: 'action'},
-  });
+  selectOption('Тип абзаца', 'Действие');
 
   const changedScene = onSceneChange.mock.calls.at(-1)?.[0] as Scene;
   expect(changedScene.characters).toEqual([]);

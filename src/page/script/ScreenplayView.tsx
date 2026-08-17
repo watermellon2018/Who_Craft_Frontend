@@ -1,10 +1,13 @@
 import {
   DeleteOutlined,
+  FileTextOutlined,
   PlusOutlined,
   RedoOutlined,
-  SettingOutlined,
   UndoOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined,
 } from '@ant-design/icons';
+import {Select} from 'antd';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import SceneInspector from './SceneInspector';
@@ -36,8 +39,31 @@ interface ScreenplayHistoryEntry {
   characters: SceneCharacter[];
 }
 
+interface ScreenplayPaperStyle extends React.CSSProperties {
+  '--screenplay-body-font-size': string;
+  '--screenplay-line-min-height': string;
+  '--screenplay-meta-font-size': string;
+  '--screenplay-page-min-height': string;
+  '--screenplay-page-padding-end': string;
+  '--screenplay-page-padding-start': string;
+  '--screenplay-page-width': string;
+  '--screenplay-title-font-size': string;
+}
+
+type ZoomMode = 'fit' | number;
+
 const BLOCK_TYPES = Object.keys(BLOCK_LABELS) as ScriptBlockType[];
+const BLOCK_TYPE_OPTIONS = BLOCK_TYPES.map((type) => ({
+  label: BLOCK_LABELS[type],
+  value: type,
+}));
 const CHARACTER_LINKED_BLOCK_TYPES = new Set<ScriptBlockType>(['character', 'dialogue', 'remark']);
+const DEFAULT_ZOOM = 100;
+const MAX_ZOOM = 200;
+const MIN_ZOOM = 50;
+const SCREENPLAY_PAGE_WIDTH = 820;
+const ZOOM_LEVELS = [50, 67, 75, 90, 100, 110, 125, 150, 175, 200];
+const ZOOM_STORAGE_KEY = 'wcraft.screenplay.zoom';
 
 const ENTER_BLOCK_TYPE: Record<ScriptBlockType, ScriptBlockType> = {
   scene_heading: 'action',
@@ -92,12 +118,29 @@ const filterCharacters = (characters: CompactCharacter[], text: string) => {
   ));
 };
 
+const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+
+const readStoredZoom = (): ZoomMode => {
+  if (typeof window === 'undefined') return DEFAULT_ZOOM;
+  try {
+    const storedZoom = window.localStorage.getItem(ZOOM_STORAGE_KEY);
+    if (storedZoom === 'fit') return storedZoom;
+    const numericZoom = Number(storedZoom);
+    return ZOOM_LEVELS.some((zoom) => zoom === numericZoom) ? numericZoom : DEFAULT_ZOOM;
+  } catch {
+    return DEFAULT_ZOOM;
+  }
+};
+
 export default function ScreenplayView(props: ScreenplayViewProps) {
   const scene = props.selectedScene;
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [slashMenu, setSlashMenu] = useState<{blockId: string; index: number} | null>(null);
   const [characterMenu, setCharacterMenu] = useState<{blockId: string; index: number} | null>(null);
+  const [zoomMode, setZoomMode] = useState<ZoomMode>(readStoredZoom);
+  const [fitZoom, setFitZoom] = useState(DEFAULT_ZOOM);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const textareaRefs = useRef(new Map<string, HTMLTextAreaElement>());
   const pendingFocusRef = useRef<{blockId: string; position?: number} | null>(null);
   const inspectorButtonRef = useRef<HTMLButtonElement>(null);
@@ -105,6 +148,26 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
   const undoRef = useRef(new Map<number, ScreenplayHistoryEntry[]>());
   const redoRef = useRef(new Map<number, ScreenplayHistoryEntry[]>());
   const firstBlockId = scene?.scriptBlocks[0]?.id;
+  const zoomPercent = zoomMode === 'fit' ? fitZoom : zoomMode;
+
+  const paperStyle = useMemo<ScreenplayPaperStyle>(() => {
+    const scale = zoomPercent / DEFAULT_ZOOM;
+    return {
+      '--screenplay-body-font-size': `${(14 * scale).toFixed(1)}px`,
+      '--screenplay-line-min-height': `${Math.round(30 * scale)}px`,
+      '--screenplay-meta-font-size': `${(10 * scale).toFixed(1)}px`,
+      '--screenplay-page-min-height': `${Math.round(620 * scale)}px`,
+      '--screenplay-page-padding-end': `${Math.round(90 * scale)}px`,
+      '--screenplay-page-padding-start': `${Math.round(42 * scale)}px`,
+      '--screenplay-page-width': `${Math.round(SCREENPLAY_PAGE_WIDTH * scale)}px`,
+      '--screenplay-title-font-size': `${(22 * scale).toFixed(1)}px`,
+    };
+  }, [zoomPercent]);
+
+  const zoomOptions = useMemo(() => [
+    {label: zoomMode === 'fit' ? `По ширине · ${fitZoom}%` : 'По ширине', value: 'fit' as const},
+    ...ZOOM_LEVELS.map((zoom) => ({label: `${zoom}%`, value: zoom})),
+  ], [fitZoom, zoomMode]);
 
   const activeBlock = useMemo(
     () => scene?.scriptBlocks.find((block) => block.id === activeBlockId) ?? null,
@@ -151,6 +214,38 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
   }, [inspectorOpen]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoomMode));
+    } catch {
+      // The active session still keeps the selected zoom when storage is unavailable.
+    }
+  }, [zoomMode]);
+
+  useEffect(() => {
+    if (zoomMode !== 'fit') return undefined;
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+
+    const updateFitZoom = () => {
+      const style = window.getComputedStyle(canvas);
+      const paddingStart = Number.parseFloat(style.paddingInlineStart) || 0;
+      const paddingEnd = Number.parseFloat(style.paddingInlineEnd) || 0;
+      const availableWidth = Math.max(0, canvas.clientWidth - paddingStart - paddingEnd);
+      setFitZoom(clampZoom(Math.floor(availableWidth / SCREENPLAY_PAGE_WIDTH * 100)));
+    };
+
+    updateFitZoom();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateFitZoom);
+      return () => window.removeEventListener('resize', updateFitZoom);
+    }
+
+    const observer = new ResizeObserver(updateFitZoom);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [inspectorOpen, zoomMode]);
 
   const characterIdsForBlocks = useCallback((blocks: ScriptBlock[]) => {
     const characterIds = new Set<string>();
@@ -226,6 +321,13 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
   const focusBlock = (blockId: string, position?: number) => {
     pendingFocusRef.current = {blockId, position};
     setActiveBlockId(blockId);
+  };
+
+  const stepZoom = (direction: -1 | 1) => {
+    const nextZoom = direction === 1
+      ? ZOOM_LEVELS.find((zoom) => zoom > zoomPercent)
+      : ZOOM_LEVELS.slice().reverse().find((zoom) => zoom < zoomPercent);
+    if (nextZoom) setZoomMode(nextZoom);
   };
 
   const undo = () => {
@@ -432,34 +534,28 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
           <button aria-label="Отменить" title="Отменить (Ctrl+Z)" onClick={undo}><UndoOutlined /></button>
           <button aria-label="Повторить" title="Повторить (Ctrl+Shift+Z)" onClick={redo}><RedoOutlined /></button>
           <span className="screenplay-toolbar-divider" />
-          <label>
-            <span className="screen-reader-only">Тип абзаца</span>
-            <select
-              aria-label="Тип абзаца"
-              disabled={!activeBlock}
-              value={activeBlock?.type ?? 'action'}
-              onChange={(event) => activeBlock && selectBlockType(
-                activeBlock.id,
-                event.target.value as ScriptBlockType,
-              )}
-            >
-              {Object.entries(BLOCK_LABELS).map(([type, label]) => (
-                <option key={type} value={type}>{label}</option>
-              ))}
-            </select>
-          </label>
-          {activeBlock?.type === 'dialogue' && <select
+          <Select<ScriptBlockType>
+            aria-label="Тип абзаца"
+            className="screenplay-toolbar-select screenplay-toolbar-select--format"
+            disabled={!activeBlock}
+            options={BLOCK_TYPE_OPTIONS}
+            value={activeBlock?.type ?? 'action'}
+            onChange={(value) => activeBlock && selectBlockType(activeBlock.id, value)}
+          />
+          {activeBlock?.type === 'dialogue' && <Select<string>
+            allowClear
             aria-label="Персонаж реплики"
-            value={activeBlock.characterId || ''}
-            onChange={(event) => changeBlock(activeBlock.id, {
-              characterId: event.target.value || undefined,
+            className="screenplay-toolbar-select screenplay-toolbar-select--character"
+            options={props.characters.map((character) => ({
+              label: character.name,
+              value: character.id,
+            }))}
+            placeholder="Персонаж…"
+            value={activeBlock.characterId || undefined}
+            onChange={(value) => changeBlock(activeBlock.id, {
+              characterId: value,
             })}
-          >
-            <option value="">Персонаж…</option>
-            {props.characters.map((character) => (
-              <option key={character.id} value={character.id}>{character.name}</option>
-            ))}
-          </select>}
+          />}
           <button
             aria-label="Удалить абзац"
             disabled={!activeBlock}
@@ -470,25 +566,22 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
         <span className="screenplay-editor-toolbar__hint">Enter — новый абзац · Tab — формат · / — команды</span>
         <button
           ref={inspectorButtonRef}
-          aria-label="Параметры сцены"
-          aria-controls="scene-parameters"
+          aria-label="Заметки сцены"
+          aria-controls="scene-notes"
           aria-expanded={inspectorOpen}
           className={inspectorOpen ? 'is-active' : ''}
           onClick={() => setInspectorOpen((current) => !current)}
-        ><SettingOutlined /> <span>Параметры сцены</span></button>
+        ><FileTextOutlined /> <span>Заметки</span></button>
       </div>
 
-      <div className="screenplay-canvas">
+      <div ref={canvasRef} className="screenplay-canvas">
         <div className="screenplay-scene-meta">
           <span>Сцена {props.scenePosition} из {props.sceneCount}</span>
-          <span>Акт {scene.act}</span>
-          <span>≈ {Math.round(scene.durationSeconds / 60)} мин</span>
           <small aria-live="polite">{saving ? 'Сохраняем…' : dirty ? 'Есть изменения' : 'Сохранено'}</small>
         </div>
-        <div className="screenplay-paper">
+        <div className="screenplay-paper" style={paperStyle}>
           <header>
             <span>СЦЕНА {scene.order}</span>
-            <span>Акт {scene.act}</span>
           </header>
           <input
             aria-label="Название сцены"
@@ -641,12 +734,35 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
           </div>
         </div>
       </div>
+      <div className="screenplay-zoom" role="group" aria-label="Масштаб листа">
+        <button
+          aria-label="Уменьшить масштаб листа"
+          disabled={zoomPercent <= MIN_ZOOM}
+          title="Уменьшить масштаб"
+          onClick={() => stepZoom(-1)}
+        ><ZoomOutOutlined /></button>
+        <Select<ZoomMode>
+          aria-label="Масштаб листа"
+          options={zoomOptions}
+          value={zoomMode}
+          onChange={setZoomMode}
+        />
+        <button
+          aria-label="Увеличить масштаб листа"
+          disabled={zoomPercent >= MAX_ZOOM}
+          title="Увеличить масштаб"
+          onClick={() => stepZoom(1)}
+        ><ZoomInOutlined /></button>
+        <span className="screen-reader-only" aria-live="polite">
+          Масштаб листа {zoomPercent}%
+        </span>
+      </div>
     </main>
 
     {inspectorOpen && <div
-      aria-label="Параметры сцены"
+      aria-label="Заметки сцены"
       className="screenplay-inspector-drawer"
-      id="scene-parameters"
+      id="scene-notes"
       role="complementary"
     >
       <SceneInspector
@@ -655,6 +771,7 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
         dirty={dirty}
         saving={saving}
         showSaveAction={false}
+        showStructureFields={false}
         showTitleField={false}
         onChange={props.onChange}
         onClose={() => {

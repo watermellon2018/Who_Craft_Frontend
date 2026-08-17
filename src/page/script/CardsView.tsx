@@ -3,7 +3,6 @@ import React from 'react';
 
 import SceneInspector from './SceneInspector';
 import type {Scene} from './types';
-import {SCENE_TYPE_LABELS} from './types';
 
 interface CardsViewProps {
   scenes: Scene[];
@@ -55,16 +54,14 @@ export default function CardsView(props: CardsViewProps) {
                 >
                   <div className="scene-card__meta">
                     <strong>{scene.order}</strong>
-                    <span>{Math.round(scene.durationSeconds / 60)} мин</span>
                     <EllipsisOutlined />
                   </div>
                   <h3>{scene.title || 'Без названия'}</h3>
-                  <p>{scene.description || 'Добавьте краткое описание сцены.'}</p>
+                  <p>{scene.scriptText || 'Сцена пока без текста.'}</p>
                   <div className="scene-card__footer">
                     <span className="scene-card__people">
                       {scene.characters.slice(0, 2).map((character) => character.name).join(' · ') || 'Без персонажей'}
                     </span>
-                    <span className="scene-card__type">{SCENE_TYPE_LABELS[scene.sceneType] || scene.sceneType}</span>
                   </div>
                 </button>
               ))}

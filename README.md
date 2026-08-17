@@ -123,12 +123,16 @@ changes the paragraph format, and / opens contextual suggestions. In a
 **Character** paragraph, typing filters the project's characters and selecting
 one links that character to the scene. Backspace at the beginning of a
 paragraph merges it back into the previous one; the active paragraph also has
-an explicit delete action.
+an explicit delete action. The bottom zoom control scales only the screenplay
+sheet from 50% to 200%, offers a fit-to-width mode, and remembers the user's
+choice without changing the surrounding workspace UI.
 
-**Scene parameters** stay closed while writing and contain the scene summary,
-act, estimated duration, dramatic function, and private notes. Character
-membership is collected from character paragraphs rather than edited in a
-separate participants field. Music actions, shot planning, and video-generation
+The screenplay keeps only a closed **Scene notes** panel for private technical
+details that do not belong on the page. Act assignment lives in the Cards view;
+manual duration and dramatic-function fields are not part of screenplay
+editing. Detailed timing belongs to future shot planning. Character membership
+is collected from character paragraphs rather than edited in a separate
+participants field. Music actions, shot planning, and video-generation
 segmentation are intentionally outside this workspace. Editing requires the
 existing project edit permission.
 
