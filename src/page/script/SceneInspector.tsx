@@ -1,81 +1,80 @@
-import {CustomerServiceOutlined, DeleteOutlined, PlusOutlined, SaveOutlined} from '@ant-design/icons';
+import {
+  CloseOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  SaveOutlined,
+} from '@ant-design/icons';
 import React from 'react';
-import {useTranslation} from 'react-i18next';
 
-import type {CompactCharacter, Scene, SceneCharacter} from './types';
-import {MOOD_LABELS, SCENE_TYPE_LABELS} from './types';
+import type {Scene} from './types';
+import {SCENE_TYPE_LABELS} from './types';
 
 interface SceneInspectorProps {
   scene: Scene | null;
-  characters: CompactCharacter[];
   canEdit: boolean;
-  canRunGeneration: boolean;
   saving: boolean;
   dirty: boolean;
   onChange: (sceneId: number, update: Partial<Scene>) => void;
   onSave: () => void;
   onDelete: (sceneId: number) => void;
   onOpenScreenplay?: () => void;
-  onCreateMusic?: (sceneId: number) => void;
+  onClose?: () => void;
+  showSaveAction?: boolean;
+  showTitleField?: boolean;
 }
-
-const toSceneCharacter = (character: CompactCharacter): SceneCharacter => ({
-  id: character.id,
-  name: character.name,
-  role: character.role,
-  roleLabel: character.roleLabel,
-  imageUrl: character.imageUrl,
-});
 
 export default function SceneInspector({
   scene,
-  characters,
   canEdit,
-  canRunGeneration,
   saving,
   dirty,
   onChange,
   onSave,
   onDelete,
   onOpenScreenplay,
-  onCreateMusic,
+  onClose,
+  showSaveAction = true,
+  showTitleField = true,
 }: SceneInspectorProps) {
-  const {t} = useTranslation();
   if (!scene) {
     return <aside className="script-inspector script-inspector--empty">
       <span className="script-empty-icon">✦</span>
       <h2>Выберите сцену</h2>
-      <p>Здесь появятся детали, персонажи и заметки.</p>
+      <p>Здесь появятся структура сцены и заметки.</p>
     </aside>;
   }
 
   const update = (value: Partial<Scene>) => onChange(scene.id, value);
-  const toggleCharacter = (character: CompactCharacter) => {
-    const selected = scene.characters.some((item) => item.id === character.id);
-    update({
-      characters: selected
-        ? scene.characters.filter((item) => item.id !== character.id)
-        : [...scene.characters, toSceneCharacter(character)],
-    });
-  };
-
   return <aside className="script-inspector">
     <div className="script-inspector__title">
       <div>
         <span className="script-eyebrow">СЦЕНА {scene.order}</span>
         <h2>{scene.title || 'Без названия'}</h2>
       </div>
-      {dirty && <span className="script-unsaved">Не сохранено</span>}
+      <div className="script-inspector__title-actions">
+        <span className="script-save-state" aria-live="polite">
+          {saving ? 'Сохраняем…' : dirty ? 'Есть изменения' : 'Сохранено'}
+        </span>
+        {onClose && <button
+          aria-label="Закрыть параметры сцены"
+          autoFocus
+          onClick={onClose}
+        >
+          <CloseOutlined />
+        </button>}
+      </div>
     </div>
 
-    <label className="script-field">
+    {showTitleField && <label className="script-field">
       <span>Заголовок</span>
       <input
         disabled={!canEdit}
         value={scene.title}
         onChange={(event) => update({title: event.target.value})}
       />
-    </label>
+    </label>}
+    <section className="script-inspector__section">
+      <h3>Карточка сцены</h3>
     <label className="script-field">
       <span>Описание</span>
       <textarea
@@ -113,7 +112,7 @@ export default function SceneInspector({
       </label>
     </div>
     <label className="script-field">
-      <span>Тип сцены</span>
+      <span>Драматическая функция</span>
       <select
         disabled={!canEdit}
         value={scene.sceneType}
@@ -124,39 +123,12 @@ export default function SceneInspector({
         ))}
       </select>
     </label>
-    <label className="script-field">
-      <span>Настроение</span>
-      <select
-        disabled={!canEdit}
-        value={scene.mood}
-        onChange={(event) => update({mood: event.target.value})}
-      >
-        {Object.entries(MOOD_LABELS).map(([value, label]) => (
-          <option key={value} value={value}>{label}</option>
-        ))}
-      </select>
-    </label>
+    </section>
 
-    <fieldset className="script-character-picker" disabled={!canEdit}>
-      <legend>Персонажи</legend>
-      <div className="script-character-picker__list">
-        {characters.map((character) => {
-          const checked = scene.characters.some((item) => item.id === character.id);
-          return <label key={character.id} className={checked ? 'is-selected' : ''}>
-            <input
-              checked={checked}
-              type="checkbox"
-              onChange={() => toggleCharacter(character)}
-            />
-            <span>{character.name}</span>
-          </label>;
-        })}
-        {characters.length === 0 && <span className="script-muted">Персонажей пока нет</span>}
-      </div>
-    </fieldset>
-
+    <section className="script-inspector__section">
+      <h3>Заметки</h3>
     <label className="script-field">
-      <span>Заметки</span>
+      <span>Служебные заметки, которые не попадут в текст сценария</span>
       <textarea
         disabled={!canEdit}
         rows={4}
@@ -164,16 +136,14 @@ export default function SceneInspector({
         onChange={(event) => update({notes: event.target.value})}
       />
     </label>
+    </section>
 
     <div className="script-inspector__actions">
-      <button className="script-button script-button--primary" disabled={!canEdit || saving || !dirty} onClick={onSave}>
+      {showSaveAction && <button className="script-button script-button--primary" disabled={!canEdit || saving || !dirty} onClick={onSave}>
         <SaveOutlined /> {saving ? 'Сохраняем…' : 'Сохранить'}
-      </button>
+      </button>}
       {onOpenScreenplay && <button className="script-button" onClick={onOpenScreenplay}>
         <PlusOutlined /> Открыть в сценарии
-      </button>}
-      {canRunGeneration && onCreateMusic && <button className="script-button" onClick={() => onCreateMusic(scene.id)}>
-        <CustomerServiceOutlined /> {t('musicStudio.create.title')}
       </button>}
       {canEdit && <button className="script-button script-button--danger" onClick={() => onDelete(scene.id)}>
         <DeleteOutlined /> Удалить сцену

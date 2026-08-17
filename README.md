@@ -110,6 +110,28 @@ supports parametric zones, canonical views, snapshot/GLB export, autofit state,
 and optional reconstructed head/hair assets. The heavy Hunyuan runtime belongs
 to the backend worker's separate Python/Conda environment.
 
+## Script workspace
+
+Open a project's **Script** section to write and organize screenplay scenes.
+The collapsible sidebar switches between the screenplay, cards, and characters
+and keeps explicit scene selection close to the editor. Each screenplay scene
+remains a separate sheet; normal mouse-wheel scrolling does not switch scenes.
+
+The screenplay editor saves changes automatically after a short pause. Enter
+creates the next screenplay paragraph, Shift+Enter inserts a line break, Tab
+changes the paragraph format, and / opens contextual suggestions. In a
+**Character** paragraph, typing filters the project's characters and selecting
+one links that character to the scene. Backspace at the beginning of a
+paragraph merges it back into the previous one; the active paragraph also has
+an explicit delete action.
+
+**Scene parameters** stay closed while writing and contain the scene summary,
+act, estimated duration, dramatic function, and private notes. Character
+membership is collected from character paragraphs rather than edited in a
+separate participants field. Music actions, shot planning, and video-generation
+segmentation are intentionally outside this workspace. Editing requires the
+existing project edit permission.
+
 ## Contract changes
 
 The backend contract is canonical. When it changes, synchronize

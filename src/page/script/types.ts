@@ -1,4 +1,4 @@
-export type WorkspaceMode = 'screenplay' | 'cards' | 'characters' | 'locations';
+export type WorkspaceMode = 'screenplay' | 'cards' | 'characters';
 
 export type ScriptBlockType =
   | 'scene_heading'

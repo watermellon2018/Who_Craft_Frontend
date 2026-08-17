@@ -13,6 +13,7 @@ import type {
 } from './types';
 
 const EMPTY_STATS: ScriptStats = {sceneCount: 0, totalDurationSeconds: 0, acts: []};
+export const SCRIPT_AUTO_SAVE_DELAY_MS = 800;
 
 const calculateStats = (scenes: Scene[]): ScriptStats => ({
   sceneCount: scenes.length,
@@ -37,7 +38,7 @@ const describeApiError = (error: unknown) => {
 
 export function useScriptWorkspace(projectId: string) {
   const ownerKey = projectId;
-  const [mode, setMode] = useState<WorkspaceMode>('cards');
+  const [mode, setMode] = useState<WorkspaceMode>('screenplay');
   const [project, setProject] = useState<ScriptProject | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [characters, setCharacters] = useState<CompactCharacter[]>([]);
@@ -59,6 +60,7 @@ export function useScriptWorkspace(projectId: string) {
   const dirtyRef = useRef(new Set<number>());
   const editRevisionRef = useRef(new Map<number, number>());
   const savePromisesRef = useRef(new Map<string, Promise<boolean>>());
+  const deletingSceneIdsRef = useRef(new Set<number>());
 
   if (ownerKeyRef.current !== ownerKey) {
     ownerKeyRef.current = ownerKey;
@@ -68,6 +70,7 @@ export function useScriptWorkspace(projectId: string) {
     dirtyRef.current.clear();
     editRevisionRef.current.clear();
     savePromisesRef.current.clear();
+    deletingSceneIdsRef.current.clear();
   }
 
   const replaceScenes = useCallback((nextScenes: Scene[]) => {
@@ -85,6 +88,7 @@ export function useScriptWorkspace(projectId: string) {
     dirtyRef.current.clear();
     editRevisionRef.current.clear();
     savePromisesRef.current.clear();
+    deletingSceneIdsRef.current.clear();
     setStateOwnerKey(requestedOwnerKey);
     setDataOwnerKey(null);
     setProject(null);
@@ -95,7 +99,7 @@ export function useScriptWorkspace(projectId: string) {
     setCharacterSceneFilter(null);
     setDirtySceneIds([]);
     setSavingSceneIds([]);
-    setMode('cards');
+    setMode('screenplay');
     setError(null);
     setConflict(null);
     setSaveError(null);
@@ -186,6 +190,7 @@ export function useScriptWorkspace(projectId: string) {
   const saveSceneOnce = useCallback(async (sceneId: number) => {
     const requestedOwnerKey = ownerKey;
     if (!requestedOwnerKey || !ownsLoadedWorkspace(requestedOwnerKey)) return false;
+    if (deletingSceneIdsRef.current.has(sceneId)) return false;
     if (!dirtyRef.current.has(sceneId)) return true;
     if (!canEdit) return false;
     const scene = scenesRef.current.find((item) => item.id === sceneId);
@@ -254,6 +259,22 @@ export function useScriptWorkspace(projectId: string) {
     return saveScene(visibleSelectedSceneId);
   }, [ownerKey, ownsLoadedWorkspace, saveScene, visibleSelectedSceneId]);
 
+  useEffect(() => {
+    if (
+      !canEdit
+      || visibleSelectedSceneId === null
+      || conflict
+      || saveError
+      || !dirtySceneIds.includes(visibleSelectedSceneId)
+    ) return undefined;
+
+    const sceneId = visibleSelectedSceneId;
+    const timeoutId = window.setTimeout(() => {
+      void saveScene(sceneId);
+    }, SCRIPT_AUTO_SAVE_DELAY_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [canEdit, conflict, dirtySceneIds, saveError, saveScene, visibleSelectedSceneId]);
+
   const selectScene = useCallback(async (sceneId: number) => {
     const requestedOwnerKey = ownerKey;
     if (!ownsLoadedWorkspace(requestedOwnerKey)) return false;
@@ -309,7 +330,7 @@ export function useScriptWorkspace(projectId: string) {
 
       replaceScenes([...scenesRef.current, created]);
       setSelectedSceneId(created.id);
-      setMode('cards');
+      setMode('screenplay');
     } catch {
       if (ownsLoadedWorkspace(requestedOwnerKey)) {
         setSaveError('Сцену не удалось создать. Проверьте соединение и повторите попытку.');
@@ -331,6 +352,14 @@ export function useScriptWorkspace(projectId: string) {
   const removeScene = useCallback(async (sceneId: number) => {
     const requestedOwnerKey = ownerKey;
     if (!requestedOwnerKey || !canEdit || !ownsLoadedWorkspace(requestedOwnerKey)) return;
+    if (deletingSceneIdsRef.current.has(sceneId)) return;
+    deletingSceneIdsRef.current.add(sceneId);
+    const activeSave = savePromisesRef.current.get(`${requestedOwnerKey}:${sceneId}`);
+    if (activeSave) await activeSave;
+    if (!ownsLoadedWorkspace(requestedOwnerKey)) {
+      deletingSceneIdsRef.current.delete(sceneId);
+      return;
+    }
     setSavingSceneIds((current) => [...current, sceneId]);
     setSaveError(null);
     try {
@@ -348,6 +377,7 @@ export function useScriptWorkspace(projectId: string) {
         setSaveError('Сцену не удалось удалить. Повторите попытку.');
       }
     } finally {
+      deletingSceneIdsRef.current.delete(sceneId);
       if (ownsLoadedWorkspace(requestedOwnerKey)) {
         setSavingSceneIds((current) => current.filter((id) => id !== sceneId));
       }

@@ -2,16 +2,14 @@ import {EllipsisOutlined, PlusOutlined} from '@ant-design/icons';
 import React from 'react';
 
 import SceneInspector from './SceneInspector';
-import type {CompactCharacter, Scene} from './types';
+import type {Scene} from './types';
 import {SCENE_TYPE_LABELS} from './types';
 
 interface CardsViewProps {
   scenes: Scene[];
-  characters: CompactCharacter[];
   selectedScene: Scene | null;
   characterFilter: string | null;
   canEdit: boolean;
-  canRunGeneration: boolean;
   dirtySceneIds: number[];
   savingSceneIds: number[];
   onSelect: (sceneId: number) => void;
@@ -20,7 +18,6 @@ interface CardsViewProps {
   onAdd: () => void;
   onDelete: (sceneId: number) => void;
   onOpenScreenplay: () => void;
-  onCreateMusic: (sceneId: number) => void;
   onClearFilter: () => void;
 }
 
@@ -82,15 +79,12 @@ export default function CardsView(props: CardsViewProps) {
     </main>
     <SceneInspector
       scene={props.selectedScene}
-      characters={props.characters}
       canEdit={props.canEdit}
-      canRunGeneration={props.canRunGeneration}
       dirty={Boolean(props.selectedScene && props.dirtySceneIds.includes(props.selectedScene.id))}
       saving={Boolean(props.selectedScene && props.savingSceneIds.includes(props.selectedScene.id))}
       onChange={props.onChange}
       onDelete={props.onDelete}
       onOpenScreenplay={props.onOpenScreenplay}
-      onCreateMusic={props.onCreateMusic}
       onSave={props.onSave}
     />
   </div>;

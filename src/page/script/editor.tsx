@@ -1,32 +1,28 @@
 import {
   AppstoreOutlined,
-  CheckOutlined,
+  ArrowLeftOutlined,
+  CloseOutlined,
   DownloadOutlined,
-  EnvironmentOutlined,
   FileTextOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
   PlusOutlined,
-  QuestionCircleOutlined,
   ReloadOutlined,
-  SaveOutlined,
-  SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import React from 'react';
+import React, {useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import WCraftBrand from '../../components/WCraftBrand';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
-import {useUnsavedChangesGuard} from '../../utils/useUnsavedChangesGuard';
 import PathConstants, {
-  musicStudioCreatePath,
   projectDashboardPath,
-  referenceLibraryPath,
 } from '../../routes/pathConstant';
+import {useUnsavedChangesGuard} from '../../utils/useUnsavedChangesGuard';
 import {sceneToPlainText} from './api';
-import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
 import CardsView from './CardsView';
 import CharactersView from './CharactersView';
-import LocationsPlaceholder from './LocationsPlaceholder';
+import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
 import ScreenplayView from './ScreenplayView';
 import './style.css';
 import type {WorkspaceMode} from './types';
@@ -36,7 +32,6 @@ const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNo
   {mode: 'screenplay', label: 'Сценарий', icon: <FileTextOutlined />},
   {mode: 'cards', label: 'Карточки', icon: <AppstoreOutlined />},
   {mode: 'characters', label: 'Персонажи', icon: <TeamOutlined />},
-  {mode: 'locations', label: 'Визуальная библиотека', icon: <EnvironmentOutlined />},
 ];
 
 const formatDuration = (seconds: number) => {
@@ -51,6 +46,9 @@ export default function ScriptPage() {
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
   const workspace = useScriptWorkspace(projectId);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 780,
+  );
   const {allowNextNavigation} = useUnsavedChangesGuard(
     workspace.dirtySceneIds.length > 0,
   );
@@ -68,8 +66,7 @@ export default function ScriptPage() {
 
   const finish = async () => {
     const saved = await workspace.saveSelectedScene();
-    if (!saved) return;
-    if (!projectId) return;
+    if (!saved || !projectId) return;
     if (canBypassUnsavedChangesAfterSelectedSceneSave(
       workspace.dirtySceneIds,
       workspace.selectedScene?.id,
@@ -79,17 +76,11 @@ export default function ScriptPage() {
     navigate(projectDashboardPath(projectId));
   };
 
-  const createMusicForScene = (sceneId: number) => {
-    if (!projectId) return;
-    navigate(musicStudioCreatePath(projectId, sceneId));
-  };
-
   const deleteScene = (sceneId: number) => {
     if (window.confirm('Удалить эту сцену? Это действие нельзя отменить.')) {
       void workspace.removeScene(sceneId);
     }
   };
-
 
   if (!projectId) {
     return <div className="script-state-page">
@@ -127,124 +118,154 @@ export default function ScriptPage() {
   const selectedSaving = Boolean(
     workspace.selectedScene && workspace.savingSceneIds.includes(workspace.selectedScene.id),
   );
+  const selectedScenePosition = workspace.selectedScene
+    ? workspace.scenes.findIndex((scene) => scene.id === workspace.selectedScene?.id) + 1
+    : 0;
+  const saveStatus = workspace.canEdit
+    ? selectedSaving ? 'Сохраняем…' : selectedDirty ? 'Есть изменения' : 'Сохранено'
+    : 'Только просмотр';
+  const canRetrySave = workspace.saveError?.includes('сохранить') === true;
 
-  return <div className="script-workspace">
+  return <div className={`script-workspace${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
     <header className="script-topbar">
       <WCraftBrand className="script-topbar__brand" />
       <div className="script-project-heading">
-        <div><button onClick={() => navigate(PathConstants.PROJECTS)}>Все проекты</button><span>/</span><span>Сценарий</span></div>
+        <div>
+          <button onClick={() => navigate(PathConstants.PROJECTS)}>Все проекты</button>
+          <span>/</span>
+          <span>Сценарий</span>
+        </div>
         <h1>{workspace.project.title}</h1>
-        <small className={workspace.canEdit ? 'is-saved' : ''}>
-          {workspace.canEdit
-            ? selectedSaving ? 'Сохраняем…' : selectedDirty ? 'Есть изменения' : 'Сохранено'
-            : 'Только просмотр'}
-        </small>
+        <small
+          aria-live="polite"
+          className={!selectedDirty && !selectedSaving && workspace.canEdit ? 'is-saved' : ''}
+        >{saveStatus}</small>
       </div>
       <div className="script-topbar__actions">
-        {workspace.canEdit && <button
-          className="script-button"
-          disabled={!selectedDirty || selectedSaving}
-          onClick={() => void workspace.saveSelectedScene()}
-        ><SaveOutlined /> Сохранить</button>}
         <button className="script-button" disabled={workspace.scenes.length === 0} onClick={exportScript}>
           <DownloadOutlined /> Экспорт
         </button>
         <button className="script-button script-button--primary" onClick={() => void finish()}>
-          <CheckOutlined /> Готово
+          <ArrowLeftOutlined /> К проекту
         </button>
       </div>
     </header>
 
-    <aside className="script-rail">
-      <div className="script-rail__modes">
+    <aside className="script-rail" aria-label="Навигация по сценарию">
+      <div className="script-rail__header">
+        {!sidebarCollapsed && <strong>Рабочая область</strong>}
+        <button
+          aria-label={sidebarCollapsed ? 'Развернуть боковую панель' : 'Свернуть боковую панель'}
+          aria-expanded={!sidebarCollapsed}
+          title={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+          onClick={() => setSidebarCollapsed((current) => !current)}
+        >{sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}</button>
+      </div>
+
+      <nav className="script-rail__modes" aria-label="Разделы сценария">
         {MODE_ITEMS.map((item) => (
           <button
             key={item.mode}
+            aria-current={workspace.mode === item.mode ? 'page' : undefined}
             aria-label={item.label}
             className={workspace.mode === item.mode ? 'is-active' : ''}
             title={item.label}
-            onClick={() => {
-              if (item.mode === 'locations') {
-                navigate(referenceLibraryPath(projectId));
-                return;
-              }
-              void workspace.changeMode(item.mode);
-            }}
+            onClick={() => void workspace.changeMode(item.mode)}
           >
             {item.icon}
-            <span>{item.label}</span>
+            {!sidebarCollapsed && <span>{item.label}</span>}
           </button>
         ))}
-      </div>
-      <div className="script-rail__support">
-        <button disabled aria-label="Настройки недоступны" title="Настройки сценария пока недоступны"><SettingOutlined /></button>
-        <button disabled aria-label="Помощь недоступна" title="Раздел помощи пока недоступен"><QuestionCircleOutlined /></button>
-      </div>
+      </nav>
+
+      {workspace.mode === 'screenplay' && !sidebarCollapsed && <section className="script-scene-list">
+        <div className="script-scene-list__header">
+          <div>
+            <span className="script-eyebrow">СТРУКТУРА</span>
+            <h2>Сцены</h2>
+          </div>
+          {workspace.canEdit && <button aria-label="Добавить сцену" onClick={() => void workspace.addScene()}>
+            <PlusOutlined />
+          </button>}
+        </div>
+        <div className="script-scene-list__items">
+          {workspace.scenes.map((scene) => <button
+            key={scene.id}
+            aria-current={workspace.selectedScene?.id === scene.id ? 'true' : undefined}
+            className={workspace.selectedScene?.id === scene.id ? 'is-selected' : ''}
+            onClick={() => void workspace.selectScene(scene.id)}
+          >
+            <span>{scene.order}</span>
+            <span>
+              <strong>{scene.title || 'Без названия'}</strong>
+              <small>Акт {scene.act} · {Math.round(scene.durationSeconds / 60)} мин</small>
+            </span>
+          </button>)}
+        </div>
+      </section>}
     </aside>
 
-    <section className="script-stats">
-      <div><strong>{workspace.stats.sceneCount}</strong><span>сцен</span></div>
-      <div><strong>{formatDuration(workspace.stats.totalDurationSeconds)}</strong><span>хронометраж</span></div>
-      {workspace.stats.acts.map((act) => {
-        const percent = workspace.stats.totalDurationSeconds
-          ? Math.round(act.durationSeconds / workspace.stats.totalDurationSeconds * 100)
-          : 0;
-        return <div key={act.act} className={`script-act-stat script-act-stat--${act.act}`}>
-          <span>АКТ {act.act}</span>
-          <i><b style={{width: `${percent}%`}} /></i>
-          <small>{percent}% · {formatDuration(act.durationSeconds)}</small>
-        </div>;
-      })}
-      {workspace.canEdit && <button className="script-add-scene" onClick={() => void workspace.addScene()}>
-        <PlusOutlined /> Добавить сцену
-      </button>}
-    </section>
+    <div className="script-main">
+      {workspace.mode === 'cards' && <section className="script-stats">
+        <div><strong>{workspace.stats.sceneCount}</strong><span>сцен</span></div>
+        <div><strong>{formatDuration(workspace.stats.totalDurationSeconds)}</strong><span>хронометраж</span></div>
+        {workspace.stats.acts.map((act) => {
+          const percent = workspace.stats.totalDurationSeconds
+            ? Math.round(act.durationSeconds / workspace.stats.totalDurationSeconds * 100)
+            : 0;
+          return <div key={act.act} className={`script-act-stat script-act-stat--${act.act}`}>
+            <span>АКТ {act.act}</span>
+            <i><b style={{width: `${percent}%`}} /></i>
+            <small>{percent}% · {formatDuration(act.durationSeconds)}</small>
+          </div>;
+        })}
+        {workspace.canEdit && <button className="script-add-scene" onClick={() => void workspace.addScene()}>
+          <PlusOutlined /> Добавить сцену
+        </button>}
+      </section>}
 
-    {(workspace.conflict || workspace.saveError) && <div className="script-alert" role="alert">
-      <span>{workspace.conflict?.message || workspace.saveError}</span>
-      {workspace.conflict
-        ? <button onClick={() => void workspace.reload()}><ReloadOutlined /> Перезагрузить</button>
-        : <button onClick={workspace.dismissSaveError}>Закрыть</button>}
-    </div>}
+      {(workspace.conflict || workspace.saveError) && <div className="script-alert" role="alert">
+        <span>{workspace.conflict?.message || workspace.saveError}</span>
+        <button onClick={() => {
+          if (workspace.conflict) void workspace.reload();
+          else if (canRetrySave) void workspace.saveSelectedScene();
+          else workspace.dismissSaveError();
+        }}>{workspace.conflict || canRetrySave ? <ReloadOutlined /> : <CloseOutlined />} {
+          workspace.conflict ? 'Перезагрузить' : canRetrySave ? 'Повторить сохранение' : 'Закрыть'
+        }</button>
+      </div>}
 
-    <section className="script-workspace__content">
-      {workspace.mode === 'cards' && <CardsView
-        scenes={workspace.scenes}
-        characters={workspace.characters}
-        selectedScene={workspace.selectedScene}
-        characterFilter={workspace.characterSceneFilter}
-        canEdit={workspace.canEdit}
-        canRunGeneration={workspace.canRunGeneration}
-        dirtySceneIds={workspace.dirtySceneIds}
-        savingSceneIds={workspace.savingSceneIds}
-        onAdd={() => void workspace.addScene()}
-        onChange={workspace.updateScene}
-        onClearFilter={() => workspace.setCharacterSceneFilter(null)}
-        onDelete={deleteScene}
-        onCreateMusic={createMusicForScene}
-        onOpenScreenplay={() => void workspace.changeMode('screenplay')}
-        onSave={() => void workspace.saveSelectedScene()}
-        onSelect={(sceneId) => void workspace.selectScene(sceneId)}
-      />}
-      {workspace.mode === 'screenplay' && <ScreenplayView
-        scenes={workspace.scenes}
-        characters={workspace.characters}
-        selectedScene={workspace.selectedScene}
-        canEdit={workspace.canEdit}
-        canRunGeneration={workspace.canRunGeneration}
-        dirtySceneIds={workspace.dirtySceneIds}
-        savingSceneIds={workspace.savingSceneIds}
-        onAddScene={() => void workspace.addScene()}
-        onChange={workspace.updateScene}
-        onDeleteScene={deleteScene}
-        onCreateMusic={createMusicForScene}
-        onSave={() => void workspace.saveSelectedScene()}
-        onSelect={(sceneId) => void workspace.selectScene(sceneId)}
-      />}
-      {workspace.mode === 'characters' && <CharactersView characters={workspace.characters} />}
-      {workspace.mode === 'locations' && (
-        <LocationsPlaceholder onOpen={() => navigate(referenceLibraryPath(projectId))} />
-      )}
-    </section>
+      <section className="script-workspace__content">
+        {workspace.mode === 'cards' && <CardsView
+          scenes={workspace.scenes}
+          selectedScene={workspace.selectedScene}
+          characterFilter={workspace.characterSceneFilter}
+          canEdit={workspace.canEdit}
+          dirtySceneIds={workspace.dirtySceneIds}
+          savingSceneIds={workspace.savingSceneIds}
+          onAdd={() => void workspace.addScene()}
+          onChange={workspace.updateScene}
+          onClearFilter={() => workspace.setCharacterSceneFilter(null)}
+          onDelete={deleteScene}
+          onOpenScreenplay={() => void workspace.changeMode('screenplay')}
+          onSave={() => void workspace.saveSelectedScene()}
+          onSelect={(sceneId) => void workspace.selectScene(sceneId)}
+        />}
+        {workspace.mode === 'screenplay' && <ScreenplayView
+          characters={workspace.characters}
+          selectedScene={workspace.selectedScene}
+          sceneCount={workspace.scenes.length}
+          scenePosition={selectedScenePosition}
+          canEdit={workspace.canEdit}
+          dirtySceneIds={workspace.dirtySceneIds}
+          savingSceneIds={workspace.savingSceneIds}
+          onAddScene={() => void workspace.addScene()}
+          onChange={workspace.updateScene}
+          onDeleteScene={deleteScene}
+          onSave={() => void workspace.saveSelectedScene()}
+        />}
+        {workspace.mode === 'characters' && <CharactersView characters={workspace.characters} />}
+      </section>
+    </div>
   </div>;
 }

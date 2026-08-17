@@ -2,7 +2,7 @@ import {act, renderHook, waitFor} from '@testing-library/react';
 
 import {scriptApi} from './api';
 import type {Scene, ScriptWorkspaceResponse} from './types';
-import {useScriptWorkspace} from './useScriptWorkspace';
+import {SCRIPT_AUTO_SAVE_DELAY_MS, useScriptWorkspace} from './useScriptWorkspace';
 
 jest.mock('./api', () => ({
   scriptApi: {
@@ -22,6 +22,7 @@ const getWorkspaceMock = scriptApi.getWorkspace as jest.MockedFunction<typeof sc
 const getCharactersMock = scriptApi.getCharacters as jest.MockedFunction<typeof scriptApi.getCharacters>;
 const updateSceneMock = scriptApi.updateScene as jest.MockedFunction<typeof scriptApi.updateScene>;
 const createSceneMock = scriptApi.createScene as jest.MockedFunction<typeof scriptApi.createScene>;
+const deleteSceneMock = scriptApi.deleteScene as jest.MockedFunction<typeof scriptApi.deleteScene>;
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -65,9 +66,29 @@ beforeEach(() => {
   jest.clearAllMocks();
   getWorkspaceMock.mockResolvedValue(workspace);
   getCharactersMock.mockResolvedValue([]);
+  deleteSceneMock.mockResolvedValue();
 });
 
 describe('useScriptWorkspace scene persistence', () => {
+  it('opens in screenplay mode and autosaves a changed scene after a short pause', async () => {
+    updateSceneMock.mockImplementation(async (_projectId, nextScene) => ({
+      ...nextScene,
+      version: nextScene.version + 1,
+    }));
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.mode).toBe('screenplay');
+    act(() => result.current.updateScene(1, {title: 'Автосохранённая сцена'}));
+
+    await waitFor(
+      () => expect(updateSceneMock).toHaveBeenCalledTimes(1),
+      {timeout: SCRIPT_AUTO_SAVE_DELAY_MS + 1500},
+    );
+    await waitFor(() => expect(result.current.dirtySceneIds).toEqual([]));
+    expect(updateSceneMock.mock.calls[0][1].title).toBe('Автосохранённая сцена');
+  });
+
   it('coalesces parallel saves and persists edits made during the first patch', async () => {
     let resolveFirstPatch: (saved: Scene) => void = () => undefined;
     const firstPatch = new Promise<Scene>((resolve) => {
@@ -119,6 +140,33 @@ describe('useScriptWorkspace scene persistence', () => {
     expect(updateSceneMock).toHaveBeenCalledTimes(1);
     expect(createSceneMock).not.toHaveBeenCalled();
     expect(result.current.saveError).toContain('не удалось сохранить');
+  });
+
+  it('waits for an active autosave before deleting the same scene', async () => {
+    const saveRequest = deferred<Scene>();
+    updateSceneMock.mockReturnValueOnce(saveRequest.promise);
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.updateScene(1, {notes: 'Удалить после сохранения'}));
+    await waitFor(
+      () => expect(updateSceneMock).toHaveBeenCalledTimes(1),
+      {timeout: SCRIPT_AUTO_SAVE_DELAY_MS + 1500},
+    );
+
+    let removePromise: Promise<void> = Promise.resolve();
+    act(() => {
+      removePromise = result.current.removeScene(1);
+    });
+    expect(deleteSceneMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      saveRequest.resolve({...scene, notes: 'Удалить после сохранения', version: 2});
+      await removePromise;
+    });
+
+    expect(deleteSceneMock).toHaveBeenCalledWith('7', 1);
+    expect(result.current.scenes).toEqual([]);
   });
 });
 describe('useScriptWorkspace route ownership', () => {
