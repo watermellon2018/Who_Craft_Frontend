@@ -15,6 +15,7 @@ interface SceneInspectorProps {
   saving: boolean;
   dirty: boolean;
   onChange: (sceneId: number, update: Partial<Scene>) => void;
+  onActChange?: (sceneId: number, act: number) => void;
   onSave: () => void;
   onDelete: (sceneId: number) => void;
   onOpenScreenplay?: () => void;
@@ -30,6 +31,7 @@ export default function SceneInspector({
   saving,
   dirty,
   onChange,
+  onActChange,
   onSave,
   onDelete,
   onOpenScreenplay,
@@ -89,7 +91,10 @@ export default function SceneInspector({
             {label: 'Акт 3', value: 3},
           ]}
           value={scene.act}
-          onChange={(act) => update({act})}
+          onChange={(act) => {
+            if (onActChange) onActChange(scene.id, act);
+            else update({act});
+          }}
         />
       </div>
     </section>}

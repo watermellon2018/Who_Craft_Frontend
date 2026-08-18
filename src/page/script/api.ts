@@ -3,7 +3,9 @@ import type {
   CompactCharactersResponse,
   Scene,
   SceneMutation,
+  SceneOrderUpdate,
   ScenePatch,
+  SceneReorderResponse,
   ScriptWorkspaceResponse,
 } from './types';
 
@@ -59,6 +61,14 @@ export const scriptApi = {
       toScenePatch(scene),
     );
     return unwrapScene(response.data);
+  },
+
+  async reorderScenes(projectId: string, scenes: SceneOrderUpdate[]) {
+    const response = await api.patch<SceneReorderResponse>(
+      `${scenesUrl(projectId)}reorder/`,
+      {scenes},
+    );
+    return response.data.scenes;
   },
 
   async deleteScene(projectId: string, sceneId: number) {

@@ -3,6 +3,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 
 import {characterApi} from '../../modules/character-studio/api/characterApi';
 import {scriptApi} from './api';
+import type {ScenePlacement} from './sceneStructure';
 import type {
   CompactCharacter,
   Scene,
@@ -47,6 +48,7 @@ export function useScriptWorkspace(projectId: string) {
   const [characterSceneFilter, setCharacterSceneFilter] = useState<string | null>(null);
   const [dirtySceneIds, setDirtySceneIds] = useState<number[]>([]);
   const [savingSceneIds, setSavingSceneIds] = useState<number[]>([]);
+  const [reordering, setReordering] = useState(false);
   const [loading, setLoading] = useState(Boolean(projectId));
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -61,6 +63,8 @@ export function useScriptWorkspace(projectId: string) {
   const editRevisionRef = useRef(new Map<number, number>());
   const savePromisesRef = useRef(new Map<string, Promise<boolean>>());
   const deletingSceneIdsRef = useRef(new Set<number>());
+  const reorderingRef = useRef(false);
+  const reorderPromiseRef = useRef<Promise<boolean> | null>(null);
 
   if (ownerKeyRef.current !== ownerKey) {
     ownerKeyRef.current = ownerKey;
@@ -71,6 +75,8 @@ export function useScriptWorkspace(projectId: string) {
     editRevisionRef.current.clear();
     savePromisesRef.current.clear();
     deletingSceneIdsRef.current.clear();
+    reorderingRef.current = false;
+    reorderPromiseRef.current = null;
   }
 
   const replaceScenes = useCallback((nextScenes: Scene[]) => {
@@ -89,6 +95,8 @@ export function useScriptWorkspace(projectId: string) {
     editRevisionRef.current.clear();
     savePromisesRef.current.clear();
     deletingSceneIdsRef.current.clear();
+    reorderingRef.current = false;
+    reorderPromiseRef.current = null;
     setStateOwnerKey(requestedOwnerKey);
     setDataOwnerKey(null);
     setProject(null);
@@ -99,6 +107,7 @@ export function useScriptWorkspace(projectId: string) {
     setCharacterSceneFilter(null);
     setDirtySceneIds([]);
     setSavingSceneIds([]);
+    setReordering(false);
     setMode('screenplay');
     setError(null);
     setConflict(null);
@@ -178,7 +187,7 @@ export function useScriptWorkspace(projectId: string) {
   const dismissSaveError = useCallback(() => setSaveError(null), []);
 
   const updateScene = useCallback((sceneId: number, update: Partial<Scene>) => {
-    if (!canEdit || !ownsLoadedWorkspace(ownerKey)) return;
+    if (reorderingRef.current || !canEdit || !ownsLoadedWorkspace(ownerKey)) return;
     const nextScenes = scenesRef.current.map((scene) =>
       scene.id === sceneId ? {...scene, ...update} : scene,
     );
@@ -253,11 +262,117 @@ export function useScriptWorkspace(projectId: string) {
 
   }, [ownerKey, ownsLoadedWorkspace, saveSceneOnce]);
 
+  const saveAllScenes = useCallback(async () => {
+    const dirtyIds = Array.from(dirtyRef.current);
+    if (dirtyIds.length === 0) return true;
+    const results = await Promise.all(dirtyIds.map((sceneId) => saveScene(sceneId)));
+    return results.every(Boolean);
+  }, [saveScene]);
+
   const saveSelectedScene = useCallback(async () => {
+    const activeReorder = reorderPromiseRef.current;
+    if (activeReorder && !await activeReorder) return false;
     if (!ownsLoadedWorkspace(ownerKey)) return false;
     if (visibleSelectedSceneId === null) return true;
     return saveScene(visibleSelectedSceneId);
   }, [ownerKey, ownsLoadedWorkspace, saveScene, visibleSelectedSceneId]);
+
+  const reorderScenes = useCallback((placements: ScenePlacement[]): Promise<boolean> => {
+    const requestedOwnerKey = ownerKey;
+    if (
+      !requestedOwnerKey
+      || !canEdit
+      || !ownsLoadedWorkspace(requestedOwnerKey)
+    ) return Promise.resolve(false);
+    if (reorderPromiseRef.current) return reorderPromiseRef.current;
+
+    reorderingRef.current = true;
+    setReordering(true);
+    const operation = (async () => {
+      const saved = await saveAllScenes();
+      if (!saved || !ownsLoadedWorkspace(requestedOwnerKey)) return false;
+
+      const placementById = new Map(placements.map((placement) => [placement.id, placement]));
+      if (
+        placementById.size !== scenesRef.current.length
+        || scenesRef.current.some((scene) => !placementById.has(scene.id))
+      ) return false;
+
+      const previousPlacements = new Map(scenesRef.current.map((scene) => [
+        scene.id,
+        {act: scene.act, order: scene.order},
+      ]));
+      const nextScenes = scenesRef.current.map((scene) => {
+        const placement = placementById.get(scene.id);
+        return placement ? {...scene, act: placement.act, order: placement.order} : scene;
+      });
+      const changedIds = nextScenes
+        .filter((scene) => {
+          const previous = previousPlacements.get(scene.id);
+          return previous?.act !== scene.act || previous.order !== scene.order;
+        })
+        .map((scene) => scene.id);
+      if (changedIds.length === 0) return true;
+
+      replaceScenes(nextScenes);
+      setSavingSceneIds((current) => Array.from(new Set([...current, ...changedIds])));
+      setSaveError(null);
+      try {
+        const reordered = await scriptApi.reorderScenes(
+          requestedOwnerKey,
+          nextScenes.map(({id, order, act, version}) => ({id, order, act, version})),
+        );
+        if (!ownsLoadedWorkspace(requestedOwnerKey)) return false;
+        const reorderedById = new Map(reordered.map((scene) => [scene.id, scene]));
+        replaceScenes(scenesRef.current.map((scene) => {
+          const result = reorderedById.get(scene.id);
+          return result ? {
+            ...scene,
+            act: result.act,
+            order: result.order,
+            updatedAt: result.updatedAt,
+            version: result.version,
+          } : scene;
+        }));
+        setConflict(null);
+        return true;
+      } catch (reorderFailure) {
+        if (!ownsLoadedWorkspace(requestedOwnerKey)) return false;
+        replaceScenes(scenesRef.current.map((scene) => {
+          const previous = previousPlacements.get(scene.id);
+          return previous ? {...scene, ...previous} : scene;
+        }));
+        if (axios.isAxiosError(reorderFailure) && reorderFailure.response?.status === 409) {
+          setConflict({
+            sceneId: changedIds[0],
+            message: 'Порядок сцен изменили в другой вкладке. Перезагрузите данные и повторите.',
+          });
+        } else {
+          setSaveError('Не удалось изменить порядок сцен. Повторите перетаскивание.');
+        }
+        return false;
+      } finally {
+        if (ownsLoadedWorkspace(requestedOwnerKey)) {
+          setSavingSceneIds((current) => current.filter((id) => !changedIds.includes(id)));
+        }
+      }
+    })();
+    const trackedOperation = operation.finally(() => {
+      if (reorderPromiseRef.current === operation) {
+        reorderPromiseRef.current = null;
+        reorderingRef.current = false;
+        if (ownsLoadedWorkspace(requestedOwnerKey)) setReordering(false);
+      }
+    });
+    reorderPromiseRef.current = operation;
+    return trackedOperation;
+  }, [
+    canEdit,
+    ownerKey,
+    ownsLoadedWorkspace,
+    replaceScenes,
+    saveAllScenes,
+  ]);
 
   useEffect(() => {
     if (
@@ -277,6 +392,8 @@ export function useScriptWorkspace(projectId: string) {
 
   const selectScene = useCallback(async (sceneId: number) => {
     const requestedOwnerKey = ownerKey;
+    const activeReorder = reorderPromiseRef.current;
+    if (activeReorder && !await activeReorder) return false;
     if (!ownsLoadedWorkspace(requestedOwnerKey)) return false;
     if (sceneId === visibleSelectedSceneId) return true;
     if (visibleSelectedSceneId !== null) {
@@ -287,6 +404,12 @@ export function useScriptWorkspace(projectId: string) {
     setSelectedSceneId(sceneId);
     return true;
   }, [ownerKey, ownsLoadedWorkspace, saveScene, visibleSelectedSceneId]);
+
+  const openSceneInScreenplay = useCallback(async (sceneId: number) => {
+    const selected = await selectScene(sceneId);
+    if (selected && ownsLoadedWorkspace(ownerKey)) setMode('screenplay');
+    return selected;
+  }, [ownerKey, ownsLoadedWorkspace, selectScene]);
 
   const changeMode = useCallback(async (nextMode: WorkspaceMode) => {
     const requestedOwnerKey = ownerKey;
@@ -424,11 +547,14 @@ export function useScriptWorkspace(projectId: string) {
     conflict: ownsVisibleData ? conflict : null,
     dirtySceneIds: ownsVisibleData ? dirtySceneIds : [],
     savingSceneIds: ownsVisibleData ? savingSceneIds : [],
+    reordering: ownsVisibleData && reordering,
     changeMode,
     setSelectedCharacterId,
     setCharacterSceneFilter,
     selectScene,
+    openSceneInScreenplay,
     updateScene,
+    reorderScenes,
     saveSelectedScene,
     dismissSaveError,
     addScene,

@@ -112,6 +112,21 @@ export interface ScenePatch extends SceneMutation {
   version: number;
 }
 
+export interface SceneOrderUpdate {
+  id: number;
+  order: number;
+  act: number;
+  version: number;
+}
+
+export interface SceneOrderResult extends SceneOrderUpdate {
+  updatedAt: string;
+}
+
+export interface SceneReorderResponse {
+  scenes: SceneOrderResult[];
+}
+
 export interface WorkspaceConflict {
   sceneId: number;
   message: string;

@@ -8,7 +8,7 @@ import {
   MenuUnfoldOutlined,
   PlusOutlined,
   ReloadOutlined,
-  TeamOutlined,
+  ShareAltOutlined,
 } from '@ant-design/icons';
 import React, {useState} from 'react';
 import {useNavigate} from 'react-router-dom';
@@ -30,8 +30,8 @@ import {useScriptWorkspace} from './useScriptWorkspace';
 
 const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNode}> = [
   {mode: 'screenplay', label: 'Сценарий', icon: <FileTextOutlined />},
-  {mode: 'cards', label: 'Карточки', icon: <AppstoreOutlined />},
-  {mode: 'characters', label: 'Персонажи', icon: <TeamOutlined />},
+  {mode: 'cards', label: 'Структура', icon: <AppstoreOutlined />},
+  {mode: 'characters', label: 'Связи', icon: <ShareAltOutlined />},
 ];
 
 export default function ScriptPage() {
@@ -42,7 +42,7 @@ export default function ScriptPage() {
     () => typeof window !== 'undefined' && window.innerWidth <= 780,
   );
   const {allowNextNavigation} = useUnsavedChangesGuard(
-    workspace.dirtySceneIds.length > 0,
+    workspace.dirtySceneIds.length > 0 || workspace.reordering,
   );
 
   const exportScript = () => {
@@ -114,7 +114,9 @@ export default function ScriptPage() {
     ? workspace.scenes.findIndex((scene) => scene.id === workspace.selectedScene?.id) + 1
     : 0;
   const saveStatus = workspace.canEdit
-    ? selectedSaving ? 'Сохраняем…' : selectedDirty ? 'Есть изменения' : 'Сохранено'
+    ? workspace.reordering
+      ? 'Сохраняем порядок…'
+      : selectedSaving ? 'Сохраняем…' : selectedDirty ? 'Есть изменения' : 'Сохранено'
     : 'Только просмотр';
   const canRetrySave = workspace.saveError?.includes('сохранить') === true;
 
@@ -210,7 +212,11 @@ export default function ScriptPage() {
             <small>{percent}% · {act.sceneCount} сцен</small>
           </div>;
         })}
-        {workspace.canEdit && <button className="script-add-scene" onClick={() => void workspace.addScene()}>
+        {workspace.canEdit && <button
+          className="script-add-scene"
+          disabled={workspace.reordering}
+          onClick={() => void workspace.addScene()}
+        >
           <PlusOutlined /> Добавить сцену
         </button>}
       </section>}
@@ -234,11 +240,13 @@ export default function ScriptPage() {
           canEdit={workspace.canEdit}
           dirtySceneIds={workspace.dirtySceneIds}
           savingSceneIds={workspace.savingSceneIds}
+          reordering={workspace.reordering}
           onAdd={() => void workspace.addScene()}
           onChange={workspace.updateScene}
           onClearFilter={() => workspace.setCharacterSceneFilter(null)}
           onDelete={deleteScene}
-          onOpenScreenplay={() => void workspace.changeMode('screenplay')}
+          onOpenScreenplay={(sceneId) => void workspace.openSceneInScreenplay(sceneId)}
+          onReorder={workspace.reorderScenes}
           onSave={() => void workspace.saveSelectedScene()}
           onSelect={(sceneId) => void workspace.selectScene(sceneId)}
         />}
@@ -255,7 +263,10 @@ export default function ScriptPage() {
           onDeleteScene={deleteScene}
           onSave={() => void workspace.saveSelectedScene()}
         />}
-        {workspace.mode === 'characters' && <CharactersView characters={workspace.characters} />}
+        {workspace.mode === 'characters' && <CharactersView
+          characters={workspace.characters}
+          scenes={workspace.scenes}
+        />}
       </section>
     </div>
   </div>;

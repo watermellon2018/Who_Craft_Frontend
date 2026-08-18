@@ -24,6 +24,7 @@ const scene: Scene = {
 
 test('keeps act management and notes in the Cards inspector', () => {
   const onChange = jest.fn();
+  const onActChange = jest.fn();
   render(
     <SceneInspector
       scene={scene}
@@ -31,6 +32,7 @@ test('keeps act management and notes in the Cards inspector', () => {
       dirty={false}
       saving={false}
       onChange={onChange}
+      onActChange={onActChange}
       onDelete={jest.fn()}
       onSave={jest.fn()}
     />,
@@ -49,7 +51,8 @@ test('keeps act management and notes in the Cards inspector', () => {
 
   fireEvent.mouseDown(actSelect);
   fireEvent.click(screen.getByText('Акт 2'));
-  expect(onChange).toHaveBeenCalledWith(scene.id, {act: 2});
+  expect(onActChange).toHaveBeenCalledWith(scene.id, 2);
+  expect(onChange).not.toHaveBeenCalledWith(scene.id, {act: 2});
 });
 
 test('shows only private notes inside the screenplay drawer', () => {

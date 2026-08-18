@@ -10,6 +10,7 @@ jest.mock('./api', () => ({
     deleteScene: jest.fn(),
     getCharacters: jest.fn(),
     getWorkspace: jest.fn(),
+    reorderScenes: jest.fn(),
     updateScene: jest.fn(),
   },
 }));
@@ -23,6 +24,7 @@ const getCharactersMock = scriptApi.getCharacters as jest.MockedFunction<typeof 
 const updateSceneMock = scriptApi.updateScene as jest.MockedFunction<typeof scriptApi.updateScene>;
 const createSceneMock = scriptApi.createScene as jest.MockedFunction<typeof scriptApi.createScene>;
 const deleteSceneMock = scriptApi.deleteScene as jest.MockedFunction<typeof scriptApi.deleteScene>;
+const reorderScenesMock = scriptApi.reorderScenes as jest.MockedFunction<typeof scriptApi.reorderScenes>;
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -167,6 +169,46 @@ describe('useScriptWorkspace scene persistence', () => {
 
     expect(deleteSceneMock).toHaveBeenCalledWith('7', 1);
     expect(result.current.scenes).toEqual([]);
+  });
+
+  it('saves dirty text before atomically persisting a new scene order', async () => {
+    const secondScene = {...scene, id: 2, order: 2, title: 'Вторая сцена'};
+    getWorkspaceMock.mockResolvedValue({...workspace, scenes: [scene, secondScene]});
+    updateSceneMock.mockImplementation(async (_projectId, nextScene) => ({
+      ...nextScene,
+      version: nextScene.version + 1,
+    }));
+    reorderScenesMock.mockImplementation(async (_projectId, placements) => placements.map((item) => ({
+      ...item,
+      version: item.version + 1,
+      updatedAt: '2026-07-21T00:00:00Z',
+    })));
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.updateScene(1, {title: 'Изменённая первая сцена'}));
+    await act(async () => {
+      await result.current.reorderScenes([
+        {id: 2, order: 1, act: 1},
+        {id: 1, order: 2, act: 2},
+      ]);
+    });
+
+    expect(updateSceneMock).toHaveBeenCalledWith('7', expect.objectContaining({
+      id: 1,
+      title: 'Изменённая первая сцена',
+      version: 1,
+    }));
+    expect(reorderScenesMock).toHaveBeenCalledWith('7', [
+      expect.objectContaining({id: 1, order: 2, act: 2, version: 2}),
+      expect.objectContaining({id: 2, order: 1, act: 1, version: 1}),
+    ]);
+    expect(result.current.scenes.map(({id, order, act}) => ({id, order, act}))).toEqual([
+      {id: 2, order: 1, act: 1},
+      {id: 1, order: 2, act: 2},
+    ]);
+    expect(result.current.dirtySceneIds).toEqual([]);
+    expect(result.current.reordering).toBe(false);
   });
 });
 describe('useScriptWorkspace route ownership', () => {

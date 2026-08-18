@@ -113,7 +113,7 @@ to the backend worker's separate Python/Conda environment.
 ## Script workspace
 
 Open a project's **Script** section to write and organize screenplay scenes.
-The collapsible sidebar switches between the screenplay, cards, and characters
+The collapsible sidebar switches between the screenplay, structure, and character relationships
 and keeps explicit scene selection close to the editor. Each screenplay scene
 remains a separate sheet; normal mouse-wheel scrolling does not switch scenes.
 
@@ -127,8 +127,26 @@ an explicit delete action. The bottom zoom control scales only the screenplay
 sheet from 50% to 200%, offers a fit-to-width mode, and remembers the user's
 choice without changing the surrounding workspace UI.
 
+The **Structure** view groups scene cards by act. Cards show the screenplay
+heading, extracted location, linked characters, and a rough text-based duration
+estimate; empty and locally unsaved scenes have explicit status labels. Editors
+can drag scenes within or between acts, or use the keyboard-accessible movement
+buttons. The backend applies the complete order atomically with optimistic
+versions, so scene numbers stay unique. Double-clicking a card opens that scene
+in the screenplay editor. Reordering is disabled while a character filter is
+active, and the duration is only a writing estimate rather than production
+timing.
+
+The **Relationships** view derives objective character statistics from linked
+screenplay dialogue. Node size represents dialogue count, while edge thickness
+represents consecutive speaker changes inside scenes. Users can filter the
+analysis to the whole screenplay, an act, or a scene; choose an exact number of
+visible characters or show all; and inspect dialogue, word, shared-scene, and
+act breakdowns. Co-presence alone does not create a relationship, and unlinked
+dialogue is reported separately instead of being guessed.
+
 The screenplay keeps only a closed **Scene notes** panel for private technical
-details that do not belong on the page. Act assignment lives in the Cards view;
+details that do not belong on the page. Act assignment lives in the Structure view;
 manual duration and dramatic-function fields are not part of screenplay
 editing. Detailed timing belongs to future shot planning. Character membership
 is collected from character paragraphs rather than edited in a separate
