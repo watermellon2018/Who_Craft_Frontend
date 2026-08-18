@@ -2,7 +2,7 @@ import {act, renderHook, waitFor} from '@testing-library/react';
 
 import {scriptApi} from './api';
 import type {Scene, ScriptWorkspaceResponse} from './types';
-import {useScriptWorkspace} from './useScriptWorkspace';
+import {SCRIPT_AUTO_SAVE_DELAY_MS, useScriptWorkspace} from './useScriptWorkspace';
 
 jest.mock('./api', () => ({
   scriptApi: {
@@ -10,6 +10,7 @@ jest.mock('./api', () => ({
     deleteScene: jest.fn(),
     getCharacters: jest.fn(),
     getWorkspace: jest.fn(),
+    reorderScenes: jest.fn(),
     updateScene: jest.fn(),
   },
 }));
@@ -22,6 +23,8 @@ const getWorkspaceMock = scriptApi.getWorkspace as jest.MockedFunction<typeof sc
 const getCharactersMock = scriptApi.getCharacters as jest.MockedFunction<typeof scriptApi.getCharacters>;
 const updateSceneMock = scriptApi.updateScene as jest.MockedFunction<typeof scriptApi.updateScene>;
 const createSceneMock = scriptApi.createScene as jest.MockedFunction<typeof scriptApi.createScene>;
+const deleteSceneMock = scriptApi.deleteScene as jest.MockedFunction<typeof scriptApi.deleteScene>;
+const reorderScenesMock = scriptApi.reorderScenes as jest.MockedFunction<typeof scriptApi.reorderScenes>;
 
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -65,9 +68,29 @@ beforeEach(() => {
   jest.clearAllMocks();
   getWorkspaceMock.mockResolvedValue(workspace);
   getCharactersMock.mockResolvedValue([]);
+  deleteSceneMock.mockResolvedValue();
 });
 
 describe('useScriptWorkspace scene persistence', () => {
+  it('opens in screenplay mode and autosaves a changed scene after a short pause', async () => {
+    updateSceneMock.mockImplementation(async (_projectId, nextScene) => ({
+      ...nextScene,
+      version: nextScene.version + 1,
+    }));
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.mode).toBe('screenplay');
+    act(() => result.current.updateScene(1, {title: 'Автосохранённая сцена'}));
+
+    await waitFor(
+      () => expect(updateSceneMock).toHaveBeenCalledTimes(1),
+      {timeout: SCRIPT_AUTO_SAVE_DELAY_MS + 1500},
+    );
+    await waitFor(() => expect(result.current.dirtySceneIds).toEqual([]));
+    expect(updateSceneMock.mock.calls[0][1].title).toBe('Автосохранённая сцена');
+  });
+
   it('coalesces parallel saves and persists edits made during the first patch', async () => {
     let resolveFirstPatch: (saved: Scene) => void = () => undefined;
     const firstPatch = new Promise<Scene>((resolve) => {
@@ -119,6 +142,73 @@ describe('useScriptWorkspace scene persistence', () => {
     expect(updateSceneMock).toHaveBeenCalledTimes(1);
     expect(createSceneMock).not.toHaveBeenCalled();
     expect(result.current.saveError).toContain('не удалось сохранить');
+  });
+
+  it('waits for an active autosave before deleting the same scene', async () => {
+    const saveRequest = deferred<Scene>();
+    updateSceneMock.mockReturnValueOnce(saveRequest.promise);
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.updateScene(1, {notes: 'Удалить после сохранения'}));
+    await waitFor(
+      () => expect(updateSceneMock).toHaveBeenCalledTimes(1),
+      {timeout: SCRIPT_AUTO_SAVE_DELAY_MS + 1500},
+    );
+
+    let removePromise: Promise<void> = Promise.resolve();
+    act(() => {
+      removePromise = result.current.removeScene(1);
+    });
+    expect(deleteSceneMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      saveRequest.resolve({...scene, notes: 'Удалить после сохранения', version: 2});
+      await removePromise;
+    });
+
+    expect(deleteSceneMock).toHaveBeenCalledWith('7', 1);
+    expect(result.current.scenes).toEqual([]);
+  });
+
+  it('saves dirty text before atomically persisting a new scene order', async () => {
+    const secondScene = {...scene, id: 2, order: 2, title: 'Вторая сцена'};
+    getWorkspaceMock.mockResolvedValue({...workspace, scenes: [scene, secondScene]});
+    updateSceneMock.mockImplementation(async (_projectId, nextScene) => ({
+      ...nextScene,
+      version: nextScene.version + 1,
+    }));
+    reorderScenesMock.mockImplementation(async (_projectId, placements) => placements.map((item) => ({
+      ...item,
+      version: item.version + 1,
+      updatedAt: '2026-07-21T00:00:00Z',
+    })));
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.updateScene(1, {title: 'Изменённая первая сцена'}));
+    await act(async () => {
+      await result.current.reorderScenes([
+        {id: 2, order: 1, act: 1},
+        {id: 1, order: 2, act: 2},
+      ]);
+    });
+
+    expect(updateSceneMock).toHaveBeenCalledWith('7', expect.objectContaining({
+      id: 1,
+      title: 'Изменённая первая сцена',
+      version: 1,
+    }));
+    expect(reorderScenesMock).toHaveBeenCalledWith('7', [
+      expect.objectContaining({id: 1, order: 2, act: 2, version: 2}),
+      expect.objectContaining({id: 2, order: 1, act: 1, version: 1}),
+    ]);
+    expect(result.current.scenes.map(({id, order, act}) => ({id, order, act}))).toEqual([
+      {id: 2, order: 1, act: 1},
+      {id: 1, order: 2, act: 2},
+    ]);
+    expect(result.current.dirtySceneIds).toEqual([]);
+    expect(result.current.reordering).toBe(false);
   });
 });
 describe('useScriptWorkspace route ownership', () => {

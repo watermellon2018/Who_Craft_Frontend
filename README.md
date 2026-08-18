@@ -110,6 +110,57 @@ supports parametric zones, canonical views, snapshot/GLB export, autofit state,
 and optional reconstructed head/hair assets. The heavy Hunyuan runtime belongs
 to the backend worker's separate Python/Conda environment.
 
+## Script workspace
+
+Open a project's **Script** section to write and organize screenplay scenes.
+The collapsible left sidebar switches between the screenplay, structure, and character
+relationships. In the screenplay editor, a separate collapsible panel on the right
+lists the scenes and keeps explicit scene selection close to the editor. Each screenplay
+scene remains a separate sheet; normal mouse-wheel scrolling does not switch scenes.
+The workspace uses the shared application header. Save state, export, and return-to-project
+controls live in the left sidebar and remain available as compact indicators and icon
+buttons when that sidebar is collapsed.
+
+The screenplay editor saves changes automatically after a short pause. Enter
+creates the next screenplay paragraph, Shift+Enter inserts a line break, Tab
+changes the paragraph format, and / opens contextual suggestions. In a
+**Character** paragraph, typing filters the project's characters and selecting
+one links that character to the scene. Backspace at the beginning of a
+paragraph merges it back into the previous one; the active paragraph also has
+an explicit delete action. The bottom zoom control scales only the screenplay
+sheet from 50% to 200%, offers a fit-to-width mode, and remembers the user's
+choice without changing the surrounding workspace UI.
+
+The **Structure** view groups scene cards by act. Cards show the screenplay
+heading, extracted location, linked characters, and a rough text-based duration
+estimate; empty and locally unsaved scenes have explicit status labels. Editors
+can drag scenes within or between acts, or use the keyboard-accessible movement
+buttons. The backend applies the complete order atomically with optimistic
+versions, so scene numbers stay unique. Double-clicking a card opens that scene
+in the screenplay editor. Reordering is disabled while a character filter is
+active, and the duration is only a writing estimate rather than production
+timing.
+
+The **Relationships** view derives objective character statistics from linked
+screenplay dialogue. Node size represents dialogue count, while edge thickness
+represents consecutive speaker changes inside scenes. Users can filter the
+analysis to the whole screenplay, an act, or a scene; choose an exact number of
+visible characters or show all; zoom the graph from 50% to 200% with the mouse
+wheel; drag an enlarged graph to reach other nodes; collapse the details
+sidebar from its edge; and inspect dialogue, word, shared-scene, and act
+breakdowns. Keyboard users can zoom with plus/minus, pan with the arrow keys,
+and reset with zero. Co-presence alone does not create a relationship, and
+unlinked dialogue is reported separately instead of being guessed.
+
+The screenplay keeps only a closed **Scene notes** panel for private technical
+details that do not belong on the page. Act assignment lives in the Structure view;
+manual duration and dramatic-function fields are not part of screenplay
+editing. Detailed timing belongs to future shot planning. Character membership
+is collected from character paragraphs rather than edited in a separate
+participants field. Music actions, shot planning, and video-generation
+segmentation are intentionally outside this workspace. Editing requires the
+existing project edit permission.
+
 ## Contract changes
 
 The backend contract is canonical. When it changes, synchronize

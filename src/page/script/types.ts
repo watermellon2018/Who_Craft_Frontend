@@ -1,4 +1,4 @@
-export type WorkspaceMode = 'screenplay' | 'cards' | 'characters' | 'locations';
+export type WorkspaceMode = 'screenplay' | 'cards' | 'characters';
 
 export type ScriptBlockType =
   | 'scene_heading'
@@ -110,6 +110,21 @@ export interface SceneMutation {
 
 export interface ScenePatch extends SceneMutation {
   version: number;
+}
+
+export interface SceneOrderUpdate {
+  id: number;
+  order: number;
+  act: number;
+  version: number;
+}
+
+export interface SceneOrderResult extends SceneOrderUpdate {
+  updatedAt: string;
+}
+
+export interface SceneReorderResponse {
+  scenes: SceneOrderResult[];
 }
 
 export interface WorkspaceConflict {
