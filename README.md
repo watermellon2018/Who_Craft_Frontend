@@ -113,9 +113,13 @@ to the backend worker's separate Python/Conda environment.
 ## Script workspace
 
 Open a project's **Script** section to write and organize screenplay scenes.
-The collapsible sidebar switches between the screenplay, structure, and character relationships
-and keeps explicit scene selection close to the editor. Each screenplay scene
-remains a separate sheet; normal mouse-wheel scrolling does not switch scenes.
+The collapsible left sidebar switches between the screenplay, structure, and character
+relationships. In the screenplay editor, a separate collapsible panel on the right
+lists the scenes and keeps explicit scene selection close to the editor. Each screenplay
+scene remains a separate sheet; normal mouse-wheel scrolling does not switch scenes.
+The workspace uses the shared application header. Save state, export, and return-to-project
+controls live in the left sidebar and remain available as compact indicators and icon
+buttons when that sidebar is collapsed.
 
 The screenplay editor saves changes automatically after a short pause. Enter
 creates the next screenplay paragraph, Shift+Enter inserts a line break, Tab
@@ -141,9 +145,12 @@ The **Relationships** view derives objective character statistics from linked
 screenplay dialogue. Node size represents dialogue count, while edge thickness
 represents consecutive speaker changes inside scenes. Users can filter the
 analysis to the whole screenplay, an act, or a scene; choose an exact number of
-visible characters or show all; and inspect dialogue, word, shared-scene, and
-act breakdowns. Co-presence alone does not create a relationship, and unlinked
-dialogue is reported separately instead of being guessed.
+visible characters or show all; zoom the graph from 50% to 200% with the mouse
+wheel; drag an enlarged graph to reach other nodes; collapse the details
+sidebar from its edge; and inspect dialogue, word, shared-scene, and act
+breakdowns. Keyboard users can zoom with plus/minus, pan with the arrow keys,
+and reset with zero. Co-presence alone does not create a relationship, and
+unlinked dialogue is reported separately instead of being guessed.
 
 The screenplay keeps only a closed **Scene notes** panel for private technical
 details that do not belong on the page. Act assignment lives in the Structure view;

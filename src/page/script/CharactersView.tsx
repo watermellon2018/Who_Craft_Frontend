@@ -1,4 +1,8 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import {
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+} from '@ant-design/icons';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {InputNumber, Select} from 'antd';
 
 import {backendAssetUrl} from '../../api/http';
@@ -21,15 +25,56 @@ interface GraphPosition {
   y: number;
 }
 
+interface GraphView {
+  center: GraphPosition;
+  zoom: number;
+}
+
+interface GraphPanState {
+  moved: boolean;
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startView: GraphView;
+}
+
 type AnalysisSelection =
   | {id: string; type: 'character'}
   | {id: string; type: 'relationship'};
 
 const DEFAULT_VISIBLE_CHARACTER_COUNT = 10;
+const DEFAULT_GRAPH_ZOOM = 100;
 const GRAPH_MIN_HEIGHT = 640;
 const GRAPH_ROW_HEIGHT = 210;
 const GRAPH_TOP_PADDING = 125;
 const GRAPH_WIDTH = 1200;
+const MAX_GRAPH_ZOOM = 200;
+const MIN_GRAPH_ZOOM = 50;
+const GRAPH_ZOOM_STEP = 10;
+
+const clamp = (value: number, minimum: number, maximum: number) => (
+  Math.min(maximum, Math.max(minimum, value))
+);
+
+const graphViewportSize = (zoom: number, graphHeight: number) => ({
+  height: graphHeight * DEFAULT_GRAPH_ZOOM / zoom,
+  width: GRAPH_WIDTH * DEFAULT_GRAPH_ZOOM / zoom,
+});
+
+const clampGraphCenter = (
+  center: GraphPosition,
+  zoom: number,
+  graphHeight: number,
+): GraphPosition => {
+  const viewport = graphViewportSize(zoom, graphHeight);
+  const clampAxis = (value: number, total: number, visible: number) => (
+    visible >= total ? total / 2 : clamp(value, visible / 2, total - visible / 2)
+  );
+  return {
+    x: clampAxis(center.x, GRAPH_WIDTH, viewport.width),
+    y: clampAxis(center.y, graphHeight, viewport.height),
+  };
+};
 
 const initials = (name: string) => name
   .split(/\s+/)
@@ -101,6 +146,16 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
   const [visibleCharacterCount, setVisibleCharacterCount] = useState(DEFAULT_VISIBLE_CHARACTER_COUNT);
   const [showAll, setShowAll] = useState(false);
   const [selection, setSelection] = useState<AnalysisSelection | null>(null);
+  const [graphView, setGraphView] = useState<GraphView>({
+    center: {x: GRAPH_WIDTH / 2, y: GRAPH_MIN_HEIGHT / 2},
+    zoom: DEFAULT_GRAPH_ZOOM,
+  });
+  const [isPanning, setIsPanning] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const graphRef = useRef<SVGSVGElement>(null);
+  const graphViewportRef = useRef<HTMLDivElement>(null);
+  const panStateRef = useRef<GraphPanState | null>(null);
+  const suppressClickRef = useRef(false);
 
   const filteredScenes = useMemo(() => {
     if (scope === 'all') return scenes;
@@ -179,6 +234,13 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
     if (!selectionVisible) setSelection(null);
   }, [selection, visibleCharacterIds, visibleRelationships]);
 
+  useEffect(() => {
+    setGraphView((current) => ({
+      ...current,
+      center: clampGraphCenter(current.center, current.zoom, layout.height),
+    }));
+  }, [layout.height]);
+
   const relationshipName = (relationship: CharacterRelationshipMetric) => {
     const source = characterById.get(relationship.sourceId)?.name ?? 'Персонаж';
     const target = characterById.get(relationship.targetId)?.name ?? 'Персонаж';
@@ -189,12 +251,140 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
     42 + Math.round(Math.sqrt(metric.dialogueCount / maxDialogueCount) * 15)
   );
 
+  const zoomGraph = useCallback((direction: -1 | 1, anchor?: GraphPosition) => {
+    setGraphView((current) => {
+      const nextZoom = clamp(
+        current.zoom + direction * GRAPH_ZOOM_STEP,
+        MIN_GRAPH_ZOOM,
+        MAX_GRAPH_ZOOM,
+      );
+      if (nextZoom === current.zoom) return current;
+
+      let nextCenter = current.center;
+      const graphBounds = graphRef.current?.getBoundingClientRect();
+      if (anchor && graphBounds && graphBounds.width > 0 && graphBounds.height > 0) {
+        const normalizedX = clamp((anchor.x - graphBounds.left) / graphBounds.width, 0, 1);
+        const normalizedY = clamp((anchor.y - graphBounds.top) / graphBounds.height, 0, 1);
+        const currentViewport = graphViewportSize(current.zoom, layout.height);
+        const nextViewport = graphViewportSize(nextZoom, layout.height);
+        const worldX = current.center.x + (normalizedX - 0.5) * currentViewport.width;
+        const worldY = current.center.y + (normalizedY - 0.5) * currentViewport.height;
+        nextCenter = {
+          x: worldX - (normalizedX - 0.5) * nextViewport.width,
+          y: worldY - (normalizedY - 0.5) * nextViewport.height,
+        };
+      }
+
+      return {
+        center: clampGraphCenter(nextCenter, nextZoom, layout.height),
+        zoom: nextZoom,
+      };
+    });
+  }, [layout.height]);
+
+  useEffect(() => {
+    const viewport = graphViewportRef.current;
+    if (!viewport) return undefined;
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (event.deltaY === 0) return;
+      zoomGraph(event.deltaY < 0 ? 1 : -1, {x: event.clientX, y: event.clientY});
+    };
+    viewport.addEventListener('wheel', handleWheel, {passive: false});
+    return () => viewport.removeEventListener('wheel', handleWheel);
+  }, [zoomGraph]);
+
+  const panGraph = (horizontal: number, vertical: number) => {
+    setGraphView((current) => {
+      const viewport = graphViewportSize(current.zoom, layout.height);
+      return {
+        ...current,
+        center: clampGraphCenter({
+          x: current.center.x + horizontal * viewport.width * 0.12,
+          y: current.center.y + vertical * viewport.height * 0.12,
+        }, current.zoom, layout.height),
+      };
+    });
+  };
+
+  const handleGraphKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === '+' || event.key === '=') zoomGraph(1);
+    else if (event.key === '-' || event.key === '_') zoomGraph(-1);
+    else if (event.key === 'ArrowLeft') panGraph(-1, 0);
+    else if (event.key === 'ArrowRight') panGraph(1, 0);
+    else if (event.key === 'ArrowUp') panGraph(0, -1);
+    else if (event.key === 'ArrowDown') panGraph(0, 1);
+    else if (event.key === '0') {
+      setGraphView({
+        center: {x: GRAPH_WIDTH / 2, y: layout.height / 2},
+        zoom: DEFAULT_GRAPH_ZOOM,
+      });
+    } else return;
+    event.preventDefault();
+  };
+
+  const beginGraphPan = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (graphView.zoom <= DEFAULT_GRAPH_ZOOM || event.button !== 0 || event.isPrimary === false) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    panStateRef.current = {
+      moved: false,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startView: graphView,
+    };
+  };
+
+  const moveGraph = (event: React.PointerEvent<SVGSVGElement>) => {
+    const panState = panStateRef.current;
+    if (!panState || panState.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - panState.startClientX;
+    const deltaY = event.clientY - panState.startClientY;
+    if (!panState.moved && Math.hypot(deltaX, deltaY) < 3) return;
+
+    const graphBounds = event.currentTarget.getBoundingClientRect();
+    if (graphBounds.width <= 0 || graphBounds.height <= 0) return;
+    panState.moved = true;
+    suppressClickRef.current = true;
+    setIsPanning(true);
+    const viewport = graphViewportSize(panState.startView.zoom, layout.height);
+    setGraphView({
+      center: clampGraphCenter({
+        x: panState.startView.center.x - deltaX / graphBounds.width * viewport.width,
+        y: panState.startView.center.y - deltaY / graphBounds.height * viewport.height,
+      }, panState.startView.zoom, layout.height),
+      zoom: panState.startView.zoom,
+    });
+  };
+
+  const endGraphPan = (event: React.PointerEvent<SVGSVGElement>) => {
+    const panState = panStateRef.current;
+    if (!panState || panState.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }
+    panStateRef.current = null;
+    setIsPanning(false);
+    if (panState.moved) {
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 0);
+    }
+  };
+
+  const graphViewport = graphViewportSize(graphView.zoom, layout.height);
+  const graphViewBox = [
+    graphView.center.x - graphViewport.width / 2,
+    graphView.center.y - graphViewport.height / 2,
+    graphViewport.width,
+    graphViewport.height,
+  ].join(' ');
+
   return <main className="character-analysis">
     <header className="character-analysis__header">
       <div className="character-analysis__intro">
         <span className="script-eyebrow">АНАЛИТИКА СЦЕНАРИЯ</span>
         <h2>Связи персонажей</h2>
-        <p>Факты из привязанных реплик — без оценки характера отношений.</p>
       </div>
       <div className="character-analysis__filters">
         <label>
@@ -253,16 +443,24 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
       </article>
     </section>
 
-    <div className="character-analysis__body">
-      <section className="character-analysis__graph-panel" aria-labelledby="character-graph-title">
-        <header>
-          <div>
-            <h3 id="character-graph-title">Карта связей</h3>
-            <p>Размер узла — число реплик, толщина линии — диалоговые обмены.</p>
-          </div>
-          <span>{visibleCharacters.length} из {analysis.characters.length}</span>
-        </header>
-        <div className="character-graph__viewport">
+    <div className={`character-analysis__body${detailsOpen ? '' : ' is-details-collapsed'}`}>
+      <section className="character-analysis__graph-panel" aria-label="Граф связей персонажей">
+        <p className="screen-reader-only" id="character-graph-navigation-instructions">
+          Колесо мыши меняет масштаб. Зажмите левую кнопку и тяните увеличенный граф.
+          С клавиатуры используйте плюс и минус для масштаба, стрелки для перемещения и ноль для сброса.
+        </p>
+        <div className="character-graph__navigation-hint" aria-hidden="true">
+          <strong>{graphView.zoom}%</strong>
+        </div>
+        <div
+          ref={graphViewportRef}
+          className="character-graph__viewport"
+          role="region"
+          tabIndex={0}
+          aria-label="Навигация по графу"
+          aria-describedby="character-graph-navigation-instructions"
+          onKeyDown={handleGraphKeyDown}
+        >
           {analysis.characters.length === 0 ? <section className="character-graph__empty">
             <span aria-hidden="true">◌</span>
             <h3>{characters.length === 0 ? 'Персонажи пока не добавлены' : 'Нет привязанных персонажей'}</h3>
@@ -274,11 +472,26 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
               Между показанными персонажами пока нет последовательных обменов репликами.
             </p>}
             <svg
-              className="character-graph__map"
+              ref={graphRef}
+              className={[
+                'character-graph__map',
+                graphView.zoom > DEFAULT_GRAPH_ZOOM ? 'is-pannable' : '',
+                isPanning ? 'is-panning' : '',
+              ].filter(Boolean).join(' ')}
               role="group"
               aria-label={`Граф связей: ${visibleCharacters.length} персонажей, ${visibleRelationships.length} связей`}
-              viewBox={`0 0 ${GRAPH_WIDTH} ${layout.height}`}
+              viewBox={graphViewBox}
               style={{minHeight: Math.min(layout.height, 920)}}
+              onClickCapture={(event) => {
+                if (!suppressClickRef.current) return;
+                event.preventDefault();
+                event.stopPropagation();
+                suppressClickRef.current = false;
+              }}
+              onPointerCancel={endGraphPan}
+              onPointerDown={beginGraphPan}
+              onPointerMove={moveGraph}
+              onPointerUp={endGraphPan}
             >
               <defs>
                 <filter id="character-node-glow" x="-80%" y="-80%" width="260%" height="260%">
@@ -371,7 +584,26 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
         </div>
       </section>
 
-      <aside className="character-analysis__details" aria-label="Детали анализа" aria-live="polite">
+      <button
+        aria-controls="character-analysis-details"
+        aria-expanded={detailsOpen}
+        aria-label={detailsOpen ? 'Скрыть панель деталей' : 'Показать панель деталей'}
+        className={`character-analysis__details-handle ${detailsOpen ? 'is-open' : 'is-collapsed'}`}
+        type="button"
+        onClick={() => setDetailsOpen((current) => !current)}
+      >
+        {detailsOpen
+          ? <MenuUnfoldOutlined aria-hidden="true" />
+          : <MenuFoldOutlined aria-hidden="true" />}
+      </button>
+
+      <aside
+        className="character-analysis__details"
+        id="character-analysis-details"
+        aria-label="Детали анализа"
+        aria-live="polite"
+        hidden={!detailsOpen}
+      >
         {selectedCharacter && <>
           <span className="script-eyebrow">ПЕРСОНАЖ</span>
           <h3>{selectedCharacter.character.name}</h3>
@@ -430,12 +662,10 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
         </>}
 
         {!selectedCharacter && !selectedRelationship && <>
-          <span className="script-eyebrow">КАК ЧИТАТЬ ГРАФ</span>
-          <h3>Только факты из текста</h3>
+          <h3>КАК ЧИТАТЬ ГРАФ</h3>
           <ul className="character-analysis__legend">
             <li><i className="is-node" />Крупнее узел — больше реплик.</li>
             <li><i className="is-edge" />Толще линия — больше смен говорящих.</li>
-            <li><i className="is-filter" />Фильтры пересчитывают данные по актам и сценам.</li>
           </ul>
           {strongestRelationship && <>
             <h4>Самая активная связь</h4>

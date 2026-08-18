@@ -126,7 +126,7 @@ describe('CharactersView', () => {
     fireEvent.change(limitInput, {target: {value: '2'}});
 
     expect(screen.getAllByTestId('character-graph-node')).toHaveLength(2);
-    expect(screen.getByText('2 из 3')).toBeInTheDocument();
+    expect(screen.getByText(/Показано 2 из 3 персонажей/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', {name: 'Показать всех персонажей'}));
 
@@ -149,5 +149,72 @@ describe('CharactersView', () => {
 
     expect(screen.getByRole('heading', {name: 'Персонажи пока не добавлены'})).toBeInTheDocument();
     expect(screen.queryAllByTestId('character-graph-node')).toHaveLength(0);
+  });
+
+  it('zooms with the mouse wheel and pans an enlarged graph by dragging', () => {
+    render(<CharactersView characters={characters} scenes={scenes} />);
+    const graph = screen.getByRole('group', {name: /Граф связей: 3 персонажей/});
+    const viewport = screen.getByRole('region', {name: 'Навигация по графу'});
+    jest.spyOn(graph, 'getBoundingClientRect').mockReturnValue({
+      bottom: 500,
+      height: 500,
+      left: 0,
+      right: 1000,
+      top: 0,
+      width: 1000,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const initialViewBox = graph.getAttribute('viewBox');
+    fireEvent.wheel(viewport, {clientX: 500, clientY: 250, deltaY: -100});
+
+    expect(graph.getAttribute('viewBox')).not.toBe(initialViewBox);
+    expect(screen.getByText('110%')).toBeInTheDocument();
+
+    const zoomedViewBox = graph.getAttribute('viewBox');
+    const pointerEvent = (type: string, clientX: number) => {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        button: 0,
+        clientX,
+        clientY: 250,
+      });
+      Object.defineProperties(event, {
+        isPrimary: {value: true},
+        pointerId: {value: 1},
+      });
+      return event;
+    };
+    fireEvent(graph, pointerEvent('pointerdown', 500));
+    fireEvent(graph, pointerEvent('pointermove', 400));
+    fireEvent(graph, pointerEvent('pointerup', 400));
+
+    expect(graph.getAttribute('viewBox')).not.toBe(zoomedViewBox);
+    expect(screen.queryByRole('combobox', {name: 'Масштаб графа'})).not.toBeInTheDocument();
+
+    fireEvent.keyDown(viewport, {key: '0'});
+    expect(graph).toHaveAttribute('viewBox', '0 0 1200 640');
+    expect(screen.getByText('100%')).toBeInTheDocument();
+  });
+
+  it('lets the user hide and restore the analysis details sidebar', () => {
+    const {container} = render(<CharactersView characters={characters} scenes={scenes} />);
+    const hideDetails = screen.getByRole('button', {name: 'Скрыть панель деталей'});
+
+    expect(hideDetails).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('complementary', {name: 'Детали анализа'})).toBeInTheDocument();
+
+    fireEvent.click(hideDetails);
+
+    expect(screen.queryByRole('complementary', {name: 'Детали анализа'})).not.toBeInTheDocument();
+    expect(container.querySelector('.character-analysis__body')).toHaveClass('is-details-collapsed');
+    const showDetails = screen.getByRole('button', {name: 'Показать панель деталей'});
+    expect(showDetails).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(showDetails);
+
+    expect(screen.getByRole('complementary', {name: 'Детали анализа'})).toBeInTheDocument();
   });
 });

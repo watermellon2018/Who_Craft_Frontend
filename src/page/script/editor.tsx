@@ -12,9 +12,9 @@ import {
 } from '@ant-design/icons';
 import React, {useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-import WCraftBrand from '../../components/WCraftBrand';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
+import DashboardHeader from '../../modules/profile/components/DashboardHeader';
 import PathConstants, {
   projectDashboardPath,
 } from '../../routes/pathConstant';
@@ -23,6 +23,7 @@ import {sceneToPlainText} from './api';
 import CardsView from './CardsView';
 import CharactersView from './CharactersView';
 import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
+import SceneListPanel from './SceneListPanel';
 import ScreenplayView from './ScreenplayView';
 import './style.css';
 import type {WorkspaceMode} from './types';
@@ -40,6 +41,9 @@ export default function ScriptPage() {
   const workspace = useScriptWorkspace(projectId);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= 780,
+  );
+  const [scenePanelCollapsed, setScenePanelCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 1080,
   );
   const {allowNextNavigation} = useUnsavedChangesGuard(
     workspace.dirtySceneIds.length > 0 || workspace.reordering,
@@ -118,32 +122,15 @@ export default function ScriptPage() {
       ? 'Сохраняем порядок…'
       : selectedSaving ? 'Сохраняем…' : selectedDirty ? 'Есть изменения' : 'Сохранено'
     : 'Только просмотр';
+  const saveStatusClass = workspace.reordering || selectedSaving
+    ? 'is-saving'
+    : selectedDirty
+      ? 'is-dirty'
+      : workspace.canEdit ? 'is-saved' : 'is-readonly';
   const canRetrySave = workspace.saveError?.includes('сохранить') === true;
 
   return <div className={`script-workspace${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
-    <header className="script-topbar">
-      <WCraftBrand className="script-topbar__brand" />
-      <div className="script-project-heading">
-        <div>
-          <button onClick={() => navigate(PathConstants.PROJECTS)}>Все проекты</button>
-          <span>/</span>
-          <span>Сценарий</span>
-        </div>
-        <h1>{workspace.project.title}</h1>
-        <small
-          aria-live="polite"
-          className={!selectedDirty && !selectedSaving && workspace.canEdit ? 'is-saved' : ''}
-        >{saveStatus}</small>
-      </div>
-      <div className="script-topbar__actions">
-        <button className="script-button" disabled={workspace.scenes.length === 0} onClick={exportScript}>
-          <DownloadOutlined /> Экспорт
-        </button>
-        <button className="script-button script-button--primary" onClick={() => void finish()}>
-          <ArrowLeftOutlined /> К проекту
-        </button>
-      </div>
-    </header>
+    <DashboardHeader hideSubnav />
 
     <aside className="script-rail" aria-label="Навигация по сценарию">
       <div className="script-rail__header">
@@ -170,33 +157,36 @@ export default function ScriptPage() {
             {!sidebarCollapsed && <span>{item.label}</span>}
           </button>
         ))}
+        <div
+          aria-label={`Статус сценария: ${saveStatus}`}
+          className={`script-rail__save-status ${saveStatusClass}`}
+          role="status"
+          title={saveStatus}
+        >
+          <i aria-hidden="true" />
+          {!sidebarCollapsed && <span>{saveStatus}</span>}
+        </div>
+        <button
+          aria-label="Экспорт сценария"
+          className="script-rail__action"
+          disabled={workspace.scenes.length === 0}
+          title="Экспорт сценария"
+          onClick={exportScript}
+        >
+          <DownloadOutlined />
+          {!sidebarCollapsed && <span>Экспорт</span>}
+        </button>
+        <button
+          aria-label="Вернуться к проекту"
+          className="script-rail__action"
+          title="Вернуться к проекту"
+          onClick={() => void finish()}
+        >
+          <ArrowLeftOutlined />
+          {!sidebarCollapsed && <span>К проекту</span>}
+        </button>
       </nav>
 
-      {workspace.mode === 'screenplay' && !sidebarCollapsed && <section className="script-scene-list">
-        <div className="script-scene-list__header">
-          <div>
-            <span className="script-eyebrow">СТРУКТУРА</span>
-            <h2>Сцены</h2>
-          </div>
-          {workspace.canEdit && <button aria-label="Добавить сцену" onClick={() => void workspace.addScene()}>
-            <PlusOutlined />
-          </button>}
-        </div>
-        <div className="script-scene-list__items">
-          {workspace.scenes.map((scene) => <button
-            key={scene.id}
-            aria-current={workspace.selectedScene?.id === scene.id ? 'true' : undefined}
-            className={workspace.selectedScene?.id === scene.id ? 'is-selected' : ''}
-            onClick={() => void workspace.selectScene(scene.id)}
-          >
-            <span>{scene.order}</span>
-            <span>
-              <strong>{scene.title || 'Без названия'}</strong>
-              <small>Акт {scene.act}</small>
-            </span>
-          </button>)}
-        </div>
-      </section>}
     </aside>
 
     <div className="script-main">
@@ -250,19 +240,32 @@ export default function ScriptPage() {
           onSave={() => void workspace.saveSelectedScene()}
           onSelect={(sceneId) => void workspace.selectScene(sceneId)}
         />}
-        {workspace.mode === 'screenplay' && <ScreenplayView
-          characters={workspace.characters}
-          selectedScene={workspace.selectedScene}
-          sceneCount={workspace.scenes.length}
-          scenePosition={selectedScenePosition}
-          canEdit={workspace.canEdit}
-          dirtySceneIds={workspace.dirtySceneIds}
-          savingSceneIds={workspace.savingSceneIds}
-          onAddScene={() => void workspace.addScene()}
-          onChange={workspace.updateScene}
-          onDeleteScene={deleteScene}
-          onSave={() => void workspace.saveSelectedScene()}
-        />}
+        {workspace.mode === 'screenplay' && <div
+          className={`script-screenplay-shell${scenePanelCollapsed ? ' is-scenes-collapsed' : ''}`}
+        >
+          <ScreenplayView
+            characters={workspace.characters}
+            selectedScene={workspace.selectedScene}
+            sceneCount={workspace.scenes.length}
+            scenePosition={selectedScenePosition}
+            canEdit={workspace.canEdit}
+            dirtySceneIds={workspace.dirtySceneIds}
+            savingSceneIds={workspace.savingSceneIds}
+            onAddScene={() => void workspace.addScene()}
+            onChange={workspace.updateScene}
+            onDeleteScene={deleteScene}
+            onSave={() => void workspace.saveSelectedScene()}
+          />
+          <SceneListPanel
+            canEdit={workspace.canEdit}
+            collapsed={scenePanelCollapsed}
+            scenes={workspace.scenes}
+            selectedSceneId={workspace.selectedScene?.id ?? null}
+            onAdd={() => void workspace.addScene()}
+            onSelect={(sceneId) => void workspace.selectScene(sceneId)}
+            onToggle={() => setScenePanelCollapsed((current) => !current)}
+          />
+        </div>}
         {workspace.mode === 'characters' && <CharactersView
           characters={workspace.characters}
           scenes={workspace.scenes}
