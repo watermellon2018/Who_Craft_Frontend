@@ -56,6 +56,7 @@ export interface MusicModelCapabilities {
 }
 
 export interface MusicModelRoute {
+  billingUnit?: 'generation' | 'minute';
   configured: boolean;
   key: string;
   provider: string;

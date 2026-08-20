@@ -755,8 +755,10 @@
       "label": "Generation model",
       "helper": "Choose the audio model. Available settings adjust to its capabilities.",
       "noneConfigured": "No music generation model is configured. Ask an administrator to add a provider API key.",
+      "minimaxDurationApproximate": "MiniMax treats the selected duration as an approximate instruction; the model controls the final track length.",
       "preview": "Preview",
-      "routeDetail": "{{providers}} · from ${{price}} per result"
+      "routeDetail": "{{providers}} · from ${{price}} per result",
+      "routeDetailPerMinute": "{{providers}} · ${{price}} per minute"
     },
     "format": {
       "title": "Format",
@@ -1035,6 +1037,22 @@
       "vocalTimbre": {"warm": "Warm", "clear": "Clear", "dark": "Dark", "airy": "Airy", "bright": "Bright"},
       "vocalDelivery": {"intimate": "Intimate", "soft": "Soft", "powerful": "Powerful", "spoken": "Spoken", "rap": "Rap"}
     }
+  },
+  "soundEffects": {
+    "breadcrumb": "Sound effects",
+    "eyebrow": "Audio workspace",
+    "navigation": {"label": "Audio workspace", "music": "Music", "effects": "Sound effects"},
+    "landing": {"title": "Create a sound effect", "subtitle": "Generate Foley, ambience, transitions, impacts, and seamless loops for your scenes."},
+    "create": {"title": "New sound effect", "new": "New effect", "generate": "Generate sound effect"},
+    "form": {"model": "Generation model", "prompt": "Sound description", "promptPlaceholder": "For example: heavy metal door slams in a long concrete corridor", "duration": "Duration", "durationAuto": "Auto", "durationCustom": "Set duration", "durationSeconds": "Duration in seconds", "loop": "Seamless loop", "influence": "Prompt influence"},
+    "library": {"title": "Effects library", "empty": "No sound effects yet", "show": "Open effects library", "hide": "Hide effects library"},
+    "history": {"title": "History", "empty": "Generation history is empty"},
+    "job": {"title": "Generation job", "completed": "Sound effect is ready", "failed": "Could not generate the sound effect", "cancelled": "Generation was cancelled", "retry": "Retry", "cancel": "Cancel", "background": "Generation continues in the background.", "status": {"queued": "Queued", "processing": "Generating", "cancellation_requested": "Cancelling", "completed": "Ready", "failed": "Failed", "cancelled": "Cancelled"}},
+    "player": {"variant": "Variant {{number}}", "unavailable": "Audio is unavailable", "apply": "Save to library", "applied": "Saved"},
+    "detail": {"eyebrow": "Sound effect", "newVersion": "Create another version"},
+    "summary": {"eyebrow": "Generation", "title": "Effect settings", "helper": "Choose an effect or create a new one."},
+    "validation": {"model": "Choose an available model.", "prompt": "Describe the sound you want to create.", "promptLength": "The description is too long.", "duration": "Duration must be between 0.5 and 30 seconds."},
+    "errors": {"load": "Could not load sound effects.", "generate": "Could not start generation.", "apply": "Could not save the sound effect."}
   },
   "referenceLibrary": {
     "title": "Visual library",

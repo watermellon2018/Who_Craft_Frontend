@@ -345,6 +345,26 @@
   background: var(--craft-accent);
 }
 
+.music-workspace-nav {
+  display: flex;
+  padding: 10px clamp(16px, 3vw, 32px) 0;
+  gap: 8px;
+  border-bottom: 1px solid var(--craft-border);
+  background: var(--craft-bg-elevated);
+}
+
+.music-workspace-nav a {
+  padding: 9px 14px;
+  color: var(--craft-text-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.music-workspace-nav a[aria-current='page'] {
+  color: var(--craft-text);
+  border-color: var(--craft-accent);
+}
+
 .music-model-card .ant-form-item {
   margin-bottom: 0;
 }

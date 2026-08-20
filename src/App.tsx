@@ -32,6 +32,7 @@ import Character3DEditorPage from "./modules/character-studio/pages/Character3DE
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
 import AudioTrackEditorPage from "./modules/music-studio/pages/AudioTrackEditorPage";
+import SoundEffectsPage from './modules/sound-effects/pages/SoundEffectsPage';
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
@@ -60,6 +61,7 @@ const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
 const ProtectedAudioTrackEditorPage = withAuth(AudioTrackEditorPage);
+const ProtectedSoundEffectsPage = withAuth(SoundEffectsPage);
 const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
 const ProtectedVisualReferenceCreatePage = withAuth(VisualReferenceCreatePage);
@@ -108,6 +110,10 @@ export const APP_ROUTES = [
         { key: 'musicStudioTrack', path: PathConstants.MUSIC_STUDIO_TRACK, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioTrackEditor', path: PathConstants.MUSIC_STUDIO_TRACK_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
         { key: 'musicStudioUploadDraftEditor', path: PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
+        { key: 'soundEffects', path: PathConstants.SOUND_EFFECTS, component: <ProtectedSoundEffectsPage /> },
+        { key: 'soundEffectsCreate', path: PathConstants.SOUND_EFFECTS_CREATE, component: <ProtectedSoundEffectsPage /> },
+        { key: 'soundEffectsJob', path: PathConstants.SOUND_EFFECTS_JOB, component: <ProtectedSoundEffectsPage /> },
+        { key: 'soundEffectsDetail', path: PathConstants.SOUND_EFFECTS_DETAIL, component: <ProtectedSoundEffectsPage /> },
         { key: 'referenceLibrary', path: PathConstants.REFERENCE_LIBRARY, component: <ProtectedReferenceLibraryPage /> },
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },

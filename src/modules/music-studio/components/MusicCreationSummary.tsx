@@ -173,6 +173,7 @@ export default function MusicCreationSummary({
             {canGenerate && (
               <GenerationCostPreview intent={{
                 domain: 'music',
+                durationSeconds: brief.durationSeconds,
                 modelKey,
                 operation: 'generate',
                 variantCount,

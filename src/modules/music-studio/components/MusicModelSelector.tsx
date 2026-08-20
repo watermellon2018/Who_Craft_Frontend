@@ -16,19 +16,28 @@ function formatUnitPrice(price: number): string {
   return price.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
 }
 
-function routeDetail(model: MusicModelSpec): {price: number | null; providers: string} {
+function routeDetail(model: MusicModelSpec): {
+  billingUnit: 'generation' | 'minute';
+  price: number | null;
+  providers: string;
+} {
   const routes = model.routes.filter((route) => route.configured);
   const availableRoutes = routes.length ? routes : model.routes;
   const providers = Array.from(new Set(
     availableRoutes.map((route) => route.providerDisplayName),
   ))
     .join(', ');
-  const prices = availableRoutes
+  const pricedRoutes = availableRoutes
     .filter((route) => route.unitCostUsd != null && String(route.unitCostUsd).trim() !== '')
-    .map((route) => Number(route.unitCostUsd))
-    .filter((price) => Number.isFinite(price));
+    .map((route) => ({
+      billingUnit: route.billingUnit ?? 'generation',
+      price: Number(route.unitCostUsd),
+    }))
+    .filter((route) => Number.isFinite(route.price))
+    .sort((left, right) => left.price - right.price);
   return {
-    price: prices.length ? Math.min(...prices) : null,
+    billingUnit: pricedRoutes[0]?.billingUnit ?? 'generation',
+    price: pricedRoutes[0]?.price ?? null,
     providers,
   };
 }
@@ -41,10 +50,15 @@ export default function MusicModelSelector({
 }: MusicModelSelectorProps) {
   const {t} = useTranslation();
   const options = models.map((model) => {
-    const {price, providers} = routeDetail(model);
+    const {billingUnit, price, providers} = routeDetail(model);
     const detail = price == null
       ? providers
-      : t('musicStudio.model.routeDetail', {price: formatUnitPrice(price), providers});
+      : t(
+        billingUnit === 'minute'
+          ? 'musicStudio.model.routeDetailPerMinute'
+          : 'musicStudio.model.routeDetail',
+        {price: formatUnitPrice(price), providers},
+      );
     return {
       disabled: !model.configured,
       label: (

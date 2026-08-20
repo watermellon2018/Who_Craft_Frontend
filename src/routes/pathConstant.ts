@@ -26,6 +26,11 @@ const PathConstants = {
     MUSIC_STUDIO_TRACK_EDITOR: '/project/:projectId/music/tracks/:trackId/edit',
     MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR: '/project/:projectId/music/upload-drafts/:draftId/edit',
 
+    SOUND_EFFECTS: '/project/:projectId/sound-effects',
+    SOUND_EFFECTS_CREATE: '/project/:projectId/sound-effects/create',
+    SOUND_EFFECTS_JOB: '/project/:projectId/sound-effects/jobs/:jobId',
+    SOUND_EFFECTS_DETAIL: '/project/:projectId/sound-effects/effects/:effectId',
+
     REFERENCE_LIBRARY: '/project/:projectId/references',
     REFERENCE_LIBRARY_CREATE: '/project/:projectId/references/create',
     REFERENCE_LIBRARY_JOB: '/project/:projectId/references/:referenceId/jobs/:jobId',
@@ -98,6 +103,33 @@ export function musicUploadDraftEditorPath(
     return PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR
         .replace(':projectId', String(projectId))
         .replace(':draftId', encodeURIComponent(draftId));
+}
+
+export function soundEffectsPath(projectId: string | number): string {
+    return PathConstants.SOUND_EFFECTS.replace(':projectId', String(projectId));
+}
+
+export function soundEffectCreatePath(
+    projectId: string | number,
+    sceneId?: string | number,
+): string {
+    const base = PathConstants.SOUND_EFFECTS_CREATE.replace(':projectId', String(projectId));
+    return sceneId == null ? base : `${base}?sceneId=${encodeURIComponent(String(sceneId))}`;
+}
+
+export function soundEffectJobPath(projectId: string | number, jobId: string): string {
+    return PathConstants.SOUND_EFFECTS_JOB
+        .replace(':projectId', String(projectId))
+        .replace(':jobId', encodeURIComponent(jobId));
+}
+
+export function soundEffectDetailPath(
+    projectId: string | number,
+    effectId: string | number,
+): string {
+    return PathConstants.SOUND_EFFECTS_DETAIL
+        .replace(':projectId', String(projectId))
+        .replace(':effectId', encodeURIComponent(String(effectId)));
 }
 
 export function referenceLibraryPath(projectId: string | number): string {

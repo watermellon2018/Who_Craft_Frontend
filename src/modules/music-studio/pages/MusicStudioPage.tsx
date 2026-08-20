@@ -614,6 +614,7 @@ export default function MusicStudioPage() {
       const response = await runGenerationWithCredits(
         {
           domain: 'music',
+          durationSeconds: brief.durationSeconds,
           modelKey: payload.modelKey,
           operation: 'generate',
           variantCount,
@@ -821,6 +822,13 @@ export default function MusicStudioPage() {
               showIcon
               type="warning"
               message={t('musicStudio.model.noneConfigured')}
+            />
+          )}
+          {selectedModel?.key === 'minimax-music-3' && (
+            <Alert
+              showIcon
+              type="info"
+              message={t('musicStudio.model.minimaxDurationApproximate')}
             />
           )}
           {effectiveCapabilities && (
