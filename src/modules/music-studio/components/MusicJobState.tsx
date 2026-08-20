@@ -6,6 +6,8 @@ import {musicJobErrorMessage} from '../errors';
 import type {MusicGenerationJob} from '../types';
 import GenerationBillingSummary from '../../credits/components/GenerationBillingSummary';
 
+const QUEUE_DELAY_WARNING_MS = 30_000;
+
 interface MusicJobStateProps {
   actionLoading?: boolean;
   canMutate: boolean;
@@ -22,6 +24,10 @@ export default function MusicJobState({
   onRetry,
 }: MusicJobStateProps) {
   const {t} = useTranslation();
+  const createdAtMs = Date.parse(job.createdAt);
+  const queueDelayed = job.status === 'queued'
+    && Number.isFinite(createdAtMs)
+    && Date.now() - createdAtMs >= QUEUE_DELAY_WARNING_MS;
 
   if (job.status === 'failed') {
     return (
@@ -86,6 +92,14 @@ export default function MusicJobState({
             : t('musicStudio.job.processing', {count: job.variantCount})}</h2>
         <p>{t(`musicStudio.job.stage.${job.stage}`, {defaultValue: t('musicStudio.job.working')})}</p>
         <Progress percent={job.status === 'queued' ? 10 : 55} showInfo={false} status="active" />
+        {queueDelayed && (
+          <Alert
+            showIcon
+            type="warning"
+            message={t('musicStudio.job.queueDelayed')}
+            description={t('musicStudio.job.queueDelayedDescription')}
+          />
+        )}
         <GenerationBillingSummary billing={job.billing} />
         {job.status === 'processing' && <p>{t('musicStudio.job.cancelUnavailable')}</p>}
         {!cancellationRequested && job.status === 'queued' && canMutate && job.canCancel && (

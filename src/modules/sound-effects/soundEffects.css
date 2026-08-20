@@ -1,0 +1,18 @@
+.sound-effects-create .ant-input-number {
+  width: 140px;
+  margin-left: 12px;
+}
+
+.sound-effects-library audio,
+.sound-effects-create audio,
+.music-variant-player audio,
+.music-track-detail audio {
+  width: 100%;
+}
+
+.sound-effects-library .music-library-row small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

@@ -244,11 +244,12 @@ export interface GenerationRouteCandidate {
 }
 
 export interface GenerationCostEstimateRequest {
-  domain: "character" | "poster" | "reference" | "music" | "model3d";
+  domain: "character" | "poster" | "reference" | "music" | "sound_effect" | "model3d";
   operation?: "generate" | "edit" | "reference";
   modelKey?: string;
   variantCount?: number;
   promptLength?: number;
+  durationSeconds?: number | null;
   resolution?: "512" | "1K" | "2K" | "4K";
   routingMode?: GenerationRoutingMode;
 }
@@ -487,7 +488,30 @@ export interface MusicCapabilities {
   supportsSeed?: boolean;
   supportsCancellation?: boolean;
   providerDisplayName: string;
+  defaultModelKey: MusicAudioModelKey;
+  models: Array<MusicAudioModel>;
   permissions: MusicPermissions;
+}
+
+export type MusicAudioModelKey = "mock" | "stable-audio-3" | "elevenlabs-music-v2" | "minimax-music-3" | "lyria-3-pro" | "lyria-3-clip";
+
+export interface MusicAudioRoute {
+  key: string;
+  provider: string;
+  providerDisplayName: string;
+  configured: boolean;
+  unitCostUsd: CreditAmount;
+  billingUnit: "generation" | "minute";
+}
+
+export interface MusicAudioModel {
+  key: MusicAudioModelKey;
+  label: string;
+  configured: boolean;
+  default: boolean;
+  preview: boolean;
+  capabilities: Record<string, unknown>;
+  routes: Array<MusicAudioRoute>;
 }
 
 export interface MusicSceneOption {
@@ -567,6 +591,7 @@ export interface MusicBrief {
 }
 
 export interface MusicGenerationCreateRequest {
+  modelKey?: MusicAudioModelKey;
   targetTrackId?: number | null;
   referenceAssetId?: string | null;
   variantCount?: 1 | 2;
@@ -575,6 +600,7 @@ export interface MusicGenerationCreateRequest {
 
 export interface MusicGenerationAccepted {
   jobId: string;
+  modelKey: MusicAudioModelKey;
   status: string;
   stage: string;
   idempotentReplay: boolean;
@@ -596,6 +622,7 @@ export interface MusicVariant {
 
 export interface MusicGenerationJob {
   jobId: string;
+  modelKey: MusicAudioModelKey;
   status: "queued" | "processing" | "cancellation_requested" | "completed" | "failed" | "cancelled";
   stage: string;
   variantCount: 1 | 2;
@@ -675,6 +702,150 @@ export interface MusicAssignments {
 export interface MusicAssignmentsReplaceRequest {
   expectedTrackVersion: number;
   items: Array<MusicAssignmentRequest>;
+}
+
+export interface SoundEffectPermissions {
+  currentUserRole: string | null;
+  canView: boolean;
+  canEdit: boolean;
+  canRunGeneration: boolean;
+}
+
+export interface SoundEffectDurationCapabilities {
+  autoSupported: boolean;
+  minSeconds: number;
+  maxSeconds: number;
+}
+
+export interface SoundEffectPromptInfluenceCapabilities {
+  min: number;
+  max: number;
+  default: number;
+}
+
+export interface SoundEffectModel {
+  key: "elevenlabs-sound-effects-v2";
+  label: string;
+  configured: boolean;
+  default: boolean;
+  providerDisplayName: string;
+  duration: SoundEffectDurationCapabilities;
+  supportsLoop: boolean;
+  promptInfluence: SoundEffectPromptInfluenceCapabilities;
+  outputFormats: Array<"mp3">;
+}
+
+export interface SoundEffectCapabilities {
+  defaultModelKey: "elevenlabs-sound-effects-v2";
+  models: Array<SoundEffectModel>;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectAsset {
+  assetId: string;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  mimeType: string;
+  durationSeconds: number;
+}
+
+export interface SoundEffectVersion {
+  id: string;
+  effectId: number;
+  versionNumber: number;
+  asset: SoundEffectAsset;
+  request: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SoundEffectItem {
+  id: number;
+  title: string;
+  version: number;
+  activeVersion: SoundEffectVersion | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SoundEffectPagination {
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+export interface SoundEffectPage {
+  items: Array<SoundEffectItem>;
+  page: SoundEffectPagination;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectGenerationCreateRequest {
+  modelKey?: "elevenlabs-sound-effects-v2";
+  prompt: string;
+  durationSeconds?: number | null;
+  loop?: boolean;
+  promptInfluence?: number;
+  targetEffectId?: number | null;
+  sceneId?: number | null;
+}
+
+export interface SoundEffectGenerationAccepted {
+  jobId: string;
+  modelKey: "elevenlabs-sound-effects-v2";
+  status: "queued" | "processing" | "completed" | "failed" | "cancelled";
+  stage: "queued" | "generating" | "storing" | "finalized" | "failed" | "cancelled";
+  idempotentReplay: boolean;
+  pollAfterMs: number;
+  createdAt: string;
+}
+
+export interface SoundEffectGenerationError {
+  code: string;
+  detail: string;
+  retryable: boolean;
+}
+
+export interface SoundEffectVariant {
+  variantId: string;
+  assetId: string;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  mimeType: string;
+  durationSeconds: number;
+  appliedEffectVersionId: string | null;
+}
+
+export type SoundEffectGenerationJob = SoundEffectGenerationCreateRequest & { jobId: string; modelKey: "elevenlabs-sound-effects-v2"; targetEffectId: number | null; sceneId: number | null; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; stage: "queued" | "generating" | "storing" | "finalized" | "failed" | "cancelled"; retryOf: string | null; attempts: number; canCancel: boolean; canRetry: boolean; error: SoundEffectGenerationError; variants: Array<SoundEffectVariant>; createdAt: string; completedAt: string | null; permissions: SoundEffectPermissions; };
+
+export interface SoundEffectJobPage {
+  items: Array<SoundEffectGenerationJob>;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectApplyRequest {
+  targetEffectId?: number | null;
+  title: string;
+}
+
+export interface SoundEffectAssignment {
+  id: number;
+  sceneId: number;
+  effectId: number;
+  effectVersionId: string;
+  startTimeSeconds: number;
+}
+
+export interface SoundEffectAssignments {
+  items: Array<SoundEffectAssignment>;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectErrorResponse {
+  code: string;
+  detail: string;
+  retryable: boolean;
+  errors?: Record<string, unknown>;
 }
 
 export interface ReferenceErrorResponse {

@@ -2,17 +2,23 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {Button} from 'antd';
 import {MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
+import {Link} from 'react-router-dom';
 
 import {fetch_project} from '../../../api/projects/properties/project';
-import PathConstants, {musicStudioPath, projectDashboardPath} from '../../../routes/pathConstant';
+import PathConstants, {
+  musicStudioPath,
+  projectDashboardPath,
+  soundEffectsPath,
+} from '../../../routes/pathConstant';
 import DashboardHeader from '../../profile/components/DashboardHeader';
 import type {BreadcrumbItem} from '../../profile/components/DashboardHeader';
 
 interface MusicStudioShellProps {
   center: React.ReactNode;
-  inspector: React.ReactNode;
+  inspector?: React.ReactNode;
   library: React.ReactNode;
   projectId: string;
+  workspace?: 'music' | 'sound-effects';
 }
 
 const projectTitleCache = new Map<string, string>();
@@ -22,6 +28,7 @@ export default function MusicStudioShell({
   inspector,
   library,
   projectId,
+  workspace = 'music',
 }: MusicStudioShellProps) {
   const {t} = useTranslation();
   const [projectTitle, setProjectTitle] = useState(projectTitleCache.get(projectId) ?? '');
@@ -55,15 +62,38 @@ export default function MusicStudioShell({
       label: projectTitle || t('musicStudio.breadcrumbs.project'),
       to: projectDashboardPath(projectId),
     },
-    {label: t('musicStudio.breadcrumbs.music'), to: musicStudioPath(projectId)},
-  ], [projectId, projectTitle, t]);
+    {
+      label: workspace === 'music'
+        ? t('musicStudio.breadcrumbs.music')
+        : t('soundEffects.breadcrumb'),
+      to: workspace === 'music' ? musicStudioPath(projectId) : soundEffectsPath(projectId),
+    },
+  ], [projectId, projectTitle, t, workspace]);
+  const libraryToggleLabel = libraryOpen
+    ? t(workspace === 'music' ? 'musicStudio.library.hide' : 'soundEffects.library.hide')
+    : t(workspace === 'music' ? 'musicStudio.library.show' : 'soundEffects.library.show');
+  const hasInspector = inspector !== null && inspector !== undefined && inspector !== false;
+  const shellClassName = [
+    'music-studio-shell',
+    !libraryOpen && 'music-studio-shell--library-closed',
+    !hasInspector && 'music-studio-shell--inspector-closed',
+  ].filter(Boolean).join(' ');
 
   return (
     <>
       <DashboardHeader breadcrumbItems={breadcrumbs} />
-      <div className={libraryOpen
-        ? 'music-studio-shell'
-        : 'music-studio-shell music-studio-shell--library-closed'}>
+      <nav className="music-workspace-nav" aria-label={t('soundEffects.navigation.label')}>
+        <Link aria-current={workspace === 'music' ? 'page' : undefined} to={musicStudioPath(projectId)}>
+          {t('soundEffects.navigation.music')}
+        </Link>
+        <Link
+          aria-current={workspace === 'sound-effects' ? 'page' : undefined}
+          to={soundEffectsPath(projectId)}
+        >
+          {t('soundEffects.navigation.effects')}
+        </Link>
+      </nav>
+      <div className={shellClassName}>
         <div className={libraryOpen
           ? 'music-studio-library-region music-studio-library-region--open'
           : 'music-studio-library-region'}>
@@ -77,25 +107,25 @@ export default function MusicStudioShell({
           <Button
             block
             aria-controls="music-studio-library-sidebar"
-            aria-label={libraryOpen
-              ? t('musicStudio.library.hide')
-              : t('musicStudio.library.show')}
+            aria-label={libraryToggleLabel}
             className="music-studio-library-trigger"
             icon={libraryOpen ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />}
             aria-expanded={libraryOpen}
-            title={libraryOpen
-              ? t('musicStudio.library.hide')
-              : t('musicStudio.library.show')}
+            title={libraryToggleLabel}
             type="text"
             onClick={() => setLibraryOpen((open) => !open)}
           >
-            {libraryOpen ? t('musicStudio.library.hide') : null}
+            {libraryOpen ? libraryToggleLabel : null}
           </Button>
         </div>
         <main className="music-studio-main">{center}</main>
-        <aside className="music-studio-inspector" aria-label={t('musicStudio.scene.context')}>
-          {inspector}
-        </aside>
+        {hasInspector && (
+          <aside className="music-studio-inspector" aria-label={workspace === 'music'
+            ? t('musicStudio.scene.context')
+            : t('soundEffects.summary.title')}>
+            {inspector}
+          </aside>
+        )}
       </div>
     </>
   );

@@ -1,5 +1,5 @@
-import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
-import {Alert, Button, Empty, Result, Segmented, Skeleton, Space, Spin} from 'antd';
+import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
+import {Alert, Button, Empty, Result, Segmented, Skeleton, Spin} from 'antd';
 import {PlusOutlined, ReloadOutlined, SoundOutlined, UploadOutlined} from '@ant-design/icons';
 import {flushSync} from 'react-dom';
 import {useTranslation} from 'react-i18next';
@@ -26,6 +26,7 @@ import type {MusicCreationMode} from '../components/MusicCreationSummary';
 import MusicFormatSelector from '../components/MusicFormatSelector';
 import MusicJobState from '../components/MusicJobState';
 import MusicLibraryPanel from '../components/MusicLibraryPanel';
+import MusicModelSelector from '../components/MusicModelSelector';
 import MusicStudioShell from '../components/MusicStudioShell';
 import MusicVariantPlayer from '../components/MusicVariantPlayer';
 import ScenePickerDialog from '../components/ScenePickerDialog';
@@ -39,6 +40,13 @@ import {
 } from '../editor/musicUploadDraftStore';
 import {useMusicGenerationJob} from '../hooks/useMusicGenerationJob';
 import {useUnsavedMusicGuard} from '../hooks/useUnsavedMusicGuard';
+import {
+  constrainMusicDraft,
+  enqueueMusicModelKey,
+  initialMusicModelKey,
+  musicModelCatalog,
+  selectedMusicModel,
+} from '../modelCatalog';
 import type {
   MusicBrief,
   MusicCapabilities,
@@ -144,6 +152,9 @@ export default function MusicStudioPage() {
 
   const [capabilities, setCapabilities] = useState<MusicCapabilities | null>(null);
   const [capabilitiesError, setCapabilitiesError] = useState<string | null>(null);
+  const [selectedModelKey, setSelectedModelKey] = useState<string | null>(
+    restoredCreateDraft?.modelKey ?? null,
+  );
   const [brief, setBrief] = useState<MusicBrief | null>(restoredCreateDraft?.brief ?? null);
   const [creationMode, setCreationMode] = useState<MusicCreationMode>(
     restoredCreateDraft?.creationMode ?? requestedCreationMode ?? 'ai',
@@ -186,7 +197,22 @@ export default function MusicStudioPage() {
   const enqueueInFlightRef = useRef(false);
   const enqueueIntentRef = useRef<{fingerprint: string; key: string} | null>(null);
   const targetBriefInitializedRef = useRef<string | null>(null);
-  const variantCountInitializedRef = useRef(Boolean(restoredCreateDraft));
+  const selectedModelKeyRef = useRef(selectedModelKey);
+
+  const models = useMemo(
+    () => capabilities ? musicModelCatalog(capabilities) : [],
+    [capabilities],
+  );
+  const selectedModel = models.find((model) => model.key === selectedModelKey)
+    ?? models.find((model) => model.configured)
+    ?? models[0]
+    ?? null;
+  const selectedModelConfigured = Boolean(selectedModel?.configured);
+  const effectiveCapabilities = selectedModel?.capabilities ?? null;
+
+  useEffect(() => {
+    selectedModelKeyRef.current = selectedModelKey;
+  }, [selectedModelKey]);
 
   useLayoutEffect(() => {
     resetMusicCreateScroll(isCreateRoute);
@@ -240,6 +266,7 @@ export default function MusicStudioPage() {
       brief,
       canEdit: permissions.canEdit,
       creationMode,
+      modelKey: selectedModelKey,
       reference,
       selectedScene,
       uploadDirty,
@@ -255,6 +282,7 @@ export default function MusicStudioPage() {
     permissions.canEdit,
     projectId,
     reference,
+    selectedModelKey,
     selectedScene,
     uploadDirty,
     uploadDraft,
@@ -268,19 +296,30 @@ export default function MusicStudioPage() {
     musicApi.getCapabilities(projectId, controller.signal)
       .then((response) => {
         setCapabilities(response.data);
-        if (!variantCountInitializedRef.current) {
-          setVariantCount(response.data.variantCounts.includes(2)
-            ? 2
-            : response.data.variantCounts[0] ?? 1);
-          variantCountInitializedRef.current = true;
-        }
-        setBrief((current) => current ?? createDefaultBrief(response.data));
+        const modelKey = initialMusicModelKey(response.data, selectedModelKeyRef.current);
+        const modelCapabilities = selectedMusicModel(response.data, modelKey).capabilities;
+        setSelectedModelKey(modelKey);
+        setBrief((current) => current ?? createDefaultBrief(modelCapabilities));
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) setCapabilitiesError(musicErrorDescriptor(error).message);
       });
     return () => controller.abort();
   }, [projectId, dataRevision]);
+
+  useEffect(() => {
+    if (!brief || !effectiveCapabilities) return;
+    const constrained = constrainMusicDraft(
+      brief,
+      reference,
+      variantCount,
+      effectiveCapabilities,
+      t('musicStudio.lyrics.defaultVerse'),
+    );
+    setBrief(constrained.brief);
+    setReference(constrained.reference);
+    setVariantCount(constrained.variantCount);
+  }, [effectiveCapabilities, selectedModelKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!projectId) return;
@@ -407,11 +446,11 @@ export default function MusicStudioPage() {
         if (!scene) return;
         setSelectedScene(scene);
         setBrief((current) => {
-          if (!current || !capabilities) return current;
-          const mood = capabilities.briefFields.moods.includes(scene.mood) ? [scene.mood] : current.moods;
+          if (!current || !effectiveCapabilities) return current;
+          const mood = effectiveCapabilities.briefFields.moods.includes(scene.mood) ? [scene.mood] : current.moods;
           const durationSeconds = scene.durationSeconds == null
             ? current.durationSeconds
-            : Math.min(capabilities.duration.maxSeconds, Math.max(capabilities.duration.minSeconds, scene.durationSeconds));
+            : Math.min(effectiveCapabilities.duration.maxSeconds, Math.max(effectiveCapabilities.duration.minSeconds, scene.durationSeconds));
           return {
             ...current,
             context: {sceneId: scene.sceneId, type: 'scene'},
@@ -424,7 +463,7 @@ export default function MusicStudioPage() {
       })
       .catch(() => undefined);
     return () => controller.abort();
-  }, [capabilities, isCreateRoute, projectId, sceneIdParam]);
+  }, [effectiveCapabilities, isCreateRoute, projectId, sceneIdParam]);
 
   useEffect(() => {
     if (!projectId || !jobId) return;
@@ -451,10 +490,10 @@ export default function MusicStudioPage() {
     setBrief((current) => {
       if (!current) return current;
       if (!scene) return {...current, context: {type: 'project'}};
-      const moods = capabilities?.briefFields.moods.includes(scene.mood) ? [scene.mood] : current.moods;
-      const durationSeconds = scene.durationSeconds == null || !capabilities
+      const moods = effectiveCapabilities?.briefFields.moods.includes(scene.mood) ? [scene.mood] : current.moods;
+      const durationSeconds = scene.durationSeconds == null || !effectiveCapabilities
         ? current.durationSeconds
-        : Math.min(capabilities.duration.maxSeconds, Math.max(capabilities.duration.minSeconds, scene.durationSeconds));
+        : Math.min(effectiveCapabilities.duration.maxSeconds, Math.max(effectiveCapabilities.duration.minSeconds, scene.durationSeconds));
       return {
         ...current,
         context: {sceneId: scene.sceneId, type: 'scene'},
@@ -480,6 +519,7 @@ export default function MusicStudioPage() {
       brief,
       canEdit: permissions.canEdit,
       creationMode,
+      modelKey: selectedModelKey,
       reference,
       selectedScene,
       uploadDirty,
@@ -502,21 +542,23 @@ export default function MusicStudioPage() {
   };
 
   const validateBrief = (): string | null => {
-    if (!brief || !capabilities) return t('musicStudio.validation.notReady');
+    if (!brief || !effectiveCapabilities || !selectedModel?.configured) {
+      return t('musicStudio.validation.notReady');
+    }
     if (!brief.title.trim()) return t('musicStudio.validation.title');
     if (!brief.purpose || !brief.genre) return t('musicStudio.validation.requiredSound');
     if (brief.moods.length < 1 || brief.moods.length > 3) return t('musicStudio.validation.moods');
     if (
-      brief.durationSeconds < capabilities.duration.minSeconds
-      || brief.durationSeconds > capabilities.duration.maxSeconds
+      brief.durationSeconds < effectiveCapabilities.duration.minSeconds
+      || brief.durationSeconds > effectiveCapabilities.duration.maxSeconds
     ) return t('musicStudio.validation.duration');
     if (brief.content.mode === 'song') {
-      if (!capabilities.lyrics.supported) return t('musicStudio.validation.songUnsupported');
+      if (!effectiveCapabilities.lyrics.supported) return t('musicStudio.validation.songUnsupported');
       if (brief.content.sections.some((section) => !section.text.trim())) {
         return t('musicStudio.validation.lyrics');
       }
       const length = brief.content.sections.reduce((sum, section) => sum + section.text.length, 0);
-      if (length > capabilities.lyrics.maxChars) return t('musicStudio.validation.lyricsLength');
+      if (length > effectiveCapabilities.lyrics.maxChars) return t('musicStudio.validation.lyricsLength');
     }
     return null;
   };
@@ -524,7 +566,7 @@ export default function MusicStudioPage() {
   const enqueue = async () => {
     if (enqueueInFlightRef.current) return;
     const validationError = validateBrief();
-    if (validationError || !brief || !capabilities) {
+    if (validationError || !brief || !effectiveCapabilities || !selectedModelKey) {
       setPageError(validationError);
       return;
     }
@@ -555,9 +597,10 @@ export default function MusicStudioPage() {
     }
     const payload: MusicEnqueueRequest = {
       brief: {
-        ...briefForCapabilities(brief, capabilities.supportsSeed),
+        ...briefForCapabilities(brief, effectiveCapabilities.supportsSeed),
         title: brief.title.trim(),
       },
+      modelKey: enqueueMusicModelKey(selectedModelKey),
       referenceAssetId: reference?.assetId ?? null,
       targetTrackId: targetTrackIdParam,
       variantCount,
@@ -565,22 +608,33 @@ export default function MusicStudioPage() {
     const expectedTrackVersion = targetTrackIdParam
       ? expectedTrackVersionParam ?? targetTrack?.version ?? null
       : null;
-    const fingerprint = musicEnqueueIntentFingerprint(payload, expectedTrackVersion);
-    const intent = enqueueIntentRef.current?.fingerprint === fingerprint
-      ? enqueueIntentRef.current
-      : {fingerprint, key: newMusicIdempotencyKey()};
-    enqueueIntentRef.current = intent;
     setSubmitting(true);
     setPageError(null);
     try {
       const response = await runGenerationWithCredits(
         {
           domain: 'music',
+          durationSeconds: brief.durationSeconds,
+          modelKey: payload.modelKey,
           operation: 'generate',
           variantCount,
           promptLength: JSON.stringify(payload.brief).length,
         },
-        () => musicApi.enqueueJob(projectId, payload, intent.key),
+        (approvedEstimate) => {
+          const approvedPayload = {
+            ...payload,
+            modelKey: approvedEstimate.modelKey,
+          };
+          const fingerprint = musicEnqueueIntentFingerprint(
+            approvedPayload,
+            expectedTrackVersion,
+          );
+          const intent = enqueueIntentRef.current?.fingerprint === fingerprint
+            ? enqueueIntentRef.current
+            : {fingerprint, key: newMusicIdempotencyKey()};
+          enqueueIntentRef.current = intent;
+          return musicApi.enqueueJob(projectId, approvedPayload, intent.key);
+        },
       );
       if (!response) return;
       flushSync(() => setAiDirty(false));
@@ -670,52 +724,6 @@ export default function MusicStudioPage() {
     }
   };
 
-  const canChangeCreationScene = creationMode === 'ai'
-    ? permissions.canRunGeneration
-    : permissions.canEdit;
-  const contextScene = selectedScene;
-  const contextInspector = (
-    <div className="music-context-card">
-      <span className="music-eyebrow">{t('musicStudio.scene.context')}</span>
-      {contextScene ? (
-        <>
-          <h2>{t('musicStudio.scene.rowTitle', {
-            act: contextScene.act ?? '—',
-            number: contextScene.number ?? '—',
-            title: contextScene.title || contextScene.location,
-          })}</h2>
-          <p>{contextScene.summary || t('musicStudio.scene.noSummary')}</p>
-          <dl>
-            <div><dt>{t('musicStudio.scene.location')}</dt><dd>{contextScene.location || '—'}</dd></div>
-            <div><dt>{t('musicStudio.scene.mood')}</dt><dd>{contextScene.mood || '—'}</dd></div>
-            <div><dt>{t('musicStudio.scene.duration')}</dt><dd>{contextScene.durationSeconds ?? '—'} {t('musicStudio.units.seconds')}</dd></div>
-          </dl>
-          {isCreateRoute && (
-            <Space wrap>
-              <Button disabled={!canChangeCreationScene} onClick={() => setScenePickerOpen(true)}>
-                {t('musicStudio.scene.change')}
-              </Button>
-              <Button disabled={!canChangeCreationScene} onClick={() => selectScene([])}>
-                {t('musicStudio.scene.projectWide')}
-              </Button>
-            </Space>
-          )}
-        </>
-      ) : (
-        <>
-          <h2>{t('musicStudio.scene.projectWide')}</h2>
-          <p>{t('musicStudio.scene.optional')}</p>
-          {isCreateRoute && (
-            <Button disabled={!canChangeCreationScene} onClick={() => setScenePickerOpen(true)}>
-              {t('musicStudio.scene.choose')}
-            </Button>
-          )}
-        </>
-      )}
-      {!canChangeCreationScene && <Alert type="info" showIcon message={t('musicStudio.readOnly')} />}
-    </div>
-  );
-
   const createView = !capabilities || !brief ? (
     capabilitiesError ? (
       <Result
@@ -752,12 +760,40 @@ export default function MusicStudioPage() {
         onChange={(mode) => setCreationMode(mode as MusicCreationMode)}
       />
       {creationMode === 'ai' && (
-        <MusicFormatSelector
-          capabilities={capabilities}
-          disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
-          value={brief}
-          onChange={changeBrief}
-        />
+        <>
+          <MusicModelSelector
+            disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
+            models={models}
+            value={selectedModel?.key ?? ''}
+            onChange={(modelKey) => {
+              setSelectedModelKey(modelKey);
+              setAiDirty(true);
+              setPageError(null);
+            }}
+          />
+          {models.length > 0 && !models.some((model) => model.configured) && (
+            <Alert
+              showIcon
+              type="warning"
+              message={t('musicStudio.model.noneConfigured')}
+            />
+          )}
+          {selectedModel?.key === 'minimax-music-3' && (
+            <Alert
+              showIcon
+              type="info"
+              message={t('musicStudio.model.minimaxDurationApproximate')}
+            />
+          )}
+          {effectiveCapabilities && (
+            <MusicFormatSelector
+              capabilities={effectiveCapabilities}
+              disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
+              value={brief}
+              onChange={changeBrief}
+            />
+          )}
+        </>
       )}
       {targetTrackLoading && <Spin size="small" />}
       {targetTrackError && <Alert type="error" showIcon message={targetTrackError} />}
@@ -770,8 +806,8 @@ export default function MusicStudioPage() {
         />
       )}
       <div className="music-creation-pane" hidden={creationMode !== 'ai'}>
-          <MusicBriefForm
-            capabilities={capabilities}
+          {effectiveCapabilities && <MusicBriefForm
+            capabilities={effectiveCapabilities}
             disabled={!permissions.canRunGeneration || Boolean(targetTrackIdParam && !targetTrack)}
             scenePrefilled={Boolean(selectedScene)}
             value={brief}
@@ -782,10 +818,10 @@ export default function MusicStudioPage() {
               setPageError(null);
             }}
             onChange={changeBrief}
-          />
-          {capabilities.audioReference.supported && (
+          />}
+          {effectiveCapabilities?.audioReference.supported && (
             <AudioReferenceField
-              capabilities={capabilities.audioReference}
+              capabilities={effectiveCapabilities.audioReference}
               disabled={!permissions.canRunGeneration}
               projectId={projectId}
               value={reference}
@@ -800,9 +836,9 @@ export default function MusicStudioPage() {
           {brief.content.mode === 'song' && (
             <LyricsSectionEditor
               disabled={!permissions.canRunGeneration}
-              languages={capabilities.lyrics.languages}
-              maxChars={capabilities.lyrics.maxChars}
-              sectionTypes={capabilities.lyrics.sectionTypes}
+              languages={effectiveCapabilities?.lyrics.languages ?? []}
+              maxChars={effectiveCapabilities?.lyrics.maxChars ?? 0}
+              sectionTypes={effectiveCapabilities?.lyrics.sectionTypes ?? []}
               selectedLanguage={brief.content.lyricsLanguage}
               sections={brief.content.sections}
               onLanguageChange={(lyricsLanguage) => {
@@ -847,7 +883,7 @@ export default function MusicStudioPage() {
     <MusicCreationSummary
       brief={brief}
       canEdit={permissions.canEdit}
-      canGenerate={permissions.canRunGeneration}
+      canGenerate={permissions.canRunGeneration && selectedModelConfigured}
       generateDisabled={Boolean(validateBrief()) || Boolean(
         targetTrackIdParam && (!targetTrack || targetTrackLoading),
       )}
@@ -857,6 +893,8 @@ export default function MusicStudioPage() {
       submitting={submitting}
       uploadDraft={uploadDraft}
       variantCount={variantCount}
+      modelKey={enqueueMusicModelKey(selectedModel?.key ?? '')}
+      modelLabel={selectedModel?.label}
       onClearScene={() => selectScene([])}
       onGenerate={() => void enqueue()}
       onOpenScenePicker={() => setScenePickerOpen(true)}
@@ -1004,7 +1042,7 @@ export default function MusicStudioPage() {
           />
         )}
         center={center}
-        inspector={isCreateRoute ? creationInspector : contextInspector}
+        inspector={isCreateRoute ? creationInspector : null}
       />
       <ScenePickerDialog
         open={scenePickerOpen}

@@ -26,8 +26,6 @@ interface MusicBriefFormProps {
   variantCount: number;
 }
 
-const VARIANT_COUNT_OPTIONS = [1, 2, 3, 4, 5];
-
 function translatedOptions(
   values: string[],
   prefix: string,
@@ -105,7 +103,7 @@ export default function MusicBriefForm({
           aria-label={t('musicStudio.brief.variantCount')}
           className="music-variant-count"
           disabled={disabled}
-          options={VARIANT_COUNT_OPTIONS}
+          options={capabilities.variantCounts}
           value={variantCount}
           onChange={(count) => onVariantCountChange(Number(count))}
         />

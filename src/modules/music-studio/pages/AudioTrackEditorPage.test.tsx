@@ -114,6 +114,7 @@ function renderUploadDraftEditor() {
     brief: null,
     canEdit: true,
     creationMode: 'upload',
+    modelKey: 'lyria-3-pro',
     reference: null,
     selectedScene: null,
     uploadDirty: true,

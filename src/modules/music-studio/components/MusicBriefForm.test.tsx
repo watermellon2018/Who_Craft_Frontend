@@ -181,24 +181,23 @@ test('does not duplicate the song format in the Purpose field', () => {
   expect(screen.queryByRole('option', {name: 'Песня'})).not.toBeInTheDocument();
 });
 
-test('offers up to five generation variants', () => {
+test('offers only generation variant counts advertised by the provider', () => {
   const onVariantCountChange = jest.fn();
   render(<VariantCountBrief onChange={onVariantCountChange} />);
 
   fireEvent.click(screen.getByText('Дополнительные настройки'));
   const variantControl = screen.getByLabelText('Количество вариантов');
   expect(variantControl).toHaveClass('music-variant-count');
+  const optionOne = within(variantControl).getByText('1').closest('.ant-segmented-item');
   const optionTwo = within(variantControl).getByText('2').closest('.ant-segmented-item');
-  const optionFive = within(variantControl).getByText('5').closest('.ant-segmented-item');
-  expect(within(variantControl).getByText('5')).toBeInTheDocument();
+  expect(within(variantControl).queryByText('5')).not.toBeInTheDocument();
   expect(optionTwo).toHaveClass('ant-segmented-item-selected');
-  expect(optionFive).not.toHaveClass('ant-segmented-item-selected');
 
-  fireEvent.click(optionFive as HTMLElement);
+  fireEvent.click(optionOne as HTMLElement);
 
-  expect(onVariantCountChange).toHaveBeenCalledWith(5);
+  expect(onVariantCountChange).toHaveBeenCalledWith(1);
   expect(optionTwo).not.toHaveClass('ant-segmented-item-selected');
-  expect(optionFive).toHaveClass('ant-segmented-item-selected');
+  expect(optionOne).toHaveClass('ant-segmented-item-selected');
 });
 
 test('shows and keeps seed in the brief only when the capability is enabled', () => {

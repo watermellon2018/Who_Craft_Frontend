@@ -14,7 +14,7 @@ export interface MusicPermissions {
   currentUserRole?: string | null;
 }
 
-export interface MusicCapabilities {
+export interface MusicModelCapabilities {
   audioReference: {
     formats: string[];
     maxBytes: number;
@@ -53,6 +53,30 @@ export interface MusicCapabilities {
   supportsCancellation: boolean;
   supportsSeed: boolean;
   variantCounts: number[];
+}
+
+export interface MusicModelRoute {
+  billingUnit?: 'generation' | 'minute';
+  configured: boolean;
+  key: string;
+  provider: string;
+  providerDisplayName: string;
+  unitCostUsd: number | string | null;
+}
+
+export interface MusicModelSpec {
+  capabilities: MusicModelCapabilities;
+  configured: boolean;
+  default: boolean;
+  key: string;
+  label: string;
+  preview: boolean;
+  routes: MusicModelRoute[];
+}
+
+export interface MusicCapabilities extends MusicModelCapabilities {
+  defaultModelKey?: string;
+  models?: MusicModelSpec[];
 }
 
 export interface MusicTrackVersionSummary {
@@ -166,6 +190,7 @@ export interface MusicBrief {
 
 export interface MusicEnqueueRequest {
   brief: MusicBrief;
+  modelKey?: string;
   referenceAssetId: string | null;
   targetTrackId: number | null;
   variantCount: number;
@@ -208,7 +233,9 @@ export interface MusicGenerationJob {
   createdAt: string;
   error: MusicJobError | null;
   jobId: string;
+  modelKey?: string;
   permissions: MusicPermissions;
+  providerDisplayName?: string;
   pollAfterMs?: number;
   referenceAsset: MusicReferenceAsset | null;
   retryOf: string | null;
