@@ -186,7 +186,6 @@ export default function MusicStudioPage() {
   const enqueueInFlightRef = useRef(false);
   const enqueueIntentRef = useRef<{fingerprint: string; key: string} | null>(null);
   const targetBriefInitializedRef = useRef<string | null>(null);
-  const variantCountInitializedRef = useRef(Boolean(restoredCreateDraft));
 
   useLayoutEffect(() => {
     resetMusicCreateScroll(isCreateRoute);
@@ -268,12 +267,11 @@ export default function MusicStudioPage() {
     musicApi.getCapabilities(projectId, controller.signal)
       .then((response) => {
         setCapabilities(response.data);
-        if (!variantCountInitializedRef.current) {
-          setVariantCount(response.data.variantCounts.includes(2)
+        setVariantCount((current) => response.data.variantCounts.includes(current)
+          ? current
+          : response.data.variantCounts.includes(2)
             ? 2
             : response.data.variantCounts[0] ?? 1);
-          variantCountInitializedRef.current = true;
-        }
         setBrief((current) => current ?? createDefaultBrief(response.data));
       })
       .catch((error: unknown) => {
