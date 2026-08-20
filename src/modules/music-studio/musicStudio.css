@@ -345,6 +345,27 @@
   background: var(--craft-accent);
 }
 
+.music-model-card .ant-form-item {
+  margin-bottom: 0;
+}
+
+.music-model-option {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.music-model-option__title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.music-model-option small {
+  color: var(--craft-text-secondary);
+}
+
 .music-variant-count.ant-segmented {
   border: 1px solid var(--craft-border);
   background: var(--craft-field);

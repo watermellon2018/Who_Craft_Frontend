@@ -12,6 +12,7 @@ function createSnapshot(file: File): MusicUploadFormSnapshot {
     brief: null,
     canEdit: true,
     creationMode: 'upload',
+    modelKey: 'lyria-3-pro',
     reference: null,
     selectedScene: null,
     uploadDirty: true,
@@ -39,6 +40,7 @@ test('keeps the original File in memory and reuses one project-scoped draft id',
   expect(getMusicUploadEditorDraft('7', first.draftId)?.snapshot.uploadDraft.file).toBe(file);
   expect(getMusicUploadEditorDraft('7', first.draftId)?.snapshot.uploadDraft.title)
     .toBe('Updated title');
+  expect(getMusicUploadEditorDraft('7', first.draftId)?.snapshot.modelKey).toBe('lyria-3-pro');
   expect(getMusicUploadEditorDraft('8', first.draftId)).toBeNull();
   expect(getLatestMusicUploadEditorDraft('7')?.draftId).toBe(first.draftId);
 

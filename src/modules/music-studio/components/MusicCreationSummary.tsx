@@ -18,6 +18,8 @@ interface MusicCreationSummaryProps {
   canGenerate: boolean;
   generateDisabled: boolean;
   mode: MusicCreationMode;
+  modelKey?: string;
+  modelLabel?: string;
   onClearScene: () => void;
   onGenerate: () => void;
   onOpenScenePicker: () => void;
@@ -44,6 +46,8 @@ export default function MusicCreationSummary({
   canGenerate,
   generateDisabled,
   mode,
+  modelKey,
+  modelLabel,
   onClearScene,
   onGenerate,
   onOpenScenePicker,
@@ -68,6 +72,10 @@ export default function MusicCreationSummary({
       <dl className="music-summary__list">
         {mode === 'ai' ? (
           <>
+            <div>
+              <dt>{t('musicStudio.model.label')}</dt>
+              <dd>{modelLabel ?? '—'}</dd>
+            </div>
             <div>
               <dt>{t('musicStudio.summary.trackType')}</dt>
               <dd>{t(`musicStudio.brief.mode.${brief.content.mode}`)}</dd>
@@ -162,12 +170,15 @@ export default function MusicCreationSummary({
             >
               {t('musicStudio.create.generate', {count: variantCount})}
             </Button>
-            <GenerationCostPreview intent={{
-              domain: 'music',
-              operation: 'generate',
-              variantCount,
-              promptLength: JSON.stringify(brief).length,
-            }} />
+            {canGenerate && (
+              <GenerationCostPreview intent={{
+                domain: 'music',
+                modelKey,
+                operation: 'generate',
+                variantCount,
+                promptLength: JSON.stringify(brief).length,
+              }} />
+            )}
           </>
         ) : (
           <Button block type="primary" size="large" disabled>

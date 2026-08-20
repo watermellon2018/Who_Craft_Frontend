@@ -3,6 +3,7 @@ import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes, useLocation, useNavigate} from 'react-router-dom';
 
 import i18n from '../../../i18n';
+import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
 import {musicApi} from '../api/musicApi';
 import {
   getLatestMusicUploadEditorDraft,
@@ -24,10 +25,10 @@ import MusicStudioPage, {
 jest.mock('../hooks/useMusicGenerationJob');
 jest.mock('../../credits/components/GenerationCostGuard', () => ({
   GenerationCostPreview: () => null,
-  runGenerationWithCredits: (
+  runGenerationWithCredits: jest.fn((
     intent: {modelKey?: string},
     operation: (estimate: unknown) => unknown,
-  ) => operation({modelKey: intent.modelKey ?? 'local', routingMode: 'manual'}),
+  ) => operation({modelKey: intent.modelKey ?? 'local', routingMode: 'manual'})),
 }));
 jest.mock('../hooks/useUnsavedMusicGuard', () => ({
   useUnsavedMusicGuard: jest.fn(),
@@ -38,6 +39,9 @@ const mockedUseMusicGenerationJob = useMusicGenerationJob as jest.MockedFunction
 >;
 const mockedUseUnsavedMusicGuard = useUnsavedMusicGuard as jest.MockedFunction<
   typeof useUnsavedMusicGuard
+>;
+const mockedRunGenerationWithCredits = runGenerationWithCredits as jest.MockedFunction<
+  typeof runGenerationWithCredits
 >;
 
 const brief: MusicBrief = {
@@ -202,6 +206,10 @@ function renderPage(path: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedRunGenerationWithCredits.mockImplementation((intent, operation) => operation({
+    modelKey: intent.modelKey ?? 'local',
+    routingMode: 'manual',
+  } as never));
   jest.spyOn(window, 'scrollTo').mockImplementation();
   jest.spyOn(musicApi, 'getCapabilities').mockResolvedValue({data: capabilities} as never);
   jest.spyOn(musicApi, 'getTrack').mockResolvedValue({data: track} as never);
@@ -247,6 +255,10 @@ test('fingerprints reference, target, expected version, and brief changes as new
   expect(musicEnqueueIntentFingerprint({
     ...payload,
     targetTrackId: 12,
+  }, null)).not.toBe(original);
+  expect(musicEnqueueIntentFingerprint({
+    ...payload,
+    modelKey: 'another-model',
   }, null)).not.toBe(original);
   expect(musicEnqueueIntentFingerprint(payload, 4)).not.toBe(original);
 });
@@ -519,6 +531,98 @@ test('does not treat visiting upload mode as an upload-file draft', async () => 
   await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(
     '/project/7/music/jobs/job-after-format-change',
   ));
+});
+
+test('selects the configured catalog default and enqueues the estimate canonical model key', async () => {
+  const getCapabilities = musicApi.getCapabilities as jest.MockedFunction<
+    typeof musicApi.getCapabilities
+  >;
+  getCapabilities.mockResolvedValue({data: {
+    ...capabilities,
+    defaultModelKey: 'lyria-3-pro',
+    models: [
+      {
+        capabilities,
+        configured: true,
+        default: true,
+        key: 'lyria-3-pro',
+        label: 'Lyria 3 Pro',
+        preview: true,
+        routes: [{
+          configured: true,
+          key: 'openrouter',
+          provider: 'openrouter',
+          providerDisplayName: 'OpenRouter',
+          unitCostUsd: '0.08',
+        }],
+      },
+      {
+        capabilities,
+        configured: false,
+        default: false,
+        key: 'stable-audio',
+        label: 'Stable Audio',
+        preview: false,
+        routes: [],
+      },
+    ],
+  }} as never);
+  mockedRunGenerationWithCredits.mockImplementationOnce((intent, operation) => operation({
+    modelKey: 'lyria-3-pro-canonical',
+    routingMode: 'manual',
+  } as never));
+  const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
+    jobId: 'job-catalog-model',
+  }} as never);
+
+  renderPage('/project/7/music/create');
+
+  expect((await screen.findAllByText('Lyria 3 Pro')).length).toBeGreaterThan(0);
+  fireEvent.change(screen.getByLabelText(i18n.t('musicStudio.brief.title')), {
+    target: {value: 'Catalog generation'},
+  });
+  const generate = screen.getByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  });
+  await waitFor(() => expect(generate).not.toBeDisabled());
+  fireEvent.click(generate);
+
+  await waitFor(() => expect(enqueue).toHaveBeenCalledTimes(1));
+  expect(mockedRunGenerationWithCredits).toHaveBeenCalledWith(
+    expect.objectContaining({modelKey: 'lyria-3-pro'}),
+    expect.any(Function),
+  );
+  expect(enqueue.mock.calls[0][1]).toEqual(expect.objectContaining({
+    modelKey: 'lyria-3-pro-canonical',
+  }));
+});
+
+test('blocks generation when the catalog has no configured model', async () => {
+  const getCapabilities = musicApi.getCapabilities as jest.MockedFunction<
+    typeof musicApi.getCapabilities
+  >;
+  getCapabilities.mockResolvedValue({data: {
+    ...capabilities,
+    defaultModelKey: 'stable-audio-3',
+    models: [{
+      capabilities,
+      configured: false,
+      default: true,
+      key: 'stable-audio-3',
+      label: 'Stable Audio 3',
+      preview: false,
+      routes: [],
+    }],
+  }} as never);
+
+  renderPage('/project/7/music/create');
+
+  expect(await screen.findByText(i18n.t('musicStudio.model.noneConfigured')))
+    .toBeInTheDocument();
+  expect(screen.getByRole('button', {
+    name: i18n.t('musicStudio.create.generate', {count: 2}),
+  })).toBeDisabled();
+  expect(mockedRunGenerationWithCredits).not.toHaveBeenCalled();
 });
 
 test('starts a new-version job from track detail with the exact target snapshot', async () => {

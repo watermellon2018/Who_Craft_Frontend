@@ -751,6 +751,13 @@
       "summaryDetail": "{{mode}}, {{duration}} sec",
       "generate": "Generate {{count}} variants"
     },
+    "model": {
+      "label": "Generation model",
+      "helper": "Choose the audio model. Available settings adjust to its capabilities.",
+      "noneConfigured": "No music generation model is configured. Ask an administrator to add a provider API key.",
+      "preview": "Preview",
+      "routeDetail": "{{providers}} · from ${{price}} per result"
+    },
     "format": {
       "title": "Format",
       "helper": "Choose the track type.",

@@ -487,7 +487,29 @@ export interface MusicCapabilities {
   supportsSeed?: boolean;
   supportsCancellation?: boolean;
   providerDisplayName: string;
+  defaultModelKey: MusicAudioModelKey;
+  models: Array<MusicAudioModel>;
   permissions: MusicPermissions;
+}
+
+export type MusicAudioModelKey = "mock" | "stable-audio-3" | "lyria-3-pro" | "lyria-3-clip";
+
+export interface MusicAudioRoute {
+  key: string;
+  provider: string;
+  providerDisplayName: string;
+  configured: boolean;
+  unitCostUsd: CreditAmount;
+}
+
+export interface MusicAudioModel {
+  key: MusicAudioModelKey;
+  label: string;
+  configured: boolean;
+  default: boolean;
+  preview: boolean;
+  capabilities: Record<string, unknown>;
+  routes: Array<MusicAudioRoute>;
 }
 
 export interface MusicSceneOption {
@@ -567,6 +589,7 @@ export interface MusicBrief {
 }
 
 export interface MusicGenerationCreateRequest {
+  modelKey?: MusicAudioModelKey;
   targetTrackId?: number | null;
   referenceAssetId?: string | null;
   variantCount?: 1 | 2;
@@ -575,6 +598,7 @@ export interface MusicGenerationCreateRequest {
 
 export interface MusicGenerationAccepted {
   jobId: string;
+  modelKey: MusicAudioModelKey;
   status: string;
   stage: string;
   idempotentReplay: boolean;
@@ -596,6 +620,7 @@ export interface MusicVariant {
 
 export interface MusicGenerationJob {
   jobId: string;
+  modelKey: MusicAudioModelKey;
   status: "queued" | "processing" | "cancellation_requested" | "completed" | "failed" | "cancelled";
   stage: string;
   variantCount: 1 | 2;

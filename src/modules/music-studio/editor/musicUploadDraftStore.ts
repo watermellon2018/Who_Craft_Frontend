@@ -12,6 +12,7 @@ export interface MusicUploadFormSnapshot {
   brief: MusicBrief | null;
   canEdit: boolean;
   creationMode: 'ai' | 'upload';
+  modelKey: string | null;
   reference: MusicReferenceAsset | null;
   selectedScene: MusicSceneOption | null;
   uploadDirty: boolean;
