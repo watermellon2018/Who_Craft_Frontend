@@ -79,7 +79,6 @@ export default function MusicModelSelector({
       <Form layout="vertical" component="div">
         <Form.Item
           label={t('musicStudio.model.label')}
-          extra={t('musicStudio.model.helper')}
         >
           <Select
             aria-label={t('musicStudio.model.label')}

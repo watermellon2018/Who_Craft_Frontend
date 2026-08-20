@@ -15,7 +15,7 @@ import type {BreadcrumbItem} from '../../profile/components/DashboardHeader';
 
 interface MusicStudioShellProps {
   center: React.ReactNode;
-  inspector: React.ReactNode;
+  inspector?: React.ReactNode;
   library: React.ReactNode;
   projectId: string;
   workspace?: 'music' | 'sound-effects';
@@ -72,6 +72,12 @@ export default function MusicStudioShell({
   const libraryToggleLabel = libraryOpen
     ? t(workspace === 'music' ? 'musicStudio.library.hide' : 'soundEffects.library.hide')
     : t(workspace === 'music' ? 'musicStudio.library.show' : 'soundEffects.library.show');
+  const hasInspector = inspector !== null && inspector !== undefined && inspector !== false;
+  const shellClassName = [
+    'music-studio-shell',
+    !libraryOpen && 'music-studio-shell--library-closed',
+    !hasInspector && 'music-studio-shell--inspector-closed',
+  ].filter(Boolean).join(' ');
 
   return (
     <>
@@ -87,9 +93,7 @@ export default function MusicStudioShell({
           {t('soundEffects.navigation.effects')}
         </Link>
       </nav>
-      <div className={libraryOpen
-        ? 'music-studio-shell'
-        : 'music-studio-shell music-studio-shell--library-closed'}>
+      <div className={shellClassName}>
         <div className={libraryOpen
           ? 'music-studio-library-region music-studio-library-region--open'
           : 'music-studio-library-region'}>
@@ -115,11 +119,13 @@ export default function MusicStudioShell({
           </Button>
         </div>
         <main className="music-studio-main">{center}</main>
-        <aside className="music-studio-inspector" aria-label={workspace === 'music'
-          ? t('musicStudio.scene.context')
-          : t('soundEffects.summary.title')}>
-          {inspector}
-        </aside>
+        {hasInspector && (
+          <aside className="music-studio-inspector" aria-label={workspace === 'music'
+            ? t('musicStudio.scene.context')
+            : t('soundEffects.summary.title')}>
+            {inspector}
+          </aside>
+        )}
       </div>
     </>
   );

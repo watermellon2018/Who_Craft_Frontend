@@ -904,6 +904,8 @@
       "cancelled": "Generation was cancelled",
       "cancel": "Cancel generation",
       "cancelUnavailable": "Generation has already started and can no longer be cancelled.",
+      "queueDelayed": "The generation service has not started this job",
+      "queueDelayedDescription": "The job is still queued. Check that the generation worker is running, or cancel the job and contact an administrator.",
       "retry": "Retry",
       "status": {"queued": "Queued", "processing": "Generating", "cancellation_requested": "Stopping", "completed": "Ready", "failed": "Failed", "cancelled": "Cancelled"},
       "stage": {"queued": "Waiting for a worker", "reference_validation": "Checking the audio reference", "generating": "Generating audio", "finalized": "Ready"}

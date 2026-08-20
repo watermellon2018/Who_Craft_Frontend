@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
-import {Alert, Button, Empty, Result, Segmented, Skeleton, Space, Spin} from 'antd';
+import {Alert, Button, Empty, Result, Segmented, Skeleton, Spin} from 'antd';
 import {PlusOutlined, ReloadOutlined, SoundOutlined, UploadOutlined} from '@ant-design/icons';
 import {flushSync} from 'react-dom';
 import {useTranslation} from 'react-i18next';
@@ -724,52 +724,6 @@ export default function MusicStudioPage() {
     }
   };
 
-  const canChangeCreationScene = creationMode === 'ai'
-    ? permissions.canRunGeneration
-    : permissions.canEdit;
-  const contextScene = selectedScene;
-  const contextInspector = (
-    <div className="music-context-card">
-      <span className="music-eyebrow">{t('musicStudio.scene.context')}</span>
-      {contextScene ? (
-        <>
-          <h2>{t('musicStudio.scene.rowTitle', {
-            act: contextScene.act ?? '—',
-            number: contextScene.number ?? '—',
-            title: contextScene.title || contextScene.location,
-          })}</h2>
-          <p>{contextScene.summary || t('musicStudio.scene.noSummary')}</p>
-          <dl>
-            <div><dt>{t('musicStudio.scene.location')}</dt><dd>{contextScene.location || '—'}</dd></div>
-            <div><dt>{t('musicStudio.scene.mood')}</dt><dd>{contextScene.mood || '—'}</dd></div>
-            <div><dt>{t('musicStudio.scene.duration')}</dt><dd>{contextScene.durationSeconds ?? '—'} {t('musicStudio.units.seconds')}</dd></div>
-          </dl>
-          {isCreateRoute && (
-            <Space wrap>
-              <Button disabled={!canChangeCreationScene} onClick={() => setScenePickerOpen(true)}>
-                {t('musicStudio.scene.change')}
-              </Button>
-              <Button disabled={!canChangeCreationScene} onClick={() => selectScene([])}>
-                {t('musicStudio.scene.projectWide')}
-              </Button>
-            </Space>
-          )}
-        </>
-      ) : (
-        <>
-          <h2>{t('musicStudio.scene.projectWide')}</h2>
-          <p>{t('musicStudio.scene.optional')}</p>
-          {isCreateRoute && (
-            <Button disabled={!canChangeCreationScene} onClick={() => setScenePickerOpen(true)}>
-              {t('musicStudio.scene.choose')}
-            </Button>
-          )}
-        </>
-      )}
-      {!canChangeCreationScene && <Alert type="info" showIcon message={t('musicStudio.readOnly')} />}
-    </div>
-  );
-
   const createView = !capabilities || !brief ? (
     capabilitiesError ? (
       <Result
@@ -1088,7 +1042,7 @@ export default function MusicStudioPage() {
           />
         )}
         center={center}
-        inspector={isCreateRoute ? creationInspector : contextInspector}
+        inspector={isCreateRoute ? creationInspector : null}
       />
       <ScenePickerDialog
         open={scenePickerOpen}

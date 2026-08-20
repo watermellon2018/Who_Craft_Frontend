@@ -667,6 +667,15 @@ test('starts a new-version job from track detail with the exact target snapshot'
   ));
 });
 
+test('hides the scene context panel on a generated track detail', async () => {
+  renderPage('/project/7/music/tracks/12');
+
+  expect(await screen.findByText('Existing theme')).toBeInTheDocument();
+  expect(screen.queryByRole('complementary', {
+    name: i18n.t('musicStudio.scene.context'),
+  })).not.toBeInTheDocument();
+});
+
 test('hydrates an existing target without a saved brief when detail resolves first', async () => {
   let resolveCapabilities: ((value: unknown) => void) | undefined;
   const pendingCapabilities = new Promise((resolve) => {

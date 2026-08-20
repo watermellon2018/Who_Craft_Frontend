@@ -43,3 +43,19 @@ test('links music and sound effects within one project workspace', async () => {
   expect(screen.getByRole('button', {name: i18n.t('soundEffects.library.hide')}))
     .toBeInTheDocument();
 });
+
+test('removes the inspector column when no inspector content is provided', () => {
+  const {container} = render(
+    <MemoryRouter>
+      <MusicStudioShell
+        center={<div>center</div>}
+        library={<div>library</div>}
+        projectId="7"
+      />
+    </MemoryRouter>,
+  );
+
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  expect(container.querySelector('.music-studio-shell'))
+    .toHaveClass('music-studio-shell--inspector-closed');
+});

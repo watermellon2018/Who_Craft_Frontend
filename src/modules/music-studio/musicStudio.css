@@ -39,6 +39,15 @@
   grid-template-columns: 48px minmax(0, 1fr) minmax(300px, 340px);
 }
 
+.music-studio-shell.music-studio-shell--inspector-closed {
+  grid-template-areas: "library main";
+  grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+}
+
+.music-studio-shell.music-studio-shell--library-closed.music-studio-shell--inspector-closed {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
 .music-studio-library-content {
   min-height: 0;
   flex: 1;
@@ -1567,6 +1576,10 @@
     grid-template-columns: 48px minmax(0, 1fr);
   }
 
+  .music-studio-shell.music-studio-shell--inspector-closed {
+    grid-template-areas: "library main";
+  }
+
   .music-studio-inspector {
     border-top: 1px solid var(--music-border);
     border-left: 0;
@@ -1596,6 +1609,17 @@
       "library"
       "main"
       "inspector";
+  }
+
+  .music-studio-shell.music-studio-shell--inspector-closed {
+    grid-template-areas:
+      "library"
+      "main";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .music-studio-shell.music-studio-shell--library-closed.music-studio-shell--inspector-closed {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .music-studio-library-region {
