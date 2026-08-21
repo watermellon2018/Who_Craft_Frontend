@@ -144,6 +144,27 @@ describe('useScriptWorkspace scene persistence', () => {
     expect(result.current.saveError).toContain('не удалось сохранить');
   });
 
+  it('creates a genuinely empty scene without persisted template content', async () => {
+    createSceneMock.mockImplementation(async (_projectId, draft) => ({
+      ...draft,
+      id: 2,
+      version: 1,
+    }));
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.addScene();
+    });
+
+    expect(createSceneMock).toHaveBeenCalledTimes(1);
+    expect(createSceneMock.mock.calls[0][1]).toEqual(expect.objectContaining({
+      description: '',
+      scriptBlocks: [],
+      scriptText: '',
+    }));
+  });
+
   it('waits for an active autosave before deleting the same scene', async () => {
     const saveRequest = deferred<Scene>();
     updateSceneMock.mockReturnValueOnce(saveRequest.promise);

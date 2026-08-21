@@ -433,7 +433,7 @@ export function useScriptWorkspace(projectId: string) {
       title: `Новая сцена ${order}`,
       description: '',
       scriptText: '',
-      scriptBlocks: [{id: crypto.randomUUID(), type: 'scene_heading', text: 'ИНТ. ЛОКАЦИЯ — ДЕНЬ'}],
+      scriptBlocks: [],
       status: 'draft',
       order,
       act: Math.min(3, Math.max(1, Math.ceil(order / 3))),

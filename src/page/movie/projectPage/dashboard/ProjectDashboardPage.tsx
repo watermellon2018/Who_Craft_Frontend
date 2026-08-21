@@ -30,6 +30,7 @@ import type {
   TrackMock,
   ProgressLegendItem,
   QuickActionMock,
+  StoryboardReviewSceneMock,
   ActivityItemMock,
 } from './mocks';
 import {
@@ -63,6 +64,8 @@ interface ViewModel {
   music: TrackMock[];
   progressOverall: number;
   progressLegend: ProgressLegendItem[];
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: StoryboardReviewSceneMock[];
   quickActions: QuickActionMock[];
   activity: ActivityItemMock[];
 }
@@ -102,10 +105,12 @@ function buildEmptyViewModel(): ViewModel {
     progressOverall: 0,
     progressLegend: [
       { label: 'Сценарий', value: 0, accent: 'yellow' },
-      { label: 'Визуал', value: 0, accent: 'purple' },
-      { label: 'Аудио', value: 0, accent: 'green' },
-      { label: 'Постпродакшн', value: 0, accent: 'blue' },
+      { label: 'Персонажи', value: null, accent: 'purple' },
+      { label: 'Раскадровка', value: 0, accent: 'green' },
+      { label: 'Видео', value: 0, accent: 'blue' },
     ],
+    storyboardNeedsReview: 0,
+    storyboardReviewScenes: [],
     quickActions: [
       { key: 'new_scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
       { key: 'generate_video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
@@ -128,6 +133,8 @@ function buildViewModel(data: DashboardPayload): ViewModel {
     music: adaptMusic(data.music),
     progressOverall: progress.overall,
     progressLegend: progress.legend,
+    storyboardNeedsReview: progress.storyboardNeedsReview,
+    storyboardReviewScenes: progress.storyboardReviewScenes,
     quickActions: adaptQuickActions(data.quickActions),
     activity: adaptActivity(data.recentActivity),
   };
@@ -617,6 +624,8 @@ export const ProjectDashboardPage: React.FC = () => {
                 project={view.project}
                 progressOverall={view.progressOverall}
                 progressLegend={view.progressLegend}
+                storyboardNeedsReview={view.storyboardNeedsReview}
+                storyboardReviewScenes={view.storyboardReviewScenes}
                 quickActions={view.quickActions}
                 activity={view.activity}
                 onQuickAction={handleQuickAction}

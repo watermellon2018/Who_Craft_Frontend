@@ -207,17 +207,41 @@ export const musicMock: TrackMock[] = [
 
 export interface ProgressLegendItem {
   label: string;
-  value: number;
+  value: number | null;
   accent: AccentColor;
+}
+
+export interface StoryboardReviewSceneMock {
+  sceneId: number;
+  title: string;
+  currentRevision: number;
+  acceptedRevision: number;
 }
 
 export const overallProgressPercent = 58;
 
 export const progressLegendMock: ProgressLegendItem[] = [
   { label: 'Сценарий', value: 80, accent: 'yellow' },
-  { label: 'Визуал', value: 42, accent: 'purple' },
-  { label: 'Аудио', value: 67, accent: 'green' },
-  { label: 'Постпродакшн', value: 30, accent: 'blue' },
+  { label: 'Персонажи', value: 42, accent: 'purple' },
+  { label: 'Раскадровка', value: 67, accent: 'green' },
+  { label: 'Видео', value: 30, accent: 'blue' },
+];
+
+export const storyboardNeedsReviewMock = 2;
+
+export const storyboardReviewScenesMock: StoryboardReviewSceneMock[] = [
+  {
+    sceneId: 7,
+    title: 'Сцена 07 — Ночной рынок',
+    currentRevision: 4,
+    acceptedRevision: 3,
+  },
+  {
+    sceneId: 12,
+    title: 'Сцена 12 — Крыша',
+    currentRevision: 2,
+    acceptedRevision: 1,
+  },
 ];
 
 export interface QuickActionMock {

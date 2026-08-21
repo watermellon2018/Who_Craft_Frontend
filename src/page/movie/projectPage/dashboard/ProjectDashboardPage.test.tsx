@@ -72,7 +72,12 @@ beforeEach(() => {
   mockedAdaptCharacters.mockReturnValue([]);
   mockedAdaptPipeline.mockReturnValue([]);
   mockedAdaptMusic.mockReturnValue([]);
-  mockedAdaptProgress.mockReturnValue({overall: 0, legend: []});
+  mockedAdaptProgress.mockReturnValue({
+    overall: 0,
+    legend: [],
+    storyboardNeedsReview: 0,
+    storyboardReviewScenes: [],
+  });
   mockedAdaptQuickActions.mockReturnValue([]);
   mockedAdaptActivity.mockReturnValue([]);
 });
@@ -191,7 +196,7 @@ it('places the visual library before Music Studio', async () => {
   );
 
   const library = await screen.findByTestId('visual-library-section');
-  const music = screen.getByRole('heading', {name: 'Музыкальная студия'}).closest('section');
+  const music = screen.getByRole('heading', {name: 'Звукостудия'}).closest('section');
   expect(music).not.toBeNull();
   expect(library.compareDocumentPosition(music as Node) & Node.DOCUMENT_POSITION_FOLLOWING)
     .toBeTruthy();
