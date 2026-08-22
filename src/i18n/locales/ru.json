@@ -874,6 +874,70 @@
       "codes": {"AUTH_REQUIRED": "Требуется повторная авторизация.", "PROJECT_ACCESS_DENIED": "Нет доступа к этому проекту.", "REFERENCE_EDIT_FORBIDDEN": "Недостаточно прав для изменения опоры.", "REFERENCE_GENERATION_FORBIDDEN": "Недостаточно прав для генерации изображений.", "REFERENCE_NOT_FOUND": "Опора не найдена или недоступна.", "REFERENCE_VERSION_NOT_FOUND": "Версия изображения не найдена.", "REFERENCE_JOB_NOT_FOUND": "Задание генерации не найдено.", "REFERENCE_VARIANT_NOT_FOUND": "Выбранный вариант не найден.", "REFERENCE_CROSS_PROJECT_LINK": "Связанная сущность принадлежит другому проекту.", "REFERENCE_INVALID_CATEGORY": "Выберите поддерживаемую категорию.", "REFERENCE_INVALID_BRIEF": "Проверьте поля визуального брифа.", "REFERENCE_LOCATION_CATEGORY_REQUIRED": "Локацию можно связать только с опорой категории «Локация».", "REFERENCE_UPLOAD_RIGHTS_REQUIRED": "Подтвердите право использования изображения.", "MEDIA_TOO_LARGE": "Изображение превышает допустимый размер.", "UNSUPPORTED_MEDIA_TYPE": "Поддерживаются только JPEG, PNG и WebP.", "INVALID_IMAGE": "Файл повреждён или не является допустимым изображением.", "REFERENCE_VERSION_CONFLICT": "Опора изменилась в другой сессии. Обновите страницу и повторите действие.", "REFERENCE_IDEMPOTENCY_MISMATCH": "Бриф изменился во время запуска. Запустите генерацию ещё раз.", "REFERENCE_GENERATION_CONFLICT": "Для этой опоры уже выполняется генерация.", "REFERENCE_PROVIDER_NOT_CONFIGURED": "Генератор изображений временно недоступен.", "REFERENCE_PROVIDER_RATE_LIMITED": "Сервис перегружен. Повторите попытку позже.", "REFERENCE_PROVIDER_TIMEOUT": "Генерация заняла слишком много времени. Её можно повторить.", "REFERENCE_PROVIDER_REJECTED": "Генератор отклонил запрос. Измените бриф.", "REFERENCE_OUTPUT_INVALID": "Полученное изображение не прошло проверку.", "REFERENCE_CANNOT_CANCEL": "Эту генерацию уже нельзя отменить."}
     }
   },
+  "videoPreparation": {
+    "loading": "Проверяем готовность проекта к видео…",
+    "retry": "Повторить проверку",
+    "title": "Подготовка к созданию видео",
+    "subtitle": "Завершите обязательные задачи проекта «{{projectTitle}}».",
+    "backToProject": "К проекту",
+    "createVideo": "Создать видео",
+    "errors": {
+      "forbidden": "У вас нет прав для подготовки или создания видео в этом проекте.",
+      "notFound": "Проект не найден.",
+      "unknown": "Не удалось проверить готовность проекта. Попробуйте ещё раз."
+    },
+    "summary": {
+      "label": "Статус подготовки к видео",
+      "ready": "Готово к созданию видео",
+      "notReady": "Проект пока не готов к видео",
+      "readyHint": "Все обязательные задачи выполнены.",
+      "taskCount_one": "Осталась {{count}} задача",
+      "taskCount_few": "Осталось {{count}} задачи",
+      "taskCount_many": "Осталось {{count}} задач",
+      "taskCount_other": "Осталось {{count}} задачи"
+    },
+    "missingCharacters": {
+      "title": "Недостающие персонажи",
+      "stats": "Реплик: {{dialogueCount}} · сцен: {{sceneCount}}",
+      "create": "Создать персонажа",
+      "createLabel": "Создать персонажа «{{name}}»"
+    },
+    "emptyScenes": {
+      "title": "Пустые сцены",
+      "position": "Сцена {{order}}",
+      "open": "Открыть сцену",
+      "openLabel": "Открыть сцену «{{title}}»"
+    },
+    "storyboard": {
+      "title": "Полное покрытие сценария раскадровкой",
+      "detail": "Готово: {{readyCount}} из {{totalCount}} · без раскадровки: {{missingCount}} · устарело: {{staleCount}}",
+      "progressLabel": "Готовность раскадровки: {{progress}}%"
+    },
+    "dashboard": {
+      "ready": "✓ Готово к созданию видео",
+      "notReady_one": "Подготовка к видео: ⚠ Не готово к видео · {{count}} задача → Открыть",
+      "notReady_few": "Подготовка к видео: ⚠ Не готово к видео · {{count}} задачи → Открыть",
+      "notReady_many": "Подготовка к видео: ⚠ Не готово к видео · {{count}} задач → Открыть",
+      "notReady_other": "Подготовка к видео: ⚠ Не готово к видео · {{count}} задачи → Открыть"
+    },
+    "scriptNotice": {
+      "title": "Для сценария не хватает персонажей",
+      "description": "Создайте персонажей проекта, которые уже играют значимую роль в сценарии.",
+      "listLabel": "Недостающие персонажи сценария",
+      "createLabel": "Создать персонажа «{{name}}»",
+      "dismissLabel": "Закрыть уведомление о недостающих персонажах",
+      "dismissTitle": "Закрыть",
+      "initialError": "Не удалось проверить персонажей сценария. Повторите попытку.",
+      "refreshError": "Не удалось обновить список недостающих персонажей. Повторите попытку.",
+      "retry": "Повторить проверку"
+    }
+  },
+  "videoGeneration": {
+    "title": "Создание видео",
+    "placeholder": "Проект готов. Рабочая область генерации видео будет подключена здесь отдельным этапом.",
+    "openPreparation": "Проверить подготовку",
+    "backToProject": "К проекту"
+  },
   "navigation": {
     "sections": {
       "subscriptions": "Подписки",

@@ -1,4 +1,5 @@
 import api from '../../api/http';
+import type {MissingCharactersResponse} from '../../api/generated/contracts';
 import type {
   CompactCharactersResponse,
   Scene,
@@ -43,6 +44,13 @@ export const scriptApi = {
   async getCharacters(projectId: string) {
     const response = await api.get<CompactCharactersResponse>(
       `api/projects/${projectId}/characters/`,
+    );
+    return response.data.characters;
+  },
+
+  async getMissingCharacters(projectId: string) {
+    const response = await api.get<MissingCharactersResponse>(
+      `${scenesUrl(projectId)}missing-characters/`,
     );
     return response.data.characters;
   },

@@ -1,11 +1,13 @@
 import axios from 'axios';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
 
 import {characterApi} from '../../modules/character-studio/api/characterApi';
 import {scriptApi} from './api';
 import type {ScenePlacement} from './sceneStructure';
 import type {
   CompactCharacter,
+  MissingScriptCharacter,
   Scene,
   ScriptProject,
   ScriptStats,
@@ -38,11 +40,14 @@ const describeApiError = (error: unknown) => {
 };
 
 export function useScriptWorkspace(projectId: string) {
+  const {t} = useTranslation();
   const ownerKey = projectId;
   const [mode, setMode] = useState<WorkspaceMode>('screenplay');
   const [project, setProject] = useState<ScriptProject | null>(null);
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [characters, setCharacters] = useState<CompactCharacter[]>([]);
+  const [missingCharacters, setMissingCharacters] = useState<MissingScriptCharacter[]>([]);
+  const [missingCharactersError, setMissingCharactersError] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<number | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [characterSceneFilter, setCharacterSceneFilter] = useState<string | null>(null);
@@ -58,6 +63,7 @@ export function useScriptWorkspace(projectId: string) {
   const ownerKeyRef = useRef(ownerKey);
   const loadedOwnerKeyRef = useRef<string | null>(null);
   const loadRequestRef = useRef(0);
+  const missingCharactersRequestRef = useRef(0);
   const scenesRef = useRef<Scene[]>([]);
   const dirtyRef = useRef(new Set<number>());
   const editRevisionRef = useRef(new Map<number, number>());
@@ -70,6 +76,7 @@ export function useScriptWorkspace(projectId: string) {
     ownerKeyRef.current = ownerKey;
     loadedOwnerKeyRef.current = null;
     loadRequestRef.current += 1;
+    missingCharactersRequestRef.current += 1;
     scenesRef.current = [];
     dirtyRef.current.clear();
     editRevisionRef.current.clear();
@@ -89,6 +96,8 @@ export function useScriptWorkspace(projectId: string) {
     const requestedOwnerKey = ownerKey;
     const requestToken = loadRequestRef.current + 1;
     loadRequestRef.current = requestToken;
+    const missingCharactersRequestToken = missingCharactersRequestRef.current + 1;
+    missingCharactersRequestRef.current = missingCharactersRequestToken;
     loadedOwnerKeyRef.current = null;
     scenesRef.current = [];
     dirtyRef.current.clear();
@@ -102,6 +111,8 @@ export function useScriptWorkspace(projectId: string) {
     setProject(null);
     setScenes([]);
     setCharacters([]);
+    setMissingCharacters([]);
+    setMissingCharactersError(null);
     setSelectedSceneId(null);
     setSelectedCharacterId(null);
     setCharacterSceneFilter(null);
@@ -119,6 +130,28 @@ export function useScriptWorkspace(projectId: string) {
       ownerKeyRef.current === requestedOwnerKey
       && loadRequestRef.current === requestToken
     );
+
+    void scriptApi.getMissingCharacters(requestedOwnerKey)
+      .then((items) => {
+        if (
+          !isCurrentRequest()
+          || missingCharactersRequestRef.current !== missingCharactersRequestToken
+        ) return;
+        setMissingCharacters(items);
+        setMissingCharactersError(null);
+      })
+      .catch(() => {
+        if (
+          isCurrentRequest()
+          && missingCharactersRequestRef.current === missingCharactersRequestToken
+        ) {
+          setMissingCharactersError(
+            t('videoPreparation.scriptNotice.initialError', {
+              defaultValue: 'Не удалось проверить персонажей сценария. Повторите попытку.',
+            }),
+          );
+        }
+      });
 
     try {
       const [workspace, compactCharacters] = await Promise.all([
@@ -140,12 +173,13 @@ export function useScriptWorkspace(projectId: string) {
     } finally {
       if (isCurrentRequest()) setLoading(false);
     }
-  }, [ownerKey, replaceScenes]);
+  }, [ownerKey, replaceScenes, t]);
 
   useEffect(() => {
     void loadWorkspace();
     return () => {
       loadRequestRef.current += 1;
+      missingCharactersRequestRef.current += 1;
     };
   }, [loadWorkspace]);
 
@@ -154,12 +188,45 @@ export function useScriptWorkspace(projectId: string) {
     && loadedOwnerKeyRef.current === requestedOwnerKey
   ), []);
 
+  const refreshMissingCharacters = useCallback(async () => {
+    const requestedOwnerKey = ownerKey;
+    if (!requestedOwnerKey || !ownsLoadedWorkspace(requestedOwnerKey)) return false;
+    const requestToken = missingCharactersRequestRef.current + 1;
+    missingCharactersRequestRef.current = requestToken;
+    try {
+      const items = await scriptApi.getMissingCharacters(requestedOwnerKey);
+      if (
+        !ownsLoadedWorkspace(requestedOwnerKey)
+        || missingCharactersRequestRef.current !== requestToken
+      ) return false;
+      setMissingCharacters(items);
+      setMissingCharactersError(null);
+      return true;
+    } catch {
+      if (
+        ownsLoadedWorkspace(requestedOwnerKey)
+        && missingCharactersRequestRef.current === requestToken
+      ) {
+        setMissingCharactersError(
+          t('videoPreparation.scriptNotice.refreshError', {
+            defaultValue: 'Не удалось обновить список недостающих персонажей. Повторите попытку.',
+          }),
+        );
+      }
+      return false;
+    }
+  }, [ownerKey, ownsLoadedWorkspace, t]);
+
   const ownsVisibleData = stateOwnerKey === ownerKey && dataOwnerKey === ownerKey;
   const visibleProject = ownsVisibleData ? project : null;
   const visibleScenes = useMemo(() => ownsVisibleData ? scenes : [], [ownsVisibleData, scenes]);
   const visibleCharacters = useMemo(
     () => ownsVisibleData ? characters : [],
     [characters, ownsVisibleData],
+  );
+  const visibleMissingCharacters = useMemo(
+    () => ownsVisibleData ? missingCharacters : [],
+    [missingCharacters, ownsVisibleData],
   );
   const visibleSelectedSceneId = ownsVisibleData ? selectedSceneId : null;
   const visibleSelectedCharacterId = ownsVisibleData ? selectedCharacterId : null;
@@ -222,6 +289,7 @@ export function useScriptWorkspace(projectId: string) {
       if (!changedWhileSaving) dirtyRef.current.delete(sceneId);
       setDirtySceneIds(Array.from(dirtyRef.current));
       setConflict(null);
+      void refreshMissingCharacters();
       return true;
     } catch (saveFailure) {
       if (!ownsLoadedWorkspace(requestedOwnerKey)) return false;
@@ -239,7 +307,13 @@ export function useScriptWorkspace(projectId: string) {
         setSavingSceneIds((current) => current.filter((id) => id !== sceneId));
       }
     }
-  }, [canEdit, ownerKey, ownsLoadedWorkspace, replaceScenes]);
+  }, [
+    canEdit,
+    ownerKey,
+    ownsLoadedWorkspace,
+    refreshMissingCharacters,
+    replaceScenes,
+  ]);
 
   const saveScene = useCallback((sceneId: number): Promise<boolean> => {
     const saveKey = `${ownerKey}:${sceneId}`;
@@ -454,6 +528,7 @@ export function useScriptWorkspace(projectId: string) {
       replaceScenes([...scenesRef.current, created]);
       setSelectedSceneId(created.id);
       setMode('screenplay');
+      void refreshMissingCharacters();
     } catch {
       if (ownsLoadedWorkspace(requestedOwnerKey)) {
         setSaveError('Сцену не удалось создать. Проверьте соединение и повторите попытку.');
@@ -467,6 +542,7 @@ export function useScriptWorkspace(projectId: string) {
     canEdit,
     ownerKey,
     ownsLoadedWorkspace,
+    refreshMissingCharacters,
     replaceScenes,
     saveScene,
     visibleSelectedSceneId,
@@ -495,6 +571,7 @@ export function useScriptWorkspace(projectId: string) {
       editRevisionRef.current.delete(sceneId);
       setDirtySceneIds(Array.from(dirtyRef.current));
       setSelectedSceneId((current) => current === sceneId ? remaining[0]?.id ?? null : current);
+      void refreshMissingCharacters();
     } catch {
       if (ownsLoadedWorkspace(requestedOwnerKey)) {
         setSaveError('Сцену не удалось удалить. Повторите попытку.');
@@ -505,7 +582,13 @@ export function useScriptWorkspace(projectId: string) {
         setSavingSceneIds((current) => current.filter((id) => id !== sceneId));
       }
     }
-  }, [canEdit, ownerKey, ownsLoadedWorkspace, replaceScenes]);
+  }, [
+    canEdit,
+    ownerKey,
+    ownsLoadedWorkspace,
+    refreshMissingCharacters,
+    replaceScenes,
+  ]);
 
   const updateCharacterPersonality = useCallback(async (
     characterId: string,
@@ -533,6 +616,7 @@ export function useScriptWorkspace(projectId: string) {
     project: visibleProject,
     scenes: visibleScenes,
     characters: visibleCharacters,
+    missingCharacters: visibleMissingCharacters,
     selectedScene,
     selectedCharacter,
     selectedSceneId: visibleSelectedSceneId,
@@ -544,6 +628,7 @@ export function useScriptWorkspace(projectId: string) {
     loading: visibleLoading,
     error: visibleError,
     saveError: ownsVisibleData ? saveError : null,
+    missingCharactersError: ownsVisibleData ? missingCharactersError : null,
     conflict: ownsVisibleData ? conflict : null,
     dirtySceneIds: ownsVisibleData ? dirtySceneIds : [],
     savingSceneIds: ownsVisibleData ? savingSceneIds : [],
@@ -560,6 +645,7 @@ export function useScriptWorkspace(projectId: string) {
     addScene,
     removeScene,
     reload: loadWorkspace,
+    refreshMissingCharacters,
     updateCharacterPersonality,
   };
 }

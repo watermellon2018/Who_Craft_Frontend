@@ -131,6 +131,25 @@ an explicit delete action. The bottom zoom control scales only the screenplay
 sheet from 50% to 200%, offers a fit-to-width mode, and remembers the user's
 choice without changing the surrounding workspace UI.
 
+The workspace also checks the saved screenplay for significant characters that
+do not yet exist in Character Studio. A notice lists names with more than five
+dialogue blocks, appearances in at least two scenes, or an existing draft
+Character Studio record. Editors can open the character creation flow with the
+selected name prefilled; the notice refreshes
+after screenplay saves and disappears after a matching character is completed.
+View-only collaborators see the missing names without creation controls.
+The notice can be dismissed for the current list during the browser session;
+it returns when screenplay analysis changes the missing names or their dialogue
+or scene counts.
+
+Video creation uses `/project/:projectId/video` as a live prerequisite gate.
+Ready projects continue to `/video/generate`; blocked projects open the
+dedicated `/video/preparation` checklist. The checklist groups missing
+characters and empty scenes, and adds storyboard coverage while it is below
+100%, with direct links back to character creation and the affected screenplay
+scenes. A compact dashboard
+status opens the same preparation flow before the user attempts generation.
+
 The **Structure** view groups scene cards by act. Cards show the screenplay
 heading, extracted location, linked characters, and a rough text-based duration
 estimate; empty and locally unsaved scenes have explicit status labels. Editors

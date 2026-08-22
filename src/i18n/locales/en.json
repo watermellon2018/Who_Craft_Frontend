@@ -1116,6 +1116,66 @@
       "codes": {"AUTH_REQUIRED": "Please sign in again.", "PROJECT_ACCESS_DENIED": "You do not have access to this project.", "REFERENCE_EDIT_FORBIDDEN": "You do not have permission to edit this reference.", "REFERENCE_GENERATION_FORBIDDEN": "You do not have permission to generate images.", "REFERENCE_NOT_FOUND": "Reference not found or unavailable.", "REFERENCE_VERSION_NOT_FOUND": "Image version not found.", "REFERENCE_JOB_NOT_FOUND": "Generation job not found.", "REFERENCE_VARIANT_NOT_FOUND": "Selected variant not found.", "REFERENCE_CROSS_PROJECT_LINK": "The linked item belongs to another project.", "REFERENCE_INVALID_CATEGORY": "Choose a supported category.", "REFERENCE_INVALID_BRIEF": "Check the visual brief fields.", "REFERENCE_LOCATION_CATEGORY_REQUIRED": "A location can only be linked to a Location reference.", "REFERENCE_UPLOAD_RIGHTS_REQUIRED": "Confirm your right to use the image.", "MEDIA_TOO_LARGE": "The image exceeds the allowed size.", "UNSUPPORTED_MEDIA_TYPE": "Only JPEG, PNG, and WebP are supported.", "INVALID_IMAGE": "The file is damaged or is not a valid image.", "REFERENCE_VERSION_CONFLICT": "The reference changed in another session. Refresh and try again.", "REFERENCE_IDEMPOTENCY_MISMATCH": "The brief changed while starting. Start generation again.", "REFERENCE_GENERATION_CONFLICT": "A generation is already running for this reference.", "REFERENCE_PROVIDER_NOT_CONFIGURED": "The image generator is temporarily unavailable.", "REFERENCE_PROVIDER_RATE_LIMITED": "The service is busy. Try again later.", "REFERENCE_PROVIDER_TIMEOUT": "Generation took too long. You can retry it.", "REFERENCE_PROVIDER_REJECTED": "The generator rejected the request. Adjust the brief.", "REFERENCE_OUTPUT_INVALID": "The generated image did not pass validation.", "REFERENCE_CANNOT_CANCEL": "This generation can no longer be cancelled."}
     }
   },
+  "videoPreparation": {
+    "loading": "Checking whether the project is ready for video…",
+    "retry": "Check again",
+    "title": "Prepare to create video",
+    "subtitle": "Finish the required tasks for “{{projectTitle}}”.",
+    "backToProject": "Back to project",
+    "createVideo": "Create video",
+    "errors": {
+      "forbidden": "You do not have permission to prepare or create video in this project.",
+      "notFound": "Project not found.",
+      "unknown": "Could not check project readiness. Please try again."
+    },
+    "summary": {
+      "label": "Video preparation status",
+      "ready": "Ready to create video",
+      "notReady": "Project is not ready for video yet",
+      "readyHint": "All required tasks are complete.",
+      "taskCount_one": "{{count}} task remaining",
+      "taskCount_other": "{{count}} tasks remaining"
+    },
+    "missingCharacters": {
+      "title": "Missing characters",
+      "stats": "Lines: {{dialogueCount}} · scenes: {{sceneCount}}",
+      "create": "Create character",
+      "createLabel": "Create character “{{name}}”"
+    },
+    "emptyScenes": {
+      "title": "Empty scenes",
+      "position": "Scene {{order}}",
+      "open": "Open scene",
+      "openLabel": "Open scene “{{title}}”"
+    },
+    "storyboard": {
+      "title": "Full storyboard coverage",
+      "detail": "Ready: {{readyCount}} of {{totalCount}} · missing: {{missingCount}} · stale: {{staleCount}}",
+      "progressLabel": "Storyboard readiness: {{progress}}%"
+    },
+    "dashboard": {
+      "ready": "✓ Ready to create video",
+      "notReady_one": "Video preparation: ⚠ Not ready · {{count}} task → Open",
+      "notReady_other": "Video preparation: ⚠ Not ready · {{count}} tasks → Open"
+    },
+    "scriptNotice": {
+      "title": "Characters are missing from the script",
+      "description": "Create project characters who already play a significant role in the script.",
+      "listLabel": "Characters missing from the script",
+      "createLabel": "Create character “{{name}}”",
+      "dismissLabel": "Dismiss the missing characters notice",
+      "dismissTitle": "Dismiss",
+      "initialError": "Could not check the script characters. Please try again.",
+      "refreshError": "Could not refresh the missing characters list. Please try again.",
+      "retry": "Check again"
+    }
+  },
+  "videoGeneration": {
+    "title": "Create video",
+    "placeholder": "The project is ready. The video generation workspace will be connected here in a separate stage.",
+    "openPreparation": "Review preparation",
+    "backToProject": "Back to project"
+  },
   "navigation": {
     "sections": {
       "subscriptions": "Subscriptions",

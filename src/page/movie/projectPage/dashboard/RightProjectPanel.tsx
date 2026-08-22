@@ -12,6 +12,7 @@ import type {
   QuickActionMock,
   StoryboardReviewSceneMock,
 } from './mocks';
+import type {DashboardVideoPreparationSummary} from './api';
 
 import '../team/team.css';
 
@@ -28,6 +29,9 @@ interface Props {
   onOpenTeam: () => void;
   onInvite: () => void;
   loading?: boolean;
+  videoPreparation?: DashboardVideoPreparationSummary | null;
+  videoPreparationLabel?: string;
+  onOpenVideoPreparation?: () => void;
 }
 
 const RightProjectPanel: React.FC<Props> = ({
@@ -43,6 +47,9 @@ const RightProjectPanel: React.FC<Props> = ({
   onOpenTeam,
   onInvite,
   loading = false,
+  videoPreparation,
+  videoPreparationLabel,
+  onOpenVideoPreparation,
 }) => {
   return (
     <aside className="flex flex-col gap-4">
@@ -65,6 +72,9 @@ const RightProjectPanel: React.FC<Props> = ({
         actions={quickActions}
         onAction={onQuickAction}
         isActionEnabled={isQuickActionEnabled}
+        videoPreparation={videoPreparation}
+        videoPreparationLabel={videoPreparationLabel}
+        onOpenVideoPreparation={onOpenVideoPreparation}
       />
       <RecentActivityCard activity={activity} loading={loading} />
     </aside>
