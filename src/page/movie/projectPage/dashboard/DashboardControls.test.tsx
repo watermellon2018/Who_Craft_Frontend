@@ -81,6 +81,33 @@ test('pipeline and quick actions enable only implemented destinations', () => {
   expect(screen.getByRole('button', {name: /Генерация видео/})).toBeDisabled();
 });
 
+test('video generation remains actionable and the compact preparation status has its own entry', () => {
+  const onAction = jest.fn();
+  const onOpenVideoPreparation = jest.fn();
+  render(
+    <QuickActionsCard
+      actions={[
+        {key: 'generate_video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red'},
+      ]}
+      onAction={onAction}
+      isActionEnabled={() => true}
+      onOpenVideoPreparation={onOpenVideoPreparation}
+      videoPreparation={{ready: false, taskCount: 15}}
+      videoPreparationLabel="Подготовка к видео: ⚠ Не готово к видео · 15 задач → Открыть"
+    />,
+  );
+
+  const generationButton = screen.getByRole('button', {name: 'Генерация видео'});
+  expect(generationButton).toBeEnabled();
+  fireEvent.click(generationButton);
+  expect(onAction).toHaveBeenCalledWith('generate_video');
+
+  fireEvent.click(screen.getByRole('button', {
+    name: 'Подготовка к видео: ⚠ Не готово к видео · 15 задач → Открыть',
+  }));
+  expect(onOpenVideoPreparation).toHaveBeenCalledTimes(1);
+});
+
 test('viewer can play and inspect music without seeing generation controls', () => {
   const onOpenTrack = jest.fn();
   const {container} = render(<ProjectMusic tracks={musicMock.slice(0, 1)} onOpenTrack={onOpenTrack} />);

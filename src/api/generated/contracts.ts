@@ -9,6 +9,74 @@ export const API_CONSTRAINTS = {
   "projectPosterMaxBytes": 5242880
 } as const;
 
+export interface MissingCharacter {
+  name: string;
+  dialogueCount: number;
+  sceneCount: number;
+}
+
+export interface MissingCharactersResponse {
+  characters: Array<MissingCharacter>;
+}
+
+export interface ProjectPermissionSummary {
+  currentUserRole: string | null;
+  canView: boolean;
+  canEdit: boolean;
+  canRunGeneration: boolean;
+  canEditSettings: boolean;
+  canPublish: boolean;
+  canManageTeam: boolean;
+  canTransferOwnership: boolean;
+  canDeleteProject: boolean;
+  canLeaveProject: boolean;
+}
+
+export interface VideoPreparationCompact {
+  ready: boolean;
+  taskCount: number;
+}
+
+export interface VideoPreparationProject {
+  id: number;
+  title: string;
+  permissions: ProjectPermissionSummary;
+}
+
+export interface VideoPreparationEmptyScene {
+  sceneId: number;
+  title: string;
+  order: number;
+}
+
+export interface VideoPreparationStoryboardScene {
+  sceneId: number;
+  title: string;
+  order: number;
+  status: "missing" | "stale";
+  currentVersion: number;
+  acceptedVersion: number | null;
+}
+
+export interface VideoPreparationStoryboard {
+  ready: boolean;
+  progress: number;
+  readyCount: number;
+  totalCount: number;
+  missingCount: number;
+  staleCount: number;
+  scenes: Array<VideoPreparationStoryboardScene>;
+}
+
+export interface VideoPreparationResponse {
+  project: VideoPreparationProject;
+  ready: boolean;
+  taskCount: number;
+  missingCharacters: Array<MissingCharacter>;
+  emptyScenes: Array<VideoPreparationEmptyScene>;
+  storyboard: VideoPreparationStoryboard;
+}
+
 export type CharacterSecondaryAssetType = "full_body" | "scene";
 
 export interface CharacterSecondaryAssetsQuoteRequest {
@@ -384,6 +452,7 @@ export interface ProjectReadiness {
   video: number;
   storyboardNeedsReview: number;
   storyboardReviewScenes: Array<ProjectProgressReviewScene>;
+  videoPreparation: VideoPreparationCompact;
 }
 
 export interface ProjectProgress {

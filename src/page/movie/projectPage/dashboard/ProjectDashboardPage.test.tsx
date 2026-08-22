@@ -256,3 +256,60 @@ it.each([
     expect(await screen.findByText(destinationLabel)).toBeInTheDocument();
   },
 );
+
+it('keeps video generation enabled when prerequisites are incomplete and opens the entry gate', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({
+    progress: {
+      readiness: {
+        videoPreparation: {ready: false, taskCount: 3},
+      },
+    },
+  } as never);
+  mockedAdaptQuickActions.mockReturnValue([
+    {accent: 'red', iconKey: 'genVideo', key: 'generate_video', label: 'Генерация видео'},
+  ] as never);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/project/:projectId/video" element={<div>Вход в создание видео</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  const generationButton = await screen.findByRole('button', {name: 'Генерация видео'});
+  expect(generationButton).toBeEnabled();
+  fireEvent.click(generationButton);
+  expect(await screen.findByText('Вход в создание видео')).toBeInTheDocument();
+});
+
+it('opens preparation from the compact dashboard status', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({
+    progress: {
+      readiness: {
+        videoPreparation: {ready: false, taskCount: 3},
+      },
+    },
+  } as never);
+  mockedAdaptQuickActions.mockReturnValue([
+    {accent: 'red', iconKey: 'genVideo', key: 'generate_video', label: 'Генерация видео'},
+  ] as never);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route
+          path="/project/:projectId/video/preparation"
+          element={<div>Чек-лист подготовки</div>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', {
+    name: 'Подготовка к видео: ⚠ Не готово к видео · 3 задачи → Открыть',
+  }));
+  expect(await screen.findByText('Чек-лист подготовки')).toBeInTheDocument();
+});

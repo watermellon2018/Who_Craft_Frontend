@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import {useTranslation} from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import { fetchDashboard } from '../../../../modules/profile/api/profileApi';
@@ -12,6 +13,8 @@ import PathConstants, {
   referenceCreatePath,
   referenceEditPath,
   referenceLibraryPath,
+  videoPath,
+  videoPreparationPath,
 } from '../../../../routes/pathConstant';
 import withAuth from '../../../../utils/auth/check_auth';
 
@@ -46,7 +49,11 @@ import {
   updateProjectStatus,
   deleteProject as apiDeleteProject,
 } from './api';
-import type { DashboardPayload, ProjectStatusValue } from './api';
+import type {
+  DashboardPayload,
+  DashboardVideoPreparationSummary,
+  ProjectStatusValue,
+} from './api';
 import InviteMemberModal from '../team/InviteMemberModal';
 import { fetchTeamSummary, leaveProject, teamErrorCode } from '../../../../api/projects/team';
 import { message } from 'antd';
@@ -68,6 +75,7 @@ interface ViewModel {
   storyboardReviewScenes: StoryboardReviewSceneMock[];
   quickActions: QuickActionMock[];
   activity: ActivityItemMock[];
+  videoPreparation: DashboardVideoPreparationSummary | null;
 }
 
 function buildEmptyViewModel(): ViewModel {
@@ -113,12 +121,13 @@ function buildEmptyViewModel(): ViewModel {
     storyboardReviewScenes: [],
     quickActions: [
       { key: 'new_scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
-      { key: 'generate_video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
+      { key: 'generate_video', label: 'Создать видео', iconKey: 'genVideo', accent: 'red' },
       { key: 'create_location', label: 'Создать визуальную опору', iconKey: 'newReference', accent: 'yellow' },
       { key: 'create_character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
       { key: 'create_track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
     ],
     activity: [],
+    videoPreparation: null,
   };
 }
 
@@ -137,10 +146,12 @@ function buildViewModel(data: DashboardPayload): ViewModel {
     storyboardReviewScenes: progress.storyboardReviewScenes,
     quickActions: adaptQuickActions(data.quickActions),
     activity: adaptActivity(data.recentActivity),
+    videoPreparation: data.progress?.readiness?.videoPreparation ?? null,
   };
 }
 
 export const ProjectDashboardPage: React.FC = () => {
+  const {t} = useTranslation();
   const navigate = useNavigate();
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const projectId = routeProjectId?.trim() || null;
@@ -255,12 +266,19 @@ export const ProjectDashboardPage: React.FC = () => {
     if (key === 'create_location' && projectId) navigate(referenceCreatePath(projectId));
     if (key === 'create_character' && projectId) navigate(characterCreatePath(projectId));
     if (key === 'create_track') handleCreateMusic();
+    if (key === 'generate_video' && projectId) navigate(videoPath(projectId));
   };
   const isQuickActionEnabled = (key: string) =>
     key === 'new_scene'
     || (key === 'create_location' && Boolean(view.project.permissions?.canEdit))
     || (key === 'create_character' && Boolean(view.project.permissions?.canEdit))
-    || (key === 'create_track' && Boolean(view.project.permissions?.canRunGeneration));
+    || (key === 'create_track' && Boolean(view.project.permissions?.canRunGeneration))
+    || (key === 'generate_video' && Boolean(view.project.permissions?.canRunGeneration));
+
+  const handleOpenVideoPreparation = useCallback(() => {
+    if (!projectId) return;
+    navigate(videoPreparationPath(projectId));
+  }, [navigate, projectId]);
 
   const handlePipelineStep = (key: string) => {
     if (key === 'script') {
@@ -633,6 +651,18 @@ export const ProjectDashboardPage: React.FC = () => {
                 onOpenTeam={handleOpenTeam}
                 onInvite={handleOpenInvite}
                 loading={loading}
+                videoPreparation={view.videoPreparation}
+                videoPreparationLabel={view.videoPreparation?.ready
+                  ? t('videoPreparation.dashboard.ready', {
+                    defaultValue: '✓ Готово к созданию видео',
+                  })
+                  : view.videoPreparation
+                    ? t('videoPreparation.dashboard.notReady', {
+                      count: view.videoPreparation.taskCount,
+                      defaultValue: `Подготовка к видео: ⚠ Не готово к видео · ${view.videoPreparation.taskCount} задач → Открыть`,
+                    })
+                    : undefined}
+                onOpenVideoPreparation={handleOpenVideoPreparation}
               />
           </div>
         </div>

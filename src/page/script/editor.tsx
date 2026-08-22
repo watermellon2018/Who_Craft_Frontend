@@ -10,23 +10,26 @@ import {
   ReloadOutlined,
   ShareAltOutlined,
 } from '@ant-design/icons';
-import React, {useState} from 'react';
-import {useNavigate} from 'react-router-dom';
+import React, {useEffect, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
+import {useNavigate, useSearchParams} from 'react-router-dom';
 
 import {useProjectIdFromRoute} from '../../modules/character-studio/hooks/useProjectIdFromRoute';
 import DashboardHeader from '../../modules/profile/components/DashboardHeader';
 import PathConstants, {
+  characterCreatePath,
   projectDashboardPath,
 } from '../../routes/pathConstant';
 import {useUnsavedChangesGuard} from '../../utils/useUnsavedChangesGuard';
 import {sceneToPlainText} from './api';
 import CardsView from './CardsView';
 import CharactersView from './CharactersView';
+import MissingCharactersNotice from './MissingCharactersNotice';
 import {canBypassUnsavedChangesAfterSelectedSceneSave} from './navigation';
 import SceneListPanel from './SceneListPanel';
 import ScreenplayView from './ScreenplayView';
 import './style.css';
-import type {WorkspaceMode} from './types';
+import type {MissingScriptCharacter, WorkspaceMode} from './types';
 import {useScriptWorkspace} from './useScriptWorkspace';
 
 const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNode}> = [
@@ -36,9 +39,13 @@ const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNo
 ];
 
 export default function ScriptPage() {
+  const {t} = useTranslation();
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const workspace = useScriptWorkspace(projectId);
+  const requestedSceneId = Number(searchParams.get('sceneId')) || null;
+  const openedSceneDeepLinkRef = useRef<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= 780,
   );
@@ -48,6 +55,15 @@ export default function ScriptPage() {
   const {allowNextNavigation} = useUnsavedChangesGuard(
     workspace.dirtySceneIds.length > 0 || workspace.reordering,
   );
+
+  useEffect(() => {
+    if (!requestedSceneId || !workspace.project) return;
+    const deepLinkKey = `${projectId}:${requestedSceneId}`;
+    if (openedSceneDeepLinkRef.current === deepLinkKey) return;
+    if (!workspace.scenes.some(({id}) => id === requestedSceneId)) return;
+    openedSceneDeepLinkRef.current = deepLinkKey;
+    void workspace.openSceneInScreenplay(requestedSceneId);
+  }, [projectId, requestedSceneId, workspace]);
 
   const exportScript = () => {
     const content = workspace.scenes.map(sceneToPlainText).join('\n\n\n');
@@ -70,6 +86,20 @@ export default function ScriptPage() {
       allowNextNavigation();
     }
     navigate(projectDashboardPath(projectId));
+  };
+
+  const createMissingCharacter = async (character: MissingScriptCharacter) => {
+    const saved = await workspace.saveSelectedScene();
+    if (!saved) return;
+    if (canBypassUnsavedChangesAfterSelectedSceneSave(
+      workspace.dirtySceneIds,
+      workspace.selectedScene?.id,
+    )) {
+      allowNextNavigation();
+    }
+    navigate(characterCreatePath(projectId), {
+      state: {initialCharacterName: character.name},
+    });
   };
 
   const deleteScene = (sceneId: number) => {
@@ -221,6 +251,22 @@ export default function ScriptPage() {
           workspace.conflict ? 'Перезагрузить' : canRetrySave ? 'Повторить сохранение' : 'Закрыть'
         }</button>
       </div>}
+
+      {workspace.missingCharactersError && <div className="script-alert" role="alert">
+        <span>{workspace.missingCharactersError}</span>
+        <button onClick={() => void workspace.refreshMissingCharacters()}>
+          <ReloadOutlined /> {t('videoPreparation.scriptNotice.retry', {
+            defaultValue: 'Повторить проверку',
+          })}
+        </button>
+      </div>}
+
+      <MissingCharactersNotice
+        canCreate={workspace.canEdit}
+        characters={workspace.missingCharacters}
+        onCreate={(character) => void createMissingCharacter(character)}
+        projectId={projectId}
+      />
 
       <section className="script-workspace__content">
         {workspace.mode === 'cards' && <CardsView

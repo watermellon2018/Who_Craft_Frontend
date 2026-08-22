@@ -1,3 +1,5 @@
+import type {MissingCharacter} from '../../api/generated/contracts';
+
 export type WorkspaceMode = 'screenplay' | 'cards' | 'characters';
 
 export type ScriptBlockType =
@@ -92,6 +94,8 @@ export interface CompactCharacter {
 export interface CompactCharactersResponse {
   characters: CompactCharacter[];
 }
+
+export type MissingScriptCharacter = MissingCharacter;
 
 export interface SceneMutation {
   title: string;

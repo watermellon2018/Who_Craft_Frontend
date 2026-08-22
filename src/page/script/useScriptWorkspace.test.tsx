@@ -9,6 +9,7 @@ jest.mock('./api', () => ({
     createScene: jest.fn(),
     deleteScene: jest.fn(),
     getCharacters: jest.fn(),
+    getMissingCharacters: jest.fn(),
     getWorkspace: jest.fn(),
     reorderScenes: jest.fn(),
     updateScene: jest.fn(),
@@ -21,6 +22,7 @@ jest.mock('../../modules/character-studio/api/characterApi', () => ({
 
 const getWorkspaceMock = scriptApi.getWorkspace as jest.MockedFunction<typeof scriptApi.getWorkspace>;
 const getCharactersMock = scriptApi.getCharacters as jest.MockedFunction<typeof scriptApi.getCharacters>;
+const getMissingCharactersMock = scriptApi.getMissingCharacters as jest.MockedFunction<typeof scriptApi.getMissingCharacters>;
 const updateSceneMock = scriptApi.updateScene as jest.MockedFunction<typeof scriptApi.updateScene>;
 const createSceneMock = scriptApi.createScene as jest.MockedFunction<typeof scriptApi.createScene>;
 const deleteSceneMock = scriptApi.deleteScene as jest.MockedFunction<typeof scriptApi.deleteScene>;
@@ -68,10 +70,46 @@ beforeEach(() => {
   jest.clearAllMocks();
   getWorkspaceMock.mockResolvedValue(workspace);
   getCharactersMock.mockResolvedValue([]);
+  getMissingCharactersMock.mockResolvedValue([]);
   deleteSceneMock.mockResolvedValue();
 });
 
 describe('useScriptWorkspace scene persistence', () => {
+  it('loads missing characters without blocking the screenplay workspace', async () => {
+    const missingCharactersRequest = deferred<
+      Awaited<ReturnType<typeof scriptApi.getMissingCharacters>>
+    >();
+    getMissingCharactersMock.mockImplementationOnce(() => missingCharactersRequest.promise);
+
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.project?.id).toBe(7);
+    expect(result.current.missingCharacters).toEqual([]);
+
+    await act(async () => {
+      missingCharactersRequest.resolve([
+        {dialogueCount: 6, name: 'Максим', sceneCount: 1},
+      ]);
+      await missingCharactersRequest.promise;
+    });
+
+    expect(result.current.missingCharacters).toEqual([
+      {dialogueCount: 6, name: 'Максим', sceneCount: 1},
+    ]);
+  });
+
+  it('keeps the workspace available when missing-character analysis fails', async () => {
+    getMissingCharactersMock.mockRejectedValueOnce(new Error('analysis unavailable'));
+
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.project?.id).toBe(7);
+    expect(result.current.missingCharacters).toEqual([]);
+    expect(result.current.missingCharactersError).toContain('Не удалось проверить');
+  });
+
   it('opens in screenplay mode and autosaves a changed scene after a short pause', async () => {
     updateSceneMock.mockImplementation(async (_projectId, nextScene) => ({
       ...nextScene,
@@ -89,6 +127,53 @@ describe('useScriptWorkspace scene persistence', () => {
     );
     await waitFor(() => expect(result.current.dirtySceneIds).toEqual([]));
     expect(updateSceneMock.mock.calls[0][1].title).toBe('Автосохранённая сцена');
+  });
+
+  it('refreshes missing characters after a successful scene save', async () => {
+    getMissingCharactersMock
+      .mockResolvedValueOnce([{dialogueCount: 6, name: 'Максим', sceneCount: 1}])
+      .mockResolvedValueOnce([]);
+    updateSceneMock.mockImplementation(async (_projectId, nextScene) => ({
+      ...nextScene,
+      version: nextScene.version + 1,
+    }));
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => result.current.updateScene(1, {title: 'Обновлённая сцена'}));
+    await act(async () => {
+      await result.current.saveSelectedScene();
+    });
+
+    await waitFor(() => expect(getMissingCharactersMock).toHaveBeenCalledTimes(2));
+    expect(result.current.missingCharacters).toEqual([]);
+  });
+
+  it('ignores an older missing-character refresh that resolves last', async () => {
+    const olderRequest = deferred<Awaited<ReturnType<typeof scriptApi.getMissingCharacters>>>();
+    const newerRequest = deferred<Awaited<ReturnType<typeof scriptApi.getMissingCharacters>>>();
+    const {result} = renderHook(() => useScriptWorkspace('7'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    getMissingCharactersMock
+      .mockImplementationOnce(() => olderRequest.promise)
+      .mockImplementationOnce(() => newerRequest.promise);
+
+    let olderRefresh: Promise<boolean> = Promise.resolve(false);
+    let newerRefresh: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      olderRefresh = result.current.refreshMissingCharacters();
+      newerRefresh = result.current.refreshMissingCharacters();
+    });
+    await act(async () => {
+      newerRequest.resolve([{dialogueCount: 1, name: 'Максим', sceneCount: 2}]);
+      await newerRefresh;
+      olderRequest.resolve([{dialogueCount: 6, name: 'Анна', sceneCount: 1}]);
+      await olderRefresh;
+    });
+
+    expect(result.current.missingCharacters).toEqual([
+      {dialogueCount: 1, name: 'Максим', sceneCount: 2},
+    ]);
   });
 
   it('coalesces parallel saves and persists edits made during the first patch', async () => {

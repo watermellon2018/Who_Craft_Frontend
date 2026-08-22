@@ -1,4 +1,5 @@
 import api from '../../../../api/http';
+import type {VideoPreparationCompact} from '../../../../api/generated/contracts';
 
 import type {
   AccentColor,
@@ -123,7 +124,10 @@ export interface DashboardReadiness {
   video: number;
   storyboardNeedsReview: number;
   storyboardReviewScenes: DashboardStoryboardReviewScene[];
+  videoPreparation?: DashboardVideoPreparationSummary;
 }
+
+export type DashboardVideoPreparationSummary = VideoPreparationCompact;
 
 export interface DashboardProgress {
   overall: number;

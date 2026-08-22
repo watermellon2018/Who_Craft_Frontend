@@ -19,6 +19,10 @@ const PathConstants = {
 
     SCRIPT_PAGE: '/project/:projectId/script',
 
+    VIDEO: '/project/:projectId/video',
+    VIDEO_PREPARATION: '/project/:projectId/video/preparation',
+    VIDEO_GENERATE: '/project/:projectId/video/generate',
+
     MUSIC_STUDIO: '/project/:projectId/music',
     MUSIC_STUDIO_CREATE: '/project/:projectId/music/create',
     MUSIC_STUDIO_JOB: '/project/:projectId/music/jobs/:jobId',
@@ -57,6 +61,26 @@ export function projectEditPath(projectId: string | number): string {
 
 export function projectPosterPath(projectId: string | number): string {
     return PathConstants.GEN_POSTER.replace(':projectId', String(projectId));
+}
+
+export function scriptScenePath(
+    projectId: string | number,
+    sceneId: string | number,
+): string {
+    const base = PathConstants.SCRIPT_PAGE.replace(':projectId', String(projectId));
+    return `${base}?sceneId=${encodeURIComponent(String(sceneId))}`;
+}
+
+export function videoPath(projectId: string | number): string {
+    return PathConstants.VIDEO.replace(':projectId', String(projectId));
+}
+
+export function videoPreparationPath(projectId: string | number): string {
+    return PathConstants.VIDEO_PREPARATION.replace(':projectId', String(projectId));
+}
+
+export function videoGenerationPath(projectId: string | number): string {
+    return PathConstants.VIDEO_GENERATE.replace(':projectId', String(projectId));
 }
 
 export function musicStudioPath(projectId: string | number): string {
