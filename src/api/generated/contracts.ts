@@ -369,6 +369,84 @@ export interface ProjectMutationResponse {
   createdAt?: string | null;
 }
 
+export interface ProjectProgressReviewScene {
+  sceneId: number;
+  title: string;
+  currentRevision: number;
+  acceptedRevision: number;
+}
+
+export interface ProjectReadiness {
+  overall: number;
+  script: number;
+  characters: number | null;
+  storyboard: number;
+  video: number;
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: Array<ProjectProgressReviewScene>;
+}
+
+export interface ProjectProgress {
+  overall: number;
+  script: number;
+  visual: number;
+  audio: number;
+  postproduction: number;
+  readiness: ProjectReadiness;
+}
+
+export interface ProjectDashboard {
+  progress: ProjectProgress;
+}
+
+export interface SceneStoryboard {
+  sceneId: number;
+  assetId: number;
+  sourceSceneVersion: number;
+  confirmedSceneVersion: number | null;
+  acceptedSceneVersion: number;
+  currentSceneVersion: number;
+  needsReview: boolean;
+  updatedAt: string | null;
+}
+
+export interface SceneStoryboardUpdateRequest {
+  assetId: number;
+  sourceSceneVersion: number;
+}
+
+export interface SceneStoryboardConfirmRequest {
+  expectedSceneVersion: number;
+}
+
+export interface VideoShot {
+  id: number;
+  sceneId: number;
+  title: string;
+  order: number;
+  finalAssetId: number | null;
+  version: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface VideoShotList {
+  shots: Array<VideoShot>;
+}
+
+export interface VideoShotCreateRequest {
+  sceneId: number;
+  title?: string;
+  order?: number;
+}
+
+export interface VideoShotUpdateRequest {
+  version: number;
+  title?: string;
+  order?: number;
+  finalAssetId?: number | null;
+}
+
 export interface ProjectInvitationRequest {
   invitation_type: "username" | "link";
   username?: string;

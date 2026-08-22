@@ -107,10 +107,7 @@ export default function CharacterGalleryPage() {
         type="primary"
         icon={<PlusOutlined />}
         onClick={goCreate}
-        className="character-gallery-page__create"
-      >
-        {t('characterStudio.gallery.createCharacter')}
-      </Button>
+      />
     </div>
 
     {error && (

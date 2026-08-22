@@ -1,6 +1,6 @@
 import api from '../../../../api/http';
 
-import {
+import type {
   AccentColor,
   ActivityItemMock,
   CharacterMock,
@@ -8,6 +8,7 @@ import {
   ProjectMock,
   QuickActionMock,
   StatMock,
+  StoryboardReviewSceneMock,
   TrackMock,
 } from './mocks';
 
@@ -114,12 +115,30 @@ export interface DashboardMusicTrack {
   usageLabel: string;
 }
 
+export interface DashboardReadiness {
+  overall: number;
+  script: number;
+  characters: number | null;
+  storyboard: number;
+  video: number;
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: DashboardStoryboardReviewScene[];
+}
+
 export interface DashboardProgress {
   overall: number;
   script: number;
   visual: number;
   audio: number;
   postproduction: number;
+  readiness?: DashboardReadiness;
+}
+
+export interface DashboardStoryboardReviewScene {
+  sceneId: number;
+  title: string;
+  currentRevision: number;
+  acceptedRevision: number;
 }
 
 export interface DashboardQuickAction {
@@ -447,18 +466,54 @@ export function adaptMusic(list: DashboardMusicTrack[]): TrackMock[] {
 
 export interface ProgressView {
   overall: number;
-  legend: { label: string; value: number; accent: AccentColor }[];
+  legend: { label: string; value: number | null; accent: AccentColor }[];
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: StoryboardReviewSceneMock[];
+}
+
+function toProgressPercent(value: number): number {
+  const ratio = Number.isFinite(value) ? value : 0;
+  return Math.round(Math.max(0, Math.min(1, ratio)) * 100);
+}
+
+function toLegacyPercent(value: number): number {
+  const numeric = Number.isFinite(value) ? value : 0;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
 export function adaptProgress(api: DashboardProgress): ProgressView {
+  const readiness = api.readiness;
+  if (!readiness) {
+    return {
+      overall: toLegacyPercent(api.overall),
+      legend: [
+        {label: 'Сценарий', value: toLegacyPercent(api.script), accent: 'yellow'},
+        {label: 'Персонажи', value: null, accent: 'purple'},
+        {label: 'Раскадровка', value: toLegacyPercent(api.visual), accent: 'green'},
+        {label: 'Видео', value: toLegacyPercent(api.postproduction), accent: 'blue'},
+      ],
+      storyboardNeedsReview: 0,
+      storyboardReviewScenes: [],
+    };
+  }
   return {
-    overall: Number(api.overall || 0),
+    overall: toProgressPercent(readiness.overall),
     legend: [
-      { label: 'Сценарий', value: Number(api.script || 0), accent: 'yellow' },
-      { label: 'Визуал', value: Number(api.visual || 0), accent: 'purple' },
-      { label: 'Аудио', value: Number(api.audio || 0), accent: 'green' },
-      { label: 'Постпродакшн', value: Number(api.postproduction || 0), accent: 'blue' },
+      { label: 'Сценарий', value: toProgressPercent(readiness.script), accent: 'yellow' },
+      {
+        label: 'Персонажи',
+        value: readiness.characters === null ? null : toProgressPercent(readiness.characters),
+        accent: 'purple',
+      },
+      {
+        label: 'Раскадровка',
+        value: toProgressPercent(readiness.storyboard),
+        accent: 'green',
+      },
+      { label: 'Видео', value: toProgressPercent(readiness.video), accent: 'blue' },
     ],
+    storyboardNeedsReview: Math.max(0, Math.floor(readiness.storyboardNeedsReview)),
+    storyboardReviewScenes: (readiness.storyboardReviewScenes || []).map((scene) => ({...scene})),
   };
 }
 
