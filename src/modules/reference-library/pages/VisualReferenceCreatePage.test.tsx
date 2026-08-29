@@ -2,12 +2,19 @@ import React from 'react';
 import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {MemoryRouter, Route, Routes, useNavigate} from 'react-router-dom';
 
+import {useImageModelCatalog} from '../../character-studio/hooks/useImageModelCatalog';
 import {newReferenceIdempotencyKey, referenceApi} from '../api/referenceApi';
 import VisualReferenceCreatePage from './VisualReferenceCreatePage';
 
+const mockGenerationCostPreview = jest.fn();
+
 jest.mock('../api/referenceApi');
+jest.mock('../../character-studio/hooks/useImageModelCatalog');
 jest.mock('../../credits/components/GenerationCostGuard', () => ({
-  GenerationCostPreview: () => null,
+  GenerationCostPreview: ({intent}: {intent: {modelKey?: string}}) => {
+    mockGenerationCostPreview(intent);
+    return null;
+  },
   runGenerationWithCredits: (
     intent: {modelKey?: string},
     operation: (estimate: unknown) => unknown,
@@ -22,6 +29,9 @@ jest.mock('../../../utils/useUnsavedChangesGuard', () => ({
 }));
 
 const mockedApi = referenceApi as jest.Mocked<typeof referenceApi>;
+const mockedUseImageModelCatalog = useImageModelCatalog as jest.MockedFunction<
+  typeof useImageModelCatalog
+>;
 const mockedIdempotencyKey = newReferenceIdempotencyKey as jest.MockedFunction<
   typeof newReferenceIdempotencyKey
 >;
@@ -133,6 +143,66 @@ async function addUploadedPrimary(container: HTMLElement, fileName = 'primary.pn
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedUseImageModelCatalog.mockReturnValue({
+    catalog: {
+      available: [
+        {
+          backend: 'google',
+          configured: true,
+          default: true,
+          input_modalities: ['text'],
+          key: 'configured-model',
+          label: 'Configured model',
+          mode: 'generate',
+          model_id: 'configured-model',
+          output_modalities: ['image'],
+          requires_env: [],
+          supported_parameters: {},
+          supports_edit: false,
+          supports_generate: true,
+          supports_reference: false,
+        },
+        {
+          backend: 'openrouter',
+          configured: true,
+          default: false,
+          input_modalities: ['text'],
+          key: 'openrouter-flash-image',
+          label: 'Gemini Flash Image via OpenRouter',
+          mode: 'generate',
+          model_id: 'google/gemini-flash-image',
+          output_modalities: ['image'],
+          requires_env: [],
+          supported_parameters: {},
+          supports_edit: false,
+          supports_generate: true,
+          supports_reference: false,
+        },
+        {
+          backend: 'google',
+          configured: false,
+          default: false,
+          input_modalities: ['text'],
+          key: 'unconfigured-model',
+          label: 'Unavailable image model',
+          mode: 'generate',
+          model_id: 'unconfigured-model',
+          output_modalities: ['image'],
+          requires_env: ['IMAGE_API_KEY'],
+          supported_parameters: {},
+          supports_edit: false,
+          supports_generate: true,
+          supports_reference: false,
+        },
+      ],
+      configured: true,
+      current: 'configured-model',
+      source: 'project',
+      stored: 'configured-model',
+    },
+    error: false,
+    loading: false,
+  });
   mockedIdempotencyKey.mockReturnValue('reference:test-generation');
   mockedApi.getCapabilities.mockResolvedValue({data: {
     categories: [
@@ -460,6 +530,41 @@ test('shows a generated result as unsaved preview before adding it to drafts', a
     'ref-1',
     'job-1',
     expect.any(AbortSignal),
+  );
+});
+
+test('uses the model selected in the Main inspector for generation', async () => {
+  renderPage();
+  await waitForEditor();
+
+  const modelSelect = screen.getByRole('combobox', {name: 'Модель генерации'});
+  expect(modelSelect.closest('.visual-reference-inspector')).not.toBeNull();
+  expect(mockedUseImageModelCatalog).toHaveBeenCalledWith('7');
+
+  fireEvent.mouseDown(modelSelect);
+  expect(await screen.findByText(
+    'Unavailable image model — провайдер не настроен',
+  )).toHaveClass('ant-select-item-option-content');
+  expect(screen.getByText(
+    'Unavailable image model — провайдер не настроен',
+  ).closest('.ant-select-item-option')).toHaveClass('ant-select-item-option-disabled');
+  fireEvent.click(screen.getByText('Gemini Flash Image via OpenRouter'));
+
+  await waitFor(() => expect(mockGenerationCostPreview).toHaveBeenLastCalledWith(
+    expect.objectContaining({modelKey: 'openrouter-flash-image'}),
+  ));
+
+  fillGenerationFields();
+  await generatePreview();
+
+  expect(mockedApi.enqueueJob).toHaveBeenCalledWith(
+    '7',
+    'ref-1',
+    expect.objectContaining({
+      imageModel: 'openrouter-flash-image',
+      operation: 'generate',
+    }),
+    'reference:test-generation',
   );
 });
 

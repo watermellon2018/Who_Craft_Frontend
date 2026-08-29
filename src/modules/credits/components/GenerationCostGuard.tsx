@@ -31,6 +31,10 @@ export function formatGenerationCost(value: string): string {
   return formatCreditAmount(value, i18n.language);
 }
 
+function formatGenerationCostPreview(value: string): string {
+  return formatCreditAmount(value, i18n.language, 3);
+}
+
 function confirmation(estimate: GenerationCostEstimate): Promise<boolean> {
   if (Number(estimate.reservationAmount) <= 0) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -186,10 +190,10 @@ export const GenerationCostPreview: React.FC<GenerationCostPreviewProps> = ({
     <span
       className={`generation-cost-preview ${className}`.trim()}
       title={i18n.t('credits.generation.previewTitle', {
-        amount: formatGenerationCost(estimate.reservationAmount),
+        amount: formatGenerationCostPreview(estimate.reservationAmount),
       })}
     >
-      ≈ {formatGenerationCost(estimate.estimatedCost)} C
+      ≈ {formatGenerationCostPreview(estimate.estimatedCost)} C
     </span>
   );
 };

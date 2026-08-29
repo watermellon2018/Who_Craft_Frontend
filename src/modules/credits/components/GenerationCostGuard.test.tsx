@@ -1,4 +1,5 @@
-import {fireEvent, waitFor} from '@testing-library/react';
+import React from 'react';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {Modal} from 'antd';
 
 import {
@@ -7,6 +8,7 @@ import {
 } from '../api/creditApi';
 import {
   confirmGenerationCost,
+  GenerationCostPreview,
   prepareGenerationCost,
   runApprovedGeneration,
   runGenerationWithCredits,
@@ -102,6 +104,19 @@ describe('GenerationCostGuard', () => {
     })).resolves.toEqual(estimate);
 
     expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('rounds the approximate cost preview to three decimal places', async () => {
+    mockedEstimate.mockResolvedValue({
+      ...estimate,
+      estimatedCost: '0.134502',
+      reservationAmount: '0.134502',
+    });
+
+    render(<GenerationCostPreview intent={{domain: 'reference'}} />);
+
+    const preview = await screen.findByText(/≈ 0[,.]135 C/);
+    expect(preview.getAttribute('title')).toMatch(/0[,.]135/);
   });
 
   it('runs work after a custom approval and refreshes the wallet badge', async () => {

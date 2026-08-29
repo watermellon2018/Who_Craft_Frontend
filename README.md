@@ -110,6 +110,16 @@ supports parametric zones, canonical views, snapshot/GLB export, autofit state,
 and optional reconstructed head/hair assets. The heavy Hunyuan runtime belongs
 to the backend worker's separate Python/Conda environment.
 
+## Reference Library
+
+The visual-reference creation page at
+`/project/:projectId/references/create` includes a generation-model selector in
+the right-hand **Main** inspector. **Auto** follows the model configured for the
+project or profile; choosing a model overrides it only for generations started
+from the current page, including the cost estimate and queued job. Models whose
+provider credentials are not configured remain visible but disabled. Editing
+the reference and running generation require the existing project permissions.
+
 ## Script workspace
 
 Open a project's **Script** section to write and organize screenplay scenes.

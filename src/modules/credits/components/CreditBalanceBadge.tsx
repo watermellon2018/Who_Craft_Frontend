@@ -6,12 +6,16 @@ import PathConstants from '../../../routes/pathConstant';
 import {useCreditSummary} from '../hooks/useCreditSummary';
 import '../credits.css';
 
-export function formatCreditAmount(value: string, language: string): string {
+export function formatCreditAmount(
+  value: string,
+  language: string,
+  maximumFractionDigits = 6,
+): string {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return '—';
   return new Intl.NumberFormat(language, {
-    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: 6,
+    minimumFractionDigits: amount % 1 === 0 ? 0 : Math.min(2, maximumFractionDigits),
+    maximumFractionDigits,
   }).format(amount);
 }
 
