@@ -12,7 +12,11 @@ const PREVIEW_LABEL_KEYS: Record<CraftTheme, string> = {
   light: 'profile.settings.theme.light',
 };
 
-export default function ThemePicker() {
+interface ThemePickerProps {
+  disabled?: boolean;
+}
+
+export default function ThemePicker({disabled = false}: ThemePickerProps) {
   const {t} = useTranslation();
   const {setTheme, theme} = useCraftTheme();
 
@@ -26,6 +30,7 @@ export default function ThemePicker() {
             <input
               aria-label={t(PREVIEW_LABEL_KEYS[option])}
               checked={theme === option}
+              disabled={disabled}
               name="craft-color-theme"
               onChange={() => setTheme(option)}
               type="radio"

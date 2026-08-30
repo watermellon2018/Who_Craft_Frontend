@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PathConstants from '../../routes/pathConstant';
 import ProfileSidebar from './components/ProfileSidebar';
+import NotificationBell from '../notifications/NotificationBell';
 import ProfileHeroEditor from './components/edit/ProfileHeroEditor';
 import BasicInfoCard from './components/edit/BasicInfoCard';
 import InterestsCard from './components/edit/InterestsCard';
@@ -357,17 +358,20 @@ const ProfileEditPage: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto profile-scroll">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((o) => !o)}
-              className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors mb-2"
-              style={{ background: 'transparent', border: 'none' }}
-              aria-label="Открыть меню"
-            >
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
-                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
+            <div className="mb-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((o) => !o)}
+                className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                style={{ background: 'transparent', border: 'none' }}
+                aria-label="Открыть меню"
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
+                  <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+              <span className="ml-auto"><NotificationBell /></span>
+            </div>
             <div className="mb-6">
               <h2 className="text-white font-bold text-2xl">Редактирование профиля</h2>
               <nav className="text-sm mt-1.5 flex items-center gap-2">

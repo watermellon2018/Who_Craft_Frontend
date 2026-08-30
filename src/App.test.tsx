@@ -31,6 +31,7 @@ test('defines character studio and project routes', () => {
   expect(PathConstants.SCRIPT_PAGE).toBe('/project/:projectId/script');
   expect(PathConstants.CHARACTER_STUDIO_EDITOR).toBe('/project/:projectId/characters/:characterId/edit');
   expect(PathConstants.CREDITS).toBe('/credits');
+  expect(PathConstants.PROFILE_SETTINGS).toBe('/profile/settings');
   expect(videoPath(42)).toBe('/project/42/video');
   expect(videoPreparationPath(42)).toBe('/project/42/video/preparation');
   expect(videoGenerationPath(42)).toBe('/project/42/video/generate');
@@ -39,6 +40,7 @@ test('defines character studio and project routes', () => {
   expect(APP_ROUTES.some(({path}) => path === PathConstants.VIDEO_PREPARATION)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.VIDEO_GENERATE)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.CREDITS)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.PROFILE_SETTINGS)).toBe(true);
 });
 
 test('recognizes canonical project edit and script workspace paths', () => {

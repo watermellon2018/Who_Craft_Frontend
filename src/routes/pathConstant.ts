@@ -6,6 +6,7 @@ const PathConstants = {
 
     PROFILE: '/profile',
     PROFILE_EDIT: '/profile/edit',
+    PROFILE_SETTINGS: '/profile/settings',
     PROFILE_SUBSCRIPTIONS: '/profile/subscriptions',
     CREDITS: '/credits',
 

@@ -33,7 +33,14 @@ describe('fetchDashboard', () => {
 
 describe('updateSettings', () => {
   it('resolves with updated settings', async () => {
-    const responseData = { language: 'en', private_account: true, notifications_enabled: false };
+    const responseData = {
+      comment_permission: 'everyone' as const,
+      content_language: 'en' as const,
+      language: 'en' as const,
+      notifications_email: false,
+      notifications_in_app: false,
+      private_account: true,
+    };
     mockedUpdate.mockResolvedValueOnce(responseData);
 
     const result = await updateSettings({ language: 'en' });
@@ -49,13 +56,20 @@ describe('updateSettings', () => {
   });
 
   it('can update multiple fields at once', async () => {
-    const patch = { language: 'en', private_account: true, notifications_enabled: false };
+    const patch = {
+      comment_permission: 'everyone' as const,
+      content_language: 'en' as const,
+      language: 'en' as const,
+      notifications_email: false,
+      notifications_in_app: false,
+      private_account: true,
+    };
     mockedUpdate.mockResolvedValueOnce(patch);
 
     const result = await updateSettings(patch);
 
     expect(result.language).toBe('en');
     expect(result.private_account).toBe(true);
-    expect(result.notifications_enabled).toBe(false);
+    expect(result.notifications_in_app).toBe(false);
   });
 });

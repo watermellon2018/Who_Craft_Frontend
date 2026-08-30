@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import i18n from '../../i18n';
 import ProfileDashboardPage from './ProfileDashboardPage';
 import type { DashboardData } from './types';
 
@@ -36,6 +37,7 @@ function makeDashboard(overrides: Partial<DashboardData> = {}): DashboardData {
     user: {
       id: 1,
       username: 'testuser',
+      effective_username: 'film_author',
       display_name: 'Test User',
       avatar_url: null,
       cover_url: null,
@@ -43,6 +45,7 @@ function makeDashboard(overrides: Partial<DashboardData> = {}): DashboardData {
       bio: 'Текст о себе',
       location: 'Moscow',
       joined_at: '2024-01-01',
+      subscribers_count: 125,
     },
     profile_completion: {
       percent: 50,
@@ -82,7 +85,14 @@ function makeDashboard(overrides: Partial<DashboardData> = {}): DashboardData {
     continue_watching: [
       { id: 1, title: 'Тест видео', thumbnail_url: null, duration: '05:00', progress_percent: 40, continue_from: '02:00' },
     ],
-    settings: { language: 'ru', private_account: false, notifications_enabled: true },
+    settings: {
+      comment_permission: 'everyone',
+      content_language: 'ru',
+      language: 'ru',
+      notifications_email: false,
+      notifications_in_app: true,
+      private_account: false,
+    },
     ...overrides,
   };
 }
@@ -96,8 +106,26 @@ function renderPage() {
 }
 
 describe('ProfileDashboardPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockFetchDashboard.mockReset();
+    await i18n.changeLanguage('ru');
+  });
+
+  it('applies the language stored in dashboard settings', async () => {
+    mockFetchDashboard.mockResolvedValueOnce(makeDashboard({
+      settings: {
+        comment_permission: 'everyone',
+        content_language: 'ru',
+        language: 'en',
+        notifications_email: false,
+        notifications_in_app: true,
+        private_account: false,
+      },
+    }));
+
+    await act(async () => { renderPage(); });
+
+    await waitFor(() => expect(i18n.language).toBe('en'));
   });
 
   it('shows skeleton while loading', () => {
@@ -205,7 +233,7 @@ describe('ProfileDashboardPage', () => {
     expect(screen.queryByText('1.0K')).not.toBeInTheDocument();
     expect(screen.queryByText('Статистика просмотров')).not.toBeInTheDocument();
     expect(screen.getByText('Текст о себе')).toBeInTheDocument();
-    expect(screen.getAllByRole('switch').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Цветовая тема')).not.toBeInTheDocument();
   });
 
   it('hides every optional collection card when its array is empty', async () => {
