@@ -67,7 +67,7 @@ const ProjectStats: React.FC<Props> = ({ stats, onStat }) => {
         <StatCard
           key={stat.key}
           stat={stat}
-          onOpen={stat.key === 'music' && onStat ? () => onStat(stat.key) : undefined}
+          onOpen={onStat ? () => onStat(stat.key) : undefined}
         />
       ))}
     </section>

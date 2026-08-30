@@ -168,6 +168,8 @@ characters and empty scenes, and adds storyboard coverage while it is below
 100%, with direct links back to character creation and the affected screenplay
 scenes. A compact dashboard
 status opens the same preparation flow before the user attempts generation.
+The project statistics cards link directly to the character library, screenplay,
+music library, and visual reference library for the current project.
 
 The **Structure** view groups scene cards by act. Cards show the screenplay
 heading, extracted location, linked characters, and a rough text-based duration

@@ -240,8 +240,26 @@ export const ProjectDashboardPage: React.FC = () => {
     navigate(musicTrackPath(projectId, trackId));
   }, [navigate, projectId]);
   const handleStat = useCallback((key: string) => {
-    if (key === 'music') handleOpenMusic();
-    if (key === 'locations' && projectId) navigate(referenceLibraryPath(projectId));
+    if (!projectId) return;
+
+    if (key === 'characters') {
+      navigate(PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId)));
+      return;
+    }
+    if (key === 'scenes') {
+      navigate(
+        PathConstants.SCRIPT_PAGE.replace(':projectId', String(projectId)),
+        {state: {project_id: projectId}},
+      );
+      return;
+    }
+    if (key === 'music') {
+      handleOpenMusic();
+      return;
+    }
+    if (key === 'locations') {
+      navigate(referenceLibraryPath(projectId));
+    }
   }, [handleOpenMusic, navigate, projectId]);
 
   const handleContinue = handleOpenScript;
