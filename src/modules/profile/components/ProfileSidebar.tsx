@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import PathConstants from '../../../routes/pathConstant';
 import LogoButton from '../../../page/main/logo';
@@ -24,7 +24,7 @@ const mainItems: MenuItem[] = [
 ];
 
 const bottomItems: MenuItem[] = [
-  { icon: '⚙️', label: 'Настройки', path: PathConstants.PROFILE },
+  { icon: '⚙️', label: 'Настройки', path: PathConstants.PROFILE_SETTINGS },
 ];
 
 interface Props {
@@ -35,11 +35,18 @@ interface Props {
 
 const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) => {
   const navigate = useNavigate();
-  const [active, setActive] = useState(activeItem ?? 'Главная');
+  const {pathname} = useLocation();
+
+  const isActive = (item: MenuItem) => {
+    if (item.path === PathConstants.PROFILE) {
+      return pathname === PathConstants.PROFILE || pathname === PathConstants.PROFILE_EDIT;
+    }
+    if (item.path) return pathname === item.path;
+    return activeItem === item.label;
+  };
 
   const handleNav = (item: MenuItem) => {
     if (item.disabled) return;
-    setActive(item.label);
     if (item.path) navigate(item.path);
     onClose();
   };
@@ -82,11 +89,12 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
                 transition-all duration-150
                 ${item.disabled
                   ? 'text-white/30 cursor-not-allowed'
-                  : active === item.label
+                  : isActive(item)
                   ? 'bg-accent/15 text-accent border border-accent/30'
                   : 'text-white/70 hover:bg-white/5 hover:text-white'
                 }
               `}
+              aria-current={isActive(item) ? 'page' : undefined}
             >
               <span className="text-base">{item.icon}</span>
               {item.label}
@@ -103,8 +111,14 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-left text-sm font-medium
                 transition-all duration-150
-                ${item.disabled ? 'text-white/30 cursor-not-allowed' : 'text-white/70 hover:bg-white/5 hover:text-white'}
+                ${item.disabled
+                  ? 'text-white/30 cursor-not-allowed'
+                  : isActive(item)
+                    ? 'bg-accent/15 text-accent border border-accent/30'
+                    : 'text-white/70 hover:bg-white/5 hover:text-white'
+                }
               `}
+              aria-current={isActive(item) ? 'page' : undefined}
             >
               <span className="text-base">{item.icon}</span>
               {item.label}

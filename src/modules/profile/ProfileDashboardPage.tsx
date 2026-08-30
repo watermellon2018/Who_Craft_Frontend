@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import type { DashboardData, ProfileSettings } from './types';
+import {useTranslation} from 'react-i18next';
+import type { DashboardData } from './types';
 import { fetchDashboard } from './api/profileApi';
 import ProfileSidebar from './components/ProfileSidebar';
 import ProfileHero from './components/ProfileHero';
@@ -12,11 +13,12 @@ import ViewsAnalyticsCard from './components/ViewsAnalyticsCard';
 import RecentActivityCard from './components/RecentActivityCard';
 import FavoriteAuthorsCard from './components/FavoriteAuthorsCard';
 import ContinueWatchingCard from './components/ContinueWatchingCard';
-import SettingsCard from './components/SettingsCard';
 import SkeletonDashboard from './components/SkeletonDashboard';
 import './profile.css';
+import NotificationBell from '../notifications/NotificationBell';
 
 const ProfileDashboardPage: React.FC = () => {
+  const {i18n, t} = useTranslation();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -39,10 +41,12 @@ const ProfileDashboardPage: React.FC = () => {
     load();
   }, [load]);
 
-  const handleSettingsChange = (updated: ProfileSettings) => {
-    if (!data) return;
-    setData({ ...data, settings: updated });
-  };
+  useEffect(() => {
+    const preferredLanguage = data?.settings.language;
+    if (preferredLanguage && i18n.language !== preferredLanguage) {
+      void i18n.changeLanguage(preferredLanguage);
+    }
+  }, [data?.settings.language, i18n]);
 
   return (
     <div className="profile-theme-page flex h-screen overflow-hidden">
@@ -51,17 +55,20 @@ const ProfileDashboardPage: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto profile-scroll">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-4">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((o) => !o)}
-              className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors"
-              style={{ background: 'transparent', border: 'none' }}
-              aria-label="Открыть меню"
-            >
-              <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
-                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((o) => !o)}
+                className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                style={{ background: 'transparent', border: 'none' }}
+                aria-label={t('profile.settings.menuAria')}
+              >
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
+                  <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+              <span className="ml-auto"><NotificationBell /></span>
+            </div>
             {loading && <SkeletonDashboard />}
 
             {error && !loading && (
@@ -87,7 +94,6 @@ const ProfileDashboardPage: React.FC = () => {
                   {data.awards.length > 0 && <AwardsCard awards={data.awards} />}
                   <AboutCard bio={data.user.bio} interests={data.interests} />
                   {data.favorite_genres.length > 0 && <FavoriteGenresCard genres={data.favorite_genres} />}
-                  <SettingsCard settings={data.settings} onChange={handleSettingsChange} />
                 </div>
 
                 {data.views_analytics.available !== false && (

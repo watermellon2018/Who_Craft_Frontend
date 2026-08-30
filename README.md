@@ -29,7 +29,16 @@ Automatic generation always confirms its maximum primary-plus-fallback
 reservation before enqueue.
 
 The interface has three color themes: Light, Blue, and Dark. The selector is in
-the profile Settings card. Blue is the default. The selected value is stored as
+the protected `/profile/settings` page. Interface language and preferred content
+language are independent server-backed settings. The same page lets users choose
+in-app and email notification delivery separately, control profile privacy and
+who may comment on their videos, open the unchanged Craft Wallet, or end every
+active authentication session after confirmation. Account deletion
+requires the current password and is unavailable while the user owns projects;
+owned projects must first be transferred or deleted. Successful deletion is
+irreversible and signs the user out after the backend removes profile data and
+anonymizes the core account; project activity history is retained.
+Blue is the default. The selected theme value is stored as
 `craft.theme` in the current browser and is applied before React renders, so it
 survives reloads without requiring backend configuration. Theme choice is not
 currently synchronized between browsers or devices.

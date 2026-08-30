@@ -13,6 +13,7 @@ import RegistrationPage from "./page/logIn/register";
 import LoginPage from "./page/logIn/login";
 import ProfilePage from "./modules/profile/ProfileDashboardPage";
 import ProfileEditPage from "./modules/profile/ProfileEditPage";
+import ProfileSettingsPage from './modules/profile/ProfileSettingsPage';
 import SubscriptionsPage from "./modules/subscriptions/SubscriptionsPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
@@ -49,12 +50,14 @@ import {CraftThemeProvider, useCraftTheme} from './theme/CraftThemeProvider';
 import VideoEntryGatePage from './modules/video/pages/VideoEntryGatePage';
 import VideoGenerationPage from './modules/video/pages/VideoGenerationPage';
 import VideoPreparationPage from './modules/video/pages/VideoPreparationPage';
+import {NotificationProvider} from './modules/notifications/NotificationProvider';
 
 // All private pages are wrapped once here so adding a new private route is a
 // one-line change and we can't forget the auth gate on any single page.
 const ProtectedMainPage = withAuth(MainPage);
 const ProtectedProfilePage = withAuth(ProfilePage);
 const ProtectedProfileEditPage = withAuth(ProfileEditPage);
+const ProtectedProfileSettingsPage = withAuth(ProfileSettingsPage);
 const ProtectedSubscriptionsPage = withAuth(SubscriptionsPage);
 const ProtectedCreditWalletPage = withAuth(CreditWalletPage);
 const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
@@ -100,6 +103,7 @@ export const APP_ROUTES = [
         { key: 'home', path: PathConstants.HOME, component: <ProtectedMainPage /> },
         { key: 'profile', path: PathConstants.PROFILE, component: <ProtectedProfilePage /> },
         { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProtectedProfileEditPage /> },
+        { key: 'profileSettings', path: PathConstants.PROFILE_SETTINGS, component: <ProtectedProfileSettingsPage /> },
         { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
         { key: 'credits', path: PathConstants.CREDITS, component: <ProtectedCreditWalletPage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
@@ -137,6 +141,8 @@ export const APP_ROUTES = [
         { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
     ];
 
+const PUBLIC_ROUTE_KEYS = new Set(['register', 'login']);
+
 function ThemedApp() {
 
     const {theme} = useCraftTheme();
@@ -145,7 +151,15 @@ function ThemedApp() {
     const router = useMemo(() => createBrowserRouter([{
         element: <><AuthExpiryRedirect /><Outlet /></>,
         children: [
-            ...APP_ROUTES.map(({path, component}) => ({path, element: component})),
+            ...APP_ROUTES
+                .filter(({key}) => PUBLIC_ROUTE_KEYS.has(key))
+                .map(({path, component}) => ({path, element: component})),
+            {
+                element: <NotificationProvider><Outlet /></NotificationProvider>,
+                children: APP_ROUTES
+                    .filter(({key}) => !PUBLIC_ROUTE_KEYS.has(key))
+                    .map(({path, component}) => ({path, element: component})),
+            },
             {path: '*', element: <NotFoundPage />},
         ],
     }]), []);
