@@ -1,5 +1,5 @@
 import api from '../../../api/http';
-import { DashboardData, ProfileSettings } from '../types';
+import type { DashboardData, ProfileSettings } from '../types';
 
 // All requests below go through the shared axios instance, which attaches the
 // X-User-Token header automatically. We deliberately do NOT pass the token in
@@ -21,7 +21,7 @@ export interface ProfileMeResponse {
   };
   interests: string[];
   socials: Array<{ platform: string; url: string; display_order: number }>;
-  settings: { language: string; private_account: boolean; notifications_enabled: boolean };
+  settings: ProfileSettings;
   profile_completion: { percent: number; items: Record<string, boolean> };
 }
 
@@ -75,4 +75,19 @@ export async function fetchDashboard(): Promise<DashboardData> {
 export async function updateSettings(settings: Partial<ProfileSettings>): Promise<ProfileSettings> {
   const res = await api.patch<ProfileSettings>('api/profile/settings/', settings);
   return res.data;
+}
+
+export async function fetchSettings(): Promise<ProfileSettings> {
+  const res = await api.get<ProfileSettings>('api/profile/settings/');
+  return res.data;
+}
+
+export async function deleteAccount(currentPassword: string): Promise<void> {
+  await api.delete('api/profile/me/', {
+    data: {current_password: currentPassword},
+  });
+}
+
+export async function logoutAllSessions(): Promise<void> {
+  await api.post('api/auth/logout-all/');
 }

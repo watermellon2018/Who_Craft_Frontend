@@ -232,8 +232,17 @@
     }
   },
   "profile": {
+    "hero": {
+      "subscribers_one": "{{count}} subscriber",
+      "subscribers_other": "{{count}} subscribers",
+      "joinedAt": "On WCraft since {{date}}"
+    },
     "settings": {
-      "title": "⚙️ Settings",
+      "title": "Settings",
+      "pageTitle": "Settings",
+      "pageDescription": "Manage appearance, language, privacy, and your account.",
+      "menuAria": "Open profile menu",
+      "loadError": "Could not load settings. Please try again.",
       "theme": {
         "title": "Color theme",
         "description": "Choose the interface appearance. It will be saved in this browser.",
@@ -247,10 +256,60 @@
         "open": "Open Craft Wallet"
       },
       "language": "Interface language",
+      "contentLanguage": "Content language",
+      "appearance": {
+        "title": "Appearance and interface",
+        "interfaceLanguageDescription": "Language of WCraft menus and controls",
+        "contentLanguageDescription": "Preferred language for content and future recommendations"
+      },
       "privateAccount": "Private account",
-      "notifications": "Notifications",
-      "openAll": "Open all settings",
-      "saveError": "Could not save the setting. Please try again."
+      "privacySecurityTitle": "Privacy and security",
+      "notifications": {
+        "title": "Notifications",
+        "deliveryPrompt": "Receive notifications:",
+        "inApp": "In the interface",
+        "inAppDescription": "Show notifications inside WCraft",
+        "email": "By email",
+        "emailDescription": "Send notifications to your email"
+      },
+      "privacy": {
+        "title": "Privacy",
+        "privateAccountDescription": "Restrict access to your profile and content",
+        "commentPermission": "Who can comment on my videos",
+        "commentPermissionDescription": "Choose who can create new comments",
+        "commentOptions": {
+          "everyone": "Everyone",
+          "followers": "Followers",
+          "nobody": "Nobody"
+        }
+      },
+      "security": {
+        "title": "Security",
+        "logoutAll": "Log out on all devices",
+        "description": "End every active WCraft session.",
+        "modalTitle": "Log out on all devices?",
+        "modalDescription": "Every active WCraft session will end. You will need to sign in again.",
+        "confirmAction": "Log out",
+        "success": "All sessions have ended.",
+        "error": "Could not end all sessions. Please try again."
+      },
+      "saveError": "Could not save the setting. Please try again.",
+      "delete": {
+        "title": "Delete account",
+        "description": "Your account will be irreversibly deactivated and profile data removed or anonymized. Project activity history will be retained. The account cannot be restored.",
+        "ownedProjectsHint": "First transfer or delete every project you own.",
+        "openAction": "Delete account",
+        "modalTitle": "Delete this account permanently?",
+        "modalDescription": "Enter your current password to confirm irreversible profile-data deletion. Project activity history will be retained.",
+        "passwordLabel": "Current password",
+        "confirmAction": "Delete account",
+        "errors": {
+          "passwordRequired": "Enter your current password.",
+          "passwordInvalid": "The password is incorrect. Check it and try again.",
+          "ownedProjects": "First transfer or delete every project you own.",
+          "generic": "Could not delete the account. Please try again."
+        }
+      }
     },
     "language": {
       "ru": "Русский",
@@ -269,6 +328,20 @@
       "subscribers": "{{value}} subscribers",
       "subscribed": "Subscribed",
       "subscribe": "Subscribe"
+    }
+  },
+  "notifications": {
+    "center": {
+      "title": "Notifications",
+      "markAllRead": "Mark all as read",
+      "loadError": "Could not load notifications.",
+      "actionError": "Could not update notifications.",
+      "retry": "Retry",
+      "loading": "Loading notifications",
+      "empty": "No new notifications",
+      "bellLabel": "Open notifications",
+      "bellUnreadLabel": "Open notifications. Unread: {{count}}",
+      "justNow": "just now"
     }
   },
   "characterStudio": {

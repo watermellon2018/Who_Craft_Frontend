@@ -1,6 +1,7 @@
 export interface ProfileUser {
   id: number;
   username: string;
+  effective_username: string;
   display_name: string;
   avatar_url: string | null;
   cover_url: string | null;
@@ -8,6 +9,7 @@ export interface ProfileUser {
   bio: string;
   location: string;
   joined_at: string | null;
+  subscribers_count: number;
 }
 
 export interface ProfileCompletion {
@@ -81,10 +83,16 @@ export interface ContinueWatchingItem {
   continue_from: string;
 }
 
+export type ProfileLanguage = 'en' | 'ru';
+export type CommentPermission = 'everyone' | 'followers' | 'nobody';
+
 export interface ProfileSettings {
-  language: string;
+  language: ProfileLanguage;
+  content_language: ProfileLanguage;
   private_account: boolean;
-  notifications_enabled: boolean;
+  notifications_in_app: boolean;
+  notifications_email: boolean;
+  comment_permission: CommentPermission;
 }
 
 export interface SocialLinks {

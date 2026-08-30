@@ -9,6 +9,69 @@ export const API_CONSTRAINTS = {
   "projectPosterMaxBytes": 5242880
 } as const;
 
+export interface ProfileSettings {
+  language: "ru" | "en";
+  content_language: "ru" | "en";
+  private_account: boolean;
+  notifications_in_app: boolean;
+  notifications_email: boolean;
+  comment_permission: "everyone" | "followers" | "nobody";
+}
+
+export interface ProfileSettingsPatch {
+  language?: "ru" | "en";
+  content_language?: "ru" | "en";
+  private_account?: boolean;
+  notifications_in_app?: boolean;
+  notifications_email?: boolean;
+  comment_permission?: "everyone" | "followers" | "nobody";
+}
+
+export interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  created_at: string;
+  is_read: boolean;
+  target_url: string;
+  entity_type: string;
+  entity_id: string;
+}
+
+export interface NotificationList {
+  results: Array<Notification>;
+  unread_count: number;
+}
+
+export interface NotificationReadAllResult {
+  unread_count: 0;
+  updated: number;
+}
+
+export interface VideoShotCommentAuthor {
+  id: number;
+  username: string;
+}
+
+export interface VideoShotComment {
+  id: number;
+  author: VideoShotCommentAuthor;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VideoShotCommentCreate {
+  body: string;
+}
+
+export interface VideoShotCommentList {
+  can_comment: boolean;
+  comment_block_reason: "COMMENTS_DISABLED" | "COMMENTS_FOLLOWERS_ONLY" | null;
+  comments: Array<VideoShotComment>;
+}
+
 export interface MissingCharacter {
   name: string;
   dialogueCount: number;
@@ -134,6 +197,17 @@ export interface ApiErrorEnvelope {
   code?: string;
   detail?: string;
   errors?: Record<string, unknown>;
+}
+
+export interface AccountDeleteRequest {
+  current_password: string;
+}
+
+export interface AccountDeleteOwnedProjectsError {
+  error: ApiErrorDetail;
+  code: "ACCOUNT_HAS_OWNED_PROJECTS";
+  detail: string;
+  ownedProjectCount: number;
 }
 
 export type CreditAmount = string;
