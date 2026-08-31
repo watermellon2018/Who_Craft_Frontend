@@ -158,6 +158,30 @@ it.each([
   expect(await screen.findByText(destination)).toBeInTheDocument();
 });
 
+it('opens Storyboard from the project pipeline', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({} as never);
+  mockedAdaptPipeline.mockReturnValue([{
+    accent: 'purple',
+    iconKey: 'storyboard',
+    key: 'storyboard',
+    label: 'Сториборд',
+    progress: 55,
+    subtitle: '13 сцен',
+  }]);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/project/:projectId/storyboard" element={<div>Раскадровка проекта</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', {name: 'Открыть: Сториборд'}));
+  expect(await screen.findByText('Раскадровка проекта')).toBeInTheDocument();
+});
+
 it('opens visual reference creation from quick actions for editors only', async () => {
   mockedFetchProjectDashboard.mockResolvedValue({} as never);
   mockedAdaptQuickActions.mockReturnValue([

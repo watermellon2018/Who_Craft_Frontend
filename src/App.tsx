@@ -47,6 +47,7 @@ import {safeReturnTo} from './utils/auth/returnTo';
 import {createAntTheme} from './theme/antdTheme';
 import {CraftModalHost} from './theme/CraftModalHost';
 import {CraftThemeProvider, useCraftTheme} from './theme/CraftThemeProvider';
+import StoryboardPage from './modules/storyboard/StoryboardPage';
 import VideoEntryGatePage from './modules/video/pages/VideoEntryGatePage';
 import VideoGenerationPage from './modules/video/pages/VideoGenerationPage';
 import VideoPreparationPage from './modules/video/pages/VideoPreparationPage';
@@ -72,6 +73,7 @@ const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
 const ProtectedVisualReferenceCreatePage = withAuth(VisualReferenceCreatePage);
 const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
+const ProtectedStoryboardPage = withAuth(StoryboardPage);
 const ProtectedVideoEntryGatePage = withAuth(VideoEntryGatePage);
 const ProtectedVideoPreparationPage = withAuth(VideoPreparationPage);
 const ProtectedVideoGenerationPage = withAuth(VideoGenerationPage);
@@ -114,6 +116,7 @@ export const APP_ROUTES = [
         { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
+        { key: 'storyboard', path: PathConstants.STORYBOARD, component: <ProtectedStoryboardPage /> },
         { key: 'videoEntry', path: PathConstants.VIDEO, component: <ProtectedVideoEntryGatePage /> },
         { key: 'videoPreparation', path: PathConstants.VIDEO_PREPARATION, component: <ProtectedVideoPreparationPage /> },
         { key: 'videoGeneration', path: PathConstants.VIDEO_GENERATE, component: <ProtectedVideoGenerationPage /> },

@@ -201,6 +201,56 @@ participants field. Music actions, shot planning, and video-generation
 segmentation are intentionally outside this workspace. Editing requires the
 existing project edit permission.
 
+## Storyboard workspace
+
+Open a project's **Storyboard** step at `/project/:projectId/storyboard` to turn
+screenplay scenes into an ordered shot list and direct each shot through visual
+keyframes. Every shot starts with required **Start** and **End** keyframes;
+editors can add intermediate keyframes, set semantic camera intent, adjust the
+composition guides, and choose or override the camera movement between adjacent
+keyframes. Continuity references can carry a character or location forward from
+the preceding generated shot.
+
+The workspace loads screenplay scenes and existing storyboard progress from the
+project identified by the route. It no longer substitutes demo scenes from a
+different project, and AI shot-list proposals use the selected project's scene
+context. Editing autosave, image generation, asset references, and
+preview changes are still frontend-only prototype behavior and do not yet
+persist or call a backend provider. Camera controls deliberately describe
+filmmaking intent (position, height, distance, framing, lens, composition, and
+movement) without exposing XYZ coordinates, a 3D scene, or video generation.
+
+The **Suggest shot list with AI** action first loads the server model allowlist,
+scene context, model availability, and a best-effort USD estimate from
+`GET /api/projects/{projectId}/storyboard/scenes/{sceneId}/suggest-shots/`.
+The confirmation dialog lets the editor choose an available model before the
+frontend posts that model and the shot limit to the same route. Each logical text
+model appears once: the backend selects its first available provider connection
+in configured priority order. The dialog shows this provider and updates its
+cost and token estimates when the model changes. The client submits the exact
+connection ID it received, so the backend uses the same provider that was shown
+for confirmation; a failed request does not automatically switch providers.
+Models and provider credentials are configured on the backend, with no frontend
+model list to maintain. The backend asks
+the selected allowlisted text model for structured JSON, validates every
+referenced project entity, and returns an unpersisted proposal. The cost is an
+informational provider estimate, not a reservation or final charge. The
+frontend displays the proposal for review; accepting and persisting proposed
+shots remains part of the normal shot-mutation flow.
+
+After confirmation, generation shows an indeterminate loader in the center of
+the screenplay block. The action button stays disabled without its own spinner.
+Loading and errors belong to the originating scene; navigating to another scene
+does not redirect a completed proposal into it. Timeout, rate-limit, provider
+rejection, and invalid-response errors have distinct messages.
+
+### Storyboard follow-up tasks
+
+- [ ] Persist **Create shot manually** through the structured Storyboard API:
+  initialize the scene storyboard when necessary, create the shot with
+  `POST /api/projects/{projectId}/storyboard/{storyboardId}/shots/`, replace the
+  local draft with the server response, and show real save/error state.
+
 ## Contract changes
 
 The backend contract is canonical. When it changes, synchronize

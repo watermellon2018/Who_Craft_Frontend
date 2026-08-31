@@ -23,6 +23,186 @@
     "select": "Select",
     "refresh": "Refresh"
   },
+  "storyboard": {
+    "subtitle": "Direct the scene and create keyframes — without generating video",
+    "backToProject": "Back to project",
+    "scenes": "Scenes",
+    "fromScript": "From screenplay",
+    "scene": "Scene",
+    "shots": "Shots",
+    "shotsHelp": "Dramatic plan for the scene",
+    "shotsCount_one": "{{count}} shot",
+    "shotsCount_other": "{{count}} shots",
+    "shotsReady": "{{ready}} / {{total}} shots ready",
+    "keyframesCount_one": "{{count}} keyframe",
+    "keyframesCount_other": "{{count}} keyframes",
+    "notStoryboarded": "Not storyboarded",
+    "status": {"empty": "Empty", "draft": "Draft", "completed": "Completed"},
+    "empty": {
+      "noScenes": "The screenplay has no scenes yet",
+      "noScenesDescription": "Add scenes in the screenplay workspace and they will appear here for storyboarding.",
+      "selectScene": "Select a scene",
+      "selectSceneDescription": "Build a director's storyboard: break the scene into shots, then define composition and camera movement."
+    },
+    "loadingWorkspace": "Loading project scenes…",
+    "detected": "Detected",
+    "characters": "Characters",
+    "location": "Location",
+    "objects": "Objects",
+    "visualReferences": "Visual references",
+    "visualAssetMissing": "Visual asset is missing",
+    "assetMissing": "asset missing",
+    "addFromLibrary": "Add from library",
+    "locationSwitch": {
+      "title": "A location change was detected",
+      "description": "Split the scene or assign locations to individual shots.",
+      "split": "Split scene",
+      "keep": "Keep as is"
+    },
+    "ai": {
+      "suggest": "Suggest shot list with AI",
+      "loading": "Creating shot list…",
+      "proposal": "AI proposal",
+      "proposedShots_one": "AI suggested {{count}} shot",
+      "proposedShots_other": "AI suggested {{count}} shots",
+      "editHelp": "Refine the content, order, and duration before staging the camera.",
+      "modal": {
+        "title": "Suggest shots with AI",
+        "model": "Text model",
+        "modelPlaceholder": "Select a model",
+        "provider": "Provider: {{provider}}",
+        "estimatedCost": "Estimated request cost",
+        "costUnavailable": "Estimate unavailable",
+        "tokenEstimate": "About {{input}} input and up to {{output}} output tokens",
+        "costHint": "The USD estimate uses LiteLLM pricing data. The final provider cost depends on the response and current pricing.",
+        "noModels": "No models are available. Check backend dependencies and API credentials.",
+        "generate": "Generate shot list",
+        "unavailable": {
+          "dependencyMissing": "LiteLLM is not installed",
+          "credentialMissing": "API credential is missing",
+          "unsupportedProvider": "provider is not supported for Storyboard yet"
+        }
+      }
+    },
+    "manual": {
+      "create": "Create shot manually",
+      "title": "New shot",
+      "help": "Describe the dramatic content first. Camera settings come in the next step.",
+      "add": "Add shot"
+    },
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "shotTitle": "Shot {{number}} title",
+      "shotDescription": "Shot {{number}} description"
+    },
+    "validation": {"shotTitle": "Enter a shot title", "shotDescription": "Describe the action in the shot"},
+    "addShot": "Add shot",
+    "copySuffix": "Copy",
+    "stageShots": "Continue to staging",
+    "shotActions": {
+      "addAfter": "Add after",
+      "duplicate": "Duplicate",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "delete": "Delete shot",
+      "drag": "Drag shot",
+      "menu": "Shot {{number}} actions"
+    },
+    "shotContent": "Shot content",
+    "duration": "Duration",
+    "secondsShort": "s",
+    "keyframes": "Keyframes",
+    "keyframesHelp": "Start and End are required; intermediate keyframes are optional",
+    "addIntermediate": "Add intermediate keyframe",
+    "deleteIntermediate": "Delete intermediate keyframe",
+    "emptyKeyframes": "No keyframes yet",
+    "frameReady": "Frame ready",
+    "frameNotCreated": "Frame not created",
+    "keyframeType": {"start": "Start", "intermediate": "Intermediate", "end": "End", "none": "No keyframe selected"},
+    "viewport": {
+      "title": "Storyboard frame viewport",
+      "emptyTitle": "Frame not created yet",
+      "emptyDescription": "Set the Camera Intent and create a separate storyboard image for this state.",
+      "createFrame": "Create storyboard frame",
+      "generating": "Creating keyframe…",
+      "generatedCaption": "Generated storyboard frame",
+      "imageAlt": "Shot {{shot}}, {{keyframe}} storyboard frame",
+      "fit": "Fit to viewport",
+      "zoom": "Frame zoom"
+    },
+    "regenerate": {"sameSettings": "Same settings", "editReferences": "Edit references"},
+    "camera": {
+      "tab": "Camera",
+      "title": "Camera settings",
+      "relativeTo": "Camera relative to",
+      "position": "Camera position",
+      "height": "Camera height",
+      "distance": "Distance",
+      "framing": "Framing",
+      "lens": "Lens",
+      "groupCenter": "Group center",
+      "unset": "Camera not set",
+      "duplicateSettings": "Duplicate settings",
+      "reset": "Reset",
+      "azimuth": {
+        "front": "Front", "front-left": "Front left", "left": "Left", "back-left": "Back left",
+        "back": "Back", "back-right": "Back right", "right": "Right", "front-right": "Front right"
+      },
+      "elevation": {"low": "Low", "eye-level": "Eye level", "high": "High", "top": "Top"},
+      "distanceValue": {"wide": "Wide", "medium": "Medium", "near": "Near"},
+      "framingValue": {
+        "extreme-wide": "Extreme wide", "wide": "Wide", "full": "Full", "medium": "Medium",
+        "medium-close": "Medium close-up", "close": "Close-up", "extreme-close": "Extreme close-up",
+        "ots": "Over the shoulder", "pov": "Point of view"
+      },
+      "ots": {"title": "Over the shoulder", "foreground": "Foreground subject", "left": "Left shoulder", "right": "Right shoulder"}
+    },
+    "composition": {
+      "tab": "Composition",
+      "title": "Frame composition",
+      "help": "Move and resize subjects in screen space. This is directing intent, not 3D geometry.",
+      "keyboardHelp": "Arrow keys move the selected subject. Alt + arrow keys resize it; hold Shift for a larger step.",
+      "ruleOfThirds": "Rule of thirds",
+      "center": "Center",
+      "safeArea": "Safe area",
+      "subject": "Position of {{name}}",
+      "subjectPosition": "X {{x}}%, Y {{y}}%, width {{width}}%, height {{height}}%"
+    },
+    "movement": {"tab": "Movement", "detected": "Detected camera movement", "override": "Override movement", "auto": "Auto: {{movement}}"},
+    "generation": {
+      "title": "Create keyframe",
+      "generate": "Create frame",
+      "content": "Content",
+      "contentHelp": "Assets from the current shot are preselected.",
+      "continuity": "Continuity references",
+      "continuityHelp": "The previous suitable frame is selected to preserve characters, lighting, and environment.",
+      "noAssets": "No visual assets are available for this shot",
+      "noContinuity": "No suitable previous frame was found"
+    },
+    "referenceType": {"previous-keyframe": "Previous keyframe in this shot", "previous-shot": "Previous shot"},
+    "library": {"character": "Characters", "location": "Locations", "object": "Objects", "clothing": "Clothing", "other": "Other", "empty": "No assets in this category"},
+    "preview": {"action": "Preview storyboard", "title": "Scene storyboard", "empty": "Add shots to open the preview", "missingFrame": "Missing image", "imageAlt": "Shot {{shot}}, {{keyframe}} preview"},
+    "autosave": {"saved": "Saved", "saving": "Saving…", "unsaved": "Unsaved changes"},
+    "errors": {
+      "aiShotList": "Unable to create a proposal. Check your connection and try again.",
+      "aiTimeout": "The text provider did not respond in time. Another request may incur a charge.",
+      "aiRateLimited": "The text provider is receiving too many requests. Try again later.",
+      "aiProviderRejected": "The provider rejected the request. Select another model or check provider access and balance.",
+      "aiBadResponse": "The model returned an invalid shot list. Try another model.",
+      "aiNotConfigured": "The backend AI module is not configured. Install requirements.txt and check the provider credential in .env.",
+      "aiModelUnavailable": "The selected AI model is unavailable. Open the dialog again and choose an available model.",
+      "frameGeneration": "Unable to create the keyframe. Edit the references or try again.",
+      "workspace": "Unable to load this project's scenes. Check your connection and try again."
+    },
+    "messages": {
+      "shotAdded": "Shot added", "shotDeleted": "Shot deleted", "frameCreated": "Keyframe created",
+      "settingsDuplicated": "Settings copied to the adjacent keyframe", "cameraReset": "Camera settings reset",
+      "referencesUpdated": "Shot references updated", "sceneKept": "The location change will remain in this scene",
+      "splitMock": "Scene splitting will be connected with the screenplay API"
+    },
+    "newShot": {"title": "New shot", "description": "Describe the action in this shot."}
+  },
   "credits": {
     "pageTitle": "Craft wallet",
     "subtitle": "One balance for generation and transfers inside Craft.",

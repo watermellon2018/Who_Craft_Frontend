@@ -24,6 +24,265 @@
     "refresh": "Обновить",
     "clear": "Очистить"
   },
+  "storyboard": {
+    "subtitle": "Режиссёрская постановка сцены и опорные кадры — без генерации видео",
+    "backToProject": "Вернуться к проекту",
+    "scenes": "Сцены",
+    "fromScript": "Из сценария",
+    "scene": "Сцена",
+    "shots": "Кадры",
+    "shotsHelp": "Драматургический план сцены",
+    "shotsCount_one": "{{count}} кадр",
+    "shotsCount_few": "{{count}} кадра",
+    "shotsCount_many": "{{count}} кадров",
+    "shotsCount_other": "{{count}} кадра",
+    "shotsReady": "Готово кадров: {{ready}} / {{total}}",
+    "keyframesCount_one": "{{count}} опорный кадр",
+    "keyframesCount_few": "{{count}} опорных кадра",
+    "keyframesCount_many": "{{count}} опорных кадров",
+    "keyframesCount_other": "{{count}} опорного кадра",
+    "notStoryboarded": "Не раскадрована",
+    "status": {
+      "empty": "Не начата",
+      "draft": "Черновик",
+      "completed": "Готова"
+    },
+    "empty": {
+      "noScenes": "В сценарии пока нет сцен",
+      "noScenesDescription": "Добавьте сцены в разделе сценария, и они появятся здесь для раскадровки.",
+      "selectScene": "Выберите сцену",
+      "selectSceneDescription": "Создайте режиссёрскую раскадровку: разбейте сцену на кадры, задайте композицию и движение камеры."
+    },
+    "loadingWorkspace": "Загружаем сцены проекта…",
+    "detected": "Обнаружено",
+    "characters": "Персонажи",
+    "location": "Локация",
+    "objects": "Объекты",
+    "visualReferences": "Визуальные референсы",
+    "visualAssetMissing": "Визуальный ассет отсутствует",
+    "assetMissing": "ассет отсутствует",
+    "addFromLibrary": "Добавить из библиотеки",
+    "locationSwitch": {
+      "title": "В сцене обнаружена смена локации",
+      "description": "Можно разделить сцену или назначить локацию отдельно для каждого кадра.",
+      "split": "Разделить сцену",
+      "keep": "Оставить как есть"
+    },
+    "ai": {
+      "suggest": "Предложить shot list с ИИ",
+      "loading": "Создаём shot list…",
+      "proposal": "Предложение ИИ",
+      "proposedShots_one": "ИИ предложил {{count}} кадр",
+      "proposedShots_few": "ИИ предложил {{count}} кадра",
+      "proposedShots_many": "ИИ предложил {{count}} кадров",
+      "proposedShots_other": "ИИ предложил {{count}} кадра",
+      "editHelp": "Уточните содержание, порядок и длительность до постановки камеры.",
+      "modal": {
+        "title": "Предложить кадры с помощью ИИ",
+        "model": "Текстовая модель",
+        "modelPlaceholder": "Выберите модель",
+        "provider": "Провайдер: {{provider}}",
+        "estimatedCost": "Примерная стоимость запроса",
+        "costUnavailable": "Оценка недоступна",
+        "tokenEstimate": "Около {{input}} входных и до {{output}} выходных токенов",
+        "costHint": "Оценка указана в USD по данным LiteLLM. Фактическая стоимость зависит от ответа модели и тарифа провайдера.",
+        "noModels": "Нет доступных моделей. Проверьте установку backend-зависимостей и API-ключи.",
+        "generate": "Сгенерировать shot list",
+        "unavailable": {
+          "dependencyMissing": "не установлен LiteLLM",
+          "credentialMissing": "не настроен API-ключ",
+          "unsupportedProvider": "провайдер пока не поддерживается для Storyboard"
+        }
+      }
+    },
+    "manual": {
+      "create": "Создать кадр вручную",
+      "title": "Новый кадр",
+      "help": "Сначала опишите драматургическое содержание. Камеру настроите на следующем шаге.",
+      "add": "Добавить кадр"
+    },
+    "fields": {
+      "title": "Название",
+      "description": "Описание",
+      "shotTitle": "Название кадра {{number}}",
+      "shotDescription": "Описание кадра {{number}}"
+    },
+    "validation": {
+      "shotTitle": "Укажите название кадра",
+      "shotDescription": "Опишите действие в кадре"
+    },
+    "addShot": "Добавить кадр",
+    "copySuffix": "Копия",
+    "stageShots": "Перейти к постановке",
+    "shotActions": {
+      "addAfter": "Добавить после",
+      "duplicate": "Дублировать",
+      "moveUp": "Переместить выше",
+      "moveDown": "Переместить ниже",
+      "delete": "Удалить кадр",
+      "drag": "Перетащить кадр",
+      "menu": "Действия с кадром {{number}}"
+    },
+    "shotContent": "Содержание кадра",
+    "duration": "Длительность",
+    "secondsShort": "с",
+    "keyframes": "Опорные кадры",
+    "keyframesHelp": "Start и End обязательны, промежуточные кадры опциональны",
+    "addIntermediate": "Добавить промежуточный кадр",
+    "deleteIntermediate": "Удалить промежуточный кадр",
+    "emptyKeyframes": "Опорные кадры ещё не созданы",
+    "frameReady": "Кадр готов",
+    "frameNotCreated": "Кадр не создан",
+    "keyframeType": {
+      "start": "Start",
+      "intermediate": "Промежуточный",
+      "end": "End",
+      "none": "Опорный кадр не выбран"
+    },
+    "viewport": {
+      "title": "Просмотр опорного кадра",
+      "emptyTitle": "Кадр ещё не создан",
+      "emptyDescription": "Настройте Camera Intent и создайте отдельное storyboard-изображение для этого состояния.",
+      "createFrame": "Создать storyboard frame",
+      "generating": "Создаём опорный кадр…",
+      "generatedCaption": "Сгенерированный storyboard-кадр",
+      "imageAlt": "Shot {{shot}}, опорный кадр {{keyframe}}",
+      "fit": "Вписать в область",
+      "zoom": "Масштаб кадра"
+    },
+    "regenerate": {
+      "sameSettings": "С теми же настройками",
+      "editReferences": "Изменить референсы"
+    },
+    "camera": {
+      "tab": "Камера",
+      "title": "Настройки камеры",
+      "relativeTo": "Камера относительно",
+      "position": "Положение камеры",
+      "height": "Высота камеры",
+      "distance": "Расстояние",
+      "framing": "Крупность",
+      "lens": "Объектив",
+      "groupCenter": "Центр группы",
+      "unset": "Камера не настроена",
+      "duplicateSettings": "Дублировать настройки",
+      "reset": "Сбросить",
+      "azimuth": {
+        "front": "Спереди",
+        "front-left": "Спереди слева",
+        "left": "Слева",
+        "back-left": "Сзади слева",
+        "back": "Сзади",
+        "back-right": "Сзади справа",
+        "right": "Справа",
+        "front-right": "Спереди справа"
+      },
+      "elevation": {
+        "low": "Низко",
+        "eye-level": "На уровне глаз",
+        "high": "Высоко",
+        "top": "Сверху"
+      },
+      "distanceValue": {
+        "wide": "Далеко",
+        "medium": "Средне",
+        "near": "Близко"
+      },
+      "framingValue": {
+        "extreme-wide": "Сверхобщий",
+        "wide": "Общий",
+        "full": "Ростовой",
+        "medium": "Средний",
+        "medium-close": "Средне-крупный",
+        "close": "Крупный",
+        "extreme-close": "Деталь",
+        "ots": "Через плечо",
+        "pov": "От первого лица"
+      },
+      "ots": {
+        "title": "Через плечо",
+        "foreground": "Персонаж на переднем плане",
+        "left": "Левое плечо",
+        "right": "Правое плечо"
+      }
+    },
+    "composition": {
+      "tab": "Композиция",
+      "title": "Композиция кадра",
+      "help": "Перемещайте и масштабируйте объекты в экранном пространстве — это режиссёрский замысел, а не 3D-геометрия.",
+      "keyboardHelp": "Стрелки перемещают выбранный объект. Alt + стрелки меняют его размер, Shift увеличивает шаг.",
+      "ruleOfThirds": "Правило третей",
+      "center": "Центр",
+      "safeArea": "Безопасная зона",
+      "subject": "Положение объекта {{name}}",
+      "subjectPosition": "X {{x}}%, Y {{y}}%, ширина {{width}}%, высота {{height}}%"
+    },
+    "movement": {
+      "tab": "Движение",
+      "detected": "Предполагаемое движение камеры",
+      "override": "Изменить движение",
+      "auto": "Авто: {{movement}}"
+    },
+    "generation": {
+      "title": "Создать опорный кадр",
+      "generate": "Создать кадр",
+      "content": "Содержание",
+      "contentHelp": "Ассеты текущего кадра подставлены автоматически.",
+      "continuity": "Референсы непрерывности",
+      "continuityHelp": "Предыдущий подходящий кадр выбран для сохранения персонажей, света и окружения.",
+      "noAssets": "В этом кадре нет доступных визуальных ассетов",
+      "noContinuity": "Подходящий предыдущий кадр не найден"
+    },
+    "referenceType": {
+      "previous-keyframe": "Предыдущий кадр этого shot",
+      "previous-shot": "Предыдущий shot"
+    },
+    "library": {
+      "character": "Персонажи",
+      "location": "Локации",
+      "object": "Объекты",
+      "clothing": "Одежда",
+      "other": "Другое",
+      "empty": "В этой категории пока нет ассетов"
+    },
+    "preview": {
+      "action": "Предпросмотр раскадровки",
+      "title": "Раскадровка сцены",
+      "empty": "Добавьте кадры, чтобы открыть предпросмотр",
+      "missingFrame": "Нет изображения",
+      "imageAlt": "Shot {{shot}}, {{keyframe}} в предпросмотре"
+    },
+    "autosave": {
+      "saved": "Сохранено",
+      "saving": "Сохраняем…",
+      "unsaved": "Есть изменения"
+    },
+    "errors": {
+      "aiShotList": "Не удалось создать предложение. Проверьте соединение и повторите.",
+      "aiTimeout": "Текстовая модель не ответила вовремя. Повторный запрос может быть платным.",
+      "aiRateLimited": "Провайдер ограничил частоту запросов. Попробуйте позже.",
+      "aiProviderRejected": "Провайдер отклонил запрос. Выберите другую модель или проверьте доступ и баланс провайдера.",
+      "aiBadResponse": "Модель вернула некорректный shot list. Попробуйте другую модель.",
+      "aiNotConfigured": "AI-модуль не настроен на backend. Установите зависимости из requirements.txt и проверьте API-ключ в .env.",
+      "aiModelUnavailable": "Выбранная AI-модель недоступна. Откройте окно ещё раз и выберите доступную модель.",
+      "frameGeneration": "Не удалось создать опорный кадр. Измените референсы или повторите.",
+      "workspace": "Не удалось загрузить сцены этого проекта. Проверьте соединение и повторите."
+    },
+    "messages": {
+      "shotAdded": "Кадр добавлен",
+      "shotDeleted": "Кадр удалён",
+      "frameCreated": "Опорный кадр создан",
+      "settingsDuplicated": "Настройки перенесены на соседний кадр",
+      "cameraReset": "Настройки камеры сброшены",
+      "referencesUpdated": "Референсы кадра обновлены",
+      "sceneKept": "Смена локации останется внутри сцены",
+      "splitMock": "Разделение сцены будет подключено вместе с API сценария"
+    },
+    "newShot": {
+      "title": "Новый кадр",
+      "description": "Опишите действие в этом кадре."
+    }
+  },
   "credits": {
     "pageTitle": "Кошелёк Craft",
     "subtitle": "Единый баланс для генераций и переводов внутри Craft.",

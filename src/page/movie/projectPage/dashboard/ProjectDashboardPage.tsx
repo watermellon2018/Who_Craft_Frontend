@@ -13,6 +13,7 @@ import PathConstants, {
   referenceCreatePath,
   referenceEditPath,
   referenceLibraryPath,
+  storyboardPath,
   videoPath,
   videoPreparationPath,
 } from '../../../../routes/pathConstant';
@@ -305,9 +306,14 @@ export const ProjectDashboardPage: React.FC = () => {
     }
     if (key === 'reference' && projectId) {
       navigate(referenceLibraryPath(projectId));
+      return;
+    }
+    if (key === 'storyboard' && projectId) {
+      navigate(storyboardPath(projectId));
     }
   };
-  const isPipelineStepEnabled = (key: string) => key === 'script' || key === 'reference';
+  const isPipelineStepEnabled = (key: string) =>
+    key === 'script' || key === 'storyboard' || key === 'reference';
 
   const applySummaryToView = useCallback(
     (summary: {
