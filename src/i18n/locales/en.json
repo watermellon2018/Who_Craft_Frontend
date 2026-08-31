@@ -60,6 +60,14 @@
       "keep": "Keep as is"
     },
     "ai": {
+      "timing": {
+        "estimate": "Estimated time: ≈ {{time}}",
+        "elapsed": "Elapsed {{time}}",
+        "remaining": "About {{time}} remaining",
+        "longer": "Generation is taking longer than estimated. Waiting for the model to respond.",
+        "hint": "Timing is approximate and depends on the model and load. Successful requests refine the estimate."
+      },
+
       "suggest": "Suggest shot list with AI",
       "loading": "Creating shots…",
       "loadingModels": "Loading models…",
@@ -86,6 +94,8 @@
       }
     },
     "source": {
+      "manualHighlightHelp": "The text you assigned to this shot is highlighted. It may overlap with other shots.",
+
       "fragment": "Screenplay excerpt",
       "showInScript": "Show in screenplay",
       "sceneTitle": "Screenplay · {{title}}",
@@ -95,23 +105,32 @@
       "highlightHelp": "Highlighted passages are the ones the AI assigned to this shot. A passage can belong to multiple shots.",
       "gap": "Unrelated text omitted"
     },
-    "temporaryDraft": {
-      "conflict": "A different storyboard draft is saved in this browser. Choose which shots to keep.",
-      "restoreConflict": "Restore temporary draft",
-      "keepCurrent": "Keep current shots",
-      "paused": "Your session changed. Reload the page to resume temporary saving. You can download the current shots.",
-      "saved": "Temporary draft saved in this browser",
-      "restored": "Temporary draft restored without an AI request",
-      "removed": "Temporary copy deleted. New changes will be saved again",
-      "unavailable": "Could not save the temporary draft. Download a copy before closing the page",
-      "remove": "Delete temporary copy",
-      "export": "Download draft"
-    },
     "builder": {
       "title": "Scene shots · {{count}}",
       "expand": "Expand",
       "collapse": "Collapse",
       "emptyDescription": "No description yet"
+    },
+    "manualMarkup": {
+      "title": "Create shots from the screenplay",
+      "help": "Select text with your mouse or keyboard to create a shot. You can use the same passage more than once.",
+      "script": "Screenplay for shot selection",
+      "selectAll": "Select all text",
+      "createSelection": "Create shot from selection",
+      "selectionCount": "Selected characters: {{count}}",
+      "longSelection": "The full passage will be preserved. Write a shorter shot description of up to 4000 characters.",
+      "titleLabel": "Title",
+      "descriptionLabel": "Description",
+      "defaultTitle": "Shot {{number}}",
+      "add": "Add shot",
+      "cancelSelection": "Cancel selection",
+      "complete": "Review shot list",
+      "coverage": "{{percent}}% of screenplay covered · Shots: {{count}}",
+      "coverageHelp": "Cover the full text to review the shot list. Whitespace is ignored and overlaps are allowed.",
+      "empty": "There is no screenplay text to select yet.",
+      "hashError": "Could not attach the passage. Try again over HTTPS or on localhost.",
+      "added": "Shot “{{title}}” added.",
+      "back": "Back to scene"
     },
     "manual": {
       "create": "Create shot manually",
@@ -212,7 +231,17 @@
     "referenceType": {"previous-keyframe": "Previous keyframe in this shot", "previous-shot": "Previous shot"},
     "library": {"character": "Characters", "location": "Locations", "object": "Objects", "clothing": "Clothing", "other": "Other", "empty": "No assets in this category"},
     "preview": {"action": "Preview storyboard", "title": "Scene storyboard", "empty": "Add shots to open the preview", "missingFrame": "Missing image", "imageAlt": "Shot {{shot}}, {{keyframe}} preview"},
-    "autosave": {"saved": "Saved", "saving": "Saving…", "unsaved": "Unsaved changes"},
+    "autosave": {
+      "authChanged": "Your session changed. To send these edits, sign in to the original account and reload the scene.",
+      "reload": "Reload workspace",
+      "error": "Could not save. Changes are waiting to be sent — keep this tab open.",
+      "conflict": "This scene changed in another window. Your changes have not been sent yet.",
+      "conflictHelp": "Choose a version for the conflicting scenes. Loading the saved version replaces your local edits; saving your version replaces the server version.",
+      "useSaved": "Load server version",
+      "keepLocal": "Save my version",
+      "recoveredProposal": "AI finished while you were editing the scene. Its result is retained separately in this browser. Applying it replaces this scene's current shot list.",
+      "applyProposal": "Replace shots with AI result",
+"saved": "Saved", "saving": "Saving…", "unsaved": "Unsaved changes"},
     "errors": {
       "aiShotList": "Unable to create a proposal. Check your connection and try again.",
       "aiTimeout": "The text provider did not respond in time. Another request may incur a charge.",

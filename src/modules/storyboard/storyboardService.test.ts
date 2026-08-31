@@ -13,6 +13,7 @@ test('carries the authoritative source snapshot and shared segment IDs into loca
   const scene: StoryboardScene = {
     entities: [], id: '1', locationIds: [], order: 1, shots: [], status: 'empty',
     text: 'Edited while waiting for the model.', title: 'Meeting', version: 5,
+    draftAuthGeneration: 7,
   };
   const item: StoryboardShotProposal['shots'][number] = {
     title: 'Встреча', description: 'Описание '.repeat(200),
@@ -32,10 +33,11 @@ test('carries the authoritative source snapshot and shared segment IDs into loca
     document: {
       sceneId: 1, sceneVersion: 4, contentHash: 'authoritative-hash', truncated: false,
       segments: [{id: 'a', text: 'Исходный сценарий.\n'}],
-    }, segmentIds: ['a'],
+    }, segmentIds: ['a'], origin: 'ai',
   });
   expect(shots[1].source?.document).toBe(shots[0].source?.document);
   expect(shots[1].source?.segmentIds).toEqual(['a']);
   expect(shots[1].source?.segmentIds).not.toBe(shots[0].source?.segmentIds);
   expect(suggest).toHaveBeenCalledTimes(1);
+  expect(suggest).toHaveBeenCalledWith('7', scene.id, {maxShots: 12, model: 'qwen'}, 7);
 });

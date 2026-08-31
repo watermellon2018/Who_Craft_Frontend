@@ -125,6 +125,9 @@ export interface StoryboardSourceDocument {
 export interface StoryboardShotSource {
   document: StoryboardSourceDocument;
   segmentIds: string[];
+  origin?: 'ai' | 'manual';
+  /** Unicode code-point offsets into the exact joined source document. */
+  ranges?: {start: number; end: number}[];
 }
 
 export interface StoryboardShot {
@@ -157,6 +160,11 @@ export interface StoryboardSceneEntity {
 }
 
 export interface StoryboardScene {
+  canEdit?: boolean;
+  draftRevision?: number;
+  /** Local session ownership only; never sent in the saved payload. */
+  draftAuthGeneration?: number;
+  editorStage?: 'selection' | 'builder' | 'editor';
   entities: StoryboardSceneEntity[];
   heading?: string;
   id: string;
@@ -196,6 +204,7 @@ export interface StoryboardShotListOptions {
 }
 
 export interface StoryboardShotListConfiguration {
+  language?: 'ru' | 'en';
   maxShots: number;
   model: string;
 }

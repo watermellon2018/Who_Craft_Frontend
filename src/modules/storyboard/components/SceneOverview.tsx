@@ -1,13 +1,14 @@
 import {
   ApartmentOutlined,
-  BulbOutlined,
   LoadingOutlined,
 } from '@ant-design/icons';
-import {Button, Form, Input, Select, Spin} from 'antd';
-import React, {useState} from 'react';
+import {Button, Spin} from 'antd';
+import React from 'react';
 import {useTranslation} from 'react-i18next';
 
 import type {StoryboardEntityType, StoryboardScene} from '../model';
+import GenerationTimer from './GenerationTimer';
+import type {GenerationTiming} from './GenerationTimer';
 
 export interface SceneEntity {
   available: boolean;
@@ -16,30 +17,24 @@ export interface SceneEntity {
   title: string;
 }
 
-export interface ManualShotValues {
-  characterIds: string[];
-  description: string;
-  locationId?: string;
-  referenceIds: string[];
-  title: string;
-}
-
 interface SceneOverviewProps {
   aiGenerating: boolean;
   aiLoading: boolean;
   aiLoadingModels: boolean;
+  generationTiming?: GenerationTiming;
   entities: SceneEntity[];
   scene: StoryboardScene;
   onAddMissingAsset: () => void;
-  onCreateManual: (values: ManualShotValues) => void;
+  onStartManual?: () => void;
   onKeepScene: () => void;
   onSplitScene: () => void;
   onSuggest: () => void;
 }
 
-function ScreenplayExcerpt({scene, loadingLabel}: {
+function ScreenplayExcerpt({scene, loadingLabel, generationTiming}: {
   scene: StoryboardScene;
   loadingLabel: string | null;
+  generationTiming?: GenerationTiming;
 }) {
   const loading = Boolean(loadingLabel);
   const blocks = scene.scriptBlocks?.filter(({text, type}) => (
@@ -49,7 +44,7 @@ function ScreenplayExcerpt({scene, loadingLabel}: {
   if (blocks?.length === 0 && !loading) return null;
 
   return (
-    <div className={`storyboard-script${blocks ? '' : ' storyboard-script--plain'}`}>
+    <div className={`storyboard-script${blocks ? '' : ' storyboard-script--plain'}${generationTiming ? ' storyboard-script--generating' : ''}`}>
       <div aria-busy={loading}>
         {blocks ? blocks.map((block) => (
           <p
@@ -69,6 +64,7 @@ function ScreenplayExcerpt({scene, loadingLabel}: {
           <>
             <Spin aria-hidden="true" indicator={<LoadingOutlined spin />} size="large" />
             <span className="storyboard-script__loading-label">{loadingLabel}</span>
+            {generationTiming && <GenerationTimer {...generationTiming} />}
           </>
         )}
       </div>
@@ -80,28 +76,17 @@ export default function SceneOverview({
   aiGenerating,
   aiLoading,
   aiLoadingModels,
+  generationTiming,
   entities,
   scene,
   onAddMissingAsset,
-  onCreateManual,
+  onStartManual,
   onKeepScene,
   onSplitScene,
   onSuggest,
 }: SceneOverviewProps) {
   const {t} = useTranslation();
-  const [manualOpen, setManualOpen] = useState(false);
-  const [form] = Form.useForm<ManualShotValues>();
-  const characters = entities.filter((entity) => entity.kind === 'character');
   const locations = entities.filter((entity) => entity.kind === 'location');
-  const references = entities.filter((entity) => (
-    entity.kind !== 'character' && entity.kind !== 'location'
-  ));
-
-  const handleFinish = (values: ManualShotValues) => {
-    onCreateManual(values);
-    form.resetFields();
-    setManualOpen(false);
-  };
 
   return (
     <section className="storyboard-overview" aria-labelledby="storyboard-scene-title">
@@ -110,6 +95,7 @@ export default function SceneOverview({
       </p>
       <h2 id="storyboard-scene-title">{scene.heading || scene.title}</h2>
       <ScreenplayExcerpt
+        generationTiming={aiGenerating ? generationTiming : undefined}
         loadingLabel={aiLoadingModels
           ? t('storyboard.ai.loadingModels')
           : aiGenerating ? t('storyboard.ai.loading') : null}
@@ -158,75 +144,21 @@ export default function SceneOverview({
       <div className="storyboard-overview__actions">
         <Button
           className="craft-action-button"
-          disabled={aiLoading}
+          disabled={aiLoading || scene.canEdit === false}
           onClick={onSuggest}
           type="primary"
         >
           {aiGenerating ? t('storyboard.ai.loading') : t('storyboard.ai.suggest')}
         </Button>
         <Button
-          onClick={() => setManualOpen((open) => !open)}
+          disabled={aiLoading || scene.canEdit === false}
+          onClick={onStartManual}
           className="craft-action-button craft-action-button--secondary"
         >
           {t('storyboard.manual.create')}
         </Button>
       </div>
 
-      {manualOpen && (
-        <Form
-          className="storyboard-control-group"
-          form={form}
-          layout="vertical"
-          onFinish={handleFinish}
-          style={{marginTop: 20, maxWidth: 760}}
-        >
-          <div className="storyboard-section-heading">
-            <div>
-              <h3>{t('storyboard.manual.title')}</h3>
-              <p>{t('storyboard.manual.help')}</p>
-            </div>
-            <BulbOutlined aria-hidden="true" />
-          </div>
-          <Form.Item
-            label={t('storyboard.fields.title')}
-            name="title"
-            rules={[{required: true, message: t('storyboard.validation.shotTitle')}]}>
-            <Input maxLength={120} />
-          </Form.Item>
-          <Form.Item
-            label={t('storyboard.fields.description')}
-            name="description"
-            rules={[{required: true, message: t('storyboard.validation.shotDescription')}]}>
-            <Input.TextArea autoSize={{minRows: 3, maxRows: 6}} maxLength={600} />
-          </Form.Item>
-          <Form.Item label={t('storyboard.characters')} name="characterIds" initialValue={[]}>
-            <Select
-              mode="multiple"
-              options={characters.map(({id, title}) => ({label: title, value: id}))}
-            />
-          </Form.Item>
-          <Form.Item label={t('storyboard.location')} name="locationId">
-            <Select
-              allowClear
-              options={locations.map(({id, title}) => ({label: title, value: id}))}
-            />
-          </Form.Item>
-          <Form.Item label={t('storyboard.visualReferences')} name="referenceIds" initialValue={[]}>
-            <Select
-              mode="multiple"
-              options={references.map(({id, title}) => ({label: title, value: id}))}
-            />
-          </Form.Item>
-          <div className="storyboard-inline-actions">
-            <Button htmlType="submit" type="primary">
-              {t('storyboard.manual.add')}
-            </Button>
-            <Button onClick={() => setManualOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-        </Form>
-      )}
     </section>
   );
 }

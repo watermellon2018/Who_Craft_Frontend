@@ -1,7 +1,8 @@
 jest.mock('../../api/http', () => ({
   __esModule: true,
   backendAssetUrl: (value: string) => value,
-  default: {get: jest.fn(), post: jest.fn()},
+  getAuthGeneration: () => 0,
+  default: {get: jest.fn(), post: jest.fn(), put: jest.fn()},
 }));
 
 jest.mock('../../page/script/api', () => ({
@@ -20,6 +21,10 @@ const getWorkspaceMock = scriptApi.getWorkspace as jest.MockedFunction<
 
 beforeEach(() => {
   jest.clearAllMocks();
+  window.localStorage.clear();
+  getMock.mockReset();
+  getMock.mockImplementation(async (url) => ({data: url.endsWith('/editor-drafts/')
+    ? {userId: 7, canEdit: true, drafts: []} : []}));
 });
 
 test('loads the current project screenplay instead of the demo apartment scenes', async () => {
@@ -55,7 +60,7 @@ test('loads the current project screenplay instead of the demo apartment scenes'
     }],
     stats: {acts: [], sceneCount: 1, totalDurationSeconds: 20},
   });
-  getMock.mockResolvedValue({
+  getMock.mockResolvedValueOnce({
     data: [{
       id: 17,
       number: 1,
@@ -85,6 +90,7 @@ test('loads the current project screenplay instead of the demo apartment scenes'
     title: 'Встреча Энгри Дога и Анчоуса',
   });
   expect(scenes[0].title).not.toContain('Apartment');
+  expect(scenes[0].canEdit).toBe(true);
 });
 
 test('requests an AI shot proposal for the current project and scene', async () => {
@@ -93,11 +99,12 @@ test('requests an AI shot proposal for the current project and scene', async () 
   await expect(storyboardApi.suggestShotList('61', '17', {
     maxShots: 12,
     model: 'gemini/gemini-2.5-flash',
-  })).resolves.toEqual({shots: []});
+  }, 7)).resolves.toEqual({shots: []});
 
   expect(postMock).toHaveBeenCalledWith(
     'api/projects/61/storyboard/scenes/17/suggest-shots/',
     {maxShots: 12, model: 'gemini/gemini-2.5-flash'},
+    {expectedAuthGeneration: 7},
   );
 });
 
@@ -124,4 +131,10 @@ test('loads model availability and cost estimates for the selected scene', async
   expect(getMock).toHaveBeenCalledWith(
     'api/projects/61/storyboard/scenes/17/suggest-shots/',
   );
+});
+
+test('uses the requested interface language for the cost estimate request', async () => {
+  getMock.mockResolvedValue({data: {models: []}});
+  await storyboardApi.loadShotListOptions('61', '17', 'ru');
+  expect(getMock).toHaveBeenCalledWith('api/projects/61/storyboard/scenes/17/suggest-shots/', {params: {language: 'ru'}});
 });

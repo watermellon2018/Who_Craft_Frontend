@@ -214,8 +214,10 @@ the preceding generated shot.
 The workspace loads screenplay scenes and existing storyboard progress from the
 project identified by the route. It no longer substitutes demo scenes from a
 different project, and AI shot-list proposals use the selected project's scene
-context. Editing now saves a temporary browser draft as described below; it does
-not create backend shot records. Image generation, asset references, and preview
+context. Editing automatically saves a permanent scene working draft on the
+server, including shots, ordering, source links, camera settings, and the current
+workflow stage. This does not create or update structured backend Shot/Keyframe
+history or production-readiness metrics. Image generation, asset references, and preview
 changes are still frontend-only prototype behavior and do not yet call a backend
 provider. Camera controls deliberately describe
 filmmaking intent (position, height, distance, framing, lens, composition, and
@@ -225,7 +227,10 @@ The **Suggest shot list with AI** action first loads the server model allowlist,
 scene context, model availability, and a best-effort USD estimate from
 `GET /api/projects/{projectId}/storyboard/scenes/{sceneId}/suggest-shots/`.
 The confirmation dialog lets the editor choose an available model before the
-frontend posts that model and the shot limit to the same route. Each logical text
+frontend posts that model, the shot limit, and the current UI language (`ru` or
+`en`) to the same route. Generated titles and descriptions follow that language;
+original screenplay quotes remain unchanged. Existing English results are not
+automatically translated or regenerated. Each logical text
 model appears once: the backend selects its first available provider connection
 in configured priority order. The dialog shows this provider and updates its
 cost and token estimates when the model changes. The client submits the exact
@@ -236,12 +241,18 @@ model list to maintain. The backend asks
 the selected allowlisted text model for structured JSON, validates every
 referenced project entity, and returns an unpersisted proposal. The cost is an
 informational provider estimate, not a reservation or final charge. The
-frontend displays the proposal for review; accepting and persisting proposed
-shots remains part of the normal shot-mutation flow.
+frontend saves the proposal as an editable scene draft and displays it for review.
 
 The initial click immediately shows a "Loading models…" indicator in the center
 of the screenplay block. It disappears when the model dialog opens. After
 confirmation, the same area shows "Creating shots…" until generation finishes.
+The dialog shows an approximate duration; during generation, elapsed time and
+estimated remaining time appear below the spinner. The first estimate is a
+heuristic based on output-token budget, then adjusts using the last five
+successful durations for that model in this browser. It is not a provider SLA or
+real completion percentage. When the estimate runs out, the UI keeps displaying
+elapsed time and explains that the response is taking longer; it never claims
+the operation finished. Timing history contains only durations and token counts.
 The action button stays disabled without its own spinner throughout the flow.
 Loading and errors belong to the originating scene; navigating to another scene
 does not redirect a completed proposal into it. Timeout, rate-limit, provider
@@ -251,12 +262,10 @@ The proposed shot list shows each shot's number, title, and a two-line descripti
 preview. **Expand** opens the full title and multiline description for editing
 inside that row; only one row is expanded at a time. Hovering over a preview
 also shows the full description. Reorder shots using the dedicated drag handle
-or the menu's **Move up / Move down** actions. These edits retain the existing
-frontend-only draft behavior described above; expanding a row does not save a
-new backend record.
+or the menu's **Move up / Move down** actions. Content and order changes save
+automatically; simply expanding a row does not create another record.
 
-Inside an expanded shot, **Screenplay excerpt** is collapsed by default and
-reveals read-only original text. **Show in screenplay** opens the full scene in a
+Inside an expanded shot, **Show in screenplay** opens the full scene in a
 drawer, highlights every passage linked to the shot, and scrolls to the first.
 Multiple shots may share a passage. New AI proposals return server-owned source
 segments and selected IDs; the UI never guesses original quotes from the AI's
@@ -265,27 +274,43 @@ generation snapshot with a warning. A warning also identifies long scenes for
 which only the first 20,000 characters were sent to the model. Existing drafts
 without source links still show the full current scene, without highlights.
 
-Temporary drafts are stored in this browser's localStorage, scoped to the signed-in
-user and project. After the authorized workspace and profile load, cached shots
-restore into empty scenes without an AI request. If nonempty current and cached
-shot lists differ, neither replaces the other until the user chooses to restore
-the temporary draft or keep the current shots. Edits, ordering and source snapshots are
-saved automatically; **Download draft** makes a separate JSON backup. **Delete
-temporary copy** removes the browser copy without deleting visible shots; new
-edits resume saving. Storage failures are shown explicitly. Signed media URLs,
-binary images and authentication data are not included. This is a temporary text
-and camera-settings backup, not server persistence: another browser/device does
-not share it, clearing browser data removes it, and JSON import is not provided.
-An authentication change in another tab pauses temporary saving with a visible
-warning; reload to reauthorize the workspace and resume saving. Old results that
-were already lost from page memory cannot be recovered this way.
+**Create shot manually** opens interactive screenplay markup. Select text with
+the mouse or keyboard (or use **Select all text**), choose **Create shot from
+selection**, and edit the title and description in the small form underneath.
+Adding the shot saves its exact Unicode range and source snapshot. Overlapping
+selections and multiple shots for the same text are allowed. Coverage counts each
+non-whitespace character once; after 100% coverage, **Review shot list** becomes
+available. It does not force navigation, allowing extra reaction shots. Added
+shots and partial coverage survive navigation; an unconfirmed text selection or
+unfinished form is not a shot and is not saved. Web Crypto requires HTTPS or
+localhost for recording source hashes.
+
+The permanent draft API uses `GET .../storyboard/editor-drafts/` and
+`PUT .../storyboard/scenes/{sceneId}/editor-draft/`. Project viewers can read and
+editors can write. Save status reflects the server acknowledgement, not a timer.
+Queued writes continue when navigating within the app, with revision checks and
+idempotent retry. A conflict never silently overwrites either version: the editor
+can explicitly choose the saved server version or their local version. An AI
+response arriving after local edits is retained separately with an explicit
+replacement action. No extra AI call is made when restoring a scene.
+
+Pending writes also have an account/project-scoped browser recovery copy. A
+failed save is visible with retry; closing the tab with unsaved changes triggers
+the browser warning. Saving stops if authentication changes, so old writes cannot
+use another account's credentials. The former temporary-draft controls are
+removed. A legacy browser copy is transferred when no server draft exists and
+removed only after server acknowledgement (an existing server draft takes
+priority). Signed media URLs, binary images, and credentials are never included.
+Opening the workspace once completes this migration in the user's browser.
+Already-lost results cannot be recovered, and closing/reloading a tab before an
+AI request finishes does not resume that in-flight request.
 
 ### Storyboard follow-up tasks
 
-- [ ] Persist **Create shot manually** through the structured Storyboard API:
+- [ ] Publish working drafts through the structured Storyboard API:
   initialize the scene storyboard when necessary, create the shot with
   `POST /api/projects/{projectId}/storyboard/{storyboardId}/shots/`, replace the
-  local draft with the server response, and show real save/error state.
+  working draft with the server response and update production-readiness metrics.
 
 ## Contract changes
 

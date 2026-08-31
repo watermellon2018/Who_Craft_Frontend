@@ -9,26 +9,31 @@ import {useTranslation} from 'react-i18next';
 import {Link, useParams} from 'react-router-dom';
 
 import {getApiErrorCode} from '../../api/errors';
+import {getAuthGeneration} from '../../api/http';
 import DashboardHeader from '../profile/components/DashboardHeader';
 import {projectDashboardPath} from '../../routes/pathConstant';
 import CameraIntentPanel from './components/CameraIntentPanel';
 import GenerationDrawer from './components/GenerationDrawer';
 import KeyframeTimeline from './components/KeyframeTimeline';
 import SceneOverview from './components/SceneOverview';
-import type {ManualShotValues, SceneEntity} from './components/SceneOverview';
+import type {SceneEntity} from './components/SceneOverview';
 import SceneSidebar from './components/SceneSidebar';
 import {chooseShotListAiConfiguration} from './components/ShotListAiModal';
 import ShotListBuilder from './components/ShotListBuilder';
 import ShotSidebar from './components/ShotSidebar';
 import StoryboardPreview from './components/StoryboardPreview';
 import StoryboardViewport from './components/StoryboardViewport';
-import TemporaryStoryboardDraft from './components/TemporaryStoryboardDraft';
+import ManualShotMarkup from './components/ManualShotMarkup';
+import type {GenerationTiming} from './components/GenerationTimer';
 import VisualReferenceDrawer from './components/VisualReferenceDrawer';
 import {normalizeStoryboardImageUrl} from './model';
 import type {GenerationReference, StoryboardScene} from './model';
 import {storyboardService} from './storyboardService';
 import type {StoryboardFrontendService} from './storyboardService';
 import {useStoryboardWorkspace} from './useStoryboardWorkspace';
+import type {NewShotInput} from './useStoryboardWorkspace';
+import {persistAIProposal} from './editorDrafts';
+import {estimateGenerationSeconds, recordGenerationDuration} from './generationTiming';
 import './storyboard.css';
 
 function sceneEntities(scene: StoryboardScene): SceneEntity[] {
@@ -59,18 +64,20 @@ const shotListErrorKeys: Record<string, string> = {
 };
 
 export default function StoryboardPage({service = storyboardService}: StoryboardPageProps) {
-  const {t} = useTranslation();
+  const {t, i18n} = useTranslation();
   const {projectId = ''} = useParams<{projectId: string}>();
-  const workspace = useStoryboardWorkspace(projectId, service.loadScenes);
+  const workspace = useStoryboardWorkspace(projectId, service.loadScenes, service === storyboardService);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProgress, setAiProgress] = useState<{
     phase: 'models' | 'generation';
     sceneId: string;
+    timing?: GenerationTiming;
   } | null>(null);
   const [aiError, setAiError] = useState<{sceneId: string; message: string} | null>(null);
   const [generationDrawerOpen, setGenerationDrawerOpen] = useState(false);
   const [referenceDrawerOpen, setReferenceDrawerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [manualAfterShotId, setManualAfterShotId] = useState<string | undefined>();
   const [generatingKeyframeId, setGeneratingKeyframeId] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<{
     keyframeId: string;
@@ -112,13 +119,14 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
   const handleSuggestShotList = async () => {
     const scene = workspace.selectedScene;
     if (!scene || aiLoading) return;
+    const authGeneration = getAuthGeneration();
     let modalAbortController: AbortController | null = null;
     setAiError(null);
     setAiLoading(true);
     setAiProgress({phase: 'models', sceneId: scene.id});
     try {
       const options = await service.loadShotListOptions(scene, projectId);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || getAuthGeneration() !== authGeneration) return;
       setAiProgress(null);
       modalAbortController = new AbortController();
       aiModalAbortRef.current = modalAbortController;
@@ -126,10 +134,18 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
         options,
         modalAbortController.signal,
       );
-      if (!configuration || !mountedRef.current) return;
-      setAiProgress({phase: 'generation', sceneId: scene.id});
-      const shots = await service.suggestShotList(scene, projectId, configuration);
-      if (mountedRef.current) workspace.setSceneShotList(scene.id, shots);
+      if (!configuration || !mountedRef.current || getAuthGeneration() !== authGeneration) return;
+      const model = options.models.find(({id}) => id === configuration.model);
+      const startedAt = Date.now();
+      setAiProgress({phase: 'generation', sceneId: scene.id,
+        timing: {startedAt, estimatedSeconds: estimateGenerationSeconds(model)}});
+      const shots = await service.suggestShotList(scene, projectId, {
+        ...configuration, language: i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'ru',
+      });
+      const accepted = service === storyboardService ? persistAIProposal(projectId, scene, shots) : true;
+      if (getAuthGeneration() !== authGeneration) return;
+      if (model) recordGenerationDuration(model, (Date.now() - startedAt) / 1000);
+      if (mountedRef.current && accepted) workspace.setSceneShotList(scene.id, shots, 'builder');
     } catch (error: unknown) {
       if (!mountedRef.current) return;
       const code = getApiErrorCode(error);
@@ -148,19 +164,15 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
     }
   };
 
-  const handleCreateManual = (values: ManualShotValues) => {
-    workspace.addShot(values);
+  const handleCreateManual = (values: NewShotInput) => {
+    workspace.addShot(values, manualAfterShotId);
+    setManualAfterShotId(undefined);
     message.success(t('storyboard.messages.shotAdded'));
   };
 
   const handleAddShot = (afterShotId?: string) => {
-    workspace.addShot({
-      characterIds: workspace.selectedShot?.characterIds ?? [],
-      description: t('storyboard.newShot.description'),
-      locationId: workspace.selectedShot?.locationId,
-      referenceIds: workspace.selectedShot?.referenceIds ?? [],
-      title: t('storyboard.newShot.title'),
-    }, afterShotId);
+    setManualAfterShotId(afterShotId);
+    workspace.setMode('selection');
   };
 
   const handleDeleteShot = (shotId: string) => {
@@ -310,15 +322,27 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
               aiLoading={aiLoading}
               aiLoadingModels={aiProgress?.sceneId === workspace.selectedScene.id
                 && aiProgress.phase === 'models'}
+              generationTiming={aiProgress?.sceneId === workspace.selectedScene.id
+                ? aiProgress.timing : undefined}
               entities={entities}
               onAddMissingAsset={() => setReferenceDrawerOpen(true)}
-              onCreateManual={handleCreateManual}
+              onStartManual={() => handleAddShot()}
               onKeepScene={() => message.info(t('storyboard.messages.sceneKept'))}
               onSplitScene={() => message.info(t('storyboard.messages.splitMock'))}
               onSuggest={handleSuggestShotList}
               scene={workspace.selectedScene}
             />
           </>
+        )}
+        {workspace.selectedScene && workspace.mode === 'selection' && (
+          <ManualShotMarkup
+            disabled={workspace.selectedScene.canEdit === false}
+            key={workspace.selectedScene.id}
+            onAdd={handleCreateManual}
+            onCancel={() => workspace.setMode(workspace.selectedScene?.shots.length ? 'builder' : 'overview')}
+            onComplete={() => workspace.setMode('builder')}
+            scene={workspace.selectedScene}
+          />
         )}
         {workspace.selectedScene && workspace.mode === 'builder' && (
           <ShotListBuilder
@@ -424,14 +448,45 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
           </div>
         </header>
 
-        <TemporaryStoryboardDraft
-          enabled={service === storyboardService && workspace.loadedProjectId === projectId}
-          loading={workspace.loading}
-          loadError={workspace.loadError}
-          onRestore={workspace.setSceneShotList}
-          projectId={projectId}
-          scenes={workspace.scenes}
-        />
+        <div className="storyboard-save-status" role="status">
+          {t(workspace.authInvalid ? 'storyboard.autosave.authChanged'
+            : `storyboard.autosave.${workspace.autosaveState}`)}
+          {workspace.authInvalid && (
+            <Button onClick={() => void workspace.reload()} size="small">{t('storyboard.autosave.reload')}</Button>
+          )}
+          {!workspace.authInvalid && workspace.autosaveState === 'error' && (
+            <Button onClick={workspace.retrySave} size="small">{t('common.retry')}</Button>
+          )}
+        </div>
+        {workspace.autosaveState === 'conflict' && (
+          <Alert
+            message={t('storyboard.autosave.conflictHelp')}
+            type="warning"
+            showIcon
+            action={(
+              <div className="storyboard-inline-actions">
+                <Button onClick={() => void workspace.reloadSavedDraft()}>
+                  {t('storyboard.autosave.useSaved')}
+                </Button>
+                <Button onClick={() => void workspace.keepLocalDraft()}>
+                  {t('storyboard.autosave.keepLocal')}
+                </Button>
+              </div>
+            )}
+          />
+        )}
+        {workspace.recoveredAIProposal && (
+          <Alert
+            message={t('storyboard.autosave.recoveredProposal')}
+            type="info"
+            showIcon
+            action={(
+              <Button onClick={workspace.restoreAIProposal}>
+                {t('storyboard.autosave.applyProposal')}
+              </Button>
+            )}
+          />
+        )}
 
         {workspace.mode === 'editor' && workspace.selectedScene
           ? renderEditor()

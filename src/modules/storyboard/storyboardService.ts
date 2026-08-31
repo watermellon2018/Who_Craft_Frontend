@@ -7,6 +7,7 @@ import type {
   StoryboardShot,
   StoryboardSourceDocument,
 } from './model';
+import i18n from '../../i18n';
 import {MOCK_STORYBOARD_SCENES} from './mockData';
 import {storyboardApi} from './storyboardApi';
 import {createMockShotList, createShot} from './useStoryboardWorkspace';
@@ -85,10 +86,13 @@ export const storyboardService: StoryboardFrontendService = {
   ...storyboardMockService,
   loadScenes: storyboardApi.loadScenes,
   loadShotListOptions: async (scene, projectId) => (
-    storyboardApi.loadShotListOptions(projectId, scene.id)
+    storyboardApi.loadShotListOptions(projectId, scene.id,
+      i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'ru')
   ),
   suggestShotList: async (scene, projectId, configuration) => {
-    const proposal = await storyboardApi.suggestShotList(projectId, scene.id, configuration);
+    const proposal = await storyboardApi.suggestShotList(
+      projectId, scene.id, configuration, scene.draftAuthGeneration,
+    );
     const document: StoryboardSourceDocument | undefined = proposal.source ? {
       contentHash: proposal.source.content_hash,
       sceneId: proposal.source.scene_id,
@@ -101,7 +105,7 @@ export const storyboardService: StoryboardFrontendService = {
       description: shot.description,
       locationId: shot.suggested_location ?? undefined,
       referenceIds: shot.suggested_assets,
-      source: document ? {document, segmentIds: [...(shot.source_segment_ids ?? [])]} : undefined,
+      source: document ? {document, segmentIds: [...(shot.source_segment_ids ?? [])], origin: 'ai'} : undefined,
       title: shot.title,
     }, index + 1));
   },

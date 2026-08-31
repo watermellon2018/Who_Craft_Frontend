@@ -4,6 +4,7 @@ import React, {useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 
 import type {StoryboardScene, StoryboardShot} from '../model';
+import {sourceRangesForShot, splitSourceText} from '../sourceSelection';
 
 interface ShotSourceDetailsProps {
   scene: StoryboardScene;
@@ -16,40 +17,16 @@ export default function ShotSourceDetails({scene, shot}: ShotSourceDetailsProps)
   const firstHighlightRef = useRef<HTMLElement | null>(null);
   const source = shot.source?.document;
   const document = source && String(source.sceneId) === scene.id ? source : undefined;
-  const selectedIds = new Set(document ? shot.source?.segmentIds : []);
-  const selected = document?.segments.filter(({id}) => selectedIds.has(id)) ?? [];
-  const firstId = selected[0]?.id;
+  const text = document?.segments.map((segment) => segment.text).join('') ?? scene.text;
+  const ranges = document ? sourceRangesForShot(shot, text) : [];
+  const parts = splitSourceText(text, ranges);
+  const firstStart = parts.find((part) => part.highlighted)?.start;
   const stale = Boolean(document && scene.version !== undefined
     && document.sceneVersion !== scene.version);
-  const missing = selected.length === 0;
+  const missing = ranges.length === 0;
 
   return (
     <div className="storyboard-shot-source">
-      <details className="storyboard-shot-source__disclosure">
-        <summary>{t('storyboard.source.fragment')}</summary>
-        {missing ? (
-          <p className="storyboard-shot-source__notice">{t('storyboard.source.missing')}</p>
-        ) : (
-          <>
-            {stale && <p className="storyboard-shot-source__notice">{t('storyboard.source.stale')}</p>}
-            <div
-              aria-label={t('storyboard.source.fragment')}
-              className="storyboard-shot-source__excerpt"
-              role="region"
-              tabIndex={0}
-            >
-              {document?.segments.map((segment, index, segments) => selectedIds.has(segment.id) && (
-                <React.Fragment key={segment.id}>
-                  {index > 0 && !selectedIds.has(segments[index - 1].id) && (
-                    <span className="storyboard-shot-source__gap" aria-label={t('storyboard.source.gap')}>…</span>
-                  )}
-                  {segment.text}
-                </React.Fragment>
-              ))}
-            </div>
-          </>
-        )}
-      </details>
       <Button icon={<ReadOutlined aria-hidden="true" />} onClick={() => setOpen(true)}>
         {t('storyboard.source.showInScript')}
       </Button>
@@ -70,16 +47,17 @@ export default function ShotSourceDetails({scene, shot}: ShotSourceDetailsProps)
         {document?.truncated && (
           <Alert message={t('storyboard.source.truncated')} showIcon type="warning" />
         )}
-        {!missing && <p>{t('storyboard.source.highlightHelp')}</p>}
+        {!missing && <p>{t(shot.source?.origin === 'manual'
+          ? 'storyboard.source.manualHighlightHelp' : 'storyboard.source.highlightHelp')}</p>}
         <div className="storyboard-source-viewer__text">
-          {document ? document.segments.map((segment) => selectedIds.has(segment.id) ? (
+          {parts.map((part) => part.highlighted ? (
             <mark
-              key={segment.id}
-              ref={segment.id === firstId ? firstHighlightRef : undefined}
+              key={part.start}
+              ref={part.start === firstStart ? firstHighlightRef : undefined}
             >
-              {segment.text}
+              {part.text}
             </mark>
-          ) : <React.Fragment key={segment.id}>{segment.text}</React.Fragment>) : scene.text}
+          ) : <React.Fragment key={part.start}>{part.text}</React.Fragment>)}
         </div>
       </Drawer>
     </div>

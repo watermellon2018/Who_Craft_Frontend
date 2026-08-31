@@ -4,6 +4,7 @@ import {useTranslation} from 'react-i18next';
 
 import i18n from '../../../i18n';
 import {craftModal} from '../../../theme/CraftModalHost';
+import {estimateGenerationSeconds, formatElapsedTime} from '../generationTiming';
 import type {
   StoryboardShotListConfiguration,
   StoryboardShotListOptions,
@@ -79,6 +80,10 @@ function ShotListAiModalContent({
             })}
           </small>
           <small>{t('storyboard.ai.modal.costHint')}</small>
+          <small>{t('storyboard.ai.timing.estimate', {
+            time: formatElapsedTime(estimateGenerationSeconds(selectedModel)),
+          })}</small>
+          <small>{t('storyboard.ai.timing.hint')}</small>
         </div>
       ) : (
         <Alert

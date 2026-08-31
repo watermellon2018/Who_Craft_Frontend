@@ -89,7 +89,9 @@ export default function ShotListBuilder({
         <h2 id="storyboard-builder-title">
           {t('storyboard.builder.title', {count: scene.shots.length})}
         </h2>
-        <span className="storyboard-builder__badge">{t('storyboard.ai.proposal')}</span>
+        {scene.shots.length > 0 && scene.shots.every((shot) => shot.source?.origin === 'ai') && (
+          <span className="storyboard-builder__badge">{t('storyboard.ai.proposal')}</span>
+        )}
       </div>
       <p className="storyboard-builder__help">{t('storyboard.ai.editHelp')}</p>
 

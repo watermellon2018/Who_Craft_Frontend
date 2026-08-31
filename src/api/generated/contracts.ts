@@ -748,8 +748,102 @@ export interface StoryboardShotListOptions {
 }
 
 export interface StoryboardSuggestShotsRequest {
+  language?: "ru" | "en";
   model?: string;
   maxShots?: number;
+}
+
+export type StoryboardEditorDraftId = string;
+
+export interface StoryboardEditorDraftSourceDocument {
+  contentHash: string;
+  sceneId: number;
+  sceneVersion: number;
+  truncated: boolean;
+  segments: Array<{ id: StoryboardEditorDraftId; text: string; }>;
+}
+
+export interface StoryboardEditorDraftSource {
+  document: StoryboardEditorDraftSourceDocument;
+  origin?: "manual" | "ai";
+  segmentIds: Array<StoryboardEditorDraftId>;
+  ranges?: Array<{ start: number; end: number; }>;
+}
+
+export interface StoryboardEditorDraftCameraIntent {
+  azimuth: "front" | "front-left" | "left" | "back-left" | "back" | "back-right" | "right" | "front-right";
+  elevation: "low" | "eye-level" | "high" | "top";
+  distance: "wide" | "medium" | "near";
+  framing: "extreme-wide" | "wide" | "full" | "medium" | "medium-close" | "close" | "extreme-close" | "ots" | "pov";
+  lens?: number;
+  targetId?: StoryboardEditorDraftId;
+  composition?: Array<{ subjectId: StoryboardEditorDraftId; x: number; y: number; width: number; height: number; }>;
+  ots?: { shoulder: "left" | "right"; foregroundSubjectId?: StoryboardEditorDraftId; targetId?: StoryboardEditorDraftId; };
+}
+
+export interface StoryboardEditorDraftReference {
+  id: StoryboardEditorDraftId;
+  title: string;
+  type: "character" | "location" | "object" | "clothing" | "other" | "previous-keyframe" | "previous-shot";
+  primary?: boolean;
+  sourceKeyframeId?: StoryboardEditorDraftId;
+  sourceShotId?: StoryboardEditorDraftId;
+}
+
+export interface StoryboardEditorDraftKeyframe {
+  id: StoryboardEditorDraftId;
+  shotId: StoryboardEditorDraftId;
+  position: number;
+  type: "start" | "intermediate" | "end";
+  generationStatus: "idle" | "ready" | "failed";
+  cameraIntent: StoryboardEditorDraftCameraIntent;
+  generationReferences?: Array<StoryboardEditorDraftReference>;
+}
+
+export interface StoryboardEditorDraftTransition {
+  id: StoryboardEditorDraftId;
+  fromKeyframeId: StoryboardEditorDraftId;
+  toKeyframeId: StoryboardEditorDraftId;
+  movementOverride?: "Static" | "Dolly In" | "Dolly Out" | "Pan" | "Pan Left" | "Pan Right" | "Tilt Up" | "Tilt Down" | "Orbit Left" | "Orbit Right" | "Truck Left" | "Truck Right" | "Crane Up" | "Crane Down" | "Follow" | "Custom";
+}
+
+export interface StoryboardEditorDraftShot {
+  id: StoryboardEditorDraftId;
+  sceneId: StoryboardEditorDraftId;
+  title: string;
+  description: string;
+  order: number;
+  duration?: number;
+  characterIds: Array<StoryboardEditorDraftId>;
+  referenceIds: Array<StoryboardEditorDraftId>;
+  locationId?: StoryboardEditorDraftId;
+  keyframes: Array<StoryboardEditorDraftKeyframe>;
+  transitions: Array<StoryboardEditorDraftTransition>;
+  source?: StoryboardEditorDraftSource;
+}
+
+export interface StoryboardEditorDraftPayload {
+  schemaVersion: 1;
+  stage: "selection" | "builder" | "editor";
+  shots: Array<StoryboardEditorDraftShot>;
+}
+
+export interface StoryboardEditorDraft {
+  sceneId: number;
+  revision: number;
+  payload: StoryboardEditorDraftPayload;
+}
+
+export interface StoryboardEditorDraftList {
+  userId: number;
+  canEdit: boolean;
+  drafts: Array<StoryboardEditorDraft>;
+}
+
+export interface StoryboardEditorDraftMutation {
+  expectedRevision: number;
+  mutationId: string;
+  payload: StoryboardEditorDraftPayload;
 }
 
 export interface StoryboardSourceSegment {

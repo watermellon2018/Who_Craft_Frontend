@@ -8,6 +8,7 @@ const baseURL = rawBackend.endsWith('/') ? rawBackend.slice(0, -1) : rawBackend;
 
 const TOKEN_STORAGE_KEY = 'authToken';
 const REFRESH_TOKEN_STORAGE_KEY = 'authRefreshToken';
+const AUTH_SESSION_STORAGE_KEY = 'wcraft:auth-session:v1';
 const RETIRED_TOKEN_STORAGE_KEYS = ['userId'] as const;
 
 type TokenPersistence = 'local' | 'session';
@@ -72,6 +73,7 @@ function removeStoredTokens(persistence: TokenPersistence): void {
         const storage = getTokenStorage(persistence);
         storage?.removeItem(TOKEN_STORAGE_KEY);
         storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+        storage?.removeItem(AUTH_SESSION_STORAGE_KEY);
         RETIRED_TOKEN_STORAGE_KEYS.forEach((key) => storage?.removeItem(key));
     } catch {
         // Ignore unavailable browser storage.
@@ -98,13 +100,58 @@ export interface AuthExpiredEventDetail {
 let authGeneration = 0;
 let authExpiryNotified = false;
 
+function readAuthSession() {
+    const persistence = storedTokenPersistence();
+    const marker = persistence ? readStoredValue(persistence, AUTH_SESSION_STORAGE_KEY) : null;
+    return {
+        persistence,
+        marker,
+        // Older logins have no marker. Do not assume an unexplained token change
+        // belongs to the same account until a new explicit login creates one.
+        access: persistence && !marker ? readStoredValue(persistence, TOKEN_STORAGE_KEY) : null,
+        refresh: persistence && !marker ? readStoredValue(persistence, REFRESH_TOKEN_STORAGE_KEY) : null,
+    };
+}
+
+let observedAuthSession = readAuthSession();
+
+declare module 'axios' {
+    interface AxiosRequestConfig {
+        /** Bind queued private writes to the session that authorized them. */
+        expectedAuthGeneration?: number;
+    }
+}
+
+export function getAuthGeneration(): number {
+    const current = readAuthSession();
+    if (
+        current.persistence !== observedAuthSession.persistence ||
+        current.marker !== observedAuthSession.marker ||
+        current.access !== observedAuthSession.access ||
+        current.refresh !== observedAuthSession.refresh
+    ) {
+        authGeneration += 1;
+        observedAuthSession = current;
+    }
+    return authGeneration;
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+        if (
+            event.key === null || event.key === AUTH_SESSION_STORAGE_KEY ||
+            event.key === TOKEN_STORAGE_KEY || event.key === REFRESH_TOKEN_STORAGE_KEY
+        ) {
+            getAuthGeneration();
+        }
+    });
+}
+
 function writeStoredUserTokens(
     access: string,
     refresh: string,
     persistence: TokenPersistence,
 ): void {
-    removeStoredTokens('local');
-    removeStoredTokens('session');
     try {
         const storage = getTokenStorage(persistence);
         storage?.setItem(TOKEN_STORAGE_KEY, access);
@@ -112,6 +159,7 @@ function writeStoredUserTokens(
     } catch {
         // A protected request will surface unavailable storage as an auth error.
     }
+    observedAuthSession = readAuthSession();
 }
 
 export function setStoredUserTokens(
@@ -121,13 +169,27 @@ export function setStoredUserTokens(
 ): void {
     authGeneration += 1;
     authExpiryNotified = false;
-    writeStoredUserTokens(access, refresh, remember ? 'local' : 'session');
+    removeStoredTokens('local');
+    removeStoredTokens('session');
+    const persistence = remember ? 'local' : 'session';
+    try {
+        // This identifies a login lifecycle, not a credential. Refresh must keep
+        // it unchanged so another tab can continue its authorized draft writes.
+        const marker = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}-${Math.random()}`;
+        getTokenStorage(persistence)?.setItem(AUTH_SESSION_STORAGE_KEY, marker);
+    } catch {
+        // Without a marker, the conservative legacy-session check still applies.
+    }
+    writeStoredUserTokens(access, refresh, persistence);
 }
 
 export function clearStoredUserToken(): void {
     authGeneration += 1;
     removeStoredTokens('local');
     removeStoredTokens('session');
+    observedAuthSession = readAuthSession();
 }
 
 function notifyAuthExpired(): void {
@@ -144,7 +206,12 @@ const api: AxiosInstance = axios.create({
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    // Capture the credential first: another tab can replace storage between any
+    // two reads, but cannot change this token after the ownership check below.
     const token = getStoredUserToken();
+    if (config.expectedAuthGeneration !== undefined && config.expectedAuthGeneration !== getAuthGeneration()) {
+        throw new Error('The session that authorized this request has changed.');
+    }
     if (token) {
         config.headers.set('X-User-Token', token);
     }
@@ -161,7 +228,7 @@ async function requestFreshAccessToken(): Promise<string | null> {
     const persistence = storedTokenPersistence();
     const refresh = getStoredRefreshToken();
     if (!persistence || !refresh) return null;
-    const generation = authGeneration;
+    const generation = getAuthGeneration();
 
     try {
         const refreshUrl = baseURL
@@ -169,7 +236,7 @@ async function requestFreshAccessToken(): Promise<string | null> {
             : '/api/auth/refresh/';
         const response = await axios.post<TokenPairResponse>(refreshUrl, { refresh });
         if (
-            generation !== authGeneration ||
+            generation !== getAuthGeneration() ||
             storedTokenPersistence() !== persistence ||
             getStoredRefreshToken() !== refresh
         ) {
@@ -180,7 +247,7 @@ async function requestFreshAccessToken(): Promise<string | null> {
         return response.data.access;
     } catch {
         if (
-            generation === authGeneration &&
+            generation === getAuthGeneration() &&
             storedTokenPersistence() === persistence &&
             getStoredRefreshToken() === refresh
         ) {
@@ -213,6 +280,10 @@ api.interceptors.response.use(
             throw error;
         }
 
+        if (config.expectedAuthGeneration !== undefined && config.expectedAuthGeneration !== getAuthGeneration()) {
+            throw error;
+        }
+
         if (config._authRetry) {
             const currentAccess = getStoredUserToken();
             const requestAccess = config.headers.get('X-User-Token');
@@ -228,6 +299,9 @@ api.interceptors.response.use(
         config._authRetry = true;
         const refreshAtStart = getStoredRefreshToken();
         const access = await getFreshAccessToken();
+        if (config.expectedAuthGeneration !== undefined && config.expectedAuthGeneration !== getAuthGeneration()) {
+            throw error;
+        }
         if (!access) {
             const currentAccess = getStoredUserToken();
             const currentRefresh = getStoredRefreshToken();

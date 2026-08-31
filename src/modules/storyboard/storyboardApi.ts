@@ -10,6 +10,7 @@ import type {
 import api, {backendAssetUrl} from '../../api/http';
 import {scriptApi} from '../../page/script/api';
 import type {Scene} from '../../page/script/types';
+import {hydrateEditorDrafts, loadEditorDrafts} from './editorDrafts';
 import type {
   CameraIntent,
   CameraMovementType,
@@ -233,17 +234,24 @@ export const storyboardApi = {
   async loadShotListOptions(
     projectId: string,
     sceneId: string,
+    language?: 'ru' | 'en',
   ): Promise<StoryboardShotListOptions> {
+    const path = `${storyboardPath(projectId)}${encodeURIComponent(sceneId)}/suggest-shots/`;
+    if (language) {
+      const response = await api.get<StoryboardShotListOptions>(path, {params: {language}});
+      return response.data;
+    }
     const response = await api.get<StoryboardShotListOptions>(
-      `${storyboardPath(projectId)}${encodeURIComponent(sceneId)}/suggest-shots/`,
+      path,
     );
     return response.data;
   },
 
   async loadScenes(projectId: string): Promise<StoryboardScene[]> {
-    const [scriptWorkspace, summariesResponse] = await Promise.all([
+    const [scriptWorkspace, summariesResponse, drafts] = await Promise.all([
       scriptApi.getWorkspace(projectId),
       api.get<StoryboardSceneSummary[]>(storyboardPath(projectId)),
+      loadEditorDrafts(projectId),
     ]);
     const summaries = new Map(summariesResponse.data.map((item) => [item.id, item]));
     const workspaceEntries = await Promise.all(
@@ -255,19 +263,22 @@ export const storyboardApi = {
         }),
     );
     const workspaces = new Map(workspaceEntries);
-    return scriptWorkspace.scenes
+    const scenes = scriptWorkspace.scenes
       .map((scene) => mapStoryboardScene(scene, summaries.get(scene.id), workspaces.get(scene.id)))
       .sort((left, right) => left.order - right.order);
+    return hydrateEditorDrafts(projectId, scenes, drafts);
   },
 
   async suggestShotList(
     projectId: string,
     sceneId: string,
     configuration: StoryboardShotListConfiguration,
+    authGeneration?: number,
   ): Promise<StoryboardShotProposal> {
     const response = await api.post<StoryboardShotProposal>(
       `${storyboardPath(projectId)}${encodeURIComponent(sceneId)}/suggest-shots/`,
       configuration,
+      {expectedAuthGeneration: authGeneration},
     );
     return response.data;
   },

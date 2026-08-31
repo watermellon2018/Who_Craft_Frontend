@@ -49,8 +49,8 @@ export default function CompositionEditor({subjects, onChange}: CompositionEdito
 
     if (dragState.mode === 'resize') {
       updateSubject(subject.subjectId, {
-        height: clamp(dragState.startHeight + deltaY, 12, 86 - subject.y),
-        width: clamp(dragState.startWidth + deltaX, 12, 94 - subject.x),
+        height: clamp(dragState.startHeight + deltaY, 12, 100 - subject.y),
+        width: clamp(dragState.startWidth + deltaX, 12, 100 - subject.x),
       });
       return;
     }

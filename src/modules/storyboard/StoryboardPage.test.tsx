@@ -11,6 +11,7 @@ import type {StoryboardShot, StoryboardShotListOptions} from './model';
 import {storyboardMockService} from './storyboardService';
 import type {StoryboardFrontendService} from './storyboardService';
 import {createMockShotList} from './useStoryboardWorkspace';
+import {setStoredUserTokens} from '../../api/http';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -190,7 +191,7 @@ test('opens AI configuration before requesting a shot list', async () => {
   await waitFor(() => expect(service.suggestShotList).toHaveBeenCalledWith(
     expect.any(Object),
     '42',
-    {maxShots: 16, model: 'mock/storyboard-director'},
+    {maxShots: 16, model: 'mock/storyboard-director', language: 'ru'},
   ));
 });
 
@@ -239,7 +240,7 @@ test('updates the provider and estimate when selecting a model and submits its e
   await waitFor(() => expect(service.suggestShotList).toHaveBeenCalledWith(
     expect.any(Object),
     '42',
-    {maxShots: 16, model: 'openrouter/qwen/qwen3-235b-a22b-2507'},
+    {maxShots: 16, model: 'openrouter/qwen/qwen3-235b-a22b-2507', language: 'ru'},
   ));
   await waitFor(() => expect(dialog).not.toBeInTheDocument());
 });
@@ -276,6 +277,8 @@ test('shows screenplay progress while loading models and generating, but not dur
   const progress = await within(screenplay).findByRole('status', {name: 'Создаём кадры…'});
   expect(progress).toHaveClass('storyboard-script__loading--active');
   expect(progress.querySelector('.ant-spin')).toBeInTheDocument();
+  expect(within(progress).getByText(/Прошло 00:/)).toBeInTheDocument();
+  expect(within(progress).getByText(/Осталось примерно/)).toBeInTheDocument();
   expect(screenplay.textContent).toContain(originalText);
   const generatingButton = screen.getByRole('button', {name: 'Создаём кадры…'});
   expect(generatingButton).toBeDisabled();
@@ -317,6 +320,27 @@ test('clears model-loading progress on error and allows a cancelled retry', asyn
   expect(screen.getByRole('button', {name: 'Предложить shot list с ИИ'})).toBeEnabled();
   expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
   expect(service.suggestShotList).not.toHaveBeenCalled();
+});
+
+test('does not apply a completed AI request after authentication changes', async () => {
+  const pendingShots = deferred<StoryboardShot[]>();
+  const service: StoryboardFrontendService = {
+    ...storyboardMockService,
+    suggestShotList: jest.fn(() => pendingShots.promise),
+  };
+  setStoredUserTokens('original-access', 'original-refresh');
+  renderStoryboard(service);
+  await waitForStoryboard();
+  selectScene(1);
+  clickButtonWithText('Предложить shot list с ИИ');
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await screen.findByRole('status', {name: 'Создаём кадры…'});
+  setStoredUserTokens('another-access', 'another-refresh');
+  const scenes = await storyboardMockService.loadScenes('42');
+  await act(async () => pendingShots.resolve(createMockShotList(scenes[1])));
+  expect(screen.queryByText('Перейти к постановке')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Предложить shot list с ИИ'})).toBeEnabled();
 });
 
 test('does not open configuration when unmounted while loading models', async () => {

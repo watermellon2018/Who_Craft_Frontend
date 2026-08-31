@@ -23,18 +23,23 @@ const shot: StoryboardShot = createShot(scene, {
   source: link,
 }, 1);
 
-test('keeps the read-only excerpt collapsed by default, preserving exact source text', () => {
+test('offers one action without a duplicate screenplay excerpt', () => {
   const {container} = render(<ShotSourceDetails scene={scene} shot={shot} />);
-  const disclosure = container.querySelector('details') as HTMLDetailsElement;
-  expect(disclosure.open).toBe(false);
-  expect(within(disclosure).getByText('Фрагмент сценария').tagName).toBe('SUMMARY');
-  fireEvent.click(within(disclosure).getByText('Фрагмент сценария'));
-  expect(disclosure.open).toBe(true);
-  expect(within(disclosure).queryByRole('textbox')).not.toBeInTheDocument();
-  expect(within(disclosure).getByRole('region').textContent).toBe(
-    source.segments[0].text + '…' + source.segments[2].text,
-  );
-  expect(disclosure).not.toHaveTextContent('AI description');
+  expect(container.querySelector('details')).toBeNull();
+  expect(screen.queryByText('Фрагмент сценария')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Показать в сценарии'})).toBeInTheDocument();
+});
+
+test('highlights manually selected Unicode code points without expanding to an entire segment', async () => {
+  const text = 'Он видит 🎬 и уходит.';
+  render(<ShotSourceDetails scene={scene} shot={{...shot, source: {
+    origin: 'manual', segmentIds: [], ranges: [{start: 9, end: 10}],
+    document: {...source, segments: [{id: 'whole-scene', text}]},
+  }}} />);
+  fireEvent.click(screen.getByRole('button', {name: 'Показать в сценарии'}));
+  const dialog = await screen.findByRole('dialog');
+  expect(dialog.querySelector('mark')?.textContent).toBe('🎬');
+  expect(dialog.querySelector('.storyboard-source-viewer__text')?.textContent).toBe(text);
 });
 
 test('shows the whole snapshot and highlights multiple passages by ID, not by matching repeated text', async () => {
