@@ -372,16 +372,12 @@
   min-height: 180px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
   user-select: text;
   padding: 20px;
   margin-block: 16px;
   border: 1px solid var(--craft-border);
   border-radius: 12px;
   background: var(--craft-surface);
-  font-size: 16px;
-  line-height: 1.8;
 }
 
 .storyboard-manual__script mark {
@@ -405,13 +401,12 @@
 }
 
 .storyboard-manual__coverage,
-.storyboard-manual__status,
-.storyboard-manual__footer p {
+.storyboard-manual__status {
   color: var(--craft-text-muted);
 }
 
 .storyboard-manual__footer {
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-block-start: 20px;
 }
 
@@ -444,26 +439,27 @@
 }
 
 .storyboard-source-viewer__text {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  line-height: 1.7;
-}
-
-.storyboard-source-viewer__text {
   margin-block-start: 20px;
 }
 
-.storyboard-source-viewer__text--formatted {
+.storyboard-screenplay {
   font-family: "Courier New", Courier, monospace;
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.storyboard-screenplay--formatted {
   white-space: normal;
 }
 
-.storyboard-source-viewer__text .storyboard-source-viewer__block.storyboard-script__block {
+.storyboard-screenplay.storyboard-screenplay--formatted .storyboard-script__block {
   margin-block: 0 12px;
   white-space: pre-wrap;
 }
 
-.storyboard-source-viewer__block.storyboard-script__block--scene_heading {
+.storyboard-script__block--scene_heading {
   font-weight: 700;
   text-transform: uppercase;
 }

@@ -9,6 +9,7 @@ import {useTranslation} from 'react-i18next';
 import type {StoryboardEntityType, StoryboardScene} from '../model';
 import GenerationTimer from './GenerationTimer';
 import type {GenerationTiming} from './GenerationTimer';
+import ReadOnlyScreenplay from './ReadOnlyScreenplay';
 
 export interface SceneEntity {
   available: boolean;
@@ -45,16 +46,11 @@ function ScreenplayExcerpt({scene, loadingLabel, generationTiming}: {
 
   return (
     <div className={`storyboard-script${blocks ? '' : ' storyboard-script--plain'}${generationTiming ? ' storyboard-script--generating' : ''}`}>
-      <div aria-busy={loading}>
-        {blocks ? blocks.map((block) => (
-          <p
-            className={`storyboard-script__block storyboard-script__block--${block.type}`}
-            key={block.id}
-          >
-            {block.text}
-          </p>
-        )) : scene.text}
-      </div>
+      <ReadOnlyScreenplay
+        aria-busy={loading}
+        scriptBlocks={blocks}
+        text={blocks ? blocks.map((block) => block.text).join('\n\n') : scene.text}
+      />
       <div
         aria-label={loadingLabel ?? undefined}
         className={`storyboard-script__loading${loading ? ' storyboard-script__loading--active' : ''}`}

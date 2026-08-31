@@ -121,6 +121,7 @@
     "manualMarkup": {
       "title": "Create shots from the screenplay",
       "help": "Select text with your mouse or keyboard to create a shot. You can use the same passage more than once.",
+      "shortcutHint": "O — create a shot from the selected text.",
       "script": "Screenplay for shot selection",
       "selectAll": "Select all text",
       "createSelection": "Create shot from selection",
@@ -133,7 +134,7 @@
       "cancelSelection": "Cancel selection",
       "complete": "Review shot list",
       "coverage": "{{percent}}% of screenplay covered · Shots: {{count}}",
-      "coverageHelp": "Cover the full text to review the shot list. Whitespace is ignored and overlaps are allowed.",
+      "coverageLabel": "Screenplay coverage by shots",
       "empty": "There is no screenplay text to select yet.",
       "hashError": "Could not attach the passage. Try again over HTTPS or on localhost.",
       "added": "Shot “{{title}}” added.",

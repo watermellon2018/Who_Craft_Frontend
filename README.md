@@ -296,9 +296,15 @@ generation snapshot with a warning. A warning also identifies long scenes for
 which only the first 20,000 characters were sent to the model. Existing drafts
 without source links still show the full current scene, without highlights.
 
-**Create shot manually** opens interactive screenplay markup. Select text with
+**Create shot manually** opens interactive screenplay markup. Its read-only text
+uses the same screenplay viewer as the scene overview and **Show in screenplay**,
+including character, dialogue, and remark formatting. Select text with
 the mouse or keyboard (or use **Select all text**), choose **Create shot from
-selection**, and edit the title and description in the small form underneath.
+selection** or press **O** while focused in the screenplay (the same key is **Щ**
+in the Russian layout), and edit the title and description in the small form
+underneath. Clearing the selection disables creation; clicking the button or
+using the shortcut also validates the current selection. The shortcut is scoped
+to the screenplay and does not intercept typing in forms or browser shortcuts.
 Adding the shot saves its exact Unicode range and source snapshot. Overlapping
 selections and multiple shots for the same text are allowed. Coverage counts each
 non-whitespace character once; after 100% coverage, **Review shot list** becomes

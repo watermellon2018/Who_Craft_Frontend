@@ -8,10 +8,10 @@ import {
   createManualSourceDocument,
   selectionRangeWithin,
   sourceRangesForShot,
-  splitSourceText,
 } from '../sourceSelection';
 import type {SourceRange} from '../sourceSelection';
 import type {NewShotInput} from '../useStoryboardWorkspace';
+import ReadOnlyScreenplay from './ReadOnlyScreenplay';
 
 interface ManualShotMarkupProps {
   scene: StoryboardScene;
@@ -52,6 +52,11 @@ export default function ManualShotMarkup({
 
   useEffect(() => {
     requestRef.current += 1;
+    const root = textRef.current;
+    const nativeSelection = root?.ownerDocument.getSelection();
+    if (root && nativeSelection && (root.contains(nativeSelection.anchorNode) || root.contains(nativeSelection.focusNode))) {
+      nativeSelection.removeAllRanges();
+    }
     setSelection(null);
     setPending(null);
     setCreating(false);
@@ -67,7 +72,6 @@ export default function ManualShotMarkup({
     String(shot.source?.document.sceneId) === scene.id ? sourceRangesForShot(shot, scene.text) : []
   )), [scene.id, scene.shots, scene.text]);
   const coverage = useMemo(() => calculateCoverage(scene.text, coverageRanges), [scene.text, coverageRanges]);
-  const textParts = useMemo(() => splitSourceText(scene.text, coverageRanges), [scene.text, coverageRanges]);
   const selectedText = confirmed
     ? Array.from(confirmed.text).slice(confirmed.range.start, confirmed.range.end).join('') : '';
 
@@ -78,14 +82,14 @@ export default function ManualShotMarkup({
     if (range) {
       setSelection({range, sceneId: scene.id, text: scene.text});
       setAddedTitle('');
-    } else if ((nativeSelection?.anchorNode && textRef.current.contains(nativeSelection.anchorNode))
-      || (nativeSelection?.focusNode && textRef.current.contains(nativeSelection.focusNode))) {
+    } else {
       setSelection(null);
     }
   }, [disabled, pending, scene.id, scene.text]);
 
   useEffect(() => {
     const document = textRef.current?.ownerDocument;
+    captureSelection();
     document?.addEventListener('selectionchange', captureSelection);
     return () => document?.removeEventListener('selectionchange', captureSelection);
   }, [captureSelection]);
@@ -104,14 +108,20 @@ export default function ManualShotMarkup({
   };
 
   const confirmSelection = () => {
-    if (!selected) return;
-    const text = Array.from(selected.text).slice(selected.range.start, selected.range.end).join('');
-    setPending(selected);
+    if (disabled || pending || creating || !textRef.current) return false;
+    const range = selectionRangeWithin(textRef.current, textRef.current.ownerDocument.getSelection());
+    if (!range) {
+      setSelection(null);
+      return false;
+    }
+    const text = Array.from(scene.text).slice(range.start, range.end).join('');
+    setPending({range, sceneId: scene.id, text: scene.text});
     setSourceError(false);
     form.setFieldsValue({
       title: t('storyboard.manualMarkup.defaultTitle', {number: scene.shots.length + 1}),
       description: text.length <= MAX_DESCRIPTION_LENGTH ? text : '',
     });
+    return true;
   };
 
   const addShot = async (values: ShotFields) => {
@@ -148,33 +158,41 @@ export default function ManualShotMarkup({
         <div>
           <h3 id={`${id}-title`}>{t('storyboard.manualMarkup.title')}</h3>
           <p id={`${id}-help`}>{t('storyboard.manualMarkup.help')}</p>
+          <p id={`${id}-shortcut`}>{t('storyboard.manualMarkup.shortcutHint')}</p>
         </div>
         {onCancel && <Button disabled={creating} onClick={onCancel}>{t('storyboard.manualMarkup.back')}</Button>}
       </div>
       <div className="storyboard-manual__coverage">
         <span>{t('storyboard.manualMarkup.coverage', {percent: coverage.percent, count: scene.shots.length})}</span>
-        <Progress aria-label={t('storyboard.manualMarkup.coverageHelp')} percent={coverage.percent} showInfo={false} />
+        <Progress aria-label={t('storyboard.manualMarkup.coverageLabel')} percent={coverage.percent} showInfo={false} />
       </div>
       {!scene.text.trim() && <Alert message={t('storyboard.manualMarkup.empty')} showIcon type="info" />}
-      <div
-        aria-describedby={`${id}-help`}
+      <ReadOnlyScreenplay
+        aria-describedby={`${id}-help ${id}-shortcut`}
         aria-label={t('storyboard.manualMarkup.script')}
         className="storyboard-manual__script"
+        onKeyDown={(event) => {
+          if (event.defaultPrevented || event.repeat || event.nativeEvent.isComposing
+            || event.ctrlKey || event.altKey || event.metaKey) return;
+          if ((event.code === 'KeyO' || event.key.toLowerCase() === 'o') && confirmSelection()) {
+            event.preventDefault();
+          }
+        }}
         onKeyUp={captureSelection}
         onMouseUp={captureSelection}
         ref={textRef}
         role="document"
+        ranges={coverageRanges}
+        scriptBlocks={scene.scriptBlocks}
         tabIndex={0}
-      >
-        {textParts.map((part) => part.highlighted
-          ? <mark key={part.start}>{part.text}</mark>
-          : <React.Fragment key={part.start}>{part.text}</React.Fragment>)}
-      </div>
+        text={scene.text}
+      />
       <div className="storyboard-manual__selection-actions">
         <Button disabled={disabled || Boolean(confirmed) || !scene.text.trim()} onClick={selectAll}>
           {t('storyboard.manualMarkup.selectAll')}
         </Button>
         <Button
+          aria-keyshortcuts="O"
           disabled={disabled || !selected || Boolean(confirmed)}
           onClick={confirmSelection}
           onMouseDown={(event) => event.preventDefault()}
@@ -214,7 +232,6 @@ export default function ManualShotMarkup({
         {addedTitle ? t('storyboard.manualMarkup.added', {title: addedTitle}) : ''}
       </p>
       <div className="storyboard-manual__footer">
-        <p>{t('storyboard.manualMarkup.coverageHelp')}</p>
         <Button disabled={disabled || creating || Boolean(confirmed) || !coverage.complete} onClick={onComplete} type="primary">
           {t('storyboard.manualMarkup.complete')}
         </Button>
