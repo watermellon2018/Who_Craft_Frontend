@@ -56,7 +56,8 @@
   line-height: 1.4;
 }
 
-.storyboard-back {
+.storyboard-back,
+.storyboard-back.ant-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;

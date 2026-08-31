@@ -265,6 +265,15 @@ also shows the full description. Reorder shots using the dedicated drag handle
 or the menu's **Move up / Move down** actions. Content and order changes save
 automatically; simply expanding a row does not create another record.
 
+The header's back arrow returns from directing to the shot list without resetting
+shots, source links, or camera settings. From manual markup it returns to the
+existing shot list (or the screenplay when no shots exist); from the shot list or
+screenplay it returns to scene selection. Only the initial scene-selection screen
+links back to the project. The directing/shot-list stage continues to autosave.
+Regular buttons in the workspace inherit the shared secondary action style via
+the `craft-secondary-actions` container; primary, text, link, and destructive
+buttons keep their distinct styling.
+
 **Back to source** in the shot-list header resets the selected scene after
 confirmation. It clears draft shots, markup, camera settings, and any locally
 recovered AI proposal, keeping the screenplay and other scenes unchanged. The

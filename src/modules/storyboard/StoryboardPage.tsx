@@ -512,17 +512,29 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
   return (
     <div className="storyboard-page">
       <DashboardHeader hideSubnav />
-      <div className={`storyboard-shell${workspace.mode === 'editor' && workspace.selectedScene
+      <div className={`storyboard-shell craft-secondary-actions${workspace.mode === 'editor' && workspace.selectedScene
         ? '' : ' storyboard-shell--selection'}`}>
         <header className="storyboard-toolbar">
           <div className="storyboard-toolbar__identity">
-            <Link
-              aria-label={t('storyboard.backToProject')}
-              className="storyboard-back"
-              to={projectDashboardPath(projectId)}
-            >
-              <ArrowLeftOutlined aria-hidden="true" />
-            </Link>
+            {workspace.selectedScene ? (
+              <Button
+                aria-label={t(workspace.mode === 'editor'
+                  || (workspace.mode === 'selection' && workspace.selectedScene.shots.length)
+                  ? 'storyboard.backToShots' : workspace.mode === 'selection'
+                    ? 'storyboard.backToScript' : 'storyboard.backToScenes')}
+                className="storyboard-back"
+                icon={<ArrowLeftOutlined aria-hidden="true" />}
+                onClick={workspace.goBack}
+              />
+            ) : (
+              <Link
+                aria-label={t('storyboard.backToProject')}
+                className="storyboard-back"
+                to={projectDashboardPath(projectId)}
+              >
+                <ArrowLeftOutlined aria-hidden="true" />
+              </Link>
+            )}
             <div className="storyboard-toolbar__title">
               <h1>{frameLabel(workspace.selectedScene)}</h1>
               <p>{t('storyboard.subtitle')}</p>

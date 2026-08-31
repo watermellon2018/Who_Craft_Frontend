@@ -26,6 +26,9 @@
   "storyboard": {
     "subtitle": "Direct the scene and create keyframes — without generating video",
     "backToProject": "Back to project",
+    "backToShots": "Back to shot list",
+    "backToScript": "Back to screenplay",
+    "backToScenes": "Back to scene selection",
     "scenes": "Scenes",
     "fromScript": "From screenplay",
     "scene": "Scene",

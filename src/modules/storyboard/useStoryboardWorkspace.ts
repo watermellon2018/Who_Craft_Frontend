@@ -299,6 +299,20 @@ export function useStoryboardWorkspace(
     setModeState(modeForScene(scene));
   }, []);
 
+  const goBack = useCallback(() => {
+    if (mode === 'editor') {
+      setMode('builder');
+    } else if (mode === 'selection') {
+      setMode(selectedScene?.shots.length ? 'builder' : 'overview');
+    } else {
+      selectedSceneIdRef.current = null;
+      setSelectedSceneId(null);
+      setSelectedShotId(null);
+      setSelectedKeyframeId(null);
+      setModeState('overview');
+    }
+  }, [mode, selectedScene, setMode]);
+
   const resetScene = useCallback((sceneId: string) => {
     const scene = scenesRef.current.find(({id}) => id === sceneId);
     if (!scene || scene.canEdit === false
@@ -545,6 +559,7 @@ export function useStoryboardWorkspace(
     duplicateShot,
     enterEditor,
     generateSelectedKeyframe,
+    goBack,
     keepLocalDraft,
     loadError,
     loadedProjectId: loadRequestRef.current.loadedProjectId,

@@ -210,6 +210,46 @@ test('closes the AI configuration when the page unmounts', async () => {
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });
 
+test('returns through storyboard stages without losing camera settings or added keyframes', async () => {
+  renderStoryboard();
+  await waitForStoryboard();
+  expect(screen.getByRole('link', {name: 'Вернуться к проекту'})).toBeInTheDocument();
+  openKitchenEditor();
+
+  const cameraPanel = document.querySelector('.storyboard-camera-panel') as HTMLElement;
+  const lens = within(cameraPanel).getByRole('spinbutton');
+  fireEvent.change(lens, {target: {value: '85'}});
+  fireEvent.blur(lens);
+  clickButtonWithText('Добавить промежуточный кадр');
+  fireEvent.click(screen.getByRole('button', {name: 'Вернуться к списку кадров'}));
+
+  expect(screen.getByRole('heading', {name: /Кадры сцены ·/})).toBeInTheDocument();
+  expect(document.querySelector('.storyboard-camera-panel')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {name: 'Вернуться к выбору сцены'}));
+  expect(screen.getByRole('heading', {name: 'Выберите сцену'})).toBeInTheDocument();
+
+  selectScene(2);
+  expect(screen.getByRole('heading', {name: /Кадры сцены ·/})).toBeInTheDocument();
+  clickButtonWithText('Перейти к постановке');
+  const restoredCamera = document.querySelector('.storyboard-camera-panel') as HTMLElement;
+  expect(within(restoredCamera).getByRole('spinbutton')).toHaveValue('85');
+  expect(screen.getByRole('button', {name: 'Удалить промежуточный кадр'})).toBeInTheDocument();
+});
+
+test('returns from manual markup to the screenplay or the existing shot list', async () => {
+  renderStoryboard();
+  await waitForStoryboard();
+  selectScene(1);
+  clickButtonWithText('Создать кадр вручную');
+  fireEvent.click(screen.getByRole('button', {name: 'Вернуться к сценарию'}));
+  expect(screen.getByRole('button', {name: 'Создать кадр вручную'})).toBeInTheDocument();
+
+  selectScene(2);
+  clickButtonWithText('Добавить кадр');
+  fireEvent.click(screen.getByRole('button', {name: 'Вернуться к списку кадров'}));
+  expect(screen.getByRole('heading', {name: /Кадры сцены ·/})).toBeInTheDocument();
+});
+
 test('shows an existing server generation after reopening and prevents another paid launch', async () => {
   const scenes = await storyboardMockService.loadScenes('42');
   const job: ShotListJob = {
