@@ -452,6 +452,21 @@
   margin-block-start: 20px;
 }
 
+.storyboard-source-viewer__text--formatted {
+  font-family: "Courier New", Courier, monospace;
+  white-space: normal;
+}
+
+.storyboard-source-viewer__text .storyboard-source-viewer__block.storyboard-script__block {
+  margin-block: 0 12px;
+  white-space: pre-wrap;
+}
+
+.storyboard-source-viewer__block.storyboard-script__block--scene_heading {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .storyboard-source-viewer__text mark {
   color: var(--craft-on-accent);
   background: var(--craft-accent);
@@ -653,6 +668,19 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.storyboard-builder__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.storyboard-builder__intro {
+  flex: 1 1 320px;
+  min-width: 0;
 }
 
 .storyboard-builder__heading {

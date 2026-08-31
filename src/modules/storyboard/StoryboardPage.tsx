@@ -10,6 +10,7 @@ import {Link, useParams} from 'react-router-dom';
 
 import {getApiErrorCode} from '../../api/errors';
 import {getAuthGeneration} from '../../api/http';
+import {craftModal} from '../../theme/CraftModalHost';
 import DashboardHeader from '../profile/components/DashboardHeader';
 import {projectDashboardPath} from '../../routes/pathConstant';
 import CameraIntentPanel from './components/CameraIntentPanel';
@@ -27,13 +28,15 @@ import ManualShotMarkup from './components/ManualShotMarkup';
 import type {GenerationTiming} from './components/GenerationTimer';
 import VisualReferenceDrawer from './components/VisualReferenceDrawer';
 import {normalizeStoryboardImageUrl} from './model';
-import type {GenerationReference, StoryboardScene} from './model';
+import type {GenerationReference, StoryboardScene, StoryboardShotListModelOption} from './model';
 import {storyboardService} from './storyboardService';
 import type {StoryboardFrontendService} from './storyboardService';
 import {useStoryboardWorkspace} from './useStoryboardWorkspace';
 import type {NewShotInput} from './useStoryboardWorkspace';
-import {persistAIProposal} from './editorDrafts';
+import {persistAIProposal, savedEditorSceneRevision} from './editorDrafts';
 import {estimateGenerationSeconds, recordGenerationDuration} from './generationTiming';
+import {isShotListJobActive} from './shotListJobs';
+import {useShotListJobs} from './useShotListJobs';
 import './storyboard.css';
 
 function sceneEntities(scene: StoryboardScene): SceneEntity[] {
@@ -58,6 +61,7 @@ const shotListErrorKeys: Record<string, string> = {
   STORYBOARD_AI_BAD_RESPONSE: 'storyboard.errors.aiBadResponse',
   STORYBOARD_AI_MODEL_UNAVAILABLE: 'storyboard.errors.aiModelUnavailable',
   STORYBOARD_AI_NOT_CONFIGURED: 'storyboard.errors.aiNotConfigured',
+  STORYBOARD_AI_OUTCOME_UNKNOWN: 'storyboard.jobs.outcomeUnknown',
   STORYBOARD_AI_PROVIDER_REJECTED: 'storyboard.errors.aiProviderRejected',
   STORYBOARD_AI_RATE_LIMITED: 'storyboard.errors.aiRateLimited',
   STORYBOARD_AI_TIMEOUT: 'storyboard.errors.aiTimeout',
@@ -67,12 +71,24 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
   const {t, i18n} = useTranslation();
   const {projectId = ''} = useParams<{projectId: string}>();
   const workspace = useStoryboardWorkspace(projectId, service.loadScenes, service === storyboardService);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiProgress, setAiProgress] = useState<{
+  const generationJobs = useShotListJobs(projectId, service.shotListJobs,
+    !workspace.loading && !workspace.loadError && !workspace.authInvalid, workspace.refreshDrafts);
+  const [localAiLoading, setAiLoading] = useState(false);
+  const [applyingJob, setApplyingJob] = useState(false);
+  const [localAiProgress, setAiProgress] = useState<{
     phase: 'models' | 'generation';
     sceneId: string;
     timing?: GenerationTiming;
   } | null>(null);
+  const selectedJob = generationJobs.jobs.find((job) => String(job.sceneId) === workspace.selectedSceneId);
+  const activeJob = isShotListJobActive(selectedJob) ? selectedJob : undefined;
+  const aiLoading = localAiLoading || applyingJob || Boolean(activeJob)
+    || Boolean(service.shotListJobs && (generationJobs.loading || generationJobs.error));
+  const aiProgress = localAiProgress ?? (activeJob ? {
+    phase: 'generation' as const,
+    sceneId: String(activeJob.sceneId),
+    timing: {startedAt: Date.parse(activeJob.startedAt ?? activeJob.createdAt), estimatedSeconds: activeJob.estimatedSeconds},
+  } : null);
   const [aiError, setAiError] = useState<{sceneId: string; message: string} | null>(null);
   const [generationDrawerOpen, setGenerationDrawerOpen] = useState(false);
   const [referenceDrawerOpen, setReferenceDrawerOpen] = useState(false);
@@ -85,7 +101,9 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
   } | null>(null);
   const pendingTimersRef = useRef<Set<number>>(new Set());
   const aiModalAbortRef = useRef<AbortController | null>(null);
+  const resetModalRef = useRef<ReturnType<typeof craftModal.confirm> | null>(null);
   const mountedRef = useRef(true);
+  const timingModelsRef = useRef(new Map<string, StoryboardShotListModelOption>());
   const schedule = useCallback((callback: () => void, delay: number) => {
     const timerId = window.setTimeout(() => {
       pendingTimersRef.current.delete(timerId);
@@ -101,10 +119,20 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
       mountedRef.current = false;
       aiModalAbortRef.current?.abort();
       aiModalAbortRef.current = null;
+      resetModalRef.current?.destroy();
       pendingTimers.forEach((timerId) => window.clearTimeout(timerId));
       pendingTimers.clear();
     };
   }, []);
+  useEffect(() => {
+    for (const job of generationJobs.jobs) {
+      const model = timingModelsRef.current.get(job.jobId);
+      if (!model || !job.finishedAt) continue;
+      if (job.status === 'succeeded') recordGenerationDuration(model,
+        (Date.parse(job.finishedAt) - Date.parse(job.startedAt ?? job.createdAt)) / 1000);
+      timingModelsRef.current.delete(job.jobId);
+    }
+  }, [generationJobs.jobs]);
   const entities = useMemo(
     () => workspace.selectedScene ? sceneEntities(workspace.selectedScene) : [],
     [workspace.selectedScene],
@@ -137,10 +165,21 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
       if (!configuration || !mountedRef.current || getAuthGeneration() !== authGeneration) return;
       const model = options.models.find(({id}) => id === configuration.model);
       const startedAt = Date.now();
+      const estimatedSeconds = estimateGenerationSeconds(model);
       setAiProgress({phase: 'generation', sceneId: scene.id,
-        timing: {startedAt, estimatedSeconds: estimateGenerationSeconds(model)}});
+        timing: {startedAt, estimatedSeconds}});
+      const localizedConfiguration = {
+        ...configuration, language: i18n.resolvedLanguage?.startsWith('en') ? 'en' as const : 'ru' as const,
+      };
+      if (service.shotListJobs) {
+        if (service === storyboardService) await savedEditorSceneRevision(projectId, scene);
+        if (!mountedRef.current || getAuthGeneration() !== authGeneration) return;
+        const job = await generationJobs.start(scene.id, localizedConfiguration, estimatedSeconds);
+        if (job && model) timingModelsRef.current.set(job.jobId, model);
+        return;
+      }
       const shots = await service.suggestShotList(scene, projectId, {
-        ...configuration, language: i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'ru',
+        ...localizedConfiguration,
       });
       const accepted = service === storyboardService ? persistAIProposal(projectId, scene, shots) : true;
       if (getAuthGeneration() !== authGeneration) return;
@@ -168,6 +207,56 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
     workspace.addShot(values, manualAfterShotId);
     setManualAfterShotId(undefined);
     message.success(t('storyboard.messages.shotAdded'));
+  };
+
+  const handleResetScene = () => {
+    const scene = workspace.selectedScene;
+    if (!scene || scene.canEdit === false || workspace.authInvalid || aiLoading) return;
+    resetModalRef.current?.destroy();
+    resetModalRef.current = craftModal.confirm({
+      autoFocusButton: 'cancel',
+      title: t('storyboard.builder.resetTitle'),
+      content: t('storyboard.builder.resetDescription', {title: scene.title}),
+      okText: t('storyboard.builder.resetConfirm'),
+      cancelText: t('common.cancel'),
+      okButtonProps: {className: 'craft-action-button', type: 'primary'},
+      cancelButtonProps: {className: 'craft-action-button craft-action-button--secondary'},
+      onOk: async () => {
+        // Reset while this confirmation is current. Never write an empty draft
+        // after awaiting a network request that can outlive this page.
+        workspace.resetScene(scene.id);
+        setManualAfterShotId(undefined);
+        setAiError(null);
+        if (selectedJob?.resultState === 'pending') await generationJobs.dismiss(selectedJob.jobId);
+      },
+    });
+  };
+
+  const handleApplyJob = async () => {
+    const scene = workspace.selectedScene;
+    if (!scene || !selectedJob || applyingJob) return;
+    setApplyingJob(true);
+    try {
+      const revision = service === storyboardService
+        ? await savedEditorSceneRevision(projectId, scene) : scene.draftRevision ?? 0;
+      await generationJobs.apply(selectedJob.jobId, revision);
+    } catch {
+      message.error(t('storyboard.jobs.applyError'));
+    } finally {
+      if (mountedRef.current) setApplyingJob(false);
+    }
+  };
+
+  const handleDismissJob = async () => {
+    if (!selectedJob || applyingJob) return;
+    setApplyingJob(true);
+    try {
+      await generationJobs.dismiss(selectedJob.jobId);
+    } catch {
+      message.error(t('storyboard.jobs.applyError'));
+    } finally {
+      if (mountedRef.current) setApplyingJob(false);
+    }
   };
 
   const handleAddShot = (afterShotId?: string) => {
@@ -351,6 +440,8 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
             onDelete={handleDeleteShot}
             onDuplicate={(shotId) => workspace.duplicateShot(shotId, t('storyboard.copySuffix'))}
             onMove={workspace.moveShot}
+            onReset={handleResetScene}
+            resetDisabled={aiLoading || workspace.authInvalid || workspace.autosaveState === 'conflict'}
             onUpdate={(shotId, patch) => workspace.updateShot(shotId, patch)}
             scene={workspace.selectedScene}
           />
@@ -439,6 +530,7 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
           </div>
           <div className="storyboard-toolbar__actions">
             <Button
+              className="craft-action-button--secondary"
               disabled={!workspace.selectedScene?.shots.length}
               icon={<EyeOutlined aria-hidden="true" />}
               onClick={() => setPreviewOpen(true)}
@@ -486,6 +578,31 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
               </Button>
             )}
           />
+        )}
+        {generationJobs.error && (
+          <Alert type="warning" showIcon message={t('storyboard.jobs.statusError')}
+            action={<Button onClick={generationJobs.retry}>{t('common.retry')}</Button>} />
+        )}
+        {activeJob && (
+          <Alert type="info" showIcon message={t(activeJob.status === 'queued'
+            ? 'storyboard.jobs.queued' : 'storyboard.jobs.background')} />
+        )}
+        {selectedJob?.status === 'failed' && selectedJob.resultState !== 'dismissed' && (
+          <Alert type="error" showIcon
+            message={t((selectedJob.errorCode && shotListErrorKeys[selectedJob.errorCode]) || 'storyboard.errors.aiShotList')}
+            action={<Button disabled={aiLoading} onClick={handleSuggestShotList}>{t('common.retry')}</Button>} />
+        )}
+        {selectedJob?.status === 'succeeded' && selectedJob.resultState === 'pending' && (
+          <Alert type="info" showIcon message={t('storyboard.jobs.savedProposal')}
+            action={(
+              <div className="storyboard-inline-actions">
+                <Button className="craft-action-button--secondary" disabled={applyingJob || workspace.selectedScene?.canEdit === false}
+                  onClick={handleDismissJob}>{t('storyboard.jobs.keepCurrent')}</Button>
+                <Button className="craft-action-button" type="primary"
+                  disabled={applyingJob || workspace.selectedScene?.canEdit === false || workspace.autosaveState !== 'saved'}
+                  onClick={handleApplyJob}>{t('storyboard.autosave.applyProposal')}</Button>
+              </div>
+            )} />
         )}
 
         {workspace.mode === 'editor' && workspace.selectedScene

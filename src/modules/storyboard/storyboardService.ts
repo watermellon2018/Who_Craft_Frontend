@@ -10,6 +10,8 @@ import type {
 import i18n from '../../i18n';
 import {MOCK_STORYBOARD_SCENES} from './mockData';
 import {storyboardApi} from './storyboardApi';
+import {shotListJobService} from './shotListJobs';
+import type {ShotListJobService} from './shotListJobs';
 import {createMockShotList, createShot} from './useStoryboardWorkspace';
 
 export interface GenerateStoryboardFrameInput {
@@ -23,6 +25,7 @@ export interface GenerateStoryboardFrameResult {
 }
 
 export interface StoryboardFrontendService {
+  shotListJobs?: ShotListJobService;
   generateFrame: (input: GenerateStoryboardFrameInput) => Promise<GenerateStoryboardFrameResult>;
   loadScenes: (projectId: string) => Promise<StoryboardScene[]>;
   loadShotListOptions: (
@@ -84,6 +87,7 @@ export const storyboardMockService: StoryboardFrontendService = {
 
 export const storyboardService: StoryboardFrontendService = {
   ...storyboardMockService,
+  shotListJobs: shotListJobService,
   loadScenes: storyboardApi.loadScenes,
   loadShotListOptions: async (scene, projectId) => (
     storyboardApi.loadShotListOptions(projectId, scene.id,

@@ -12,11 +12,13 @@ import {
   getEditorSaveState,
   hydrateEditorDrafts,
   keepLocalEditorDrafts,
+  loadSettledEditorDrafts,
   persistAIProposal,
   recoveredAIProposal,
   restoreEditorScene,
   retryEditorSave,
   saveEditorScene,
+  savedEditorSceneRevision,
   subscribeEditorDrafts,
 } from './editorDrafts';
 import type {EditorDraftEntry, EditorDraftPayload} from './editorDrafts';
@@ -76,6 +78,61 @@ beforeEach(() => {
   generationMock.mockReturnValue(0);
   window.localStorage.clear();
   projectCounter += 1;
+});
+
+test('waits for a pending draft acknowledgement before launching or reconciling server generation', async () => {
+  const projectId = String(projectCounter);
+  const pending = deferredResponse();
+  putMock.mockReturnValueOnce(pending.promise);
+  const initial = initialize(projectId);
+  saveEditorScene(projectId, {...initial, shots: [shot('Local edit')]});
+  const revision = savedEditorSceneRevision(projectId, initial);
+  const loaded = loadSettledEditorDrafts(projectId);
+  expect(getMock).not.toHaveBeenCalled();
+  getMock.mockResolvedValueOnce({data: {userId: 7, canEdit: true, drafts: []}});
+  pending.resolve({data: {sceneId: 17, revision: 1, payload: requestPayload(0).payload}});
+  await expect(revision).resolves.toBe(1);
+  await loaded;
+  expect(getMock).toHaveBeenCalledTimes(1);
+});
+
+test('a server generation refresh preserves local edits written while the refresh was in flight', async () => {
+  const projectId = String(projectCounter);
+  const initial = initialize(projectId, {sceneId: 17, revision: 1, payload: editorPayload(scene([shot()]))});
+  let finishGet!: (response: {data: {userId: number; canEdit: boolean; drafts: EditorDraftEntry[]}}) => void;
+  getMock.mockReturnValueOnce(new Promise((resolve) => { finishGet = resolve; }));
+  const loaded = loadSettledEditorDrafts(projectId);
+  await waitFor(() => expect(getMock).toHaveBeenCalledTimes(1));
+  const localWrite = deferredResponse();
+  putMock.mockReturnValueOnce(localWrite.promise);
+  saveEditorScene(projectId, {...initial, shots: [shot('Newer local edit')]});
+  const remote = {sceneId: 17, revision: 2, payload: editorPayload(scene([shot('Server result')]))};
+  finishGet({data: {userId: 7, canEdit: true, drafts: [remote]}});
+  getMock.mockResolvedValueOnce({data: {userId: 7, canEdit: true, drafts: [remote]}});
+  localWrite.reject({response: {status: 409}});
+  hydrateEditorDrafts(projectId, [initial], await loaded);
+  expect(restoreEditorScene(projectId, initial).shots[0].title).toBe('Newer local edit');
+  expect(getEditorSaveState(projectId)).toBe('conflict');
+});
+
+test('retries a stale generation refresh if a newer local save was acknowledged during its request', async () => {
+  const projectId = String(projectCounter);
+  const old = {sceneId: 17, revision: 1, payload: editorPayload(scene([shot('Before')]))};
+  const initial = initialize(projectId, old);
+  let finishGet!: (response: {data: {userId: number; canEdit: boolean; drafts: EditorDraftEntry[]}}) => void;
+  getMock.mockReturnValueOnce(new Promise((resolve) => { finishGet = resolve; }));
+  const loaded = loadSettledEditorDrafts(projectId);
+  await waitFor(() => expect(getMock).toHaveBeenCalledTimes(1));
+  const latest = {sceneId: 17, revision: 2, payload: editorPayload(scene([shot('After')]))};
+  putMock.mockResolvedValueOnce({data: latest});
+  saveEditorScene(projectId, {...initial, shots: [shot('After')]});
+  await waitFor(() => expect(getEditorSaveState(projectId)).toBe('saved'));
+  getMock.mockResolvedValueOnce({data: {userId: 7, canEdit: true, drafts: [latest]}});
+  finishGet({data: {userId: 7, canEdit: true, drafts: [old]}});
+  hydrateEditorDrafts(projectId, [initial], await loaded);
+  expect(getMock).toHaveBeenCalledTimes(2);
+  expect(restoreEditorScene(projectId, initial).shots[0].title).toBe('After');
+  expect(restoreEditorScene(projectId, initial).draftRevision).toBe(2);
 });
 
 test('serializes saves, coalesces newer edits and finishes after the page unsubscribes', async () => {
@@ -205,6 +262,47 @@ test('retains a paid AI result separately when the original scene was edited whi
   expect(persistAIProposal(projectId, initial, [shot('ИИ кадр')])).toBe(false);
   expect(restoreEditorScene(projectId, initial).shots[0].title).toBe('Ручной кадр');
   expect(recoveredAIProposal(projectId, initial)?.[0].title).toBe('ИИ кадр');
+});
+
+test('an explicit reset discards an old recovered AI proposal and saves an empty draft', async () => {
+  const projectId = String(projectCounter);
+  const saved = {sceneId: 17, revision: 1, payload: editorPayload({shots: [shot('Текущий кадр')]})};
+  const initial = initialize(projectId, saved);
+  const staleScene = {...initial, shots: []};
+  expect(persistAIProposal(projectId, staleScene, [shot('Другой вариант ИИ')])).toBe(false);
+  expect(recoveredAIProposal(projectId, initial)).not.toBeNull();
+  const response = deferredResponse();
+  putMock.mockReturnValueOnce(response.promise);
+  saveEditorScene(projectId, {...initial, editorStage: 'builder', shots: []}, {discardAIProposal: true});
+  expect(recoveredAIProposal(projectId, initial)).toBeNull();
+  expect(requestPayload(0).payload).toEqual({schemaVersion: 1, stage: 'builder', shots: []});
+  response.resolve({data: {sceneId: 17, revision: 2, payload: requestPayload(0).payload}});
+  await waitFor(() => expect(getEditorSaveState(projectId)).toBe('saved'));
+  expect(restoreEditorScene(projectId, initial).shots).toEqual([]);
+  expect(restoreEditorScene(projectId, initial).text).toBe(initial.text);
+});
+
+test('an AI request from before reset cannot recreate shots after navigating away and back', async () => {
+  const projectId = String(projectCounter);
+  const first = deferredResponse();
+  const reset = deferredResponse();
+  putMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(reset.promise);
+  const initial = initialize(projectId);
+  saveEditorScene(projectId, {...initial, shots: [shot('Ручной кадр')]});
+  saveEditorScene(projectId, {...initial, editorStage: 'builder', shots: []}, {discardAIProposal: true});
+  expect(persistAIProposal(projectId, initial, [shot('Старый ответ ИИ')])).toBe(false);
+  expect(restoreEditorScene(projectId, initial).shots).toEqual([]);
+  expect(recoveredAIProposal(projectId, initial)?.[0].title).toBe('Старый ответ ИИ');
+  first.resolve({data: {sceneId: 17, revision: 1, payload: requestPayload(0).payload}});
+  await waitFor(() => expect(putMock).toHaveBeenCalledTimes(2));
+  const remote = {sceneId: 17, revision: 2, payload: requestPayload(1).payload};
+  reset.resolve({data: remote});
+  await waitFor(() => expect(getEditorSaveState(projectId)).toBe('saved'));
+  const reopened = initialize(projectId, remote);
+  expect(reopened.draftResetVersion).toBe(1);
+  expect(persistAIProposal(projectId, initial, [shot('Ещё один старый ответ')])).toBe(false);
+  putMock.mockReturnValueOnce(new Promise(() => undefined));
+  expect(persistAIProposal(projectId, reopened, [shot('Новая генерация')])).toBe(true);
 });
 
 test('replays an interrupted outbox mutation after a fresh authorized load without spending AI tokens', async () => {

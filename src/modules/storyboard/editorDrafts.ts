@@ -42,6 +42,7 @@ interface DraftMutation {
 }
 
 interface PendingDraft {
+  resetVersion?: number;
   revision: number;
   payload: EditorDraftPayload;
   mutation?: DraftMutation;
@@ -466,6 +467,51 @@ export async function loadEditorDrafts(projectId: string): Promise<{data: Editor
   return {data: response.data, authGeneration};
 }
 
+async function waitForDraftWrites(project: ProjectDrafts, sceneId?: string): Promise<void> {
+  const pending = () => Array.from(project.scenes).some(([id, draft]) => (!sceneId || id === sceneId)
+    && (draft.sending || draft.state === 'unsaved'));
+  if (!pending()) return;
+  await new Promise<void>((resolve, reject) => {
+    const finish = () => {
+      if (currentSession(project) && pending()) return;
+      window.clearTimeout(timer);
+      unsubscribe();
+      if (currentSession(project)) resolve();
+      else reject(new Error('Storyboard session changed'));
+    };
+    const unsubscribe = subscribeEditorDrafts(project.projectId, finish);
+    const timer = window.setTimeout(() => {
+      unsubscribe();
+      reject(new Error('Storyboard draft save has not completed'));
+    }, 30000);
+    finish();
+  });
+}
+
+/** Do not launch or explicitly apply AI against an unacknowledged local edit. */
+export async function savedEditorSceneRevision(projectId: string, scene: StoryboardScene): Promise<number> {
+  const project = sceneProject(projectId, scene);
+  if (!project || !currentSession(project) || !project.canEdit) throw new Error('Storyboard session changed');
+  await waitForDraftWrites(project, scene.id);
+  const draft = project.scenes.get(scene.id);
+  if (!currentSession(project) || !draft || draft.state !== 'saved') throw new Error('Storyboard draft is not saved');
+  return draft.revision;
+}
+
+/** Let pending acknowledgements settle before reconciling a server job result. */
+export async function loadSettledEditorDrafts(projectId: string): Promise<{data: EditorDraftList; authGeneration: number}> {
+  const project = projects.get(projectId);
+  if (!project || !currentSession(project)) throw new Error('Storyboard session changed');
+  while (currentSession(project)) {
+    await waitForDraftWrites(project);
+    const revisions = new Map(Array.from(project.scenes, ([id, draft]) => [id, draft.revision]));
+    const loaded = await loadEditorDrafts(projectId);
+    if (project.scenes.size === revisions.size && !Array.from(project.scenes).some(([id, draft]) =>
+      draft.sending || draft.state === 'unsaved' || draft.revision !== revisions.get(id))) return loaded;
+  }
+  throw new Error('Storyboard session changed');
+}
+
 export function hydrateEditorDrafts(
   projectId: string,
   scenes: StoryboardScene[],
@@ -505,11 +551,13 @@ export function hydrateEditorDrafts(
         draft.state = 'conflict';
       }
     } else if (remotePayload) {
-      draft = {revision: remote?.revision ?? 0, payload: remotePayload, recoveredProposal: draft?.recoveredProposal, state: 'saved', sending: false};
+      draft = {revision: remote?.revision ?? 0, payload: remotePayload, recoveredProposal: draft?.recoveredProposal,
+        resetVersion: draft?.resetVersion, state: 'saved', sending: false};
     } else if (project.canEdit && legacy && Object.prototype.hasOwnProperty.call(legacy.scenes, scene.id)) {
       draft = {revision: 0, payload: editorPayload({editorStage: 'builder', shots: legacy.scenes[scene.id]}), state: 'unsaved', sending: false};
     } else {
-      draft = {revision: 0, payload: editorPayload(scene), recoveredProposal: draft?.recoveredProposal, state: 'saved', sending: false};
+      draft = {revision: 0, payload: editorPayload(scene), recoveredProposal: draft?.recoveredProposal,
+        resetVersion: draft?.resetVersion, state: 'saved', sending: false};
     }
     project.scenes.set(scene.id, draft);
     if (remotePayload) consumeTemporaryScene(project, scene.id);
@@ -537,6 +585,7 @@ export function restoreEditorScene(projectId: string, scene: StoryboardScene): S
     canEdit: project.canEdit,
     draftAuthGeneration: project.authGeneration,
     draftRevision: draft.revision,
+    draftResetVersion: draft.resetVersion ?? 0,
     editorStage: hasDraft
       ? !shots.length && draft.payload.stage === 'editor' ? 'selection' : draft.payload.stage
       : scene.editorStage,
@@ -551,7 +600,11 @@ function currentSessionOrNull(project: ProjectDrafts | undefined): ProjectDrafts
   return project && currentSession(project) ? project : null;
 }
 
-export function saveEditorScene(projectId: string, scene: StoryboardScene): void {
+export function saveEditorScene(
+  projectId: string,
+  scene: StoryboardScene,
+  {discardAIProposal = false}: {discardAIProposal?: boolean} = {},
+): void {
   const project = sceneProject(projectId, scene);
   const draft = project?.scenes.get(scene.id);
   if (!project || !draft || !project.canEdit) {
@@ -559,7 +612,11 @@ export function saveEditorScene(projectId: string, scene: StoryboardScene): void
     return;
   }
   const payload = editorPayload(scene);
-  if (fingerprint(payload) === fingerprint(draft.payload)) return;
+  if (discardAIProposal) {
+    draft.recoveredProposal = undefined;
+    draft.resetVersion = (draft.resetVersion ?? 0) + 1;
+  }
+  if (fingerprint(payload) === fingerprint(draft.payload) && !discardAIProposal) return;
   draft.payload = payload;
   if (!currentSession(project)) {
     draft.state = 'error';
@@ -579,6 +636,7 @@ export function persistAIProposal(projectId: string, scene: StoryboardScene, sho
   if (!project || !draft || !project.canEdit) return false;
   const payload = editorPayload({...scene, editorStage: 'builder', shots});
   if (!currentSession(project)
+    || (scene.draftResetVersion ?? 0) !== (draft.resetVersion ?? 0)
     || fingerprint({...draft.payload, stage: 'builder'}) !== fingerprint({...editorPayload(scene), stage: 'builder'})) {
     draft.recoveredProposal = payload;
     writeOutbox(project);

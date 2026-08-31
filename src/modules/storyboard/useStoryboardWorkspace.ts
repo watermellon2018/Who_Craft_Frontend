@@ -5,7 +5,9 @@ import {
   chooseSavedEditorDrafts,
   editorSessionExpired,
   getEditorSaveState,
+  hydrateEditorDrafts,
   keepLocalEditorDrafts,
+  loadSettledEditorDrafts,
   recoveredAIProposal,
   restoreEditorScene,
   retryEditorSave,
@@ -27,6 +29,13 @@ import type {
 
 export type StoryboardMode = 'overview' | EditorDraftStage;
 export type AutosaveState = EditorSaveState;
+
+function modeForScene(scene?: StoryboardScene): StoryboardMode {
+  // An empty builder draft is a saved reset to the original screenplay.
+  if (!scene || (!scene.shots.length && scene.editorStage === 'builder')) return 'overview';
+  if (!scene.shots.length && scene.editorStage === 'editor') return 'selection';
+  return scene.editorStage ?? (scene.shots.length ? 'builder' : 'overview');
+}
 
 let localIdCounter = 0;
 
@@ -224,13 +233,17 @@ export function useStoryboardWorkspace(
       const restored = scenesRef.current.map((scene) => restoreEditorScene(projectId, scene));
       replaceScenes(restored);
       const selected = restored.find(({id}) => id === selectedSceneIdRef.current);
-      if (selected?.editorStage && selected.editorStage !== previousSelected?.editorStage) {
-        setModeState(selected.editorStage);
+      if (selected && modeForScene(selected) !== modeForScene(previousSelected)) {
+        setModeState(modeForScene(selected));
       }
     });
   }, [persistenceEnabled, projectId, replaceScenes]);
 
-  const updateScene = useCallback((sceneId: string, updater: (scene: StoryboardScene) => StoryboardScene) => {
+  const updateScene = useCallback((
+    sceneId: string,
+    updater: (scene: StoryboardScene) => StoryboardScene,
+    discardAIProposal = false,
+  ) => {
     const scene = scenesRef.current.find(({id}) => id === sceneId);
     if (!scene || scene.canEdit === false) return;
     const updated = updater(scene);
@@ -241,7 +254,7 @@ export function useStoryboardWorkspace(
       status: deriveSceneStatus(updated.shots),
     };
     replaceScenes(scenesRef.current.map((item) => item.id === sceneId ? nextScene : item));
-    if (persistenceEnabled) saveEditorScene(projectId, nextScene);
+    if (persistenceEnabled) saveEditorScene(projectId, nextScene, {discardAIProposal});
     else setAutosaveState('unsaved');
   }, [persistenceEnabled, projectId, replaceScenes]);
 
@@ -283,9 +296,20 @@ export function useStoryboardWorkspace(
     const firstShot = scene?.editorStage === 'editor' ? scene.shots[0] : undefined;
     setSelectedShotId(firstShot?.id ?? null);
     setSelectedKeyframeId(firstShot ? sortKeyframes(firstShot.keyframes)[0]?.id ?? null : null);
-    const savedMode = scene?.editorStage === 'editor' && !scene.shots.length ? 'selection' : scene?.editorStage;
-    setModeState(savedMode ?? (scene?.shots.length ? 'builder' : 'overview'));
+    setModeState(modeForScene(scene));
   }, []);
+
+  const resetScene = useCallback((sceneId: string) => {
+    const scene = scenesRef.current.find(({id}) => id === sceneId);
+    if (!scene || scene.canEdit === false
+      || (persistenceEnabled && editorSessionExpired(projectId, scene.draftAuthGeneration))) return;
+    updateScene(sceneId, (current) => ({...current, editorStage: 'builder', shots: []}), true);
+    if (selectedSceneIdRef.current === sceneId) {
+      setSelectedShotId(null);
+      setSelectedKeyframeId(null);
+      setModeState('overview');
+    }
+  }, [persistenceEnabled, projectId, updateScene]);
 
   const setSceneShotList = useCallback((sceneId: string, shots: StoryboardShot[], modeOverride?: EditorDraftStage) => {
     const existing = scenesRef.current.find(({id}) => id === sceneId);
@@ -496,6 +520,13 @@ export function useStoryboardWorkspace(
   }, [selectedKeyframeId, updateSelectedShot]);
 
   const retrySave = useCallback(() => retryEditorSave(projectId), [projectId]);
+  const refreshDrafts = useCallback(async () => {
+    if (!persistenceEnabled) return;
+    const requestId = loadRequestRef.current.requestId;
+    const loaded = await loadSettledEditorDrafts(projectId);
+    if (loadRequestRef.current.loadedProjectId !== projectId || loadRequestRef.current.requestId !== requestId) return;
+    hydrateEditorDrafts(projectId, scenesRef.current, loaded);
+  }, [persistenceEnabled, projectId]);
   const keepLocalDraft = useCallback(() => keepLocalEditorDrafts(projectId), [projectId]);
   const reloadSavedDraft = useCallback(() => chooseSavedEditorDrafts(projectId), [projectId]);
   const restoreAIProposal = useCallback(() => {
@@ -523,8 +554,10 @@ export function useStoryboardWorkspace(
     previousShot,
     repositionKeyframe,
     recoveredAIProposal: Boolean(selectedScene && persistenceEnabled && recoveredAIProposal(projectId, selectedScene)),
+    refreshDrafts,
     reload,
     reloadSavedDraft,
+    resetScene,
     restoreAIProposal,
     retrySave,
     scenes,

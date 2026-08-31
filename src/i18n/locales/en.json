@@ -106,6 +106,10 @@
       "gap": "Unrelated text omitted"
     },
     "builder": {
+      "reset": "Back to source",
+      "resetTitle": "Start this storyboard over?",
+      "resetDescription": "Shots, markup and camera settings for “{{title}}” will be removed from the draft. The screenplay text and other scenes will remain unchanged. You can then use AI again or mark up shots manually.",
+      "resetConfirm": "Reset shots",
       "title": "Scene shots · {{count}}",
       "expand": "Expand",
       "collapse": "Collapse",
@@ -231,6 +235,15 @@
     "referenceType": {"previous-keyframe": "Previous keyframe in this shot", "previous-shot": "Previous shot"},
     "library": {"character": "Characters", "location": "Locations", "object": "Objects", "clothing": "Clothing", "other": "Other", "empty": "No assets in this category"},
     "preview": {"action": "Preview storyboard", "title": "Scene storyboard", "empty": "Add shots to open the preview", "missingFrame": "Missing image", "imageAlt": "Shot {{shot}}, {{keyframe}} preview"},
+    "jobs": {
+      "queued": "Task queued. You can close this page — generation will continue on the server.",
+      "background": "Generation is running on the server. You can close this page — completed shots will be saved automatically.",
+      "statusError": "Could not update generation status. The server task has not been cancelled. Check again.",
+      "outcomeUnknown": "After a worker failure, the model request outcome could not be confirmed. Automatic retry is disabled: a new run may spend tokens again.",
+      "savedProposal": "AI prepared the shots, but the screenplay or storyboard changed during generation. The result is saved separately. Applying it will replace the current shots.",
+      "keepCurrent": "Keep current shots",
+      "applyError": "Could not apply your choice. Check that the draft is saved and try again. The AI result is saved on the server."
+    },
     "autosave": {
       "authChanged": "Your session changed. To send these edits, sign in to the original account and reload the scene.",
       "reload": "Reload workspace",

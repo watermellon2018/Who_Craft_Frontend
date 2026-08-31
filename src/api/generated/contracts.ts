@@ -9,6 +9,40 @@ export const API_CONSTRAINTS = {
   "projectPosterMaxBytes": 5242880
 } as const;
 
+export interface StoryboardShotListJob {
+  jobId: string;
+  sceneId: number;
+  status: "queued" | "running" | "succeeded" | "failed";
+  resultState: "pending" | "applied" | "dismissed";
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  estimatedSeconds: number;
+  expectedRevision: number;
+  model: string;
+  language: "ru" | "en";
+  result: StoryboardEditorDraftPayload | null;
+  appliedRevision: number | null;
+  errorCode: string | null;
+}
+
+export interface StoryboardShotListJobList {
+  jobs: Array<StoryboardShotListJob>;
+}
+
+export interface StoryboardShotListJobCreate {
+  language?: "ru" | "en";
+  model?: string;
+  maxShots?: number;
+  requestId: string;
+  estimatedSeconds?: number;
+}
+
+export interface StoryboardShotListJobApply {
+  expectedRevision: number;
+  mutationId: string;
+}
+
 export interface ProfileSettings {
   language: "ru" | "en";
   content_language: "ru" | "en";

@@ -164,6 +164,8 @@ export interface StoryboardScene {
   draftRevision?: number;
   /** Local session ownership only; never sent in the saved payload. */
   draftAuthGeneration?: number;
+  /** Local reset marker: an older in-flight AI result must not undo a reset. */
+  draftResetVersion?: number;
   editorStage?: 'selection' | 'builder' | 'editor';
   entities: StoryboardSceneEntity[];
   heading?: string;

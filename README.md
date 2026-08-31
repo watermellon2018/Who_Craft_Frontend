@@ -228,7 +228,7 @@ scene context, model availability, and a best-effort USD estimate from
 `GET /api/projects/{projectId}/storyboard/scenes/{sceneId}/suggest-shots/`.
 The confirmation dialog lets the editor choose an available model before the
 frontend posts that model, the shot limit, and the current UI language (`ru` or
-`en`) to the same route. Generated titles and descriptions follow that language;
+`en`) to `POST .../scenes/{sceneId}/shot-list-jobs/`. Generated titles and descriptions follow that language;
 original screenplay quotes remain unchanged. Existing English results are not
 automatically translated or regenerated. Each logical text
 model appears once: the backend selects its first available provider connection
@@ -239,19 +239,19 @@ for confirmation; a failed request does not automatically switch providers.
 Models and provider credentials are configured on the backend, with no frontend
 model list to maintain. The backend asks
 the selected allowlisted text model for structured JSON, validates every
-referenced project entity, and returns an unpersisted proposal. The cost is an
+referenced project entity, and saves the result on the server. The cost is an
 informational provider estimate, not a reservation or final charge. The
-frontend saves the proposal as an editable scene draft and displays it for review.
+worker saves an editable scene draft and the frontend displays it for review.
 
 The initial click immediately shows a "Loading models…" indicator in the center
 of the screenplay block. It disappears when the model dialog opens. After
 confirmation, the same area shows "Creating shots…" until generation finishes.
-The dialog shows an approximate duration; during generation, elapsed time and
-estimated remaining time appear below the spinner. The first estimate is a
+The dialog shows an approximate duration; during generation, estimated remaining
+time appears below the spinner. The first estimate is a
 heuristic based on output-token budget, then adjusts using the last five
 successful durations for that model in this browser. It is not a provider SLA or
-real completion percentage. When the estimate runs out, the UI keeps displaying
-elapsed time and explains that the response is taking longer; it never claims
+real completion percentage. When the estimate runs out, the UI explains that
+the response is taking longer; it never claims
 the operation finished. Timing history contains only durations and token counts.
 The action button stays disabled without its own spinner throughout the flow.
 Loading and errors belong to the originating scene; navigating to another scene
@@ -265,8 +265,21 @@ also shows the full description. Reorder shots using the dedicated drag handle
 or the menu's **Move up / Move down** actions. Content and order changes save
 automatically; simply expanding a row does not create another record.
 
+**Back to source** in the shot-list header resets the selected scene after
+confirmation. It clears draft shots, markup, camera settings, and any locally
+recovered AI proposal, keeping the screenplay and other scenes unchanged. The
+empty draft is saved through the existing revision-checked API and reopens the
+original AI/manual choice after navigation or reload. It does not delete
+structured Shot/Keyframe history or media assets. Cancel leaves the draft intact.
+An AI response started before the reset cannot automatically put the old shots
+back; if it arrives later, it is retained separately for an explicit choice.
+
 Inside an expanded shot, **Show in screenplay** opens the full scene in a
 drawer, highlights every passage linked to the shot, and scrolls to the first.
+When the saved text matches the screenplay blocks, the drawer retains the
+screenplay font and paragraph layout for characters, dialogue, remarks, and
+actions. Historical snapshots that no longer match those blocks remain verbatim;
+formatting never substitutes current dialogue or shifts source highlights.
 Multiple shots may share a passage. New AI proposals return server-owned source
 segments and selected IDs; the UI never guesses original quotes from the AI's
 description. If the screenplay version changed, the drawer shows the preserved
@@ -302,8 +315,24 @@ removed. A legacy browser copy is transferred when no server draft exists and
 removed only after server acknowledgement (an existing server draft takes
 priority). Signed media URLs, binary images, and credentials are never included.
 Opening the workspace once completes this migration in the user's browser.
-Already-lost results cannot be recovered, and closing/reloading a tab before an
-AI request finishes does not resume that in-flight request.
+Already-lost results cannot be recovered. New AI shot lists are durable server
+jobs: navigation, reload, or closing the tab does not cancel an accepted job.
+The existing `storyboard` generation worker must be running against the same
+database as the web server. `GET .../shot-list-jobs/` restores the latest job per
+scene and the original timer; active jobs are polled every two seconds. A failed
+status check does not cancel the job or automatically start a replacement.
+Request IDs and a single active job per scene prevent duplicate paid launches.
+
+The worker always retains a successful result. It adopts the result as a draft
+only if the draft revision and screenplay snapshot have not changed and the
+initiator still has edit permission. Otherwise a saved proposal offers explicit
+**Apply proposal** (replace current shots) or **Keep current shots**; these choices
+are revision checked and require edit permission. The page waits for pending
+draft saves before launching/applying and preserves local conflicts when it
+refreshes server data. Provider errors are saved and shown after returning.
+Generation success itself is not guaranteed: provider errors or a crashed worker
+after an uncertain paid call require an explicit retry, never an automatic second
+charge. A queued job waits for a worker to become available.
 
 ### Storyboard follow-up tasks
 

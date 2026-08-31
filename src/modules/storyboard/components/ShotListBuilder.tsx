@@ -7,6 +7,7 @@ import {
   HolderOutlined,
   MoreOutlined,
   PlusOutlined,
+  UndoOutlined,
   UpOutlined,
 } from '@ant-design/icons';
 import {Button, Dropdown, Input, Tooltip} from 'antd';
@@ -24,6 +25,8 @@ interface ShotListBuilderProps {
   onDelete: (shotId: string) => void;
   onDuplicate: (shotId: string) => void;
   onMove: (shotId: string, targetIndex: number) => void;
+  onReset: () => void;
+  resetDisabled?: boolean;
   onUpdate: (shotId: string, patch: Pick<StoryboardShot, 'description' | 'title'>) => void;
 }
 
@@ -34,7 +37,9 @@ export default function ShotListBuilder({
   onDelete,
   onDuplicate,
   onMove,
+  onReset,
   onUpdate,
+  resetDisabled = false,
 }: ShotListBuilderProps) {
   const {t} = useTranslation();
   const idPrefix = useId();
@@ -85,15 +90,27 @@ export default function ShotListBuilder({
 
   return (
     <section className="storyboard-builder" aria-labelledby="storyboard-builder-title">
-      <div className="storyboard-builder__heading">
-        <h2 id="storyboard-builder-title">
-          {t('storyboard.builder.title', {count: scene.shots.length})}
-        </h2>
-        {scene.shots.length > 0 && scene.shots.every((shot) => shot.source?.origin === 'ai') && (
-          <span className="storyboard-builder__badge">{t('storyboard.ai.proposal')}</span>
-        )}
+      <div className="storyboard-builder__header">
+        <div className="storyboard-builder__intro">
+          <div className="storyboard-builder__heading">
+            <h2 id="storyboard-builder-title">
+              {t('storyboard.builder.title', {count: scene.shots.length})}
+            </h2>
+            {scene.shots.length > 0 && scene.shots.every((shot) => shot.source?.origin === 'ai') && (
+              <span className="storyboard-builder__badge">{t('storyboard.ai.proposal')}</span>
+            )}
+          </div>
+          <p className="storyboard-builder__help">{t('storyboard.ai.editHelp')}</p>
+        </div>
+        <Button
+          className="craft-action-button--secondary"
+          disabled={resetDisabled || scene.canEdit === false}
+          icon={<UndoOutlined aria-hidden="true" />}
+          onClick={onReset}
+        >
+          {t('storyboard.builder.reset')}
+        </Button>
       </div>
-      <p className="storyboard-builder__help">{t('storyboard.ai.editHelp')}</p>
 
       <div className="storyboard-builder__list">
         {scene.shots.map((shot, index) => {
@@ -212,10 +229,20 @@ export default function ShotListBuilder({
       </div>
 
       <div className="storyboard-builder__footer">
-        <Button icon={<PlusOutlined aria-hidden="true" />} onClick={() => onAdd()}>
+        <Button
+          className="craft-action-button craft-action-button--secondary"
+          icon={<PlusOutlined aria-hidden="true" />}
+          onClick={() => onAdd()}
+        >
           {t('storyboard.addShot')}
         </Button>
-        <Button disabled={scene.shots.length === 0} onClick={onConfirm} size="large" type="primary">
+        <Button
+          className="craft-action-button"
+          disabled={scene.shots.length === 0}
+          onClick={onConfirm}
+          size="large"
+          type="primary"
+        >
           {t('storyboard.stageShots')}
         </Button>
       </div>

@@ -52,6 +52,7 @@ function BuilderHarness() {
         shots: current.shots.filter((shot) => shot.id !== shotId),
       }))}
       onDuplicate={jest.fn()}
+      onReset={jest.fn()}
       onMove={(shotId, targetIndex) => setScene((current) => {
         const shots = [...current.shots];
         const [moved] = shots.splice(shots.findIndex((shot) => shot.id === shotId), 1);
@@ -135,6 +136,7 @@ test('collapses details when switching scenes, even if shot IDs are reused', () 
     onDelete: jest.fn(),
     onDuplicate: jest.fn(),
     onMove: jest.fn(),
+    onReset: jest.fn(),
     onUpdate: jest.fn(),
   };
   const {rerender} = render(<ShotListBuilder {...props} scene={initialScene} />);
@@ -146,4 +148,19 @@ test('collapses details when switching scenes, even if shot IDs are reused', () 
   expect(screen.getByRole('button', {name: /Встреча у магазина Развернуть/})).toHaveAttribute(
     'aria-expanded', 'false',
   );
+});
+
+test('places the restart action beside the heading and disables it for viewers', () => {
+  const onReset = jest.fn();
+  const props = {onAdd: jest.fn(), onConfirm: jest.fn(), onDelete: jest.fn(),
+    onDuplicate: jest.fn(), onMove: jest.fn(), onUpdate: jest.fn(), onReset};
+  const {rerender} = render(<ShotListBuilder {...props} scene={initialScene} />);
+  const button = screen.getByRole('button', {name: 'Вернуться к исходникам'});
+  expect(button.closest('.storyboard-builder__header')).toContainElement(
+    screen.getByRole('heading', {name: 'Кадры сцены · 2'}),
+  );
+  fireEvent.click(button);
+  expect(onReset).toHaveBeenCalledTimes(1);
+  rerender(<ShotListBuilder {...props} scene={{...initialScene, canEdit: false}} />);
+  expect(screen.getByRole('button', {name: 'Вернуться к исходникам'})).toBeDisabled();
 });

@@ -20,7 +20,6 @@ export default function GenerationTimer({startedAt, estimatedSeconds}: Generatio
   const remaining = Math.max(0, estimatedSeconds - elapsed);
   return (
     <div className="storyboard-generation-timer">
-      <span aria-live="off">{t('storyboard.ai.timing.elapsed', {time: formatElapsedTime(elapsed)})}</span>
       <span aria-live="off">{remaining > 0
         ? t('storyboard.ai.timing.remaining', {time: formatElapsedTime(Math.ceil(remaining))})
         : t('storyboard.ai.timing.longer')}</span>

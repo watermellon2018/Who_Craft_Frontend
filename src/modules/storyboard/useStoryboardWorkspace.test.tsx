@@ -1,7 +1,7 @@
 import {act, renderHook, waitFor} from '@testing-library/react';
 
 import api, {getAuthGeneration} from '../../api/http';
-import {hydrateEditorDrafts} from './editorDrafts';
+import {editorPayload, hydrateEditorDrafts} from './editorDrafts';
 import type {EditorDraftEntry, EditorDraftPayload} from './editorDrafts';
 import {MOCK_STORYBOARD_SCENES} from './mockData';
 import type {StoryboardScene} from './model';
@@ -213,4 +213,130 @@ test('deleting the last shot persists selection instead of resuming an empty cam
   act(() => result.current.selectScene('scene-02'));
   act(() => result.current.selectScene('scene-03'));
   expect(result.current.mode).toBe('selection');
+});
+
+test('saves a scene reset after an older in-flight edit and reopens the screenplay after remount', async () => {
+  const previousCrypto = Object.getOwnPropertyDescriptor(window, 'crypto');
+  let uuidCounter = 30;
+  Object.defineProperty(window, 'crypto', {configurable: true, value: {
+    getRandomValues: (bytes: Uint8Array) => bytes.fill(++uuidCounter),
+  }});
+  const original = {...MOCK_STORYBOARD_SCENES[2], id: '118',
+    shots: MOCK_STORYBOARD_SCENES[2].shots.map((shot) => ({...shot, sceneId: '118'}))};
+  const other = {...MOCK_STORYBOARD_SCENES[0], id: '119'};
+  let saved: EditorDraftEntry = {sceneId: 118, revision: 1, payload: editorPayload(original)};
+  let acknowledge: (response: {data: EditorDraftEntry}) => void = () => undefined;
+  const request = new Promise<{data: EditorDraftEntry}>((resolve) => { acknowledge = resolve; });
+  const put = jest.spyOn(api, 'put').mockReturnValueOnce(request).mockImplementationOnce(async (_path, data) => {
+    const sent = data as {expectedRevision: number; payload: EditorDraftPayload};
+    saved = {sceneId: 118, revision: sent.expectedRevision + 1, payload: sent.payload};
+    return {data: saved};
+  });
+  const loadScenes = async (projectId: string) => hydrateEditorDrafts(projectId, [original, other], {
+    authGeneration: getAuthGeneration(), data: {userId: 7, canEdit: true, drafts: [saved]},
+  });
+  try {
+    const first = renderHook(() => useStoryboardWorkspace('522', loadScenes, true));
+    await waitFor(() => expect(first.result.current.scenes).toHaveLength(2));
+    act(() => first.result.current.selectScene('118'));
+    const originalOther = first.result.current.scenes[1];
+    act(() => first.result.current.updateShot(original.shots[0].id, {title: 'Правка перед сбросом'}));
+    expect(put).toHaveBeenCalledTimes(1);
+    act(() => first.result.current.resetScene('118'));
+    expect(first.result.current.mode).toBe('overview');
+    expect(first.result.current.selectedScene?.shots).toEqual([]);
+    expect(first.result.current.selectedScene?.text).toBe(original.text);
+    expect(first.result.current.selectedShotId).toBeNull();
+    expect(first.result.current.selectedKeyframeId).toBeNull();
+    expect(first.result.current.scenes[1]).toEqual(originalOther);
+    const sent = put.mock.calls[0][1] as {payload: EditorDraftPayload};
+    await act(async () => acknowledge({data: {sceneId: 118, revision: 2, payload: sent.payload}}));
+    await waitFor(() => expect(first.result.current.autosaveState).toBe('saved'));
+    expect(saved.payload).toEqual({schemaVersion: 1, stage: 'builder', shots: []});
+    expect(first.result.current.mode).toBe('overview');
+    first.unmount();
+
+    const restored = renderHook(() => useStoryboardWorkspace('522', loadScenes, true));
+    await waitFor(() => expect(restored.result.current.scenes).toHaveLength(2));
+    act(() => restored.result.current.selectScene('118'));
+    expect(restored.result.current.mode).toBe('overview');
+    expect(restored.result.current.selectedScene?.shots).toEqual([]);
+    expect(put).toHaveBeenCalledTimes(2);
+    restored.unmount();
+  } finally {
+    put.mockRestore();
+    if (previousCrypto) Object.defineProperty(window, 'crypto', previousCrypto);
+    else Reflect.deleteProperty(window, 'crypto');
+  }
+});
+
+test('choosing a server reset after a conflict opens the screenplay even when the saved stage is still builder', async () => {
+  const previousCrypto = Object.getOwnPropertyDescriptor(window, 'crypto');
+  Object.defineProperty(window, 'crypto', {configurable: true, value: {
+    getRandomValues: (bytes: Uint8Array) => bytes.fill(61),
+  }});
+  const original = {...MOCK_STORYBOARD_SCENES[2], id: '120',
+    shots: MOCK_STORYBOARD_SCENES[2].shots.map((shot) => ({...shot, sceneId: '120'}))};
+  const put = jest.spyOn(api, 'put').mockRejectedValue({response: {status: 409}});
+  const get = jest.spyOn(api, 'get').mockResolvedValue({data: {userId: 7, canEdit: true,
+    drafts: [{sceneId: 120, revision: 2, payload: {schemaVersion: 1, stage: 'builder', shots: []}}],
+  }});
+  const loadScenes = async (projectId: string) => hydrateEditorDrafts(projectId, [original], {
+    authGeneration: getAuthGeneration(), data: {userId: 7, canEdit: true,
+      drafts: [{sceneId: 120, revision: 1, payload: editorPayload(original)}]},
+  });
+  try {
+    const {result, unmount} = renderHook(() => useStoryboardWorkspace('523', loadScenes, true));
+    await waitFor(() => expect(result.current.scenes).toHaveLength(1));
+    act(() => result.current.selectScene('120'));
+    act(() => result.current.updateShot(original.shots[0].id, {title: 'Конфликтующая правка'}));
+    await waitFor(() => expect(result.current.autosaveState).toBe('conflict'));
+    expect(result.current.mode).toBe('builder');
+    await act(async () => result.current.reloadSavedDraft());
+    expect(result.current.mode).toBe('overview');
+    expect(result.current.selectedScene?.shots).toEqual([]);
+    unmount();
+  } finally {
+    put.mockRestore();
+    get.mockRestore();
+    if (previousCrypto) Object.defineProperty(window, 'crypto', previousCrypto);
+    else Reflect.deleteProperty(window, 'crypto');
+  }
+});
+
+test('adopts a server-completed generation in the selected scene without resaving or losing the selection', async () => {
+  const original = {...MOCK_STORYBOARD_SCENES[1], id: '121', shots: []};
+  let saved: EditorDraftEntry = {sceneId: 121, revision: 1, payload: editorPayload(original)};
+  const get = jest.spyOn(api, 'get').mockImplementation(async () => ({data: {
+    userId: 7, canEdit: true, drafts: [saved],
+  }}));
+  const put = jest.spyOn(api, 'put');
+  const loadScenes = async (projectId: string) => hydrateEditorDrafts(projectId, [original], {
+    authGeneration: getAuthGeneration(), data: {userId: 7, canEdit: true, drafts: [saved]},
+  });
+  try {
+    const first = renderHook(() => useStoryboardWorkspace('524', loadScenes, true));
+    await waitFor(() => expect(first.result.current.scenes).toHaveLength(1));
+    act(() => first.result.current.selectScene('121'));
+    expect(first.result.current.mode).toBe('overview');
+    saved = {sceneId: 121, revision: 2,
+      payload: editorPayload({...original, editorStage: 'builder', shots: createMockShotList(original)})};
+    await act(async () => first.result.current.refreshDrafts());
+    expect(first.result.current.selectedSceneId).toBe('121');
+    expect(first.result.current.mode).toBe('builder');
+    expect(first.result.current.selectedScene?.shots).toHaveLength(5);
+    expect(first.result.current.autosaveState).toBe('saved');
+    expect(put).not.toHaveBeenCalled();
+    first.unmount();
+
+    const second = renderHook(() => useStoryboardWorkspace('524', loadScenes, true));
+    await waitFor(() => expect(second.result.current.scenes[0]?.shots).toHaveLength(5));
+    act(() => second.result.current.selectScene('121'));
+    expect(second.result.current.mode).toBe('builder');
+    expect(put).not.toHaveBeenCalled();
+    second.unmount();
+  } finally {
+    get.mockRestore();
+    put.mockRestore();
+  }
 });
