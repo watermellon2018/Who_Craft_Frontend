@@ -28,6 +28,7 @@ test('keeps screenplay block formatting in the scene excerpt', () => {
     <SceneOverview
       aiGenerating={false}
       aiLoading={false}
+      aiLoadingModels={false}
       entities={[]}
       scene={scene}
       onAddMissingAsset={jest.fn()}

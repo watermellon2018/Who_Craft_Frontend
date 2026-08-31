@@ -27,6 +27,7 @@ export interface ManualShotValues {
 interface SceneOverviewProps {
   aiGenerating: boolean;
   aiLoading: boolean;
+  aiLoadingModels: boolean;
   entities: SceneEntity[];
   scene: StoryboardScene;
   onAddMissingAsset: () => void;
@@ -36,8 +37,11 @@ interface SceneOverviewProps {
   onSuggest: () => void;
 }
 
-function ScreenplayExcerpt({scene, loading}: {scene: StoryboardScene; loading: boolean}) {
-  const {t} = useTranslation();
+function ScreenplayExcerpt({scene, loadingLabel}: {
+  scene: StoryboardScene;
+  loadingLabel: string | null;
+}) {
+  const loading = Boolean(loadingLabel);
   const blocks = scene.scriptBlocks?.filter(({text, type}) => (
     type !== 'scene_heading' && Boolean(text.trim())
   ));
@@ -57,14 +61,14 @@ function ScreenplayExcerpt({scene, loading}: {scene: StoryboardScene; loading: b
         )) : scene.text}
       </div>
       <div
-        aria-label={loading ? t('storyboard.ai.loading') : undefined}
+        aria-label={loadingLabel ?? undefined}
         className={`storyboard-script__loading${loading ? ' storyboard-script__loading--active' : ''}`}
         role="status"
       >
         {loading && (
           <>
             <Spin aria-hidden="true" indicator={<LoadingOutlined spin />} size="large" />
-            <span className="storyboard-script__loading-label">{t('storyboard.ai.loading')}</span>
+            <span className="storyboard-script__loading-label">{loadingLabel}</span>
           </>
         )}
       </div>
@@ -75,6 +79,7 @@ function ScreenplayExcerpt({scene, loading}: {scene: StoryboardScene; loading: b
 export default function SceneOverview({
   aiGenerating,
   aiLoading,
+  aiLoadingModels,
   entities,
   scene,
   onAddMissingAsset,
@@ -104,7 +109,12 @@ export default function SceneOverview({
         {t('storyboard.scene')} {scene.id.replace(/\D/g, '').padStart(2, '0')}
       </p>
       <h2 id="storyboard-scene-title">{scene.heading || scene.title}</h2>
-      <ScreenplayExcerpt loading={aiGenerating} scene={scene} />
+      <ScreenplayExcerpt
+        loadingLabel={aiLoadingModels
+          ? t('storyboard.ai.loadingModels')
+          : aiGenerating ? t('storyboard.ai.loading') : null}
+        scene={scene}
+      />
 
       <div className="storyboard-detected" aria-label={t('storyboard.detected')}>
         <span className="storyboard-detected__label">{t('storyboard.detected')}</span>

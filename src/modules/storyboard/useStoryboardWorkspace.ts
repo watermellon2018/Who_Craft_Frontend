@@ -9,6 +9,7 @@ import type {
   StoryboardKeyframe,
   StoryboardScene,
   StoryboardShot,
+  StoryboardShotSource,
 } from './model';
 
 export type StoryboardMode = 'overview' | 'builder' | 'editor';
@@ -26,6 +27,7 @@ export interface NewShotInput {
   description: string;
   locationId?: string;
   referenceIds?: string[];
+  source?: StoryboardShotSource;
   title: string;
 }
 
@@ -51,6 +53,7 @@ function cloneShot(shot: StoryboardShot): StoryboardShot {
     characterIds: [...shot.characterIds],
     keyframes: shot.keyframes.map(cloneKeyframe),
     referenceIds: [...shot.referenceIds],
+    source: shot.source ? {...shot.source, segmentIds: [...shot.source.segmentIds]} : undefined,
     transitions: shot.transitions.map((transition) => ({...transition})),
   };
   const initial = createInitialKeyframes(shot.id, {
@@ -108,6 +111,7 @@ export function createShot(
     order,
     referenceIds: input.referenceIds ?? [],
     sceneId: scene.id,
+    source: input.source,
     title: input.title,
     transitions: buildTransitions(id, keyframes),
   };
@@ -147,12 +151,16 @@ export function useStoryboardWorkspace(
   const [loadError, setLoadError] = useState<string | null>(null);
   const saveTimerRef = useRef<number | null>(null);
   const savedTimerRef = useRef<number | null>(null);
-  const loadRequestRef = useRef(0);
+  const loadRequestRef = useRef({requestId: 0, loadedProjectId: null as string | null});
+  // Fast Refresh can retain the previous numeric counter in an open draft.
+  if (typeof loadRequestRef.current === 'number') {
+    loadRequestRef.current = {requestId: loadRequestRef.current, loadedProjectId: null};
+  }
   const selectedSceneIdRef = useRef<string | null>(null);
 
   const reload = useCallback(async () => {
-    const requestId = loadRequestRef.current + 1;
-    loadRequestRef.current = requestId;
+    const requestId = loadRequestRef.current.requestId + 1;
+    loadRequestRef.current = {requestId, loadedProjectId: null};
     setScenes([]);
     selectedSceneIdRef.current = null;
     setSelectedSceneId(null);
@@ -165,20 +173,21 @@ export function useStoryboardWorkspace(
 
     try {
       const loadedScenes = await loadScenes(projectId);
-      if (loadRequestRef.current !== requestId) return;
+      if (loadRequestRef.current.requestId !== requestId) return;
+      loadRequestRef.current.loadedProjectId = projectId;
       setScenes(loadedScenes);
     } catch {
-      if (loadRequestRef.current !== requestId) return;
+      if (loadRequestRef.current.requestId !== requestId) return;
       setLoadError('storyboard.errors.workspace');
     } finally {
-      if (loadRequestRef.current === requestId) setLoading(false);
+      if (loadRequestRef.current.requestId === requestId) setLoading(false);
     }
   }, [loadScenes, projectId]);
 
   useEffect(() => {
     void reload();
     return () => {
-      loadRequestRef.current += 1;
+      loadRequestRef.current.requestId += 1;
     };
   }, [reload]);
 
@@ -457,6 +466,7 @@ export function useStoryboardWorkspace(
     enterEditor,
     generateSelectedKeyframe,
     loadError,
+    loadedProjectId: loadRequestRef.current.loadedProjectId,
     loading,
     mode,
     moveShot,

@@ -61,11 +61,12 @@
     },
     "ai": {
       "suggest": "Suggest shot list with AI",
-      "loading": "Creating shot list…",
-      "proposal": "AI proposal",
+      "loading": "Creating shots…",
+      "loadingModels": "Loading models…",
+      "proposal": "Suggested by AI",
       "proposedShots_one": "AI suggested {{count}} shot",
       "proposedShots_other": "AI suggested {{count}} shots",
-      "editHelp": "Refine the content, order, and duration before staging the camera.",
+      "editHelp": "Review the shot order. Expand a description to refine the details.",
       "modal": {
         "title": "Suggest shots with AI",
         "model": "Text model",
@@ -83,6 +84,34 @@
           "unsupportedProvider": "provider is not supported for Storyboard yet"
         }
       }
+    },
+    "source": {
+      "fragment": "Screenplay excerpt",
+      "showInScript": "Show in screenplay",
+      "sceneTitle": "Screenplay · {{title}}",
+      "missing": "No screenplay link was saved. You can read the full scene, but the original passage for this shot cannot be highlighted.",
+      "stale": "The screenplay has changed since generation. This is the saved version used to prepare these shots.",
+      "truncated": "The AI received only the beginning of this long scene. The full text is shown here, but the remaining text was not used for generation.",
+      "highlightHelp": "Highlighted passages are the ones the AI assigned to this shot. A passage can belong to multiple shots.",
+      "gap": "Unrelated text omitted"
+    },
+    "temporaryDraft": {
+      "conflict": "A different storyboard draft is saved in this browser. Choose which shots to keep.",
+      "restoreConflict": "Restore temporary draft",
+      "keepCurrent": "Keep current shots",
+      "paused": "Your session changed. Reload the page to resume temporary saving. You can download the current shots.",
+      "saved": "Temporary draft saved in this browser",
+      "restored": "Temporary draft restored without an AI request",
+      "removed": "Temporary copy deleted. New changes will be saved again",
+      "unavailable": "Could not save the temporary draft. Download a copy before closing the page",
+      "remove": "Delete temporary copy",
+      "export": "Download draft"
+    },
+    "builder": {
+      "title": "Scene shots · {{count}}",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "emptyDescription": "No description yet"
     },
     "manual": {
       "create": "Create shot manually",

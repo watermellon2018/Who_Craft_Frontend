@@ -70,11 +70,11 @@ function storyboardPath(projectId: string) {
 }
 
 function sceneText(scene: Scene): string {
+  if (scene.scriptText?.trim()) return scene.scriptText.trim();
   const blockText = scene.scriptBlocks
     .map(({text}) => text.trim())
-    .filter(Boolean)
-    .join('\n\n');
-  return blockText || scene.scriptText.trim() || scene.description.trim();
+    .join('\n').trim();
+  return blockText || scene.description.trim() || scene.notes.trim();
 }
 
 function sceneHeading(scene: Scene): string | undefined {
@@ -223,8 +223,9 @@ export function mapStoryboardScene(
     shotsCount: workspace?.shotsCount ?? summary?.shotsCount ?? 0,
     status: workspace?.status ?? summary?.status ?? 'empty',
     subtitle: scene.title,
-    text: context.scene?.text || sceneText(scene),
+    text: sceneText(scene),
     title: context.scene?.title || scene.title,
+    version: scene.version,
   };
 }
 

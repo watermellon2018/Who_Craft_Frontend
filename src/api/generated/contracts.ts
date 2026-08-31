@@ -752,8 +752,22 @@ export interface StoryboardSuggestShotsRequest {
   maxShots?: number;
 }
 
+export interface StoryboardSourceSegment {
+  id: string;
+  text: string;
+}
+
+export interface StoryboardShotListSource {
+  scene_id: number;
+  scene_version: number;
+  content_hash: string;
+  segments: Array<StoryboardSourceSegment>;
+  truncated: boolean;
+}
+
 export interface StoryboardShotProposal {
-  shots: Array<{ title: string; description: string; suggested_characters: Array<string>; suggested_location: string | null; suggested_assets: Array<string>; suggested_framing: StoryboardFraming; }>;
+  source: StoryboardShotListSource;
+  shots: Array<{ title: string; description: string; source_segment_ids: Array<string>; suggested_characters: Array<string>; suggested_location: string | null; suggested_assets: Array<string>; suggested_framing: StoryboardFraming; }>;
 }
 
 export interface StoryboardGenerationReferenceMutation {

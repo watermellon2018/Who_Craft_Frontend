@@ -244,7 +244,7 @@ test('updates the provider and estimate when selecting a model and submits its e
   await waitFor(() => expect(dialog).not.toBeInTheDocument());
 });
 
-test('shows progress over the screenplay only after confirming and clears it on success', async () => {
+test('shows screenplay progress while loading models and generating, but not during configuration', async () => {
   const pendingOptions = deferred<StoryboardShotListOptions>();
   const pendingShots = deferred<StoryboardShot[]>();
   const service: StoryboardFrontendService = {
@@ -259,18 +259,25 @@ test('shows progress over the screenplay only after confirming and clears it on 
   const originalText = screenplay.textContent;
   clickButtonWithText('Предложить shot list с ИИ');
 
-  expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
-  expect(screen.getByRole('button', {name: 'Предложить shot list с ИИ'})).toBeDisabled();
+  const loadingModels = within(screenplay).getByRole('status', {name: 'Загружаем модели…'});
+  expect(loadingModels).toHaveClass('storyboard-script__loading--active');
+  expect(loadingModels.querySelector('.ant-spin')).toBeInTheDocument();
+  const suggestButton = screen.getByRole('button', {name: 'Предложить shot list с ИИ'});
+  expect(suggestButton).toBeDisabled();
+  expect(suggestButton.querySelector('.ant-btn-loading-icon')).not.toBeInTheDocument();
+  fireEvent.click(suggestButton);
+  expect(service.loadShotListOptions).toHaveBeenCalledTimes(1);
+  expect(service.suggestShotList).not.toHaveBeenCalled();
   await act(async () => pendingOptions.resolve(routedShotListOptions));
   const dialog = await screen.findByRole('dialog');
   expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
 
   fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
-  const progress = await within(screenplay).findByRole('status', {name: 'Создаём shot list…'});
+  const progress = await within(screenplay).findByRole('status', {name: 'Создаём кадры…'});
   expect(progress).toHaveClass('storyboard-script__loading--active');
   expect(progress.querySelector('.ant-spin')).toBeInTheDocument();
   expect(screenplay.textContent).toContain(originalText);
-  const generatingButton = screen.getByRole('button', {name: 'Создаём shot list…'});
+  const generatingButton = screen.getByRole('button', {name: 'Создаём кадры…'});
   expect(generatingButton).toBeDisabled();
   expect(generatingButton.querySelector('.ant-btn-loading-icon')).not.toBeInTheDocument();
 
@@ -278,6 +285,59 @@ test('shows progress over the screenplay only after confirming and clears it on 
   await act(async () => pendingShots.resolve(createMockShotList(scenes[1])));
   expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
   expect(screen.getByText('Перейти к постановке')).toBeInTheDocument();
+});
+
+test('clears model-loading progress on error and allows a cancelled retry', async () => {
+  const pendingOptions = deferred<StoryboardShotListOptions>();
+  const service: StoryboardFrontendService = {
+    ...storyboardMockService,
+    loadShotListOptions: jest.fn()
+      .mockImplementationOnce(() => pendingOptions.promise)
+      .mockResolvedValue(routedShotListOptions),
+    suggestShotList: jest.fn(storyboardMockService.suggestShotList),
+  };
+  renderStoryboard(service);
+  await waitForStoryboard();
+  selectScene(1);
+  clickButtonWithText('Предложить shot list с ИИ');
+  expect(screen.getByRole('status', {name: 'Загружаем модели…'})).toBeInTheDocument();
+
+  await act(async () => pendingOptions.reject(new Error('Options request failed')));
+
+  expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Предложить shot list с ИИ'})).toBeEnabled();
+  expect(document.querySelector('.ant-alert-error')).toHaveTextContent('Не удалось создать предложение');
+  fireEvent.click(screen.getByRole('button', {name: 'Повторить'}));
+  const dialog = await screen.findByRole('dialog');
+  expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole('button', {name: 'Отмена'}));
+  await waitFor(() => expect(dialog).not.toBeInTheDocument());
+
+  expect(screen.getByRole('button', {name: 'Предложить shot list с ИИ'})).toBeEnabled();
+  expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
+  expect(service.suggestShotList).not.toHaveBeenCalled();
+});
+
+test('does not open configuration when unmounted while loading models', async () => {
+  const pendingOptions = deferred<StoryboardShotListOptions>();
+  const service: StoryboardFrontendService = {
+    ...storyboardMockService,
+    loadShotListOptions: jest.fn(() => pendingOptions.promise),
+    suggestShotList: jest.fn(storyboardMockService.suggestShotList),
+  };
+  const {unmount} = renderStoryboard(service);
+  await waitForStoryboard();
+  selectScene(1);
+  clickButtonWithText('Предложить shot list с ИИ');
+  expect(screen.getByRole('status', {name: 'Загружаем модели…'})).toBeInTheDocument();
+
+  unmount();
+  await act(async () => pendingOptions.resolve(routedShotListOptions));
+
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
+  expect(service.suggestShotList).not.toHaveBeenCalled();
 });
 
 test('clears screenplay progress on a malformed model response and enables retry', async () => {
@@ -292,7 +352,7 @@ test('clears screenplay progress on a malformed model response and enables retry
   clickButtonWithText('Предложить shot list с ИИ');
   const dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
-  await screen.findByRole('status', {name: 'Создаём shot list…'});
+  await screen.findByRole('status', {name: 'Создаём кадры…'});
 
   await act(async () => pendingShots.reject({
     error: {code: 'STORYBOARD_AI_BAD_RESPONSE', message: 'Invalid provider response'},
@@ -306,26 +366,35 @@ test('clears screenplay progress on a malformed model response and enables retry
 });
 
 test('keeps pending progress and generated shots attached to the originating scene', async () => {
+  const pendingOptions = deferred<StoryboardShotListOptions>();
   const pendingShots = deferred<StoryboardShot[]>();
   const scenes = await storyboardMockService.loadScenes('42');
   const service: StoryboardFrontendService = {
     ...storyboardMockService,
     loadScenes: async () => scenes.map((scene, index) => index === 0 ? {...scene, shots: []} : scene),
+    loadShotListOptions: jest.fn(() => pendingOptions.promise),
     suggestShotList: jest.fn(() => pendingShots.promise),
   };
   renderStoryboard(service);
   await waitForStoryboard();
   selectScene(1);
   clickButtonWithText('Предложить shot list с ИИ');
+  expect(screen.getByRole('status', {name: 'Загружаем модели…'})).toBeInTheDocument();
+  selectScene(0);
+  expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', {name: 'Предложить shot list с ИИ'})).toBeDisabled();
+  selectScene(1);
+  expect(screen.getByRole('status', {name: 'Загружаем модели…'})).toBeInTheDocument();
+  await act(async () => pendingOptions.resolve(routedShotListOptions));
   const dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
-  await screen.findByRole('status', {name: 'Создаём shot list…'});
+  await screen.findByRole('status', {name: 'Создаём кадры…'});
 
   selectScene(0);
   expect(document.querySelector('.storyboard-script')).toBeInTheDocument();
   expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
   selectScene(1);
-  expect(screen.getByRole('status', {name: 'Создаём shot list…'})).toBeInTheDocument();
+  expect(screen.getByRole('status', {name: 'Создаём кадры…'})).toBeInTheDocument();
   selectScene(0);
   await act(async () => pendingShots.resolve(createMockShotList(scenes[1])));
 
@@ -347,7 +416,7 @@ test('removes screenplay progress when unmounted during generation', async () =>
   clickButtonWithText('Предложить shot list с ИИ');
   const dialog = await screen.findByRole('dialog');
   fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
-  await screen.findByRole('status', {name: 'Создаём shot list…'});
+  await screen.findByRole('status', {name: 'Создаём кадры…'});
 
   unmount();
   await act(async () => pendingShots.resolve([]));

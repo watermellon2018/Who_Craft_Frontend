@@ -3,16 +3,19 @@ import {
   ArrowUpOutlined,
   CopyOutlined,
   DeleteOutlined,
+  DownOutlined,
   HolderOutlined,
   MoreOutlined,
   PlusOutlined,
+  UpOutlined,
 } from '@ant-design/icons';
 import {Button, Dropdown, Input, Tooltip} from 'antd';
 import type {MenuProps} from 'antd';
-import React, {useState} from 'react';
+import React, {useEffect, useId, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 
 import type {StoryboardScene, StoryboardShot} from '../model';
+import ShotSourceDetails from './ShotSourceDetails';
 
 interface ShotListBuilderProps {
   scene: StoryboardScene;
@@ -34,7 +37,14 @@ export default function ShotListBuilder({
   onUpdate,
 }: ShotListBuilderProps) {
   const {t} = useTranslation();
+  const idPrefix = useId();
   const [draggedShotId, setDraggedShotId] = useState<string | null>(null);
+  const [expandedShotId, setExpandedShotId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraggedShotId(null);
+    setExpandedShotId(null);
+  }, [scene.id]);
 
   const menuItems = (shot: StoryboardShot, index: number): MenuProps['items'] => [
     {
@@ -75,64 +85,131 @@ export default function ShotListBuilder({
 
   return (
     <section className="storyboard-builder" aria-labelledby="storyboard-builder-title">
-      <p className="storyboard-overview__eyebrow">{t('storyboard.ai.proposal')}</p>
-      <h2 id="storyboard-builder-title">
-        {t('storyboard.ai.proposedShots', {count: scene.shots.length})}
-      </h2>
-      <p className="storyboard-muted">{t('storyboard.ai.editHelp')}</p>
+      <div className="storyboard-builder__heading">
+        <h2 id="storyboard-builder-title">
+          {t('storyboard.builder.title', {count: scene.shots.length})}
+        </h2>
+        <span className="storyboard-builder__badge">{t('storyboard.ai.proposal')}</span>
+      </div>
+      <p className="storyboard-builder__help">{t('storyboard.ai.editHelp')}</p>
 
       <div className="storyboard-builder__list">
-        {scene.shots.map((shot, index) => (
-          <div
-            className="storyboard-builder-shot"
-            draggable
-            key={shot.id}
-            onDragEnd={() => setDraggedShotId(null)}
-            onDragOver={(event) => event.preventDefault()}
-            onDragStart={() => setDraggedShotId(shot.id)}
-            onDrop={() => {
-              if (draggedShotId && draggedShotId !== shot.id) onMove(draggedShotId, index);
-              setDraggedShotId(null);
-            }}
-          >
-            <span className="storyboard-builder-shot__number">
-              {String(index + 1).padStart(2, '0')}
-            </span>
-            <Input
-              aria-label={t('storyboard.fields.shotTitle', {number: index + 1})}
-              maxLength={120}
-              onChange={(event) => onUpdate(shot.id, {
-                description: shot.description,
-                title: event.target.value,
-              })}
-              value={shot.title}
-            />
-            <Input
-              aria-label={t('storyboard.fields.shotDescription', {number: index + 1})}
-              maxLength={600}
-              onChange={(event) => onUpdate(shot.id, {
-                description: event.target.value,
-                title: shot.title,
-              })}
-              value={shot.description}
-            />
-            <div className="storyboard-inline-actions">
-              <Tooltip title={t('storyboard.shotActions.drag')}>
-                <Button aria-label={t('storyboard.shotActions.drag')} icon={<HolderOutlined aria-hidden="true" />} type="text" />
-              </Tooltip>
-              <Dropdown menu={{items: menuItems(shot, index)}} trigger={['click']}>
-                <Button
-                  aria-label={t('storyboard.shotActions.menu', {number: index + 1})}
-                  icon={<MoreOutlined aria-hidden="true" />}
-                  type="text"
-                />
-              </Dropdown>
+        {scene.shots.map((shot, index) => {
+          const expanded = expandedShotId === shot.id;
+          const rowId = `${idPrefix}-${shot.id}`;
+          return (
+            <div
+              className={`storyboard-builder-shot${expanded ? ' storyboard-builder-shot--expanded' : ''}`}
+              key={shot.id}
+              onDragOver={(event) => {
+                if (draggedShotId) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (draggedShotId && draggedShotId !== shot.id) onMove(draggedShotId, index);
+                setDraggedShotId(null);
+              }}
+            >
+              <div className="storyboard-builder-shot__row">
+                <span className="storyboard-builder-shot__number" id={`${rowId}-number`}>
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <button
+                  aria-controls={`${rowId}-details`}
+                  aria-expanded={expanded}
+                  aria-labelledby={`${rowId}-number ${rowId}-title ${rowId}-toggle`}
+                  className="storyboard-builder-shot__summary"
+                  onClick={() => setExpandedShotId(expanded ? null : shot.id)}
+                  type="button"
+                >
+                  <span className="storyboard-builder-shot__body">
+                    <span className="storyboard-builder-shot__title" id={`${rowId}-title`}>
+                      {shot.title || t('storyboard.newShot.title')}
+                    </span>
+                    {!expanded && (
+                      <Tooltip
+                        mouseEnterDelay={0.6}
+                        overlayClassName="storyboard-builder-preview"
+                        title={shot.description || undefined}
+                      >
+                        <span className="storyboard-builder-shot__preview">
+                          {shot.description || t('storyboard.builder.emptyDescription')}
+                        </span>
+                      </Tooltip>
+                    )}
+                  </span>
+                  <span className="storyboard-builder-shot__toggle" id={`${rowId}-toggle`}>
+                    {expanded ? <UpOutlined aria-hidden="true" /> : <DownOutlined aria-hidden="true" />}
+                    {t(expanded ? 'storyboard.builder.collapse' : 'storyboard.builder.expand')}
+                  </span>
+                </button>
+                <div className="storyboard-builder-shot__actions">
+                  <Tooltip title={t('storyboard.shotActions.drag')}>
+                    <Button
+                      aria-label={t('storyboard.shotActions.drag')}
+                      className="storyboard-builder-shot__drag"
+                      draggable
+                      icon={<HolderOutlined aria-hidden="true" />}
+                      onDragEnd={() => setDraggedShotId(null)}
+                      onDragStart={(event) => {
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', shot.id);
+                        setDraggedShotId(shot.id);
+                      }}
+                      type="text"
+                    />
+                  </Tooltip>
+                  <Dropdown menu={{items: menuItems(shot, index)}} trigger={['click']}>
+                    <Button
+                      aria-label={t('storyboard.shotActions.menu', {number: index + 1})}
+                      icon={<MoreOutlined aria-hidden="true" />}
+                      type="text"
+                    />
+                  </Dropdown>
+                </div>
+              </div>
+              <div
+                className="storyboard-builder-shot__details"
+                hidden={!expanded}
+                id={`${rowId}-details`}
+              >
+                {expanded && (
+                  <>
+                    <label htmlFor={`${rowId}-title-input`}>
+                      {t('storyboard.fields.shotTitle', {number: index + 1})}
+                    </label>
+                    <Input
+                      id={`${rowId}-title-input`}
+                      maxLength={255}
+                      onChange={(event) => onUpdate(shot.id, {
+                        description: shot.description,
+                        title: event.target.value,
+                      })}
+                      value={shot.title}
+                    />
+                    <label htmlFor={`${rowId}-description-input`}>
+                      {t('storyboard.fields.shotDescription', {number: index + 1})}
+                    </label>
+                    <Input.TextArea
+                      autoSize={{minRows: 3, maxRows: 12}}
+                      id={`${rowId}-description-input`}
+                      maxLength={4000}
+                      onChange={(event) => onUpdate(shot.id, {
+                        description: event.target.value,
+                        title: shot.title,
+                      })}
+                      value={shot.description}
+                    />
+                    <ShotSourceDetails scene={scene} shot={shot} />
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="storyboard-section-heading">
+      <div className="storyboard-builder__footer">
         <Button icon={<PlusOutlined aria-hidden="true" />} onClick={() => onAdd()}>
           {t('storyboard.addShot')}
         </Button>

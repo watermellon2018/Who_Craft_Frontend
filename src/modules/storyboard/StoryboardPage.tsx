@@ -22,6 +22,7 @@ import ShotListBuilder from './components/ShotListBuilder';
 import ShotSidebar from './components/ShotSidebar';
 import StoryboardPreview from './components/StoryboardPreview';
 import StoryboardViewport from './components/StoryboardViewport';
+import TemporaryStoryboardDraft from './components/TemporaryStoryboardDraft';
 import VisualReferenceDrawer from './components/VisualReferenceDrawer';
 import {normalizeStoryboardImageUrl} from './model';
 import type {GenerationReference, StoryboardScene} from './model';
@@ -62,7 +63,10 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
   const {projectId = ''} = useParams<{projectId: string}>();
   const workspace = useStoryboardWorkspace(projectId, service.loadScenes);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiGeneratingSceneId, setAiGeneratingSceneId] = useState<string | null>(null);
+  const [aiProgress, setAiProgress] = useState<{
+    phase: 'models' | 'generation';
+    sceneId: string;
+  } | null>(null);
   const [aiError, setAiError] = useState<{sceneId: string; message: string} | null>(null);
   const [generationDrawerOpen, setGenerationDrawerOpen] = useState(false);
   const [referenceDrawerOpen, setReferenceDrawerOpen] = useState(false);
@@ -111,9 +115,11 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
     let modalAbortController: AbortController | null = null;
     setAiError(null);
     setAiLoading(true);
+    setAiProgress({phase: 'models', sceneId: scene.id});
     try {
       const options = await service.loadShotListOptions(scene, projectId);
       if (!mountedRef.current) return;
+      setAiProgress(null);
       modalAbortController = new AbortController();
       aiModalAbortRef.current = modalAbortController;
       const configuration = await chooseShotListAiConfiguration(
@@ -121,7 +127,7 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
         modalAbortController.signal,
       );
       if (!configuration || !mountedRef.current) return;
-      setAiGeneratingSceneId(scene.id);
+      setAiProgress({phase: 'generation', sceneId: scene.id});
       const shots = await service.suggestShotList(scene, projectId, configuration);
       if (mountedRef.current) workspace.setSceneShotList(scene.id, shots);
     } catch (error: unknown) {
@@ -137,7 +143,7 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
       }
       if (mountedRef.current) {
         setAiLoading(false);
-        setAiGeneratingSceneId(null);
+        setAiProgress(null);
       }
     }
   };
@@ -299,8 +305,11 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
               />
             )}
             <SceneOverview
-              aiGenerating={aiGeneratingSceneId === workspace.selectedScene.id}
+              aiGenerating={aiProgress?.sceneId === workspace.selectedScene.id
+                && aiProgress.phase === 'generation'}
               aiLoading={aiLoading}
+              aiLoadingModels={aiProgress?.sceneId === workspace.selectedScene.id
+                && aiProgress.phase === 'models'}
               entities={entities}
               onAddMissingAsset={() => setReferenceDrawerOpen(true)}
               onCreateManual={handleCreateManual}
@@ -388,7 +397,8 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
   return (
     <div className="storyboard-page">
       <DashboardHeader hideSubnav />
-      <div className="storyboard-shell">
+      <div className={`storyboard-shell${workspace.mode === 'editor' && workspace.selectedScene
+        ? '' : ' storyboard-shell--selection'}`}>
         <header className="storyboard-toolbar">
           <div className="storyboard-toolbar__identity">
             <Link
@@ -404,9 +414,6 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
             </div>
           </div>
           <div className="storyboard-toolbar__actions">
-            <span className={`storyboard-autosave storyboard-autosave--${workspace.autosaveState}`} role="status">
-              {t(`storyboard.autosave.${workspace.autosaveState}`)}
-            </span>
             <Button
               disabled={!workspace.selectedScene?.shots.length}
               icon={<EyeOutlined aria-hidden="true" />}
@@ -416,6 +423,15 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
             </Button>
           </div>
         </header>
+
+        <TemporaryStoryboardDraft
+          enabled={service === storyboardService && workspace.loadedProjectId === projectId}
+          loading={workspace.loading}
+          loadError={workspace.loadError}
+          onRestore={workspace.setSceneShotList}
+          projectId={projectId}
+          scenes={workspace.scenes}
+        />
 
         {workspace.mode === 'editor' && workspace.selectedScene
           ? renderEditor()

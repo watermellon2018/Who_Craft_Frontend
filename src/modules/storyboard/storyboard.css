@@ -77,6 +77,9 @@
 }
 
 .storyboard-back:focus-visible,
+.storyboard-shot-source summary:focus-visible,
+.storyboard-shot-source__excerpt:focus-visible,
+.storyboard-builder-shot__summary:focus-visible,
 .storyboard-native-button:focus-visible,
 .storyboard-scene-button:focus-visible,
 .storyboard-shot-button:focus-visible,
@@ -320,8 +323,7 @@
   text-transform: uppercase;
 }
 
-.storyboard-overview h2,
-.storyboard-builder h2 {
+.storyboard-overview h2 {
   margin: 0;
   font-size: clamp(24px, 3vw, 34px);
   line-height: 1.12;
@@ -330,6 +332,7 @@
 
 .storyboard-script {
   position: relative;
+  min-height: 112px;
   margin-block: 22px;
   padding: 20px;
   color: var(--craft-text-soft);
@@ -341,11 +344,86 @@
   line-height: 1.65;
 }
 
+.storyboard-shot-source {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  min-width: 0;
+  margin-block-start: 8px;
+}
+
+.storyboard-shot-source__disclosure {
+  width: 100%;
+  border-block-start: 1px solid var(--craft-border-subtle);
+}
+
+.storyboard-shot-source summary {
+  padding-block: 12px;
+  cursor: pointer;
+  color: var(--craft-text-soft);
+}
+
+.storyboard-shot-source__notice {
+  color: var(--craft-text-muted);
+  line-height: 1.5;
+}
+
+.storyboard-shot-source__excerpt,
+.storyboard-source-viewer__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+
+.storyboard-shot-source__excerpt {
+  max-height: 18rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 16px;
+  border-inline-start: 3px solid var(--craft-border);
+  background: var(--craft-surface);
+}
+
+.storyboard-shot-source__gap {
+  display: block;
+  color: var(--craft-text-muted);
+}
+
+.storyboard-source-viewer__text {
+  margin-block-start: 20px;
+}
+
+.storyboard-source-viewer__text mark {
+  color: var(--craft-on-accent);
+  background: var(--craft-accent);
+  box-decoration-break: clone;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.storyboard-source-viewer .ant-alert + .ant-alert {
+  margin-block-start: 12px;
+}
+
+.storyboard-temporary-draft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-block-end: 14px;
+  color: var(--craft-text-muted);
+  font-size: 12px;
+}
+
 .storyboard-script__loading {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 12px;
   border-radius: inherit;
   pointer-events: none;
 }
@@ -359,15 +437,12 @@
 }
 
 .storyboard-script__loading-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
+  color: var(--craft-text);
+  font-family: var(--craft-font-family, system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
 }
 
 .storyboard-script--plain,
@@ -532,6 +607,35 @@
   gap: 10px;
 }
 
+.storyboard-builder__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.storyboard-builder__heading h2 {
+  margin: 0;
+  font-size: clamp(20px, 2vw, 24px);
+  line-height: 1.3;
+}
+
+.storyboard-builder__badge {
+  padding: 4px 8px;
+  color: var(--craft-accent);
+  border-radius: 6px;
+  background: var(--craft-accent-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.storyboard-builder__help {
+  margin: 8px 0 0;
+  color: var(--craft-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .storyboard-builder__list {
   display: flex;
   flex-direction: column;
@@ -540,30 +644,141 @@
 }
 
 .storyboard-builder-shot {
-  display: grid;
-  grid-template-columns: 34px minmax(160px, 0.7fr) minmax(220px, 1.4fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
   border: 1px solid var(--craft-border);
   border-radius: 11px;
   background: var(--craft-field);
 }
 
-.storyboard-builder-shot[draggable='true'] { cursor: grab; }
-.storyboard-builder-shot[draggable='true']:active { cursor: grabbing; }
+.storyboard-builder-shot--expanded {
+  border-color: var(--craft-accent-border);
+}
+
+.storyboard-builder-shot__row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+}
 
 .storyboard-builder-shot__number {
+  padding-block: 8px;
   color: var(--craft-accent);
+  font-size: 13px;
+  line-height: 1.5;
   font-variant-numeric: tabular-nums;
   font-weight: 750;
 }
 
-.storyboard-builder-shot .ant-input,
-.storyboard-builder-shot .ant-input-textarea textarea {
-  color: var(--craft-text) !important;
-  border-color: transparent !important;
-  background: transparent !important;
+.storyboard-builder-shot__summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+  padding: 6px 0;
+  color: var(--craft-text);
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.storyboard-builder-shot__body {
+  min-width: 0;
+}
+
+.storyboard-builder-shot__title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.storyboard-builder-shot__preview {
+  display: -webkit-box;
+  margin-block-start: 4px;
+  overflow: hidden;
+  color: var(--craft-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.storyboard-builder-shot__toggle {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  padding-block: 2px;
+  color: var(--craft-text-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.storyboard-builder-shot__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.storyboard-builder-shot__actions .ant-btn {
+  width: 36px;
+  height: 36px;
+}
+
+.storyboard-builder-shot__drag { cursor: grab; }
+.storyboard-builder-shot__drag:active { cursor: grabbing; }
+
+.storyboard-builder-shot__details:not([hidden]) {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-block-start: 1px solid var(--craft-border-subtle);
+}
+
+.storyboard-builder-shot__details label {
+  color: var(--craft-text-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.storyboard-builder-shot__details label:not(:first-child) {
+  margin-block-start: 8px;
+}
+
+.storyboard-builder-shot__details .ant-input {
+  color: var(--craft-text);
+  border-color: var(--craft-border);
+  background: var(--craft-surface);
+}
+
+.storyboard-builder-shot__details .ant-input:focus {
+  border-color: var(--craft-focus-ring);
+}
+
+.storyboard-builder-preview {
+  max-width: min(480px, calc(100vw - 32px));
+}
+
+.storyboard-builder-preview .ant-tooltip-inner {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.storyboard-builder__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .storyboard-editor {
@@ -1299,22 +1514,55 @@
     overflow-x: auto;
   }
 
-  .storyboard-camera-grid,
-  .storyboard-builder-shot {
+  .storyboard-camera-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .storyboard-builder-shot__number { display: none; }
 }
 
 @media (max-width: 680px) {
   .storyboard-shell { min-width: 620px; }
+  .storyboard-shell--selection { min-width: 0; }
   .storyboard-page { overflow-x: auto; }
   .storyboard-toolbar__actions { display: none; }
+
+  .storyboard-builder {
+    padding: 16px 12px;
+  }
+
+  .storyboard-builder-shot__row {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .storyboard-builder-shot__summary {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .storyboard-builder-shot__actions {
+    flex-direction: column;
+  }
+
+  .storyboard-builder-shot__actions .ant-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .storyboard-builder-shot__details:not([hidden]) {
+    padding: 12px;
+  }
+
+  .storyboard-builder__footer .ant-btn {
+    width: 100%;
+  }
 }
 
 @media (hover: hover) {
   .storyboard-native-button:hover { border-color: var(--craft-accent-border); }
+  .storyboard-builder-shot__summary:hover .storyboard-builder-shot__toggle {
+    color: var(--craft-accent);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

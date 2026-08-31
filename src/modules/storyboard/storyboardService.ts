@@ -5,6 +5,7 @@ import type {
   StoryboardShotListConfiguration,
   StoryboardShotListOptions,
   StoryboardShot,
+  StoryboardSourceDocument,
 } from './model';
 import {MOCK_STORYBOARD_SCENES} from './mockData';
 import {storyboardApi} from './storyboardApi';
@@ -88,11 +89,19 @@ export const storyboardService: StoryboardFrontendService = {
   ),
   suggestShotList: async (scene, projectId, configuration) => {
     const proposal = await storyboardApi.suggestShotList(projectId, scene.id, configuration);
+    const document: StoryboardSourceDocument | undefined = proposal.source ? {
+      contentHash: proposal.source.content_hash,
+      sceneId: proposal.source.scene_id,
+      sceneVersion: proposal.source.scene_version,
+      segments: proposal.source.segments.map((segment) => ({...segment})),
+      truncated: proposal.source.truncated,
+    } : undefined;
     return proposal.shots.map((shot, index) => createShot(scene, {
       characterIds: shot.suggested_characters,
       description: shot.description,
       locationId: shot.suggested_location ?? undefined,
       referenceIds: shot.suggested_assets,
+      source: document ? {document, segmentIds: [...(shot.source_segment_ids ?? [])]} : undefined,
       title: shot.title,
     }, index + 1));
   },

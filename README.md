@@ -214,9 +214,10 @@ the preceding generated shot.
 The workspace loads screenplay scenes and existing storyboard progress from the
 project identified by the route. It no longer substitutes demo scenes from a
 different project, and AI shot-list proposals use the selected project's scene
-context. Editing autosave, image generation, asset references, and
-preview changes are still frontend-only prototype behavior and do not yet
-persist or call a backend provider. Camera controls deliberately describe
+context. Editing now saves a temporary browser draft as described below; it does
+not create backend shot records. Image generation, asset references, and preview
+changes are still frontend-only prototype behavior and do not yet call a backend
+provider. Camera controls deliberately describe
 filmmaking intent (position, height, distance, framing, lens, composition, and
 movement) without exposing XYZ coordinates, a 3D scene, or video generation.
 
@@ -238,11 +239,46 @@ informational provider estimate, not a reservation or final charge. The
 frontend displays the proposal for review; accepting and persisting proposed
 shots remains part of the normal shot-mutation flow.
 
-After confirmation, generation shows an indeterminate loader in the center of
-the screenplay block. The action button stays disabled without its own spinner.
+The initial click immediately shows a "Loading models…" indicator in the center
+of the screenplay block. It disappears when the model dialog opens. After
+confirmation, the same area shows "Creating shots…" until generation finishes.
+The action button stays disabled without its own spinner throughout the flow.
 Loading and errors belong to the originating scene; navigating to another scene
 does not redirect a completed proposal into it. Timeout, rate-limit, provider
 rejection, and invalid-response errors have distinct messages.
+
+The proposed shot list shows each shot's number, title, and a two-line description
+preview. **Expand** opens the full title and multiline description for editing
+inside that row; only one row is expanded at a time. Hovering over a preview
+also shows the full description. Reorder shots using the dedicated drag handle
+or the menu's **Move up / Move down** actions. These edits retain the existing
+frontend-only draft behavior described above; expanding a row does not save a
+new backend record.
+
+Inside an expanded shot, **Screenplay excerpt** is collapsed by default and
+reveals read-only original text. **Show in screenplay** opens the full scene in a
+drawer, highlights every passage linked to the shot, and scrolls to the first.
+Multiple shots may share a passage. New AI proposals return server-owned source
+segments and selected IDs; the UI never guesses original quotes from the AI's
+description. If the screenplay version changed, the drawer shows the preserved
+generation snapshot with a warning. A warning also identifies long scenes for
+which only the first 20,000 characters were sent to the model. Existing drafts
+without source links still show the full current scene, without highlights.
+
+Temporary drafts are stored in this browser's localStorage, scoped to the signed-in
+user and project. After the authorized workspace and profile load, cached shots
+restore into empty scenes without an AI request. If nonempty current and cached
+shot lists differ, neither replaces the other until the user chooses to restore
+the temporary draft or keep the current shots. Edits, ordering and source snapshots are
+saved automatically; **Download draft** makes a separate JSON backup. **Delete
+temporary copy** removes the browser copy without deleting visible shots; new
+edits resume saving. Storage failures are shown explicitly. Signed media URLs,
+binary images and authentication data are not included. This is a temporary text
+and camera-settings backup, not server persistence: another browser/device does
+not share it, clearing browser data removes it, and JSON import is not provided.
+An authentication change in another tab pauses temporary saving with a visible
+warning; reload to reauthorize the workspace and resume saving. Old results that
+were already lost from page memory cannot be recovered this way.
 
 ### Storyboard follow-up tasks
 

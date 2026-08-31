@@ -114,6 +114,19 @@ export interface KeyframeTransition {
   toKeyframeId: string;
 }
 
+export interface StoryboardSourceDocument {
+  contentHash: string;
+  sceneId: number;
+  sceneVersion: number;
+  segments: {id: string; text: string}[];
+  truncated: boolean;
+}
+
+export interface StoryboardShotSource {
+  document: StoryboardSourceDocument;
+  segmentIds: string[];
+}
+
 export interface StoryboardShot {
   characterIds: string[];
   description: string;
@@ -124,6 +137,7 @@ export interface StoryboardShot {
   order: number;
   referenceIds: string[];
   sceneId: string;
+  source?: StoryboardShotSource;
   title: string;
   transitions: KeyframeTransition[];
 }
@@ -156,6 +170,7 @@ export interface StoryboardScene {
   subtitle?: string;
   text: string;
   title: string;
+  version?: number;
 }
 
 export interface StoryboardShotListModelOption {
