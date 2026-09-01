@@ -136,14 +136,7 @@ it.each([
   destination,
 ) => {
   mockedFetchProjectDashboard.mockResolvedValue({} as never);
-  mockedAdaptStats.mockReturnValue([{
-    accent,
-    iconKey,
-    key,
-    label,
-    subtitle: '2 элемента',
-    value: 2,
-  }]);
+  mockedAdaptStats.mockReturnValue([{key, label, value: 2, iconKey, accent}]);
 
   render(
     <MemoryRouter initialEntries={['/projects/42']}>

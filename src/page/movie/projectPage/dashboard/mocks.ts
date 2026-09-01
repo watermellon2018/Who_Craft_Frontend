@@ -86,16 +86,15 @@ export interface StatMock {
   key: string;
   label: string;
   value: number;
-  subtitle: string;
   iconKey: 'characters' | 'scenes' | 'music' | 'locations';
   accent: AccentColor;
 }
 
 export const statsMock: StatMock[] = [
-  { key: 'characters', label: 'Персонажи', value: 12, subtitle: '8 активных', iconKey: 'characters', accent: 'purple' },
-  { key: 'scenes', label: 'Сцены', value: 24, subtitle: '12 завершено', iconKey: 'scenes', accent: 'blue' },
-  { key: 'music', label: 'Музыка', value: 18, subtitle: '6 треков используется', iconKey: 'music', accent: 'green' },
-  { key: 'locations', label: 'Визуальная библиотека', value: 9, subtitle: '6 готовых материалов', iconKey: 'locations', accent: 'yellow' },
+  { key: 'characters', label: 'Персонажи', value: 12, iconKey: 'characters', accent: 'purple' },
+  { key: 'scenes', label: 'Сцены', value: 24, iconKey: 'scenes', accent: 'blue' },
+  { key: 'music', label: 'Музыка', value: 18, iconKey: 'music', accent: 'green' },
+  { key: 'locations', label: 'Визуальная библиотека', value: 9,  iconKey: 'locations', accent: 'yellow' },
 ];
 
 export interface CharacterMock {

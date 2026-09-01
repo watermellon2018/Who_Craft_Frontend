@@ -281,15 +281,6 @@ function pick<T>(arr: T[], i: number): T {
   return arr[((i % arr.length) + arr.length) % arr.length];
 }
 
-function plural(n: number, one: string, few: string, many: string): string {
-  const a = Math.abs(n) % 100;
-  const a1 = a % 10;
-  if (a > 10 && a < 20) return many;
-  if (a1 === 1) return one;
-  if (a1 >= 2 && a1 <= 4) return few;
-  return many;
-}
-
 export function adaptProject(api: DashboardProject): ProjectMock {
   const team = (api.teamMembers || []).slice(0, 4).map((m, i) => ({
     id: String(m.id),
@@ -348,8 +339,6 @@ const STAT_DEFS: Array<{
   iconKey: StatMock['iconKey'];
   accent: AccentColor;
   total: keyof DashboardStats;
-  sub: keyof DashboardStats;
-  subLabel: (n: number) => string;
 }> = [
   {
     key: 'characters',
@@ -357,8 +346,6 @@ const STAT_DEFS: Array<{
     iconKey: 'characters',
     accent: 'purple',
     total: 'charactersTotal',
-    sub: 'charactersActive',
-    subLabel: (n) => `${n} ${plural(n, 'активный', 'активных', 'активных')}`,
   },
   {
     key: 'scenes',
@@ -366,8 +353,6 @@ const STAT_DEFS: Array<{
     iconKey: 'scenes',
     accent: 'blue',
     total: 'scenesTotal',
-    sub: 'scenesCompleted',
-    subLabel: (n) => `${n} ${plural(n, 'завершена', 'завершено', 'завершено')}`,
   },
   {
     key: 'music',
@@ -375,9 +360,6 @@ const STAT_DEFS: Array<{
     iconKey: 'music',
     accent: 'green',
     total: 'musicTotal',
-    sub: 'musicUsed',
-    subLabel: (n) =>
-      `${n} ${plural(n, 'трек используется', 'трека используется', 'треков используется')}`,
   },
   {
     key: 'locations',
@@ -385,13 +367,6 @@ const STAT_DEFS: Array<{
     iconKey: 'locations',
     accent: 'yellow',
     total: 'locationsTotal',
-    sub: 'locationsCreated',
-    subLabel: (n) => `${n} ${plural(
-      n,
-      'готовый материал',
-      'готовых материала',
-      'готовых материалов',
-    )}`,
   },
 ];
 
@@ -402,7 +377,6 @@ export function adaptStats(api: DashboardStats): StatMock[] {
     iconKey: d.iconKey,
     accent: d.accent,
     value: Number(api[d.total] || 0),
-    subtitle: d.subLabel(Number(api[d.sub] || 0)),
   }));
 }
 

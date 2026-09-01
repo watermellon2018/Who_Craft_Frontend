@@ -97,10 +97,10 @@ function buildEmptyViewModel(): ViewModel {
       teamExtraCount: 0,
     },
     stats: [
-      { key: 'characters', label: 'Персонажи', value: 0, subtitle: '—', iconKey: 'characters', accent: 'purple' },
-      { key: 'scenes', label: 'Сцены', value: 0, subtitle: '—', iconKey: 'scenes', accent: 'blue' },
-      { key: 'music', label: 'Музыка', value: 0, subtitle: '—', iconKey: 'music', accent: 'green' },
-      { key: 'locations', label: 'Визуальная библиотека', value: 0, subtitle: '—', iconKey: 'locations', accent: 'yellow' },
+      { key: 'characters', label: 'Персонажи', value: 0, iconKey: 'characters', accent: 'purple' },
+      { key: 'scenes', label: 'Сцены', value: 0, iconKey: 'scenes', accent: 'blue' },
+      { key: 'music', label: 'Музыка', value: 0, iconKey: 'music', accent: 'green' },
+      { key: 'locations', label: 'Визуальная библиотека', value: 0, iconKey: 'locations', accent: 'yellow' },
     ],
     characters: [],
     pipeline: [
