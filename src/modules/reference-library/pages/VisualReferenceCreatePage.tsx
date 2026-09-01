@@ -7,10 +7,14 @@ import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {backendAssetUrl} from '../../../api/http';
 import {referenceEditPath} from '../../../routes/pathConstant';
 import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
+import {useImageModelCatalog} from '../../character-studio/hooks/useImageModelCatalog';
 import {newReferenceIdempotencyKey, referenceApi} from '../api/referenceApi';
 import VisualReferenceCanvas from '../components/visual-editor/VisualReferenceCanvas';
 import VisualReferenceHeader from '../components/visual-editor/VisualReferenceHeader';
 import VisualReferenceInspector from '../components/visual-editor/VisualReferenceInspector';
+import type {
+  VisualReferenceImageModelOption,
+} from '../components/visual-editor/VisualReferenceInspector';
 import type {
   GeneratedVisualPreview,
   UploadedVisualImage,
@@ -66,6 +70,7 @@ function VisualReferenceCreateEditor() {
   ));
   const [description, setDescription] = useState('');
   const [brief, setBrief] = useState<ReferenceBrief>(EMPTY_BRIEF);
+  const [imageModel, setImageModel] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<VisualInspectorTab>('main');
   const [drafts, setDrafts] = useState<VisualReferenceDraft[]>([]);
   const [generatedPreview, setGeneratedPreview] = useState<GeneratedVisualPreview | null>(null);
@@ -99,6 +104,11 @@ function VisualReferenceCreateEditor() {
     draftIdentity?.id,
     generationJobId ?? undefined,
   );
+  const {
+    catalog: imageModelCatalog,
+    error: imageModelsError,
+    loading: imageModelsLoading,
+  } = useImageModelCatalog(projectId || undefined);
 
   useEffect(() => {
     if (!projectId) return;
@@ -197,9 +207,26 @@ function VisualReferenceCreateEditor() {
   }, [generation.errorMessage]);
 
   const canEdit = capabilities?.permissions.canEdit ?? false;
+  const imageModels: VisualReferenceImageModelOption[] = (
+    imageModelCatalog?.available ?? []
+  ).map((model) => ({
+    configured: model.configured,
+    key: model.key,
+    label: model.label,
+    supportsGenerate: model.supports_generate,
+  }));
+  const selectedImageModel = imageModel
+    ? imageModelCatalog?.available.find(({key}) => key === imageModel)
+    : undefined;
+  const effectiveImageModel = imageModel
+    || capabilities?.generation.effectiveModel
+    || imageModelCatalog?.current
+    || null;
   const canGenerate = Boolean(
     capabilities?.permissions.canRunGeneration
-    && capabilities.generation.canGenerate,
+    && (imageModel
+      ? selectedImageModel?.configured && selectedImageModel.supports_generate
+      : capabilities.generation.canGenerate),
   );
   const generationInProgress = generating || Boolean(
     generationJobId
@@ -229,6 +256,10 @@ function VisualReferenceCreateEditor() {
   const changeDescription = (value: string) => { setDescription(value); markDirty(); };
   const changeBrief = (value: ReferenceBrief) => { setBrief(value); markDirty(); };
   const changeRelations = (value: VisualRelation[]) => { setRelations(value); markDirty(); };
+  const changeImageModel = (value: string | null) => {
+    setImageModel(value);
+    generationIntent.current = undefined;
+  };
 
   const validateBeforeCreate = (requirePrompt = false): boolean => {
     if (!title.trim()) {
@@ -386,7 +417,7 @@ function VisualReferenceCreateEditor() {
       const jobPayload = {
         brief,
         expectedReferenceVersion: draft.version,
-        imageModel: '',
+        imageModel: effectiveImageModel ?? '',
         operation: 'generate' as const,
         sourceVersionId: null,
         variantCount,
@@ -399,7 +430,7 @@ function VisualReferenceCreateEditor() {
       const response = await runGenerationWithCredits(
         {
           domain: 'reference',
-          modelKey: capabilities.generation.effectiveModel ?? undefined,
+          modelKey: effectiveImageModel ?? undefined,
           operation: 'generate',
           variantCount,
           promptLength: String(brief.description ?? '').length,
@@ -573,7 +604,7 @@ function VisualReferenceCreateEditor() {
             costPreview={<GenerationCostPreview intent={{
               domain: 'reference',
               operation: 'generate',
-              modelKey: capabilities?.generation.effectiveModel ?? undefined,
+              modelKey: effectiveImageModel ?? undefined,
               variantCount: capabilities?.generation.generateVariantCounts.includes(1)
                 ? 1
                 : capabilities?.generation.generateVariantCounts[0] ?? 1,
@@ -599,12 +630,18 @@ function VisualReferenceCreateEditor() {
             description={description}
             disabled={!canEdit || busy}
             drafts={drafts}
+            effectiveImageModel={effectiveImageModel}
+            imageModel={imageModel}
+            imageModels={imageModels}
+            imageModelsError={imageModelsError}
+            imageModelsLoading={imageModelsLoading}
             primaryImageId={primaryImageId}
             relationCandidates={relationCandidates}
             relations={relations}
             onBriefChange={changeBrief}
             onCategoryChange={changeCategory}
             onDescriptionChange={changeDescription}
+            onImageModelChange={changeImageModel}
             onDeleteDraft={handleDeleteDraft}
             onPrimaryChange={handleSetPrimary}
             onRelationsChange={changeRelations}

@@ -122,21 +122,57 @@ it('navigates from the project actions menu to the canonical edit page', async (
   expect(await screen.findByText('Страница редактирования проекта')).toBeInTheDocument();
 });
 
-it('opens Music Studio from the dashboard music statistic', async () => {
+it.each([
+  ['characters', 'Персонажи', 'characters', 'purple', '/project/:projectId/characters', 'Библиотека персонажей'],
+  ['scenes', 'Сцены', 'scenes', 'blue', '/project/:projectId/script', 'Сценарий проекта'],
+  ['music', 'Музыка', 'music', 'green', '/project/:projectId/music', 'Музыкальная студия проекта'],
+  ['locations', 'Визуальная библиотека', 'locations', 'yellow', '/project/:projectId/references', 'Визуальная библиотека проекта'],
+] as const)('opens the project section from the %s dashboard statistic', async (
+  key,
+  label,
+  iconKey,
+  accent,
+  route,
+  destination,
+) => {
   mockedFetchProjectDashboard.mockResolvedValue({} as never);
-  mockedAdaptStats.mockReturnValue([{key: 'music', label: 'Музыка', value: 2, subtitle: '1 используется', iconKey: 'music', accent: 'green'}]);
+  mockedAdaptStats.mockReturnValue([{key, label, value: 2, iconKey, accent}]);
 
   render(
     <MemoryRouter initialEntries={['/projects/42']}>
       <Routes>
         <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
-        <Route path="/project/:projectId/music" element={<div>Музыкальная студия проекта</div>} />
+        <Route path={route} element={<div>{destination}</div>} />
       </Routes>
     </MemoryRouter>,
   );
 
-  fireEvent.click(await screen.findByRole('button', {name: 'Музыка'}));
-  expect(await screen.findByText('Музыкальная студия проекта')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', {name: label}));
+  expect(await screen.findByText(destination)).toBeInTheDocument();
+});
+
+it('opens Storyboard from the project pipeline', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({} as never);
+  mockedAdaptPipeline.mockReturnValue([{
+    accent: 'purple',
+    iconKey: 'storyboard',
+    key: 'storyboard',
+    label: 'Сториборд',
+    progress: 55,
+    subtitle: '13 сцен',
+  }]);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/project/:projectId/storyboard" element={<div>Раскадровка проекта</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', {name: 'Открыть: Сториборд'}));
+  expect(await screen.findByText('Раскадровка проекта')).toBeInTheDocument();
 });
 
 it('opens visual reference creation from quick actions for editors only', async () => {

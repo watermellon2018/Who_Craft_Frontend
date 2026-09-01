@@ -39,7 +39,6 @@ const StatCard: React.FC<StatCardProps> = ({ stat, onOpen }) => {
           {stat.value}
         </div>
         <div className="text-white/85 text-sm font-medium mt-2">{stat.label}</div>
-        <div className="text-white/60 text-xs mt-1">{stat.subtitle}</div>
       </div>
     </>
   );
@@ -67,7 +66,7 @@ const ProjectStats: React.FC<Props> = ({ stats, onStat }) => {
         <StatCard
           key={stat.key}
           stat={stat}
-          onOpen={stat.key === 'music' && onStat ? () => onStat(stat.key) : undefined}
+          onOpen={onStat ? () => onStat(stat.key) : undefined}
         />
       ))}
     </section>

@@ -19,6 +19,7 @@ const PathConstants = {
     INVITE_ACCEPT: '/invite/:token',
 
     SCRIPT_PAGE: '/project/:projectId/script',
+    STORYBOARD: '/project/:projectId/storyboard',
 
     VIDEO: '/project/:projectId/video',
     VIDEO_PREPARATION: '/project/:projectId/video/preparation',
@@ -70,6 +71,10 @@ export function scriptScenePath(
 ): string {
     const base = PathConstants.SCRIPT_PAGE.replace(':projectId', String(projectId));
     return `${base}?sceneId=${encodeURIComponent(String(sceneId))}`;
+}
+
+export function storyboardPath(projectId: string | number): string {
+    return PathConstants.STORYBOARD.replace(':projectId', String(projectId));
 }
 
 export function videoPath(projectId: string | number): string {

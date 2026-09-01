@@ -13,6 +13,7 @@ import PathConstants, {
   referenceCreatePath,
   referenceEditPath,
   referenceLibraryPath,
+  storyboardPath,
   videoPath,
   videoPreparationPath,
 } from '../../../../routes/pathConstant';
@@ -96,10 +97,10 @@ function buildEmptyViewModel(): ViewModel {
       teamExtraCount: 0,
     },
     stats: [
-      { key: 'characters', label: 'Персонажи', value: 0, subtitle: '—', iconKey: 'characters', accent: 'purple' },
-      { key: 'scenes', label: 'Сцены', value: 0, subtitle: '—', iconKey: 'scenes', accent: 'blue' },
-      { key: 'music', label: 'Музыка', value: 0, subtitle: '—', iconKey: 'music', accent: 'green' },
-      { key: 'locations', label: 'Визуальная библиотека', value: 0, subtitle: '—', iconKey: 'locations', accent: 'yellow' },
+      { key: 'characters', label: 'Персонажи', value: 0, iconKey: 'characters', accent: 'purple' },
+      { key: 'scenes', label: 'Сцены', value: 0, iconKey: 'scenes', accent: 'blue' },
+      { key: 'music', label: 'Музыка', value: 0, iconKey: 'music', accent: 'green' },
+      { key: 'locations', label: 'Визуальная библиотека', value: 0, iconKey: 'locations', accent: 'yellow' },
     ],
     characters: [],
     pipeline: [
@@ -240,8 +241,26 @@ export const ProjectDashboardPage: React.FC = () => {
     navigate(musicTrackPath(projectId, trackId));
   }, [navigate, projectId]);
   const handleStat = useCallback((key: string) => {
-    if (key === 'music') handleOpenMusic();
-    if (key === 'locations' && projectId) navigate(referenceLibraryPath(projectId));
+    if (!projectId) return;
+
+    if (key === 'characters') {
+      navigate(PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId)));
+      return;
+    }
+    if (key === 'scenes') {
+      navigate(
+        PathConstants.SCRIPT_PAGE.replace(':projectId', String(projectId)),
+        {state: {project_id: projectId}},
+      );
+      return;
+    }
+    if (key === 'music') {
+      handleOpenMusic();
+      return;
+    }
+    if (key === 'locations') {
+      navigate(referenceLibraryPath(projectId));
+    }
   }, [handleOpenMusic, navigate, projectId]);
 
   const handleContinue = handleOpenScript;
@@ -287,9 +306,14 @@ export const ProjectDashboardPage: React.FC = () => {
     }
     if (key === 'reference' && projectId) {
       navigate(referenceLibraryPath(projectId));
+      return;
+    }
+    if (key === 'storyboard' && projectId) {
+      navigate(storyboardPath(projectId));
     }
   };
-  const isPipelineStepEnabled = (key: string) => key === 'script' || key === 'reference';
+  const isPipelineStepEnabled = (key: string) =>
+    key === 'script' || key === 'storyboard' || key === 'reference';
 
   const applySummaryToView = useCallback(
     (summary: {
