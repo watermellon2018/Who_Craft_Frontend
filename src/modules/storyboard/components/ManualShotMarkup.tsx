@@ -1,8 +1,10 @@
-import {Alert, Button, Form, Input, Progress} from 'antd';
+import {LoadingOutlined, RobotOutlined} from '@ant-design/icons';
+import {Alert, Button, Form, Input, Progress, Tooltip} from 'antd';
 import React, {useCallback, useEffect, useId, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 
 import type {StoryboardScene} from '../model';
+import type {StoryboardShotMetadataField} from '../storyboardService';
 import {
   calculateCoverage,
   createManualSourceDocument,
@@ -18,6 +20,7 @@ interface ManualShotMarkupProps {
   onAdd: (input: NewShotInput) => void;
   onComplete: () => void;
   onCancel?: () => void;
+  onSuggestMetadata?: (field: StoryboardShotMetadataField, range: SourceRange) => Promise<string>;
   disabled?: boolean;
 }
 
@@ -33,25 +36,37 @@ interface SelectedSource {
 }
 
 const MAX_DESCRIPTION_LENGTH = 4000;
+const emptySuggestionState = (): Record<StoryboardShotMetadataField, boolean> => ({
+  description: false,
+  title: false,
+});
 
 export default function ManualShotMarkup({
-  scene, onAdd, onComplete, onCancel, disabled = false,
+  scene, onAdd, onComplete, onCancel, onSuggestMetadata, disabled = false,
 }: ManualShotMarkupProps) {
   const {t} = useTranslation();
   const id = useId();
   const textRef = useRef<HTMLDivElement>(null);
   const requestRef = useRef(0);
+  const suggestionRequestRef = useRef<Record<StoryboardShotMetadataField, number>>({description: 0, title: 0});
+  const suggestionActiveRef = useRef<Record<StoryboardShotMetadataField, boolean>>(emptySuggestionState());
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
   const [selection, setSelection] = useState<SelectedSource | null>(null);
   const [pending, setPending] = useState<SelectedSource | null>(null);
   const [creating, setCreating] = useState(false);
   const [sourceError, setSourceError] = useState(false);
+  const [suggesting, setSuggesting] = useState(emptySuggestionState);
+  const [suggestionErrors, setSuggestionErrors] = useState(emptySuggestionState);
   const [addedTitle, setAddedTitle] = useState('');
   const [form] = Form.useForm<ShotFields>();
 
   useEffect(() => {
+    const suggestionRequests = suggestionRequestRef.current;
     requestRef.current += 1;
+    suggestionRequests.title += 1;
+    suggestionRequests.description += 1;
+    suggestionActiveRef.current = emptySuggestionState();
     const root = textRef.current;
     const nativeSelection = root?.ownerDocument.getSelection();
     if (root && nativeSelection && (root.contains(nativeSelection.anchorNode) || root.contains(nativeSelection.focusNode))) {
@@ -61,9 +76,15 @@ export default function ManualShotMarkup({
     setPending(null);
     setCreating(false);
     setSourceError(false);
+    setSuggesting(emptySuggestionState());
+    setSuggestionErrors(emptySuggestionState());
     setAddedTitle('');
     form.resetFields();
-    return () => { requestRef.current += 1; };
+    return () => {
+      requestRef.current += 1;
+      suggestionRequests.title += 1;
+      suggestionRequests.description += 1;
+    };
   }, [form, scene.id, scene.text]);
 
   const selected = selection?.sceneId === scene.id && selection.text === scene.text ? selection : null;
@@ -125,7 +146,7 @@ export default function ManualShotMarkup({
   };
 
   const addShot = async (values: ShotFields) => {
-    if (!confirmed || disabled || creating) return;
+    if (!confirmed || disabled || creating || suggesting.title || suggesting.description) return;
     const activeScene = scene;
     const request = ++requestRef.current;
     setCreating(true);
@@ -151,6 +172,50 @@ export default function ManualShotMarkup({
       if (request === requestRef.current) setCreating(false);
     }
   };
+
+  const suggestMetadata = async (field: StoryboardShotMetadataField) => {
+    if (!confirmed || !onSuggestMetadata || disabled || creating || suggestionActiveRef.current[field]) return;
+    const activeScene = scene;
+    const activeRange = {...confirmed.range};
+    const request = ++suggestionRequestRef.current[field];
+    suggestionActiveRef.current[field] = true;
+    setSuggesting((current) => ({...current, [field]: true}));
+    setSuggestionErrors((current) => ({...current, [field]: false}));
+    try {
+      const value = await onSuggestMetadata(field, activeRange);
+      if (
+        request !== suggestionRequestRef.current[field]
+        || sceneRef.current.id !== activeScene.id
+        || sceneRef.current.text !== activeScene.text
+      ) return;
+      form.setFieldValue(field, value);
+    } catch {
+      if (request === suggestionRequestRef.current[field]) {
+        setSuggestionErrors((current) => ({...current, [field]: true}));
+      }
+    } finally {
+      if (request === suggestionRequestRef.current[field]) {
+        suggestionActiveRef.current[field] = false;
+        setSuggesting((current) => ({...current, [field]: false}));
+      }
+    }
+  };
+
+  const metadataButton = (field: StoryboardShotMetadataField) => (
+    <Tooltip title={t(`storyboard.manualMarkup.ai.${field}.tooltip`)}>
+      <Button
+        aria-label={t(`storyboard.manualMarkup.ai.${field}.action`)}
+        aria-busy={suggesting[field]}
+        className="storyboard-manual__ai-button"
+        disabled={disabled || creating || !onSuggestMetadata}
+        icon={suggesting[field] ? <LoadingOutlined spin /> : <RobotOutlined />}
+        onClick={() => suggestMetadata(field)}
+        onMouseDown={(event) => event.preventDefault()}
+        size="small"
+        type="text"
+      />
+    </Tooltip>
+  );
 
   return (
     <section className="storyboard-manual" aria-labelledby={`${id}-title`}>
@@ -207,22 +272,38 @@ export default function ManualShotMarkup({
           {selectedText.length > MAX_DESCRIPTION_LENGTH && (
             <Alert message={t('storyboard.manualMarkup.longSelection')} showIcon type="info" />
           )}
-          <Form.Item
-            label={t('storyboard.manualMarkup.titleLabel')}
-            name="title"
-            rules={[{required: true, whitespace: true, message: t('storyboard.validation.shotTitle')}]}
-          >
-            <Input autoFocus disabled={creating || disabled} maxLength={255} />
+          <Form.Item htmlFor={`${id}-shot-title`} label={t('storyboard.manualMarkup.titleLabel')}>
+            <div className="storyboard-manual__ai-field storyboard-manual__ai-field--title">
+              <Form.Item
+                name="title"
+                noStyle
+                rules={[{required: true, whitespace: true, message: t('storyboard.validation.shotTitle')}]}
+              >
+                <Input id={`${id}-shot-title`} autoFocus disabled={creating || disabled || suggesting.title} maxLength={255} />
+              </Form.Item>
+              {metadataButton('title')}
+            </div>
           </Form.Item>
-          <Form.Item label={t('storyboard.manualMarkup.descriptionLabel')} name="description">
-            <Input.TextArea autoSize={{minRows: 2, maxRows: 6}} disabled={creating || disabled} maxLength={MAX_DESCRIPTION_LENGTH} />
+          <Form.Item htmlFor={`${id}-shot-description`} label={t('storyboard.manualMarkup.descriptionLabel')}>
+            <div className="storyboard-manual__ai-field storyboard-manual__ai-field--description">
+              <Form.Item name="description" noStyle>
+                <Input.TextArea id={`${id}-shot-description`} autoSize={{minRows: 2, maxRows: 6}}
+                  disabled={creating || disabled || suggesting.description} maxLength={MAX_DESCRIPTION_LENGTH} />
+              </Form.Item>
+              {metadataButton('description')}
+            </div>
           </Form.Item>
+          {(['title', 'description'] as const).map((field) => suggestionErrors[field] && (
+            <Alert key={field} message={t(`storyboard.manualMarkup.ai.${field}.error`)} showIcon type="error" />
+          ))}
           {sourceError && <Alert message={t('storyboard.manualMarkup.hashError')} showIcon type="error" />}
           <div className="storyboard-inline-actions">
-            <Button disabled={disabled} htmlType="submit" loading={creating} type="primary">
+            <Button disabled={disabled || suggesting.title || suggesting.description} htmlType="submit" loading={creating} type="primary">
               {t('storyboard.manualMarkup.add')}
             </Button>
-            <Button disabled={creating} onClick={() => { setPending(null); setSourceError(false); }}>
+            <Button disabled={creating || suggesting.title || suggesting.description} onClick={() => {
+              setPending(null); setSourceError(false); setSuggestionErrors(emptySuggestionState());
+            }}>
               {t('storyboard.manualMarkup.cancelSelection')}
             </Button>
           </div>

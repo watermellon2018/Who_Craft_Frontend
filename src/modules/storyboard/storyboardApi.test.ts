@@ -108,6 +108,23 @@ test('requests an AI shot proposal for the current project and scene', async () 
   );
 });
 
+test('requests one manual shot field without sending a model or source text', async () => {
+  postMock.mockResolvedValue({data: {field: 'title', value: 'Анна входит'}});
+
+  await expect(storyboardApi.suggestShotMetadata('61', '17', {
+    field: 'title',
+    language: 'ru',
+    range: {start: 4, end: 19},
+    sceneVersion: 8,
+  }, 7)).resolves.toEqual({field: 'title', value: 'Анна входит'});
+
+  expect(postMock).toHaveBeenCalledWith(
+    'api/projects/61/storyboard/scenes/17/suggest-shot-metadata/',
+    {field: 'title', language: 'ru', range: {start: 4, end: 19}, sceneVersion: 8},
+    {expectedAuthGeneration: 7},
+  );
+});
+
 test('loads model availability and cost estimates for the selected scene', async () => {
   const options = {
     context: {characters: ['Энгри Дог'], locations: ['Причал'], sceneTitle: 'Причал'},

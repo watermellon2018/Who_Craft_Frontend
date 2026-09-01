@@ -7,6 +7,7 @@ import type {
   StoryboardShot,
   StoryboardSourceDocument,
 } from './model';
+import type {StoryboardShotMetadataRequest} from '../../api/generated/contracts';
 import i18n from '../../i18n';
 import {MOCK_STORYBOARD_SCENES} from './mockData';
 import {storyboardApi} from './storyboardApi';
@@ -27,6 +28,9 @@ export interface GenerateStoryboardFrameResult {
   imageUrl: string;
 }
 
+export type StoryboardShotMetadataField = StoryboardShotMetadataRequest['field'];
+export type StoryboardShotMetadataRange = StoryboardShotMetadataRequest['range'];
+
 export interface StoryboardFrontendService {
   editorFrames?: EditorFrameService;
   loadCanvasLibrary?: (projectId: string, signal?: AbortSignal) => Promise<StoryboardSceneEntity[]>;
@@ -37,6 +41,12 @@ export interface StoryboardFrontendService {
     scene: StoryboardScene,
     projectId: string,
   ) => Promise<StoryboardShotListOptions>;
+  suggestShotMetadata: (
+    scene: StoryboardScene,
+    projectId: string,
+    field: StoryboardShotMetadataField,
+    range: StoryboardShotMetadataRange,
+  ) => Promise<string>;
   suggestShotList: (
     scene: StoryboardScene,
     projectId: string,
@@ -87,6 +97,11 @@ export const storyboardMockService: StoryboardFrontendService = {
       unavailableReason: null,
     }],
   }),
+  suggestShotMetadata: async (scene, _projectId, field, range) => {
+    const selection = Array.from(scene.text).slice(range.start, range.end).join('').trim();
+    if (field === 'description') return selection;
+    return selection.split(/\s+/u).slice(0, 8).join(' ');
+  },
   suggestShotList: async (scene) => createMockShotList(scene),
 };
 
@@ -100,6 +115,20 @@ export const storyboardService: StoryboardFrontendService = {
     storyboardApi.loadShotListOptions(projectId, scene.id,
       i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'ru')
   ),
+  suggestShotMetadata: async (scene, projectId, field, range) => {
+    const suggestion = await storyboardApi.suggestShotMetadata(
+      projectId,
+      scene.id,
+      {
+        field,
+        language: i18n.resolvedLanguage?.startsWith('en') ? 'en' : 'ru',
+        range,
+        sceneVersion: scene.version ?? 1,
+      },
+      scene.draftAuthGeneration,
+    );
+    return suggestion.value;
+  },
   suggestShotList: async (scene, projectId, configuration) => {
     const proposal = await storyboardApi.suggestShotList(
       projectId, scene.id, configuration, scene.draftAuthGeneration,

@@ -400,6 +400,32 @@
   border-radius: 12px;
 }
 
+.storyboard-manual__ai-field {
+  position: relative;
+}
+
+.storyboard-manual__ai-field .ant-input {
+  padding-inline-end: 42px;
+}
+
+.storyboard-manual__ai-button.ant-btn {
+  position: absolute;
+  z-index: 1;
+  inset-inline-end: 6px;
+  width: 28px;
+  min-width: 28px;
+  color: var(--craft-accent);
+}
+
+.storyboard-manual__ai-field--title .storyboard-manual__ai-button.ant-btn {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.storyboard-manual__ai-field--description .storyboard-manual__ai-button.ant-btn {
+  top: 6px;
+}
+
 .storyboard-manual__coverage,
 .storyboard-manual__status {
   color: var(--craft-text-muted);

@@ -384,6 +384,11 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
             onAdd={handleCreateManual}
             onCancel={() => workspace.setMode(workspace.selectedScene?.shots.length ? 'builder' : 'overview')}
             onComplete={() => workspace.setMode('builder')}
+            onSuggestMetadata={async (field, range) => {
+              const scene = workspace.selectedScene;
+              if (!scene) throw new Error('No storyboard scene is selected.');
+              return service.suggestShotMetadata(scene, projectId, field, range);
+            }}
             scene={workspace.selectedScene}
           />
         )}

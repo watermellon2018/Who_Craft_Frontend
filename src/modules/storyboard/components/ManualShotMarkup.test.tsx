@@ -4,6 +4,7 @@ import React, {useState} from 'react';
 import {TextEncoder} from 'util';
 
 import type {StoryboardScene} from '../model';
+import type {StoryboardShotMetadataField} from '../storyboardService';
 import {createShot} from '../useStoryboardWorkspace';
 import type {NewShotInput} from '../useStoryboardWorkspace';
 import ManualShotMarkup from './ManualShotMarkup';
@@ -111,6 +112,71 @@ test.each([{key: 'o'}, {key: 'O', code: 'KeyO', shiftKey: true}, {key: 'щ', cod
     expect(onAdd.mock.calls[0][0].source.ranges).toEqual([{start: 1, end: 2}]);
   },
 );
+
+test('requests editable AI suggestions for each field from the exact selection', async () => {
+  const onSuggestMetadata = jest.fn(async (field) => (
+    field === 'title' ? 'Реакция героя' : 'Герой замечает перемену.'
+  ));
+  render(<ManualShotMarkup scene={initialScene} onAdd={jest.fn()} onComplete={jest.fn()}
+    onSuggestMetadata={onSuggestMetadata} />);
+  selectCharacters(1, 3);
+  fireEvent.click(screen.getByRole('button', {name: 'Создать кадр из выделения'}));
+
+  fireEvent.click(screen.getByRole('button', {name: 'Сгенерировать название с помощью ИИ'}));
+  await waitFor(() => expect(screen.getByRole('textbox', {name: 'Название'})).toHaveValue('Реакция героя'));
+  expect(onSuggestMetadata).toHaveBeenLastCalledWith('title', {start: 1, end: 2});
+
+  fireEvent.click(screen.getByRole('button', {name: 'Сгенерировать описание с помощью ИИ'}));
+  await waitFor(() => expect(screen.getByRole('textbox', {name: 'Описание'})).toHaveValue('Герой замечает перемену.'));
+  expect(onSuggestMetadata).toHaveBeenLastCalledWith('description', {start: 1, end: 2});
+});
+
+test('runs title and description suggestions concurrently and resolves them independently', async () => {
+  const resolvers = {} as Record<StoryboardShotMetadataField, (value: string) => void>;
+  const onSuggestMetadata = jest.fn((field: StoryboardShotMetadataField) => new Promise<string>((resolve) => {
+    resolvers[field] = resolve;
+  }));
+  render(<ManualShotMarkup scene={initialScene} onAdd={jest.fn()} onComplete={jest.fn()}
+    onSuggestMetadata={onSuggestMetadata} />);
+  selectCharacters(1, 3);
+  fireEvent.click(screen.getByRole('button', {name: 'Создать кадр из выделения'}));
+
+  const titleButton = screen.getByRole('button', {name: 'Сгенерировать название с помощью ИИ'});
+  const descriptionButton = screen.getByRole('button', {name: 'Сгенерировать описание с помощью ИИ'});
+  fireEvent.click(titleButton);
+  expect(descriptionButton).toBeEnabled();
+  fireEvent.click(descriptionButton);
+
+  expect(onSuggestMetadata).toHaveBeenCalledTimes(2);
+  expect(titleButton).toBeEnabled();
+  expect(descriptionButton).toBeEnabled();
+  expect(titleButton).toHaveAttribute('aria-busy', 'true');
+  expect(descriptionButton).toHaveAttribute('aria-busy', 'true');
+  fireEvent.click(titleButton);
+  fireEvent.click(descriptionButton);
+  expect(onSuggestMetadata).toHaveBeenCalledTimes(2);
+  await act(async () => { resolvers.description('Герой замечает перемену.'); });
+  expect(screen.getByRole('textbox', {name: 'Описание'})).toHaveValue('Герой замечает перемену.');
+  expect(titleButton).toHaveAttribute('aria-busy', 'true');
+  expect(descriptionButton).toHaveAttribute('aria-busy', 'false');
+  await act(async () => { resolvers.title('Реакция героя'); });
+  expect(screen.getByRole('textbox', {name: 'Название'})).toHaveValue('Реакция героя');
+  expect(titleButton).toHaveAttribute('aria-busy', 'false');
+});
+
+test('keeps the editable value and shows a retryable message when AI fails', async () => {
+  const onSuggestMetadata = jest.fn().mockRejectedValue(new Error('provider unavailable'));
+  render(<ManualShotMarkup scene={initialScene} onAdd={jest.fn()} onComplete={jest.fn()}
+    onSuggestMetadata={onSuggestMetadata} />);
+  selectCharacters(1, 3);
+  fireEvent.click(screen.getByRole('button', {name: 'Создать кадр из выделения'}));
+
+  fireEvent.click(screen.getByRole('button', {name: 'Сгенерировать описание с помощью ИИ'}));
+
+  expect(await screen.findByText('Не удалось предложить описание. Повторите попытку.')).toBeInTheDocument();
+  expect(screen.getByRole('textbox', {name: 'Описание'})).toHaveValue('😀');
+  expect(screen.getByRole('button', {name: 'Сгенерировать описание с помощью ИИ'})).toBeEnabled();
+});
 
 test('does not intercept browser shortcuts, composition, repeats, or typing outside the screenplay', () => {
   render(<>
