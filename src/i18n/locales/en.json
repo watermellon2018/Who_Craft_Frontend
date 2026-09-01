@@ -1780,6 +1780,136 @@
     "openPreparation": "Review preparation",
     "backToProject": "Back to project"
   },
+  "projectRoadmap": {
+    "breadcrumbs": {
+      "projects": "All projects",
+      "roadmap": "Roadmap"
+    },
+    "title": "Roadmap for “{{projectTitle}}”",
+    "subtitle": "Start with the script or the visual side. The roadmap recommends what to do next without locking you into one order.",
+    "loading": "Loading roadmap",
+    "loadingHint": "Checking the readiness of each project stage.",
+    "optional": "Optional",
+    "comingSoon": "Coming soon",
+    "optionalNote": "The visual library and music are optional stages. They enrich the result but never block storyboarding or video.",
+    "progress": "Readiness",
+    "progressLabel": "Readiness of “{{title}}”",
+    "groups": {
+      "preparation": {
+        "title": "Preparation"
+      },
+      "delivery": {
+        "title": "Core path",
+        "description": "The storyboard brings the required preparation together before the project moves to video."
+      }
+    },
+    "steps": {
+      "script": {
+        "title": "Script"
+      },
+      "characters": {
+        "title": "Characters"
+      },
+      "references": {
+        "title": "Visual library"
+      },
+      "music": {
+        "title": "Music"
+      },
+      "storyboard": {
+        "title": "Storyboard"
+      },
+      "video": {
+        "title": "Video"
+      }
+    },
+    "status": {
+      "not_started": "Not started",
+      "open": "Open",
+      "in_progress": "In progress",
+      "ready": "Ready for the next step",
+      "blocked": "Blocked",
+      "needs_attention": "Needs attention"
+    },
+    "metrics": {
+      "scenesTotal": "Total scenes",
+      "scenesReady": "Ready scenes",
+      "charactersTotal": "Total characters",
+      "charactersReady": "Ready characters",
+      "activeJobs": "Active jobs",
+      "missingCharacters": "Missing characters",
+      "referencesTotal": "Total materials",
+      "referencesReady": "Ready materials",
+      "failedReferences": "Failed materials",
+      "tracksTotal": "Total tracks",
+      "tracksReady": "Ready tracks",
+      "failedTracks": "Failed tracks",
+      "scenesStarted": "Started scenes",
+      "scenesMissing": "Missing storyboards",
+      "scenesStale": "Stale scenes",
+      "shotsTotal": "Total shots",
+      "shotsReady": "Ready shots"
+    },
+    "blockers": {
+      "title": "What to do",
+      "unknown": "Review this stage's data.",
+      "incompleteScenes_one": "Complete {{count}} script scene.",
+      "incompleteScenes_other": "Complete {{count}} script scenes.",
+      "missingCharacters_one": "Create {{count}} missing character.",
+      "missingCharacters_other": "Create {{count}} missing characters.",
+      "generationFailed_one": "Resolve {{count}} generation failure.",
+      "generationFailed_other": "Resolve {{count}} generation failures.",
+      "scriptNotReady": "Prepare the required script scenes first.",
+      "charactersNotReady": "Prepare the significant characters first.",
+      "staleStoryboards_one": "Refresh {{count}} stale storyboard.",
+      "staleStoryboards_other": "Refresh {{count}} stale storyboards.",
+      "storyboardNotReady": "Complete the required storyboard."
+    },
+    "recommendation": {
+      "label": "Recommended next step",
+      "description": "This is a recommendation; every available section remains open in any order."
+    },
+    "complete": {
+      "label": "Core path ready",
+      "title": "Ready for final work",
+      "description": "Every required stage is ready. Optional materials can still be added at any time."
+    },
+    "actions": {
+      "continue": "Continue",
+      "openStep": "Open stage",
+      "openStepLabel": "Open stage “{{title}}”",
+      "retry": "Try again",
+      "signIn": "Sign in again",
+      "backToProjects": "Back to projects"
+    },
+    "preview": {
+      "title": "Project roadmap",
+      "description": "A hybrid path from preparation to video, with visual library and music kept optional.",
+      "open": "Open roadmap"
+    },
+    "errors": {
+      "unauthorized": {
+        "title": "Sign in again",
+        "description": "Sign in again to open the project roadmap."
+      },
+      "forbidden": {
+        "title": "You do not have access",
+        "description": "Ask the project owner to grant you access."
+      },
+      "notFound": {
+        "title": "Project not found",
+        "description": "The project may have been deleted or this address may be outdated."
+      },
+      "unknown": {
+        "title": "Could not load the roadmap",
+        "description": "Check your connection and try again."
+      },
+      "missingProject": {
+        "title": "No project selected",
+        "description": "Return to the list and choose a project."
+      }
+    }
+  },
   "navigation": {
     "sections": {
       "subscriptions": "Subscriptions",

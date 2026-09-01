@@ -1,85 +1,167 @@
-import React from 'react';
 import {
-  FileTextOutlined,
   AppstoreOutlined,
+  AudioOutlined,
+  ExclamationCircleOutlined,
+  FileTextOutlined,
   PictureOutlined,
-  BoxPlotOutlined,
+  TeamOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons';
-import {ACCENT_HEX} from './mocks';
-import type {PipelineStepMock} from './mocks';
+import React from 'react';
+import {useTranslation} from 'react-i18next';
+import {Link} from 'react-router-dom';
 
-const ICONS: Record<PipelineStepMock['iconKey'], React.ReactNode> = {
+import type {
+  DashboardRoadmap,
+  DashboardRoadmapBlocker,
+  DashboardRoadmapStep,
+  DashboardRoadmapStepKey,
+} from './api';
+
+const STEP_ICONS: Record<DashboardRoadmapStepKey, React.ReactNode> = {
   script: <FileTextOutlined />,
+  characters: <TeamOutlined />,
+  references: <PictureOutlined />,
+  music: <AudioOutlined />,
   storyboard: <AppstoreOutlined />,
-  reference: <PictureOutlined />,
-  model3d: <BoxPlotOutlined />,
   video: <VideoCameraOutlined />,
 };
 
 interface PipelineStepProps {
-  step: PipelineStepMock;
-  enabled: boolean;
-  onSelect?: (key: string) => void;
+  step: DashboardRoadmapStep;
 }
 
-const PipelineStep: React.FC<PipelineStepProps> = ({step, enabled, onSelect}) => {
-  const accent = ACCENT_HEX[step.accent];
+function blockerFallbackCount(
+  blocker: DashboardRoadmapBlocker,
+  metrics: Record<string, number>,
+): number | undefined {
+  if (blocker.count !== undefined) return blocker.count;
+
+  if (blocker.code === 'incompleteScenes') {
+    return Math.max(0, (metrics.scenesTotal ?? 0) - (metrics.scenesReady ?? 0));
+  }
+  if (blocker.code === 'missingCharacters') return metrics.missingCharacters;
+  if (blocker.code === 'staleStoryboards') return metrics.scenesStale;
+  if (blocker.code === 'storyboardNotReady') return metrics.scenesMissing;
+  if (blocker.code === 'generationFailed') {
+    return metrics.failedReferences ?? metrics.failedTracks;
+  }
+  return undefined;
+}
+
+const PipelineStep: React.FC<PipelineStepProps> = ({step}) => {
+  const {t} = useTranslation();
+  const warningId = React.useId();
+  const title = t(`projectRoadmap.steps.${step.key}.title`);
+  const statusKey = step.key === 'storyboard' && step.state === 'not_started'
+    ? 'open'
+    : step.state;
+  const warningText = step.blockers.map((blocker) => {
+    const count = blockerFallbackCount(blocker, step.metrics);
+    return t(`projectRoadmap.blockers.${blocker.code}`, {
+      count,
+      defaultValue: t('projectRoadmap.blockers.unknown'),
+    });
+  }).join(' ');
+  const content = (
+    <>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <span className="proj-pipeline-icon" aria-hidden="true">
+          {STEP_ICONS[step.key]}
+        </span>
+        {(!step.optional || warningText) && (
+          <span className="proj-pipeline-indicators">
+            {!step.optional && (
+              <span className={`proj-pipeline-status proj-pipeline-status--${step.state}`}>
+                {t(`projectRoadmap.status.${statusKey}`)}
+              </span>
+            )}
+            {warningText && (
+              <span className="proj-pipeline-warning">
+                <ExclamationCircleOutlined aria-hidden="true" />
+                <span
+                  className="proj-pipeline-warning__tooltip"
+                  id={warningId}
+                  role="tooltip"
+                >
+                  {warningText}
+                </span>
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+      <div className="text-white text-sm font-semibold leading-tight">{title}</div>
+      {step.optional && (
+        <div className="proj-pipeline-optional">{t('projectRoadmap.optional')}</div>
+      )}
+      {step.availability === 'coming_soon' && (
+        <div className="proj-pipeline-availability">{t('projectRoadmap.comingSoon')}</div>
+      )}
+      {!step.optional && step.progressPercent !== null && (
+        <>
+          <div className="proj-pipeline-progress-label">{step.progressPercent}%</div>
+          <div className="proj-progress-track mt-2" aria-hidden="true">
+            <div
+              className="proj-progress-fill proj-pipeline-progress-fill"
+              style={{width: `${step.progressPercent}%`}}
+            />
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  if (step.availability === 'available') {
+    return (
+      <Link
+        className="proj-pipeline-step"
+        to={step.actionUrl}
+        aria-label={t('projectRoadmap.actions.openStepLabel', {title})}
+        aria-describedby={warningText ? warningId : undefined}
+      >
+        {content}
+      </Link>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      className="proj-pipeline-step"
-      onClick={enabled ? () => onSelect?.(step.key) : undefined}
-      disabled={!enabled}
-      title={enabled ? `Открыть: ${step.label}` : `${step.label}: раздел пока недоступен`}
-      aria-label={enabled ? `Открыть: ${step.label}` : `${step.label}: раздел пока недоступен`}
+    <div
+      className="proj-pipeline-step proj-pipeline-step--disabled"
+      aria-disabled="true"
+      aria-describedby={warningText ? warningId : undefined}
     >
-      <div className="flex items-center justify-between mb-3">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-base"
-          style={{
-            background: `${accent}1f`,
-            color: accent,
-          }}
-        >
-          {ICONS[step.iconKey]}
-        </div>
-        <span className="text-white/75 text-xs font-semibold tabular-nums">{step.progress}%</span>
-      </div>
-      <div className="text-white text-sm font-semibold leading-tight">{step.label}</div>
-      <div className="text-white/60 text-xs mt-0.5">{step.subtitle}</div>
-      <div className="proj-progress-track mt-3">
-        <div
-          className="proj-progress-fill"
-          style={{width: `${step.progress}%`, background: accent}}
-        />
-      </div>
-    </button>
+      {content}
+    </div>
   );
 };
 
 interface Props {
-  pipeline: PipelineStepMock[];
-  onStep?: (key: string) => void;
-  isStepEnabled?: (key: string) => boolean;
+  roadmap: DashboardRoadmap | null;
+  roadmapUrl: string;
 }
 
-const ProjectPipeline: React.FC<Props> = ({pipeline, onStep, isStepEnabled}) => {
+const ProjectPipeline: React.FC<Props> = ({roadmap, roadmapUrl}) => {
+  const {t} = useTranslation();
+
   return (
     <section className="proj-card p-5 sm:p-6">
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="proj-section-title">Структура проекта</h3>
+      <div className="proj-pipeline-heading">
+        <div>
+          <h3 className="proj-section-title">{t('projectRoadmap.preview.title')}</h3>
+          <p>{t('projectRoadmap.preview.description')}</p>
+        </div>
+        <Link className="proj-btn proj-btn-secondary" to={roadmapUrl}>
+          {t('projectRoadmap.preview.open')}
+        </Link>
       </div>
-      <div className="proj-pipeline-grid">
-        {pipeline.map((step) => (
-          <PipelineStep
-            key={step.key}
-            step={step}
-            enabled={Boolean(onStep && isStepEnabled?.(step.key))}
-            onSelect={onStep}
-          />
-        ))}
-      </div>
+      {roadmap && (
+        <div className="proj-pipeline-grid">
+          {roadmap.steps.map((step) => (
+            <PipelineStep key={step.key} step={step} />
+          ))}
+        </div>
+      )}
     </section>
   );
 };

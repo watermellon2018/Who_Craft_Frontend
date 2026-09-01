@@ -1621,6 +1621,144 @@
     "openPreparation": "Проверить подготовку",
     "backToProject": "К проекту"
   },
+  "projectRoadmap": {
+    "breadcrumbs": {
+      "projects": "Все проекты",
+      "roadmap": "Roadmap"
+    },
+    "title": "Roadmap проекта «{{projectTitle}}»",
+    "subtitle": "Начинайте со сценария или визуальной части. Roadmap подсказывает следующий шаг, но не ограничивает порядок работы.",
+    "loading": "Загружаем roadmap",
+    "loadingHint": "Проверяем готовность этапов проекта.",
+    "optional": "Опционально",
+    "comingSoon": "В разработке",
+    "optionalNote": "Визуальная библиотека и музыка — опциональные этапы. Они помогают обогатить результат, но не блокируют раскадровку и видео.",
+    "progress": "Готовность",
+    "progressLabel": "Готовность этапа «{{title}}»",
+    "groups": {
+      "preparation": {
+        "title": "Подготовка"
+      },
+      "delivery": {
+        "title": "Основной путь",
+        "description": "Раскадровка объединяет обязательную подготовку, после чего проект переходит к видео."
+      }
+    },
+    "steps": {
+      "script": {
+        "title": "Сценарий"
+      },
+      "characters": {
+        "title": "Персонажи"
+      },
+      "references": {
+        "title": "Визуальная библиотека"
+      },
+      "music": {
+        "title": "Музыка"
+      },
+      "storyboard": {
+        "title": "Раскадровка"
+      },
+      "video": {
+        "title": "Видео"
+      }
+    },
+    "status": {
+      "not_started": "Не начато",
+      "open": "Открыта",
+      "in_progress": "В работе",
+      "ready": "Готово к следующему шагу",
+      "blocked": "Заблокировано",
+      "needs_attention": "Требует внимания"
+    },
+    "metrics": {
+      "scenesTotal": "Всего сцен",
+      "scenesReady": "Готово сцен",
+      "charactersTotal": "Всего персонажей",
+      "charactersReady": "Готово персонажей",
+      "activeJobs": "Активные задачи",
+      "missingCharacters": "Не хватает персонажей",
+      "referencesTotal": "Всего материалов",
+      "referencesReady": "Готово материалов",
+      "failedReferences": "Ошибок материалов",
+      "tracksTotal": "Всего треков",
+      "tracksReady": "Готово треков",
+      "failedTracks": "Ошибок треков",
+      "scenesStarted": "Начато сцен",
+      "scenesMissing": "Без раскадровки",
+      "scenesStale": "Устарело сцен",
+      "shotsTotal": "Всего шотов",
+      "shotsReady": "Готово шотов"
+    },
+    "blockers": {
+      "title": "Что нужно сделать",
+      "unknown": "Проверьте данные этапа.",
+      "incompleteScenes_one": "Завершите {{count}} сцену сценария.",
+      "incompleteScenes_few": "Завершите {{count}} сцены сценария.",
+      "incompleteScenes_many": "Завершите {{count}} сцен сценария.",
+      "incompleteScenes_other": "Завершите {{count}} сцены сценария.",
+      "missingCharacters_one": "Создайте {{count}} недостающего персонажа.",
+      "missingCharacters_few": "Создайте {{count}} недостающих персонажей.",
+      "missingCharacters_many": "Создайте {{count}} недостающих персонажей.",
+      "missingCharacters_other": "Создайте {{count}} недостающих персонажей.",
+      "generationFailed_one": "Исправьте {{count}} ошибку генерации.",
+      "generationFailed_few": "Исправьте {{count}} ошибки генерации.",
+      "generationFailed_many": "Исправьте {{count}} ошибок генерации.",
+      "generationFailed_other": "Исправьте {{count}} ошибки генерации.",
+      "scriptNotReady": "Сначала подготовьте обязательные сцены сценария.",
+      "charactersNotReady": "Сначала подготовьте значимых персонажей.",
+      "staleStoryboards_one": "Обновите {{count}} устаревшую раскадровку.",
+      "staleStoryboards_few": "Обновите {{count}} устаревшие раскадровки.",
+      "staleStoryboards_many": "Обновите {{count}} устаревших раскадровок.",
+      "staleStoryboards_other": "Обновите {{count}} устаревшие раскадровки.",
+      "storyboardNotReady": "Завершите обязательную раскадровку."
+    },
+    "recommendation": {
+      "label": "Рекомендуемый следующий шаг",
+      "description": "Это рекомендация: остальные доступные разделы можно открывать в любом порядке."
+    },
+    "complete": {
+      "label": "Обязательный путь готов",
+      "title": "Можно переходить к финальной работе",
+      "description": "Все обязательные этапы готовы. Опциональные материалы можно дополнять в любое время."
+    },
+    "actions": {
+      "continue": "Продолжить",
+      "openStep": "Открыть этап",
+      "openStepLabel": "Открыть этап «{{title}}»",
+      "retry": "Повторить",
+      "signIn": "Войти снова",
+      "backToProjects": "К проектам"
+    },
+    "preview": {
+      "title": "Roadmap проекта",
+      "description": "Гибридный путь от подготовки до видео без обязательных визуальной библиотеки и музыки.",
+      "open": "Открыть roadmap"
+    },
+    "errors": {
+      "unauthorized": {
+        "title": "Требуется повторная авторизация",
+        "description": "Войдите снова, чтобы открыть roadmap проекта."
+      },
+      "forbidden": {
+        "title": "Нет доступа к проекту",
+        "description": "Попросите владельца проекта выдать вам доступ."
+      },
+      "notFound": {
+        "title": "Проект не найден",
+        "description": "Возможно, проект был удалён или адрес устарел."
+      },
+      "unknown": {
+        "title": "Не удалось загрузить roadmap",
+        "description": "Проверьте соединение и попробуйте снова."
+      },
+      "missingProject": {
+        "title": "Не указан проект",
+        "description": "Вернитесь к списку и выберите проект."
+      }
+    }
+  },
   "navigation": {
     "sections": {
       "subscriptions": "Подписки",

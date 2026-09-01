@@ -18,6 +18,7 @@ import SubscriptionsPage from "./modules/subscriptions/SubscriptionsPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
+import ProjectRoadmapPage from './page/movie/projectPage/roadmap/ProjectRoadmapPage';
 import ProjectTeamPage from "./page/movie/projectPage/team/ProjectTeamPage";
 import InviteAcceptPage from "./page/movie/projectPage/team/InviteAcceptPage";
 import PathConstants from "./routes/pathConstant";
@@ -64,6 +65,7 @@ const ProtectedCreditWalletPage = withAuth(CreditWalletPage);
 const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
 const ProtectedProjectListPage = withAuth(ProjectListPage);
 const ProtectedProjectPage = withAuth(ProjectPage);
+const ProtectedProjectRoadmapPage = withAuth(ProjectRoadmapPage);
 const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
@@ -112,6 +114,7 @@ export const APP_ROUTES = [
         { key: 'editProject', path: PathConstants.EDIT_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'projects', path: PathConstants.PROJECTS, component: <ProtectedProjectListPage /> },
         { key: 'projectPage', path: PathConstants.PROJECT_PAGE, component: <ProtectedProjectPage /> },
+        { key: 'projectRoadmap', path: PathConstants.PROJECT_ROADMAP, component: <ProtectedProjectRoadmapPage /> },
         { key: 'projectTeam', path: PathConstants.PROJECT_TEAM, component: <ProjectTeamPage /> },
         { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },

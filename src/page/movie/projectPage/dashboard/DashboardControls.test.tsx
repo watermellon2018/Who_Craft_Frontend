@@ -1,12 +1,13 @@
 import React from 'react';
-import {fireEvent, render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, within} from '@testing-library/react';
+import {MemoryRouter} from 'react-router-dom';
 import ProjectHero from './ProjectHero';
 import ProjectMusic from './ProjectMusic';
 import ProjectPipeline from './ProjectPipeline';
 import QuickActionsCard from './QuickActionsCard';
 import {adaptProject} from './api';
-import {musicMock, pipelineMock} from './mocks';
-import type {DashboardProject} from './api';
+import {musicMock} from './mocks';
+import type {DashboardProject, DashboardRoadmap} from './api';
 
 jest.mock('../../../../api/http', () => ({
   backendAssetUrl: (path: string) => 'https://backend.test' + path,
@@ -53,15 +54,49 @@ test('renders the dashboard cover image and keeps Continue functional', () => {
   expect(screen.getByRole('button', {name: 'Превью пока недоступно'})).toBeDisabled();
 });
 
-test('pipeline and quick actions enable only implemented destinations', () => {
-  const onStep = jest.fn();
+test('compact roadmap links available stages while quick actions keep their permissions', () => {
   const onAction = jest.fn();
+  const roadmap: DashboardRoadmap = {
+    version: 1,
+    nextAction: {stepKey: 'script', actionUrl: '/project/42/script'},
+    steps: [
+      {
+        actionUrl: '/project/42/script',
+        availability: 'available',
+        blockers: [],
+        key: 'script',
+        metrics: {scenesReady: 1, scenesTotal: 2},
+        optional: false,
+        progressPercent: 50,
+        state: 'in_progress',
+      },
+      {
+        actionUrl: '/project/42/references',
+        availability: 'available',
+        blockers: [{code: 'generationFailed', count: 1}],
+        key: 'references',
+        metrics: {failedReferences: 1, referencesReady: 1, referencesTotal: 2},
+        optional: true,
+        progressPercent: 50,
+        state: 'needs_attention',
+      },
+      {
+        actionUrl: '/project/42/video',
+        availability: 'coming_soon',
+        blockers: [],
+        key: 'video',
+        metrics: {shotsReady: 0, shotsTotal: 0},
+        optional: false,
+        progressPercent: null,
+        state: 'not_started',
+      },
+    ],
+  };
   render(
-    <>
+    <MemoryRouter>
       <ProjectPipeline
-        pipeline={pipelineMock}
-        onStep={onStep}
-        isStepEnabled={(key) => key === 'script'}
+        roadmap={roadmap}
+        roadmapUrl="/projects/42/roadmap"
       />
       <QuickActionsCard
         actions={[
@@ -71,12 +106,27 @@ test('pipeline and quick actions enable only implemented destinations', () => {
         onAction={onAction}
         isActionEnabled={(key) => key === 'new_scene'}
       />
-    </>,
+    </MemoryRouter>,
   );
 
-  fireEvent.click(screen.getByRole('button', {name: /Открыть: Сценарий/}));
   fireEvent.click(screen.getByRole('button', {name: 'Новая сцена'}));
-  expect(onStep).toHaveBeenCalledWith('script');
+  expect(screen.getByRole('link', {name: 'Открыть этап «Сценарий»'}))
+    .toHaveAttribute('href', '/project/42/script');
+  expect(screen.getByRole('link', {name: 'Открыть roadmap'}))
+    .toHaveAttribute('href', '/projects/42/roadmap');
+  expect(within(screen.getByRole('link', {name: 'Открыть этап «Визуальная библиотека»'}))
+    .queryByText('50%')).not.toBeInTheDocument();
+  expect(within(screen.getByRole('link', {name: 'Открыть этап «Визуальная библиотека»'}))
+    .queryByText('Готово к следующему шагу')).not.toBeInTheDocument();
+  const referenceLink = screen.getByRole('link', {
+    name: 'Открыть этап «Визуальная библиотека»',
+  });
+  expect(referenceLink).not.toHaveTextContent('Требует внимания');
+  expect(referenceLink).toHaveAccessibleDescription('Исправьте 1 ошибку генерации.');
+  expect(within(referenceLink).getByRole('tooltip')).toHaveTextContent(
+    'Исправьте 1 ошибку генерации.',
+  );
+  expect(screen.getByText('В разработке')).toBeInTheDocument();
   expect(onAction).toHaveBeenCalledWith('new_scene');
   expect(screen.getByRole('button', {name: /Генерация видео/})).toBeDisabled();
 });

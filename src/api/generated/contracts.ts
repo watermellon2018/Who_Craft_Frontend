@@ -572,8 +572,36 @@ export interface ProjectProgress {
   readiness: ProjectReadiness;
 }
 
+export interface ProjectRoadmapBlocker {
+  code: string;
+  count?: number;
+}
+
+export interface ProjectRoadmapStep {
+  key: "script" | "characters" | "references" | "music" | "storyboard" | "video";
+  optional: boolean;
+  availability: "available" | "coming_soon";
+  state: "not_started" | "in_progress" | "ready" | "blocked" | "needs_attention";
+  progressPercent: number | null;
+  metrics: Record<string, number>;
+  blockers: Array<ProjectRoadmapBlocker>;
+  actionUrl: string;
+}
+
+export interface ProjectRoadmapNextAction {
+  stepKey: "script" | "characters" | "storyboard" | "video";
+  actionUrl: string;
+}
+
+export interface ProjectRoadmap {
+  version: 1;
+  steps: Array<ProjectRoadmapStep>;
+  nextAction: ProjectRoadmapNextAction | null;
+}
+
 export interface ProjectDashboard {
   progress: ProjectProgress;
+  roadmap: ProjectRoadmap;
 }
 
 export interface SceneStoryboard {

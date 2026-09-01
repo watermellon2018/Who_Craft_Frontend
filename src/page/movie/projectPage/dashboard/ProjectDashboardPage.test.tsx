@@ -122,6 +122,22 @@ it('navigates from the project actions menu to the canonical edit page', async (
   expect(await screen.findByText('Страница редактирования проекта')).toBeInTheDocument();
 });
 
+it('opens the project roadmap from Continue', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({} as never);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/projects/:projectId/roadmap" element={<div>Roadmap проекта</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', {name: 'Продолжить'}));
+  expect(await screen.findByText('Roadmap проекта')).toBeInTheDocument();
+});
+
 it.each([
   ['characters', 'Персонажи', 'characters', 'purple', '/project/:projectId/characters', 'Библиотека персонажей'],
   ['scenes', 'Сцены', 'scenes', 'blue', '/project/:projectId/script', 'Сценарий проекта'],
@@ -151,16 +167,23 @@ it.each([
   expect(await screen.findByText(destination)).toBeInTheDocument();
 });
 
-it('opens Storyboard from the project pipeline', async () => {
-  mockedFetchProjectDashboard.mockResolvedValue({} as never);
-  mockedAdaptPipeline.mockReturnValue([{
-    accent: 'purple',
-    iconKey: 'storyboard',
-    key: 'storyboard',
-    label: 'Сториборд',
-    progress: 55,
-    subtitle: '13 сцен',
-  }]);
+it('keeps an in-progress Storyboard clickable in the compact roadmap', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({
+    roadmap: {
+      version: 1,
+      nextAction: {stepKey: 'storyboard', actionUrl: '/project/42/storyboard'},
+      steps: [{
+        actionUrl: '/project/42/storyboard',
+        availability: 'available',
+        blockers: [{code: 'staleStoryboards', count: 1}],
+        key: 'storyboard',
+        metrics: {scenesMissing: 2, scenesReady: 1, scenesTotal: 3},
+        optional: false,
+        progressPercent: 33,
+        state: 'in_progress',
+      }],
+    },
+  } as never);
 
   render(
     <MemoryRouter initialEntries={['/projects/42']}>
@@ -171,7 +194,11 @@ it('opens Storyboard from the project pipeline', async () => {
     </MemoryRouter>,
   );
 
-  fireEvent.click(await screen.findByRole('button', {name: 'Открыть: Сториборд'}));
+  const storyboardLink = await screen.findByRole('link', {
+    name: 'Открыть этап «Раскадровка»',
+  });
+  expect(storyboardLink).toHaveTextContent('В работе');
+  fireEvent.click(storyboardLink);
   expect(await screen.findByText('Раскадровка проекта')).toBeInTheDocument();
 });
 
