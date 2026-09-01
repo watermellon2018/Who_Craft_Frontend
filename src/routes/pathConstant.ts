@@ -15,6 +15,7 @@ const PathConstants = {
     GEN_POSTER: '/projects/:projectId/poster',
     PROJECTS: '/project-list',
     PROJECT_PAGE: '/projects/:projectId',
+    PROJECT_ROADMAP: '/projects/:projectId/roadmap',
     PROJECT_TEAM: '/project-list/project/:projectId/team',
     INVITE_ACCEPT: '/invite/:token',
 
@@ -55,6 +56,10 @@ const PathConstants = {
 
 export function projectDashboardPath(projectId: string | number): string {
     return PathConstants.PROJECT_PAGE.replace(':projectId', String(projectId));
+}
+
+export function projectRoadmapPath(projectId: string | number): string {
+    return PathConstants.PROJECT_ROADMAP.replace(':projectId', String(projectId));
 }
 
 export function projectEditPath(projectId: string | number): string {

@@ -38,6 +38,11 @@ function schemaType(schema) {
         return `${propertyName(name)}${optional}: ${schemaType(value)};`;
       });
       output = `{ ${properties.join(' ')} }`;
+    } else if (
+      schema.additionalProperties
+      && typeof schema.additionalProperties === 'object'
+    ) {
+      output = `Record<string, ${schemaType(schema.additionalProperties)}>`;
     } else {
       output = 'Record<string, unknown>';
     }

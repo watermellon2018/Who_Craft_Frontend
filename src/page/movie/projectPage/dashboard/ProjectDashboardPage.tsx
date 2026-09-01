@@ -10,10 +10,10 @@ import PathConstants, {
   musicStudioPath,
   musicTrackPath,
   projectEditPath,
+  projectRoadmapPath,
   referenceCreatePath,
   referenceEditPath,
   referenceLibraryPath,
-  storyboardPath,
   videoPath,
   videoPreparationPath,
 } from '../../../../routes/pathConstant';
@@ -30,7 +30,6 @@ import type {
   ProjectMock,
   StatMock,
   CharacterMock,
-  PipelineStepMock,
   TrackMock,
   ProgressLegendItem,
   QuickActionMock,
@@ -42,7 +41,6 @@ import {
   adaptActivity,
   adaptCharacters,
   adaptMusic,
-  adaptPipeline,
   adaptProgress,
   adaptProject,
   adaptQuickActions,
@@ -52,6 +50,7 @@ import {
 } from './api';
 import type {
   DashboardPayload,
+  DashboardRoadmap,
   DashboardVideoPreparationSummary,
   ProjectStatusValue,
 } from './api';
@@ -68,7 +67,7 @@ interface ViewModel {
   project: ProjectMock;
   stats: StatMock[];
   characters: CharacterMock[];
-  pipeline: PipelineStepMock[];
+  roadmap: DashboardRoadmap | null;
   music: TrackMock[];
   progressOverall: number;
   progressLegend: ProgressLegendItem[];
@@ -103,13 +102,7 @@ function buildEmptyViewModel(): ViewModel {
       { key: 'locations', label: 'Визуальная библиотека', value: 0, iconKey: 'locations', accent: 'yellow' },
     ],
     characters: [],
-    pipeline: [
-      { key: 'script', label: 'Сценарий', progress: 0, subtitle: '—', iconKey: 'script', accent: 'yellow' },
-      { key: 'storyboard', label: 'Сториборд', progress: 0, subtitle: '—', iconKey: 'storyboard', accent: 'purple' },
-      { key: 'reference', label: 'Визуальная библиотека', progress: 0, subtitle: '—', iconKey: 'reference', accent: 'blue' },
-      { key: '3d', label: '3D', progress: 0, subtitle: '—', iconKey: 'model3d', accent: 'green' },
-      { key: 'video', label: 'Видео', progress: 0, subtitle: '—', iconKey: 'video', accent: 'red' },
-    ],
+    roadmap: null,
     music: [],
     progressOverall: 0,
     progressLegend: [
@@ -139,7 +132,7 @@ function buildViewModel(data: DashboardPayload): ViewModel {
     project: adaptProject(data.project),
     stats: adaptStats(data.stats),
     characters: adaptCharacters(data.characters),
-    pipeline: adaptPipeline(data.pipeline),
+    roadmap: data.roadmap ?? null,
     music: adaptMusic(data.music),
     progressOverall: progress.overall,
     progressLegend: progress.legend,
@@ -263,7 +256,10 @@ export const ProjectDashboardPage: React.FC = () => {
     }
   }, [handleOpenMusic, navigate, projectId]);
 
-  const handleContinue = handleOpenScript;
+  const handleContinue = () => {
+    if (!projectId) return;
+    navigate(projectRoadmapPath(projectId));
+  };
   const handleOpenCharacters = () => {
     if (!projectId) return;
     const url = PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId));
@@ -298,22 +294,6 @@ export const ProjectDashboardPage: React.FC = () => {
     if (!projectId) return;
     navigate(videoPreparationPath(projectId));
   }, [navigate, projectId]);
-
-  const handlePipelineStep = (key: string) => {
-    if (key === 'script') {
-      handleOpenScript();
-      return;
-    }
-    if (key === 'reference' && projectId) {
-      navigate(referenceLibraryPath(projectId));
-      return;
-    }
-    if (key === 'storyboard' && projectId) {
-      navigate(storyboardPath(projectId));
-    }
-  };
-  const isPipelineStepEnabled = (key: string) =>
-    key === 'script' || key === 'storyboard' || key === 'reference';
 
   const applySummaryToView = useCallback(
     (summary: {
@@ -641,9 +621,8 @@ export const ProjectDashboardPage: React.FC = () => {
                   onViewAll={handleOpenCharacters}
                 />
                 <ProjectPipeline
-                  pipeline={view.pipeline}
-                  onStep={handlePipelineStep}
-                  isStepEnabled={isPipelineStepEnabled}
+                  roadmap={view.roadmap}
+                  roadmapUrl={projectId ? projectRoadmapPath(projectId) : PathConstants.PROJECTS}
                 />
                 {projectId && (
                   <ProjectVisualLibrary

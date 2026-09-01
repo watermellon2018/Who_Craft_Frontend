@@ -7,6 +7,7 @@ import PathConstants, {
   projectDashboardPath,
   projectEditPath,
   projectPosterPath,
+  projectRoadmapPath,
   scriptScenePath,
   storyboardPath,
   videoGenerationPath,
@@ -20,6 +21,8 @@ test('defines character studio and project routes', () => {
   expect(PathConstants.CHARACTER_STUDIO_DETAIL).toBe('/project/:projectId/characters/:characterId');
   expect(PathConstants.PROJECT_PAGE).toBe('/projects/:projectId');
   expect(projectDashboardPath(42)).toBe('/projects/42');
+  expect(PathConstants.PROJECT_ROADMAP).toBe('/projects/:projectId/roadmap');
+  expect(projectRoadmapPath(42)).toBe('/projects/42/roadmap');
   expect(PathConstants.EDIT_PROJECT).toBe('/projects/:projectId/edit');
   expect(projectEditPath(42)).toBe('/projects/42/edit');
   expect(projectPosterPath(42)).toBe('/projects/42/poster');
@@ -45,6 +48,7 @@ test('defines character studio and project routes', () => {
   expect(APP_ROUTES.some(({path}) => path === PathConstants.VIDEO_GENERATE)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.CREDITS)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.PROFILE_SETTINGS)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.PROJECT_ROADMAP)).toBe(true);
 });
 
 test('recognizes canonical project edit and script workspace paths', () => {

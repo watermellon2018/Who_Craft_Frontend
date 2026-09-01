@@ -162,6 +162,55 @@ export interface DashboardActivity {
   metadata: Record<string, unknown>;
 }
 
+export type DashboardRoadmapStepKey =
+  | 'script'
+  | 'characters'
+  | 'references'
+  | 'music'
+  | 'storyboard'
+  | 'video';
+
+export type DashboardRoadmapRequiredStepKey =
+  | 'script'
+  | 'characters'
+  | 'storyboard'
+  | 'video';
+
+export type DashboardRoadmapAvailability = 'available' | 'coming_soon';
+export type DashboardRoadmapState =
+  | 'not_started'
+  | 'in_progress'
+  | 'ready'
+  | 'blocked'
+  | 'needs_attention';
+
+export interface DashboardRoadmapBlocker {
+  code: string;
+  count?: number;
+}
+
+export interface DashboardRoadmapStep {
+  key: DashboardRoadmapStepKey;
+  optional: boolean;
+  availability: DashboardRoadmapAvailability;
+  state: DashboardRoadmapState;
+  progressPercent: number | null;
+  metrics: Record<string, number>;
+  blockers: DashboardRoadmapBlocker[];
+  actionUrl: string;
+}
+
+export interface DashboardRoadmapNextAction {
+  stepKey: DashboardRoadmapRequiredStepKey;
+  actionUrl: string;
+}
+
+export interface DashboardRoadmap {
+  version: 1;
+  steps: DashboardRoadmapStep[];
+  nextAction: DashboardRoadmapNextAction | null;
+}
+
 export interface DashboardPayload {
   project: DashboardProject;
   stats: DashboardStats;
@@ -171,6 +220,7 @@ export interface DashboardPayload {
   progress: DashboardProgress;
   quickActions: DashboardQuickAction[];
   recentActivity: DashboardActivity[];
+  roadmap: DashboardRoadmap;
 }
 
 export async function fetchProjectDashboard(
