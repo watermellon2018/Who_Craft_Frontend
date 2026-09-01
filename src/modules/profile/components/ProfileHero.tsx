@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import PathConstants from '../../../routes/pathConstant';
-import { ProfileUser } from '../types';
+import type { ProfileUser } from '../types';
 import { cssUrl, safeImageUrl } from '../../../utils/safeUrl';
 
 interface Props {
@@ -10,12 +11,18 @@ interface Props {
 
 const ProfileHero: React.FC<Props> = ({ user }) => {
   const navigate = useNavigate();
+  const {i18n, t} = useTranslation();
   const initials = user.display_name
     ? user.display_name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
     : '?';
 
   const joinedDate = user.joined_at
-    ? new Date(user.joined_at).toLocaleDateString('ru-RU', { year: 'numeric', month: 'long' })
+    ? new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
+        day: 'numeric',
+        month: 'long',
+        timeZone: 'UTC',
+        year: 'numeric',
+      }).format(new Date(user.joined_at))
     : null;
 
   // Validate server-supplied URLs before interpolating into CSS / img src —
@@ -52,6 +59,10 @@ const ProfileHero: React.FC<Props> = ({ user }) => {
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-white text-xl sm:text-2xl font-bold">{user.display_name || user.username}</h2>
               </div>
+              <div className="flex items-center gap-3 mt-0.5 flex-wrap text-white/50 text-sm">
+                <span>@{user.effective_username}</span>
+                <span>{t('profile.hero.subscribers', {count: user.subscribers_count})}</span>
+              </div>
               {user.tagline && (
                 <p className="text-white/50 text-sm mt-0.5">{user.tagline}</p>
               )}
@@ -63,7 +74,7 @@ const ProfileHero: React.FC<Props> = ({ user }) => {
                 )}
                 {joinedDate && (
                   <span className="text-white/40 text-xs flex items-center gap-1">
-                    📅 На Craft с {joinedDate}
+                    📅 {t('profile.hero.joinedAt', {date: joinedDate})}
                   </span>
                 )}
               </div>

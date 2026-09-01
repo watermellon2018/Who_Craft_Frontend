@@ -9,6 +9,171 @@ export const API_CONSTRAINTS = {
   "projectPosterMaxBytes": 5242880
 } as const;
 
+export interface StoryboardShotListJob {
+  jobId: string;
+  sceneId: number;
+  status: "queued" | "running" | "succeeded" | "failed";
+  resultState: "pending" | "applied" | "dismissed";
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  estimatedSeconds: number;
+  expectedRevision: number;
+  model: string;
+  language: "ru" | "en";
+  result: StoryboardEditorDraftPayload | null;
+  appliedRevision: number | null;
+  errorCode: string | null;
+}
+
+export interface StoryboardShotListJobList {
+  jobs: Array<StoryboardShotListJob>;
+}
+
+export interface StoryboardShotListJobCreate {
+  language?: "ru" | "en";
+  model?: string;
+  maxShots?: number;
+  requestId: string;
+  estimatedSeconds?: number;
+}
+
+export interface StoryboardShotListJobApply {
+  expectedRevision: number;
+  mutationId: string;
+}
+
+export interface ProfileSettings {
+  language: "ru" | "en";
+  content_language: "ru" | "en";
+  private_account: boolean;
+  notifications_in_app: boolean;
+  notifications_email: boolean;
+  comment_permission: "everyone" | "followers" | "nobody";
+}
+
+export interface ProfileSettingsPatch {
+  language?: "ru" | "en";
+  content_language?: "ru" | "en";
+  private_account?: boolean;
+  notifications_in_app?: boolean;
+  notifications_email?: boolean;
+  comment_permission?: "everyone" | "followers" | "nobody";
+}
+
+export interface Notification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  created_at: string;
+  is_read: boolean;
+  target_url: string;
+  entity_type: string;
+  entity_id: string;
+}
+
+export interface NotificationList {
+  results: Array<Notification>;
+  unread_count: number;
+}
+
+export interface NotificationReadAllResult {
+  unread_count: 0;
+  updated: number;
+}
+
+export interface VideoShotCommentAuthor {
+  id: number;
+  username: string;
+}
+
+export interface VideoShotComment {
+  id: number;
+  author: VideoShotCommentAuthor;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VideoShotCommentCreate {
+  body: string;
+}
+
+export interface VideoShotCommentList {
+  can_comment: boolean;
+  comment_block_reason: "COMMENTS_DISABLED" | "COMMENTS_FOLLOWERS_ONLY" | null;
+  comments: Array<VideoShotComment>;
+}
+
+export interface MissingCharacter {
+  name: string;
+  dialogueCount: number;
+  sceneCount: number;
+}
+
+export interface MissingCharactersResponse {
+  characters: Array<MissingCharacter>;
+}
+
+export interface ProjectPermissionSummary {
+  currentUserRole: string | null;
+  canView: boolean;
+  canEdit: boolean;
+  canRunGeneration: boolean;
+  canEditSettings: boolean;
+  canPublish: boolean;
+  canManageTeam: boolean;
+  canTransferOwnership: boolean;
+  canDeleteProject: boolean;
+  canLeaveProject: boolean;
+}
+
+export interface VideoPreparationCompact {
+  ready: boolean;
+  taskCount: number;
+}
+
+export interface VideoPreparationProject {
+  id: number;
+  title: string;
+  permissions: ProjectPermissionSummary;
+}
+
+export interface VideoPreparationEmptyScene {
+  sceneId: number;
+  title: string;
+  order: number;
+}
+
+export interface VideoPreparationStoryboardScene {
+  sceneId: number;
+  title: string;
+  order: number;
+  status: "missing" | "stale";
+  currentVersion: number;
+  acceptedVersion: number | null;
+}
+
+export interface VideoPreparationStoryboard {
+  ready: boolean;
+  progress: number;
+  readyCount: number;
+  totalCount: number;
+  missingCount: number;
+  staleCount: number;
+  scenes: Array<VideoPreparationStoryboardScene>;
+}
+
+export interface VideoPreparationResponse {
+  project: VideoPreparationProject;
+  ready: boolean;
+  taskCount: number;
+  missingCharacters: Array<MissingCharacter>;
+  emptyScenes: Array<VideoPreparationEmptyScene>;
+  storyboard: VideoPreparationStoryboard;
+}
+
 export type CharacterSecondaryAssetType = "full_body" | "scene";
 
 export interface CharacterSecondaryAssetsQuoteRequest {
@@ -66,6 +231,17 @@ export interface ApiErrorEnvelope {
   code?: string;
   detail?: string;
   errors?: Record<string, unknown>;
+}
+
+export interface AccountDeleteRequest {
+  current_password: string;
+}
+
+export interface AccountDeleteOwnedProjectsError {
+  error: ApiErrorDetail;
+  code: "ACCOUNT_HAS_OWNED_PROJECTS";
+  detail: string;
+  ownedProjectCount: number;
 }
 
 export type CreditAmount = string;
@@ -244,11 +420,12 @@ export interface GenerationRouteCandidate {
 }
 
 export interface GenerationCostEstimateRequest {
-  domain: "character" | "poster" | "reference" | "music" | "model3d";
+  domain: "character" | "poster" | "reference" | "music" | "sound_effect" | "model3d";
   operation?: "generate" | "edit" | "reference";
   modelKey?: string;
   variantCount?: number;
   promptLength?: number;
+  durationSeconds?: number | null;
   resolution?: "512" | "1K" | "2K" | "4K";
   routingMode?: GenerationRoutingMode;
 }
@@ -366,6 +543,438 @@ export interface ProjectMutationResponse {
   posterUrl?: string | null;
   generationSettings?: Record<string, unknown>;
   createdAt?: string | null;
+}
+
+export interface ProjectProgressReviewScene {
+  sceneId: number;
+  title: string;
+  currentRevision: number;
+  acceptedRevision: number;
+}
+
+export interface ProjectReadiness {
+  overall: number;
+  script: number;
+  characters: number | null;
+  storyboard: number;
+  video: number;
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: Array<ProjectProgressReviewScene>;
+  videoPreparation: VideoPreparationCompact;
+}
+
+export interface ProjectProgress {
+  overall: number;
+  script: number;
+  visual: number;
+  audio: number;
+  postproduction: number;
+  readiness: ProjectReadiness;
+}
+
+export interface ProjectDashboard {
+  progress: ProjectProgress;
+}
+
+export interface SceneStoryboard {
+  sceneId: number;
+  assetId: number | null;
+  sourceSceneVersion: number;
+  confirmedSceneVersion: number | null;
+  acceptedSceneVersion: number;
+  currentSceneVersion: number;
+  needsReview: boolean;
+  updatedAt: string | null;
+}
+
+export type StoryboardAzimuth = "front" | "front_left" | "left" | "back_left" | "back" | "back_right" | "right" | "front_right";
+
+export type StoryboardElevation = "low" | "eye_level" | "high" | "top";
+
+export type StoryboardDistance = "wide" | "medium" | "near";
+
+export type StoryboardFraming = "extreme_wide" | "wide" | "full" | "medium" | "medium_close" | "close" | "extreme_close" | "ots" | "pov";
+
+export type StoryboardMovement = "static" | "dolly_in" | "dolly_out" | "pan_left" | "pan_right" | "tilt_up" | "tilt_down" | "orbit_left" | "orbit_right" | "truck_left" | "truck_right" | "crane_up" | "crane_down" | "follow" | "custom";
+
+export interface StoryboardCameraIntent {
+  id: string;
+  target: Record<string, unknown>;
+  azimuth: StoryboardAzimuth;
+  elevation: StoryboardElevation;
+  distance: StoryboardDistance;
+  framing: StoryboardFraming;
+  lensMm?: number | null;
+  composition: Array<Record<string, unknown>>;
+  cameraMetadata: Record<string, unknown>;
+  version: number;
+  updatedAt: string;
+}
+
+export interface StoryboardCameraIntentMutation {
+  expectedVersion?: number;
+  target: Record<string, unknown>;
+  azimuth: StoryboardAzimuth;
+  elevation: StoryboardElevation;
+  distance: StoryboardDistance;
+  framing: StoryboardFraming;
+  lensMm?: number | null;
+  composition?: Array<Record<string, unknown>>;
+  cameraMetadata?: Record<string, unknown>;
+}
+
+export interface StoryboardGenerationImage {
+  id: string | null;
+  revision: number | null;
+  status: "empty" | "queued" | "generating" | "ready" | "failed";
+  url: string | null;
+  outdated: boolean;
+  provider?: string | null;
+  model?: string | null;
+  error: StoryboardGenerationError | null;
+  createdAt?: string;
+  completedAt?: string | null;
+}
+
+export interface StoryboardGenerationReference {
+  id: string;
+  referenceType: "character" | "location" | "object" | "clothing" | "previous_keyframe" | "previous_shot" | "other_storyboard_keyframe";
+  sourceKeyframeId: string | null;
+  visualReferenceId: string | null;
+  characterId: string | null;
+  locationId: number | null;
+  priority: number;
+  isPrimary: boolean;
+  label: string;
+  missing: boolean;
+}
+
+export interface StoryboardTransition {
+  id: string;
+  fromKeyframeId: string;
+  toKeyframeId: string;
+  detectedMovement: StoryboardMovement;
+  movementOverride: StoryboardMovement | null;
+  effectiveMovement: StoryboardMovement;
+  metadata: Record<string, unknown>;
+}
+
+export interface StoryboardTransitionMutation {
+  movementOverride: StoryboardMovement | null;
+}
+
+export interface StoryboardKeyframe {
+  id: string;
+  type: "start" | "intermediate" | "end";
+  position: number;
+  cameraIntent: StoryboardCameraIntent | null;
+  image: StoryboardGenerationImage;
+  latestGeneration: StoryboardGenerationImage;
+  activeGeneration: StoryboardGenerationImage | null;
+  generationReferences: Array<StoryboardGenerationReference>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoryboardKeyframePosition {
+  position: number;
+}
+
+export interface StoryboardGenerationError {
+  code: string;
+  message: string;
+}
+
+export interface StoryboardShotCharacter {
+  id: string | null;
+  name: string;
+  missing: boolean;
+}
+
+export interface StoryboardShotVisualReference {
+  id: string | null;
+  title: string;
+  role: "location" | "object" | "clothing" | "transport" | "other";
+  missing: boolean;
+}
+
+export interface StoryboardShot {
+  id: string;
+  order: number;
+  title: string;
+  description: string;
+  durationSeconds: number | null;
+  location: { id: number; name: string; } | null;
+  characters: Array<StoryboardShotCharacter>;
+  visualReferences: Array<StoryboardShotVisualReference>;
+  keyframes: Array<StoryboardKeyframe>;
+  transitions: Array<StoryboardTransition>;
+  readiness: { ready: boolean; missing: Array<string>; };
+  version: number;
+  updatedAt: string;
+}
+
+export interface StoryboardShotCreateMutation {
+  title?: string;
+  description?: string;
+  durationSeconds?: number | null;
+  locationId?: number | null;
+  characterIds?: Array<string>;
+  visualReferences?: Array<{ referenceId: string; role: "location" | "object" | "clothing" | "transport" | "other"; }>;
+}
+
+export interface StoryboardShotPatchMutation {
+  expectedVersion: number;
+  title?: string;
+  description?: string;
+  durationSeconds?: number | null;
+  locationId?: number | null;
+  characterIds?: Array<string>;
+  visualReferences?: Array<{ referenceId: string; role: "location" | "object" | "clothing" | "transport" | "other"; }>;
+}
+
+export interface StoryboardShotReorder {
+  shotIds: Array<string>;
+}
+
+export interface StoryboardSceneSummary {
+  id: number;
+  number: number;
+  title: string;
+  status: "empty" | "draft" | "completed";
+  shotsCount: number;
+  readyShotsCount: number;
+  progress: number;
+}
+
+export interface StoryboardWorkspace {
+  id: number;
+  sceneId: number;
+  status: "empty" | "draft" | "completed";
+  shotsCount: number;
+  readyShotsCount: number;
+  progress: number;
+  sourceSceneVersion: number;
+  currentSceneVersion: number;
+  needsReview: boolean;
+  legacyAssetId: number | null;
+  shots: Array<StoryboardShot>;
+  context?: Record<string, unknown>;
+  updatedAt: string;
+}
+
+export interface StoryboardShotListModelOption {
+  id: string;
+  label: string;
+  provider: string;
+  available: boolean;
+  unavailableReason: "dependencyMissing" | "credentialMissing" | "unsupportedProvider" | null;
+  estimatedCostUsd: string | null;
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+}
+
+export interface StoryboardShotListOptions {
+  defaultModel: string;
+  maxShots: number;
+  models: Array<StoryboardShotListModelOption>;
+  context: { sceneTitle: string; characters: Array<string>; locations: Array<string>; };
+}
+
+export interface StoryboardSuggestShotsRequest {
+  language?: "ru" | "en";
+  model?: string;
+  maxShots?: number;
+}
+
+export type StoryboardEditorDraftId = string;
+
+export interface StoryboardEditorDraftSourceDocument {
+  contentHash: string;
+  sceneId: number;
+  sceneVersion: number;
+  truncated: boolean;
+  segments: Array<{ id: StoryboardEditorDraftId; text: string; }>;
+}
+
+export interface StoryboardEditorDraftSource {
+  document: StoryboardEditorDraftSourceDocument;
+  origin?: "manual" | "ai";
+  segmentIds: Array<StoryboardEditorDraftId>;
+  ranges?: Array<{ start: number; end: number; }>;
+}
+
+export interface StoryboardEditorDraftCameraIntent {
+  azimuth: "front" | "front-left" | "left" | "back-left" | "back" | "back-right" | "right" | "front-right";
+  elevation: "low" | "eye-level" | "high" | "top";
+  distance: "wide" | "medium" | "near";
+  framing: "extreme-wide" | "wide" | "full" | "medium" | "medium-close" | "close" | "extreme-close" | "ots" | "pov";
+  lens?: number;
+  targetId?: StoryboardEditorDraftId;
+  composition?: Array<{ subjectId: StoryboardEditorDraftId; x: number; y: number; width: number; height: number; }>;
+  ots?: { shoulder: "left" | "right"; foregroundSubjectId?: StoryboardEditorDraftId; targetId?: StoryboardEditorDraftId; };
+}
+
+export interface StoryboardEditorDraftReference {
+  id: StoryboardEditorDraftId;
+  title: string;
+  type: "character" | "location" | "object" | "clothing" | "other" | "previous-keyframe" | "previous-shot";
+  primary?: boolean;
+  sourceKeyframeId?: StoryboardEditorDraftId;
+  sourceShotId?: StoryboardEditorDraftId;
+  versionId?: StoryboardEditorDraftId;
+  assetId?: StoryboardEditorDraftId;
+}
+
+export interface StoryboardEditorDraftKeyframe {
+  id: StoryboardEditorDraftId;
+  shotId: StoryboardEditorDraftId;
+  position: number;
+  type: "start" | "intermediate" | "end";
+  generationStatus: "idle" | "ready" | "failed";
+  cameraIntent: StoryboardEditorDraftCameraIntent;
+  generationReferences?: Array<StoryboardEditorDraftReference>;
+  canvas?: StoryboardCanvasDocument;
+}
+
+export interface StoryboardEditorDraftTransition {
+  id: StoryboardEditorDraftId;
+  fromKeyframeId: StoryboardEditorDraftId;
+  toKeyframeId: StoryboardEditorDraftId;
+  movementOverride?: "Static" | "Dolly In" | "Dolly Out" | "Pan" | "Pan Left" | "Pan Right" | "Tilt Up" | "Tilt Down" | "Orbit Left" | "Orbit Right" | "Truck Left" | "Truck Right" | "Crane Up" | "Crane Down" | "Follow" | "Custom";
+}
+
+export interface StoryboardEditorDraftShot {
+  id: StoryboardEditorDraftId;
+  sceneId: StoryboardEditorDraftId;
+  title: string;
+  description: string;
+  order: number;
+  duration?: number;
+  characterIds: Array<StoryboardEditorDraftId>;
+  referenceIds: Array<StoryboardEditorDraftId>;
+  locationId?: StoryboardEditorDraftId;
+  keyframes: Array<StoryboardEditorDraftKeyframe>;
+  transitions: Array<StoryboardEditorDraftTransition>;
+  source?: StoryboardEditorDraftSource;
+}
+
+export interface StoryboardEditorDraftPayload {
+  schemaVersion: 1;
+  stage: "selection" | "builder" | "editor";
+  shots: Array<StoryboardEditorDraftShot>;
+}
+
+export interface StoryboardEditorDraft {
+  sceneId: number;
+  revision: number;
+  payload: StoryboardEditorDraftPayload;
+}
+
+export interface StoryboardEditorDraftList {
+  userId: number;
+  canEdit: boolean;
+  drafts: Array<StoryboardEditorDraft>;
+}
+
+export interface StoryboardEditorDraftMutation {
+  expectedRevision: number;
+  mutationId: string;
+  payload: StoryboardEditorDraftPayload;
+}
+
+export interface StoryboardSourceSegment {
+  id: string;
+  text: string;
+}
+
+export interface StoryboardShotListSource {
+  scene_id: number;
+  scene_version: number;
+  content_hash: string;
+  segments: Array<StoryboardSourceSegment>;
+  truncated: boolean;
+}
+
+export interface StoryboardShotProposal {
+  source: StoryboardShotListSource;
+  shots: Array<{ title: string; description: string; source_segment_ids: Array<string>; suggested_characters: Array<string>; suggested_location: string | null; suggested_assets: Array<string>; suggested_framing: StoryboardFraming; }>;
+}
+
+export interface StoryboardGenerationReferenceMutation {
+  referenceType: "character" | "location" | "object" | "clothing" | "previous_keyframe" | "previous_shot" | "other_storyboard_keyframe";
+  sourceKeyframeId?: string | null;
+  visualReferenceId?: string | null;
+  characterId?: string | null;
+  locationId?: number | null;
+  priority?: number;
+  isPrimary?: boolean;
+}
+
+export interface StoryboardGenerationReferencesReplace {
+  references: Array<StoryboardGenerationReferenceMutation>;
+}
+
+export interface StoryboardGenerateRequest {
+  imageModel?: string;
+  routingMode?: "manual" | "economy" | "fast" | "balanced" | "quality";
+}
+
+export interface StoryboardGeneration {
+  generationId: string;
+  keyframeId: string;
+  revision: number;
+  status: "queued" | "generating" | "ready" | "failed";
+  imageUrl: string | null;
+  provider: string | null;
+  model: string | null;
+  error: StoryboardGenerationError | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  billing: Record<string, unknown>;
+}
+
+export interface StoryboardPreview {
+  sceneId: number;
+  shots: Array<{ id: string; duration: number | null; keyframes: Array<{ id: string; position: number; imageUrl: string | null; }>; transitions: Array<{ from: string; to: string; movement: StoryboardMovement; }>; }>;
+}
+
+export interface SceneStoryboardUpdateRequest {
+  assetId: number;
+  sourceSceneVersion: number;
+}
+
+export interface SceneStoryboardConfirmRequest {
+  expectedSceneVersion: number;
+}
+
+export interface VideoShot {
+  id: number;
+  sceneId: number;
+  title: string;
+  order: number;
+  finalAssetId: number | null;
+  version: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface VideoShotList {
+  shots: Array<VideoShot>;
+}
+
+export interface VideoShotCreateRequest {
+  sceneId: number;
+  title?: string;
+  order?: number;
+}
+
+export interface VideoShotUpdateRequest {
+  version: number;
+  title?: string;
+  order?: number;
+  finalAssetId?: number | null;
 }
 
 export interface ProjectInvitationRequest {
@@ -487,7 +1096,30 @@ export interface MusicCapabilities {
   supportsSeed?: boolean;
   supportsCancellation?: boolean;
   providerDisplayName: string;
+  defaultModelKey: MusicAudioModelKey;
+  models: Array<MusicAudioModel>;
   permissions: MusicPermissions;
+}
+
+export type MusicAudioModelKey = "mock" | "stable-audio-3" | "elevenlabs-music-v2" | "minimax-music-3" | "lyria-3-pro" | "lyria-3-clip";
+
+export interface MusicAudioRoute {
+  key: string;
+  provider: string;
+  providerDisplayName: string;
+  configured: boolean;
+  unitCostUsd: CreditAmount;
+  billingUnit: "generation" | "minute";
+}
+
+export interface MusicAudioModel {
+  key: MusicAudioModelKey;
+  label: string;
+  configured: boolean;
+  default: boolean;
+  preview: boolean;
+  capabilities: Record<string, unknown>;
+  routes: Array<MusicAudioRoute>;
 }
 
 export interface MusicSceneOption {
@@ -567,6 +1199,7 @@ export interface MusicBrief {
 }
 
 export interface MusicGenerationCreateRequest {
+  modelKey?: MusicAudioModelKey;
   targetTrackId?: number | null;
   referenceAssetId?: string | null;
   variantCount?: 1 | 2;
@@ -575,6 +1208,7 @@ export interface MusicGenerationCreateRequest {
 
 export interface MusicGenerationAccepted {
   jobId: string;
+  modelKey: MusicAudioModelKey;
   status: string;
   stage: string;
   idempotentReplay: boolean;
@@ -596,6 +1230,7 @@ export interface MusicVariant {
 
 export interface MusicGenerationJob {
   jobId: string;
+  modelKey: MusicAudioModelKey;
   status: "queued" | "processing" | "cancellation_requested" | "completed" | "failed" | "cancelled";
   stage: string;
   variantCount: 1 | 2;
@@ -675,6 +1310,150 @@ export interface MusicAssignments {
 export interface MusicAssignmentsReplaceRequest {
   expectedTrackVersion: number;
   items: Array<MusicAssignmentRequest>;
+}
+
+export interface SoundEffectPermissions {
+  currentUserRole: string | null;
+  canView: boolean;
+  canEdit: boolean;
+  canRunGeneration: boolean;
+}
+
+export interface SoundEffectDurationCapabilities {
+  autoSupported: boolean;
+  minSeconds: number;
+  maxSeconds: number;
+}
+
+export interface SoundEffectPromptInfluenceCapabilities {
+  min: number;
+  max: number;
+  default: number;
+}
+
+export interface SoundEffectModel {
+  key: "elevenlabs-sound-effects-v2";
+  label: string;
+  configured: boolean;
+  default: boolean;
+  providerDisplayName: string;
+  duration: SoundEffectDurationCapabilities;
+  supportsLoop: boolean;
+  promptInfluence: SoundEffectPromptInfluenceCapabilities;
+  outputFormats: Array<"mp3">;
+}
+
+export interface SoundEffectCapabilities {
+  defaultModelKey: "elevenlabs-sound-effects-v2";
+  models: Array<SoundEffectModel>;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectAsset {
+  assetId: string;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  mimeType: string;
+  durationSeconds: number;
+}
+
+export interface SoundEffectVersion {
+  id: string;
+  effectId: number;
+  versionNumber: number;
+  asset: SoundEffectAsset;
+  request: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface SoundEffectItem {
+  id: number;
+  title: string;
+  version: number;
+  activeVersion: SoundEffectVersion | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SoundEffectPagination {
+  limit: number;
+  offset: number;
+  total: number;
+}
+
+export interface SoundEffectPage {
+  items: Array<SoundEffectItem>;
+  page: SoundEffectPagination;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectGenerationCreateRequest {
+  modelKey?: "elevenlabs-sound-effects-v2";
+  prompt: string;
+  durationSeconds?: number | null;
+  loop?: boolean;
+  promptInfluence?: number;
+  targetEffectId?: number | null;
+  sceneId?: number | null;
+}
+
+export interface SoundEffectGenerationAccepted {
+  jobId: string;
+  modelKey: "elevenlabs-sound-effects-v2";
+  status: "queued" | "processing" | "completed" | "failed" | "cancelled";
+  stage: "queued" | "generating" | "storing" | "finalized" | "failed" | "cancelled";
+  idempotentReplay: boolean;
+  pollAfterMs: number;
+  createdAt: string;
+}
+
+export interface SoundEffectGenerationError {
+  code: string;
+  detail: string;
+  retryable: boolean;
+}
+
+export interface SoundEffectVariant {
+  variantId: string;
+  assetId: string;
+  audioUrl: string | null;
+  audioUrlExpiresAt: string | null;
+  mimeType: string;
+  durationSeconds: number;
+  appliedEffectVersionId: string | null;
+}
+
+export type SoundEffectGenerationJob = SoundEffectGenerationCreateRequest & { jobId: string; modelKey: "elevenlabs-sound-effects-v2"; targetEffectId: number | null; sceneId: number | null; status: "queued" | "processing" | "completed" | "failed" | "cancelled"; stage: "queued" | "generating" | "storing" | "finalized" | "failed" | "cancelled"; retryOf: string | null; attempts: number; canCancel: boolean; canRetry: boolean; error: SoundEffectGenerationError; variants: Array<SoundEffectVariant>; createdAt: string; completedAt: string | null; permissions: SoundEffectPermissions; };
+
+export interface SoundEffectJobPage {
+  items: Array<SoundEffectGenerationJob>;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectApplyRequest {
+  targetEffectId?: number | null;
+  title: string;
+}
+
+export interface SoundEffectAssignment {
+  id: number;
+  sceneId: number;
+  effectId: number;
+  effectVersionId: string;
+  startTimeSeconds: number;
+}
+
+export interface SoundEffectAssignments {
+  items: Array<SoundEffectAssignment>;
+  permissions: SoundEffectPermissions;
+}
+
+export interface SoundEffectErrorResponse {
+  code: string;
+  detail: string;
+  retryable: boolean;
+  errors?: Record<string, unknown>;
 }
 
 export interface ReferenceErrorResponse {
@@ -906,4 +1685,63 @@ export interface SceneReferences {
 export interface SceneReferencesReplaceRequest {
   expectedSceneVersion: number;
   items: Array<SceneReferenceRequest>;
+}
+
+export interface StoryboardCanvasDocument {
+  version: 1;
+  aspectRatio: "16:9" | "9:16" | "1:1";
+  objects: Array<{ x: number; y: number; id: StoryboardEditorDraftId; kind: "person" | "animal" | "prop" | "rectangle" | "ellipse" | "line"; width: number; height: number; rotation: number; flipX: boolean; hidden: boolean; locked: boolean; title: string; description: string; comment: string; pose: "front" | "profile" | "back" | "sitting"; entity?: { id: StoryboardEditorDraftId; type: "character" | "location" | "object" | "clothing" | "other"; title: string; versionId?: StoryboardEditorDraftId; assetId?: StoryboardEditorDraftId; }; motion: { type: "static" | "path"; points: Array<{ x: number; y: number; }>; start: number; end: number; facing: string; }; }>;
+  cameraMotion: { type: "Static" | "Dolly In" | "Dolly Out" | "Pan" | "Pan Left" | "Pan Right" | "Tilt Up" | "Tilt Down" | "Orbit Left" | "Orbit Right" | "Truck Left" | "Truck Right" | "Crane Up" | "Crane Down" | "Follow" | "Custom" | "Zoom In" | "Zoom Out"; targetId?: StoryboardEditorDraftId; intensity: "low" | "medium" | "high"; points?: Array<{ x: number; y: number; }>; start: number; end: number; };
+  lighting: { preset: "daylight" | "studio" | "night" | "custom"; direction: "front" | "left" | "right" | "top-left" | "top-right" | "back" | "top"; softness: "soft" | "hard"; temperature: "warm" | "neutral" | "cool"; contrast: "low" | "medium" | "high"; notes: string; };
+  notes: string;
+  markers: Array<{ x: number; y: number; id: StoryboardEditorDraftId; text: string; }>;
+}
+
+export interface StoryboardEditorFrameCreate {
+  shotId: StoryboardEditorDraftId;
+  keyframeId: StoryboardEditorDraftId;
+  expectedRevision: number;
+  imageModel: string;
+  routingMode?: "manual";
+  requestId: string;
+}
+
+export interface StoryboardEditorFrameModelOption {
+  id: string;
+  label: string;
+  available: boolean;
+  supportsReferences: boolean;
+  maxReferenceImages: number;
+  estimatedCost: string | null;
+  currency: "USD";
+}
+
+export interface StoryboardEditorFrameOptions {
+  models: Array<StoryboardEditorFrameModelOption>;
+  defaultModel: string | null;
+  canGenerate: boolean;
+}
+
+export interface StoryboardEditorFrameJob {
+  jobId: string;
+  sceneId: number;
+  shotId: StoryboardEditorDraftId;
+  keyframeId: StoryboardEditorDraftId;
+  status: "queued" | "running" | "succeeded" | "failed";
+  model: string;
+  expectedRevision: number;
+  inputFingerprint: string;
+  matchesCurrentDraft: boolean;
+  assetId: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  estimatedSeconds: number;
+  errorCode: string | null;
+  billing: Record<string, unknown> | null;
+}
+
+export interface StoryboardEditorFrameJobList {
+  jobs: Array<StoryboardEditorFrameJob>;
 }

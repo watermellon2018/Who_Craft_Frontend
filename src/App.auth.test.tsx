@@ -33,4 +33,12 @@ describe('Character Studio authentication gate', () => {
     expect(await screen.findByText('Login page')).toBeInTheDocument();
     expect(mockCharacterStudioShellRender).not.toHaveBeenCalled();
   });
+
+  it('protects the profile settings route', async () => {
+    window.history.pushState({}, '', '/profile/settings');
+
+    render(<App />);
+
+    expect(await screen.findByText('Login page')).toBeInTheDocument();
+  });
 });

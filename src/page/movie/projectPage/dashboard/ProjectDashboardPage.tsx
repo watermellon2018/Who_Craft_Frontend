@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import {useTranslation} from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import { fetchDashboard } from '../../../../modules/profile/api/profileApi';
@@ -12,6 +13,9 @@ import PathConstants, {
   referenceCreatePath,
   referenceEditPath,
   referenceLibraryPath,
+  storyboardPath,
+  videoPath,
+  videoPreparationPath,
 } from '../../../../routes/pathConstant';
 import withAuth from '../../../../utils/auth/check_auth';
 
@@ -30,6 +34,7 @@ import type {
   TrackMock,
   ProgressLegendItem,
   QuickActionMock,
+  StoryboardReviewSceneMock,
   ActivityItemMock,
 } from './mocks';
 import {
@@ -45,10 +50,15 @@ import {
   updateProjectStatus,
   deleteProject as apiDeleteProject,
 } from './api';
-import type { DashboardPayload, ProjectStatusValue } from './api';
+import type {
+  DashboardPayload,
+  DashboardVideoPreparationSummary,
+  ProjectStatusValue,
+} from './api';
 import InviteMemberModal from '../team/InviteMemberModal';
 import { fetchTeamSummary, leaveProject, teamErrorCode } from '../../../../api/projects/team';
-import { Modal, message } from 'antd';
+import { message } from 'antd';
+import {craftModal} from '../../../../theme/CraftModalHost';
 import { getApiStatus } from '../../../../api/errors';
 
 import '../../../../modules/profile/profile.css';
@@ -62,8 +72,11 @@ interface ViewModel {
   music: TrackMock[];
   progressOverall: number;
   progressLegend: ProgressLegendItem[];
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: StoryboardReviewSceneMock[];
   quickActions: QuickActionMock[];
   activity: ActivityItemMock[];
+  videoPreparation: DashboardVideoPreparationSummary | null;
 }
 
 function buildEmptyViewModel(): ViewModel {
@@ -84,10 +97,10 @@ function buildEmptyViewModel(): ViewModel {
       teamExtraCount: 0,
     },
     stats: [
-      { key: 'characters', label: 'Персонажи', value: 0, subtitle: '—', iconKey: 'characters', accent: 'purple' },
-      { key: 'scenes', label: 'Сцены', value: 0, subtitle: '—', iconKey: 'scenes', accent: 'blue' },
-      { key: 'music', label: 'Музыка', value: 0, subtitle: '—', iconKey: 'music', accent: 'green' },
-      { key: 'locations', label: 'Визуальная библиотека', value: 0, subtitle: '—', iconKey: 'locations', accent: 'yellow' },
+      { key: 'characters', label: 'Персонажи', value: 0, iconKey: 'characters', accent: 'purple' },
+      { key: 'scenes', label: 'Сцены', value: 0, iconKey: 'scenes', accent: 'blue' },
+      { key: 'music', label: 'Музыка', value: 0, iconKey: 'music', accent: 'green' },
+      { key: 'locations', label: 'Визуальная библиотека', value: 0, iconKey: 'locations', accent: 'yellow' },
     ],
     characters: [],
     pipeline: [
@@ -101,18 +114,21 @@ function buildEmptyViewModel(): ViewModel {
     progressOverall: 0,
     progressLegend: [
       { label: 'Сценарий', value: 0, accent: 'yellow' },
-      { label: 'Визуал', value: 0, accent: 'purple' },
-      { label: 'Аудио', value: 0, accent: 'green' },
-      { label: 'Постпродакшн', value: 0, accent: 'blue' },
+      { label: 'Персонажи', value: null, accent: 'purple' },
+      { label: 'Раскадровка', value: 0, accent: 'green' },
+      { label: 'Видео', value: 0, accent: 'blue' },
     ],
+    storyboardNeedsReview: 0,
+    storyboardReviewScenes: [],
     quickActions: [
       { key: 'new_scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
-      { key: 'generate_video', label: 'Генерация видео', iconKey: 'genVideo', accent: 'red' },
+      { key: 'generate_video', label: 'Создать видео', iconKey: 'genVideo', accent: 'red' },
       { key: 'create_location', label: 'Создать визуальную опору', iconKey: 'newReference', accent: 'yellow' },
       { key: 'create_character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
       { key: 'create_track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
     ],
     activity: [],
+    videoPreparation: null,
   };
 }
 
@@ -127,12 +143,16 @@ function buildViewModel(data: DashboardPayload): ViewModel {
     music: adaptMusic(data.music),
     progressOverall: progress.overall,
     progressLegend: progress.legend,
+    storyboardNeedsReview: progress.storyboardNeedsReview,
+    storyboardReviewScenes: progress.storyboardReviewScenes,
     quickActions: adaptQuickActions(data.quickActions),
     activity: adaptActivity(data.recentActivity),
+    videoPreparation: data.progress?.readiness?.videoPreparation ?? null,
   };
 }
 
 export const ProjectDashboardPage: React.FC = () => {
+  const {t} = useTranslation();
   const navigate = useNavigate();
   const { projectId: routeProjectId } = useParams<{ projectId: string }>();
   const projectId = routeProjectId?.trim() || null;
@@ -221,8 +241,26 @@ export const ProjectDashboardPage: React.FC = () => {
     navigate(musicTrackPath(projectId, trackId));
   }, [navigate, projectId]);
   const handleStat = useCallback((key: string) => {
-    if (key === 'music') handleOpenMusic();
-    if (key === 'locations' && projectId) navigate(referenceLibraryPath(projectId));
+    if (!projectId) return;
+
+    if (key === 'characters') {
+      navigate(PathConstants.CHARACTER_STUDIO.replace(':projectId', String(projectId)));
+      return;
+    }
+    if (key === 'scenes') {
+      navigate(
+        PathConstants.SCRIPT_PAGE.replace(':projectId', String(projectId)),
+        {state: {project_id: projectId}},
+      );
+      return;
+    }
+    if (key === 'music') {
+      handleOpenMusic();
+      return;
+    }
+    if (key === 'locations') {
+      navigate(referenceLibraryPath(projectId));
+    }
   }, [handleOpenMusic, navigate, projectId]);
 
   const handleContinue = handleOpenScript;
@@ -247,12 +285,19 @@ export const ProjectDashboardPage: React.FC = () => {
     if (key === 'create_location' && projectId) navigate(referenceCreatePath(projectId));
     if (key === 'create_character' && projectId) navigate(characterCreatePath(projectId));
     if (key === 'create_track') handleCreateMusic();
+    if (key === 'generate_video' && projectId) navigate(videoPath(projectId));
   };
   const isQuickActionEnabled = (key: string) =>
     key === 'new_scene'
     || (key === 'create_location' && Boolean(view.project.permissions?.canEdit))
     || (key === 'create_character' && Boolean(view.project.permissions?.canEdit))
-    || (key === 'create_track' && Boolean(view.project.permissions?.canRunGeneration));
+    || (key === 'create_track' && Boolean(view.project.permissions?.canRunGeneration))
+    || (key === 'generate_video' && Boolean(view.project.permissions?.canRunGeneration));
+
+  const handleOpenVideoPreparation = useCallback(() => {
+    if (!projectId) return;
+    navigate(videoPreparationPath(projectId));
+  }, [navigate, projectId]);
 
   const handlePipelineStep = (key: string) => {
     if (key === 'script') {
@@ -261,9 +306,14 @@ export const ProjectDashboardPage: React.FC = () => {
     }
     if (key === 'reference' && projectId) {
       navigate(referenceLibraryPath(projectId));
+      return;
+    }
+    if (key === 'storyboard' && projectId) {
+      navigate(storyboardPath(projectId));
     }
   };
-  const isPipelineStepEnabled = (key: string) => key === 'script' || key === 'reference';
+  const isPipelineStepEnabled = (key: string) =>
+    key === 'script' || key === 'storyboard' || key === 'reference';
 
   const applySummaryToView = useCallback(
     (summary: {
@@ -385,7 +435,7 @@ export const ProjectDashboardPage: React.FC = () => {
 
   const handleArchive = useCallback(() => {
     if (!projectId) return;
-    Modal.confirm({
+    craftModal.confirm({
       title: 'Архивировать проект?',
       content:
         'Проект будет перемещён в архив. Вы сможете восстановить его позже.',
@@ -440,7 +490,7 @@ export const ProjectDashboardPage: React.FC = () => {
 
   const handleLeave = useCallback(() => {
     if (!projectId) return;
-    Modal.confirm({
+    craftModal.confirm({
       title: 'Покинуть проект?',
       content:
         'Ваш доступ будет отозван немедленно. Созданные вами материалы останутся в проекте.',
@@ -467,7 +517,7 @@ export const ProjectDashboardPage: React.FC = () => {
 
   const handleDelete = useCallback(() => {
     if (!projectId) return;
-    Modal.confirm({
+    craftModal.confirm({
       title: 'Удалить проект?',
       content:
         'Это действие нельзя отменить. Проект, персонажи, сцены, музыка, ассеты и история активности будут удалены.',
@@ -616,6 +666,8 @@ export const ProjectDashboardPage: React.FC = () => {
                 project={view.project}
                 progressOverall={view.progressOverall}
                 progressLegend={view.progressLegend}
+                storyboardNeedsReview={view.storyboardNeedsReview}
+                storyboardReviewScenes={view.storyboardReviewScenes}
                 quickActions={view.quickActions}
                 activity={view.activity}
                 onQuickAction={handleQuickAction}
@@ -623,6 +675,18 @@ export const ProjectDashboardPage: React.FC = () => {
                 onOpenTeam={handleOpenTeam}
                 onInvite={handleOpenInvite}
                 loading={loading}
+                videoPreparation={view.videoPreparation}
+                videoPreparationLabel={view.videoPreparation?.ready
+                  ? t('videoPreparation.dashboard.ready', {
+                    defaultValue: '✓ Готово к созданию видео',
+                  })
+                  : view.videoPreparation
+                    ? t('videoPreparation.dashboard.notReady', {
+                      count: view.videoPreparation.taskCount,
+                      defaultValue: `Подготовка к видео: ⚠ Не готово к видео · ${view.videoPreparation.taskCount} задач → Открыть`,
+                    })
+                    : undefined}
+                onOpenVideoPreparation={handleOpenVideoPreparation}
               />
           </div>
         </div>

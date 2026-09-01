@@ -13,6 +13,7 @@ import RegistrationPage from "./page/logIn/register";
 import LoginPage from "./page/logIn/login";
 import ProfilePage from "./modules/profile/ProfileDashboardPage";
 import ProfileEditPage from "./modules/profile/ProfileEditPage";
+import ProfileSettingsPage from './modules/profile/ProfileSettingsPage';
 import SubscriptionsPage from "./modules/subscriptions/SubscriptionsPage";
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
@@ -32,6 +33,7 @@ import Character3DEditorPage from "./modules/character-studio/pages/Character3DE
 import CharacterStudioShell from "./modules/character-studio/components/CharacterStudioShell";
 import MusicStudioPage from "./modules/music-studio/pages/MusicStudioPage";
 import AudioTrackEditorPage from "./modules/music-studio/pages/AudioTrackEditorPage";
+import SoundEffectsPage from './modules/sound-effects/pages/SoundEffectsPage';
 import ReferenceLibraryPage from "./modules/reference-library/pages/ReferenceLibraryPage";
 import ReferenceWorkspacePage from "./modules/reference-library/pages/ReferenceWorkspacePage";
 import VisualReferenceCreatePage from "./modules/reference-library/pages/VisualReferenceCreatePage";
@@ -43,13 +45,20 @@ import {AUTH_EXPIRED_EVENT} from './api/http';
 import type {AuthExpiredEventDetail} from './api/http';
 import {safeReturnTo} from './utils/auth/returnTo';
 import {createAntTheme} from './theme/antdTheme';
+import {CraftModalHost} from './theme/CraftModalHost';
 import {CraftThemeProvider, useCraftTheme} from './theme/CraftThemeProvider';
+import StoryboardPage from './modules/storyboard/StoryboardPage';
+import VideoEntryGatePage from './modules/video/pages/VideoEntryGatePage';
+import VideoGenerationPage from './modules/video/pages/VideoGenerationPage';
+import VideoPreparationPage from './modules/video/pages/VideoPreparationPage';
+import {NotificationProvider} from './modules/notifications/NotificationProvider';
 
 // All private pages are wrapped once here so adding a new private route is a
 // one-line change and we can't forget the auth gate on any single page.
 const ProtectedMainPage = withAuth(MainPage);
 const ProtectedProfilePage = withAuth(ProfilePage);
 const ProtectedProfileEditPage = withAuth(ProfileEditPage);
+const ProtectedProfileSettingsPage = withAuth(ProfileSettingsPage);
 const ProtectedSubscriptionsPage = withAuth(SubscriptionsPage);
 const ProtectedCreditWalletPage = withAuth(CreditWalletPage);
 const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
@@ -59,10 +68,15 @@ const ProtectedGenPosterPage = withAuth(GenPosterPage);
 const ProtectedScriptPage = withAuth(ScriptPage);
 const ProtectedMusicStudioPage = withAuth(MusicStudioPage);
 const ProtectedAudioTrackEditorPage = withAuth(AudioTrackEditorPage);
+const ProtectedSoundEffectsPage = withAuth(SoundEffectsPage);
 const ProtectedReferenceLibraryPage = withAuth(ReferenceLibraryPage);
 const ProtectedReferenceWorkspacePage = withAuth(ReferenceWorkspacePage);
 const ProtectedVisualReferenceCreatePage = withAuth(VisualReferenceCreatePage);
 const ProtectedCharacterStudioShell = withAuth(CharacterStudioShell);
+const ProtectedStoryboardPage = withAuth(StoryboardPage);
+const ProtectedVideoEntryGatePage = withAuth(VideoEntryGatePage);
+const ProtectedVideoPreparationPage = withAuth(VideoPreparationPage);
+const ProtectedVideoGenerationPage = withAuth(VideoGenerationPage);
 
 const AuthExpiryRedirect: React.FC = () => {
     const navigate = useNavigate();
@@ -91,6 +105,7 @@ export const APP_ROUTES = [
         { key: 'home', path: PathConstants.HOME, component: <ProtectedMainPage /> },
         { key: 'profile', path: PathConstants.PROFILE, component: <ProtectedProfilePage /> },
         { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProtectedProfileEditPage /> },
+        { key: 'profileSettings', path: PathConstants.PROFILE_SETTINGS, component: <ProtectedProfileSettingsPage /> },
         { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
         { key: 'credits', path: PathConstants.CREDITS, component: <ProtectedCreditWalletPage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
@@ -101,12 +116,20 @@ export const APP_ROUTES = [
         { key: 'inviteAccept', path: PathConstants.INVITE_ACCEPT, component: <InviteAcceptPage /> },
         { key: 'genPoster', path: PathConstants.GEN_POSTER, component: <ProtectedGenPosterPage /> },
         { key: 'scriptPage', path: PathConstants.SCRIPT_PAGE, component: <ProtectedScriptPage /> },
+        { key: 'storyboard', path: PathConstants.STORYBOARD, component: <ProtectedStoryboardPage /> },
+        { key: 'videoEntry', path: PathConstants.VIDEO, component: <ProtectedVideoEntryGatePage /> },
+        { key: 'videoPreparation', path: PathConstants.VIDEO_PREPARATION, component: <ProtectedVideoPreparationPage /> },
+        { key: 'videoGeneration', path: PathConstants.VIDEO_GENERATE, component: <ProtectedVideoGenerationPage /> },
         { key: 'musicStudio', path: PathConstants.MUSIC_STUDIO, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioCreate', path: PathConstants.MUSIC_STUDIO_CREATE, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioJob', path: PathConstants.MUSIC_STUDIO_JOB, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioTrack', path: PathConstants.MUSIC_STUDIO_TRACK, component: <ProtectedMusicStudioPage /> },
         { key: 'musicStudioTrackEditor', path: PathConstants.MUSIC_STUDIO_TRACK_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
         { key: 'musicStudioUploadDraftEditor', path: PathConstants.MUSIC_STUDIO_UPLOAD_DRAFT_EDITOR, component: <ProtectedAudioTrackEditorPage /> },
+        { key: 'soundEffects', path: PathConstants.SOUND_EFFECTS, component: <ProtectedSoundEffectsPage /> },
+        { key: 'soundEffectsCreate', path: PathConstants.SOUND_EFFECTS_CREATE, component: <ProtectedSoundEffectsPage /> },
+        { key: 'soundEffectsJob', path: PathConstants.SOUND_EFFECTS_JOB, component: <ProtectedSoundEffectsPage /> },
+        { key: 'soundEffectsDetail', path: PathConstants.SOUND_EFFECTS_DETAIL, component: <ProtectedSoundEffectsPage /> },
         { key: 'referenceLibrary', path: PathConstants.REFERENCE_LIBRARY, component: <ProtectedReferenceLibraryPage /> },
         { key: 'referenceLibraryCreate', path: PathConstants.REFERENCE_LIBRARY_CREATE, component: <ProtectedVisualReferenceCreatePage /> },
         { key: 'referenceLibraryJob', path: PathConstants.REFERENCE_LIBRARY_JOB, component: <ProtectedReferenceWorkspacePage /> },
@@ -121,6 +144,8 @@ export const APP_ROUTES = [
         { key: 'characterStudio3D', path: PathConstants.CHARACTER_STUDIO_3D, component: <ProtectedCharacterStudioShell><Character3DEditorPage /></ProtectedCharacterStudioShell> },
     ];
 
+const PUBLIC_ROUTE_KEYS = new Set(['register', 'login']);
+
 function ThemedApp() {
 
     const {theme} = useCraftTheme();
@@ -129,7 +154,15 @@ function ThemedApp() {
     const router = useMemo(() => createBrowserRouter([{
         element: <><AuthExpiryRedirect /><Outlet /></>,
         children: [
-            ...APP_ROUTES.map(({path, component}) => ({path, element: component})),
+            ...APP_ROUTES
+                .filter(({key}) => PUBLIC_ROUTE_KEYS.has(key))
+                .map(({path, component}) => ({path, element: component})),
+            {
+                element: <NotificationProvider><Outlet /></NotificationProvider>,
+                children: APP_ROUTES
+                    .filter(({key}) => !PUBLIC_ROUTE_KEYS.has(key))
+                    .map(({path, component}) => ({path, element: component})),
+            },
             {path: '*', element: <NotFoundPage />},
         ],
     }]), []);
@@ -139,6 +172,7 @@ function ThemedApp() {
     return (
         <AppErrorBoundary>
             <ConfigProvider theme={antdTheme}>
+                <CraftModalHost />
                 <RouterProvider router={router} />
             </ConfigProvider>
         </AppErrorBoundary>

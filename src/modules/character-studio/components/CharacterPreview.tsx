@@ -646,11 +646,11 @@ function ZonePopover({
         left,
         top,
         width: POPOVER_WIDTH,
-        background: '#1a1a1a',
-        border: '1px solid #3a3a3a',
+        background: 'var(--craft-surface-raised)',
+        border: '1px solid var(--craft-border)',
         borderRadius: 8,
         padding: '10px 12px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+        boxShadow: 'var(--craft-shadow-elevated)',
         zIndex: 20,
         boxSizing: 'border-box',
       }}
@@ -659,7 +659,7 @@ function ZonePopover({
     >
       <label
         htmlFor="zone-popover-instruction"
-        style={{display: 'block', marginBottom: 6, fontSize: 12, color: '#ccc', fontWeight: 600}}
+        style={{display: 'block', marginBottom: 6, fontSize: 12, color: 'var(--craft-text)', fontWeight: 600}}
       >
         {t('characterStudio.zoneEdit.question')}
       </label>
@@ -676,10 +676,10 @@ function ZonePopover({
           resize: 'none',
           boxSizing: 'border-box',
           fontSize: 12,
-          background: '#111',
-          border: '1px solid #3a3a3a',
+          background: 'var(--craft-field)',
+          border: '1px solid var(--craft-border)',
           borderRadius: 4,
-          color: '#fff',
+          color: 'var(--craft-text)',
           padding: '6px 8px',
           lineHeight: 1.5,
         }}
@@ -694,7 +694,15 @@ function ZonePopover({
         <button
           type="button"
           onClick={onCancel}
-          style={{padding: '4px 10px', fontSize: 12}}
+          style={{
+            padding: '4px 10px',
+            fontSize: 12,
+            background: 'var(--craft-surface)',
+            border: '1px solid var(--craft-border)',
+            borderRadius: 4,
+            color: 'var(--craft-text)',
+            cursor: 'pointer',
+          }}
         >
           Отмена
         </button>
@@ -707,7 +715,9 @@ function ZonePopover({
           ОК
         </button>
       </div>
-      <div style={{marginTop: 6, fontSize: 10, color: '#666'}}>Ctrl+Enter — сохранить</div>
+      <div style={{marginTop: 6, fontSize: 10, color: 'var(--craft-text-muted)'}}>
+        Ctrl+Enter — сохранить
+      </div>
     </div>
   );
 }

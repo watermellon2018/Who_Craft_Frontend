@@ -1,44 +1,55 @@
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
-import SettingsCard from './SettingsCard';
-import type { ProfileSettings } from '../types';
+
 import {CraftThemeProvider} from '../../../theme/CraftThemeProvider';
 import {CRAFT_THEME_STORAGE_KEY} from '../../../theme/craftTheme';
+import {updateSettings} from '../api/profileApi';
+import type {ProfileSettings} from '../types';
+import SettingsCard from './SettingsCard';
 
-const mockUpdateSettings = jest.fn();
 jest.mock('../api/profileApi', () => ({
-  fetchDashboard: jest.fn(),
-  updateSettings: (...args: any[]) => mockUpdateSettings(...args),
+  updateSettings: jest.fn(),
 }));
 
+const mockedUpdateSettings = updateSettings as jest.MockedFunction<typeof updateSettings>;
+
 const defaultSettings: ProfileSettings = {
+  comment_permission: 'everyone',
+  content_language: 'ru',
   language: 'ru',
+  notifications_email: false,
+  notifications_in_app: true,
   private_account: false,
-  notifications_enabled: true,
 };
 
-const renderSettings = (onChange: (updated: ProfileSettings) => void = jest.fn()) => render(
-  <MemoryRouter>
-    <SettingsCard settings={defaultSettings} onChange={onChange} />
-  </MemoryRouter>,
-);
+function renderSettings(onChange: (updated: ProfileSettings) => void = jest.fn()) {
+  return render(
+    <MemoryRouter>
+      <SettingsCard settings={defaultSettings} onChange={onChange} />
+    </MemoryRouter>,
+  );
+}
 
 describe('SettingsCard', () => {
   beforeEach(() => {
-    mockUpdateSettings.mockReset();
+    jest.clearAllMocks();
     window.localStorage.removeItem(CRAFT_THEME_STORAGE_KEY);
   });
 
-  it('renders current settings values', () => {
+  it('renders settings in the requested groups without content language', () => {
     renderSettings();
-    expect(screen.getByText('Язык интерфейса')).toBeInTheDocument();
-    expect(screen.getByText('Закрытый аккаунт')).toBeInTheDocument();
-    expect(screen.getByText('Уведомления')).toBeInTheDocument();
-    expect(screen.getByText('Цветовая тема')).toBeInTheDocument();
-    expect(screen.getByLabelText('Светлая')).toBeInTheDocument();
-    expect(screen.getByLabelText('Синяя')).toBeChecked();
-    expect(screen.getByLabelText('Тёмная')).toBeInTheDocument();
+
+    expect(screen.getByRole('heading', {name: 'Оформление и интерфейс'})).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Уведомления'})).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Конфиденциальность и безопасность'})).toBeInTheDocument();
+    expect(screen.getByRole('combobox', {name: 'Язык интерфейса'})).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', {name: 'Язык контента'})).not.toBeInTheDocument();
+    expect(screen.getByRole('switch', {name: 'В интерфейсе'})).toBeChecked();
+    expect(screen.getByRole('switch', {name: 'По email'})).not.toBeChecked();
+    expect(screen.getByRole('switch', {name: 'Закрытый аккаунт'})).toBeInTheDocument();
+    expect(screen.getByRole('combobox', {name: 'Кто может комментировать мои видео'}))
+      .toBeInTheDocument();
   });
 
   it('changes and persists the interface theme without a backend request', () => {
@@ -55,59 +66,70 @@ describe('SettingsCard', () => {
     expect(screen.getByLabelText('Светлая')).toBeChecked();
     expect(document.documentElement.dataset.craftTheme).toBe('light');
     expect(window.localStorage.getItem(CRAFT_THEME_STORAGE_KEY)).toBe('light');
-    expect(mockUpdateSettings).not.toHaveBeenCalled();
+    expect(mockedUpdateSettings).not.toHaveBeenCalled();
   });
 
-  it('calls updateSettings and onChange when private_account toggle changes', async () => {
-    const updated: ProfileSettings = { ...defaultSettings, private_account: true };
-    mockUpdateSettings.mockResolvedValueOnce(updated);
-    const onChange = jest.fn();
-
-    renderSettings(onChange);
-
-    const switches = screen.getAllByRole('switch');
-    await act(async () => { fireEvent.click(switches[0]); });
-
-    await waitFor(() => {
-      expect(mockUpdateSettings).toHaveBeenCalledWith({ private_account: true });
-      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ private_account: true }));
-    });
-  });
-
-  it('calls updateSettings when notifications toggle changes', async () => {
-    const updated: ProfileSettings = { ...defaultSettings, notifications_enabled: false };
-    mockUpdateSettings.mockResolvedValueOnce(updated);
-    const onChange = jest.fn();
-
-    renderSettings(onChange);
-
-    const switches = screen.getAllByRole('switch');
-    await act(async () => { fireEvent.click(switches[1]); });
-
-    await waitFor(() => {
-      expect(mockUpdateSettings).toHaveBeenCalledWith({ notifications_enabled: false });
-    });
-  });
-
-  it('does not crash when updateSettings throws', async () => {
-    mockUpdateSettings.mockRejectedValueOnce(new Error('Network error'));
-    const onChange = jest.fn();
-
-    renderSettings(onChange);
-
-    const switches = screen.getAllByRole('switch');
-    await act(async () => { fireEvent.click(switches[0]); });
-
-    await waitFor(() => { expect(onChange).not.toHaveBeenCalled(); });
-    expect(screen.getByText('Закрытый аккаунт')).toBeInTheDocument();
-  });
-
-  it('renders "Перейти ко всем настройкам" button', () => {
+  it.each([
+    ['В интерфейсе', {notifications_in_app: false}],
+    ['По email', {notifications_email: true}],
+    ['Закрытый аккаунт', {private_account: true}],
+  ])('sends an exact partial PATCH for %s', async (accessibleName, patch) => {
+    mockedUpdateSettings.mockResolvedValueOnce({...defaultSettings, ...patch});
     renderSettings();
-    expect(screen.getByText('Перейти ко всем настройкам')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', {name: accessibleName}));
+    });
+
+    await waitFor(() => expect(mockedUpdateSettings).toHaveBeenCalledWith(patch));
   });
 
-  it('links to the Craft wallet from settings', () => {
+  it('persists the selected comment permission', async () => {
+    mockedUpdateSettings.mockResolvedValueOnce({...defaultSettings, comment_permission: 'followers'});
+    renderSettings();
+
+    fireEvent.mouseDown(screen.getByRole('combobox', {name: 'Кто может комментировать мои видео'}));
+    fireEvent.click(await screen.findByRole('option', {name: 'Подписчики'}));
+
+    await waitFor(() => {
+      expect(mockedUpdateSettings).toHaveBeenCalledWith({comment_permission: 'followers'});
+    });
+  });
+
+  it('keeps the server value and reports an error when saving fails', async () => {
+    mockedUpdateSettings.mockRejectedValueOnce(new Error('Network error'));
+    const onChange = jest.fn();
+    renderSettings(onChange);
+
+    fireEvent.click(screen.getByRole('switch', {name: 'Закрытый аккаунт'}));
+
+    await waitFor(() => expect(mockedUpdateSettings).toHaveBeenCalled());
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('switch', {name: 'Закрытый аккаунт'})).not.toBeChecked();
+  });
+
+  it('disables every backend-backed control while a setting is being saved', async () => {
+    let resolveSave: ((settings: ProfileSettings) => void) | undefined;
+    mockedUpdateSettings.mockReturnValueOnce(new Promise((resolve) => {
+      resolveSave = resolve;
+    }));
+    renderSettings();
+
+    fireEvent.click(screen.getByRole('switch', {name: 'Закрытый аккаунт'}));
+
+    expect(screen.getByRole('combobox', {name: 'Язык интерфейса'})).toBeDisabled();
+    expect(screen.getByRole('switch', {name: 'В интерфейсе'})).toBeDisabled();
+    expect(screen.getByRole('switch', {name: 'По email'})).toBeDisabled();
+    expect(screen.getByRole('combobox', {name: 'Кто может комментировать мои видео'})).toBeDisabled();
+    expect(screen.getByRole('radio', {name: 'Синяя'})).toBeDisabled();
+
+    resolveSave?.({...defaultSettings, private_account: true});
+    await waitFor(() => {
+      expect(screen.getByRole('switch', {name: 'Закрытый аккаунт'})).not.toBeDisabled();
+    });
+  });
+
+  it('keeps the Craft Wallet link unchanged', () => {
     renderSettings();
 
     expect(screen.getByRole('link', {name: 'Открыть кошелёк Craft'}))

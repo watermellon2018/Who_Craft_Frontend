@@ -172,6 +172,20 @@ html.craft-theme-switching *::after {
   transition: none !important;
 }
 
+html .ant-modal-wrap .ant-modal .ant-modal-footer,
+html .ant-modal-wrap .ant-modal.ant-modal-confirm .ant-modal-confirm-btns {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: flex-end;
+}
+
+html .ant-modal-wrap .ant-modal .ant-modal-footer > .ant-btn + .ant-btn:not(.ant-dropdown-trigger),
+html .ant-modal-wrap .ant-modal.ant-modal-confirm .ant-modal-confirm-btns > .ant-btn + .ant-btn {
+  margin-inline-start: 0;
+}
+
 /* One project-wide placeholder style for native and Ant Design fields. */
 input::placeholder,
 textarea::placeholder,
@@ -247,7 +261,9 @@ textarea::placeholder,
   opacity: 0.7;
 }
 
-.craft-action-button--secondary.ant-btn {
+/* Opt a workspace into secondary defaults without styling primary, text, or danger actions. */
+.craft-action-button--secondary.ant-btn,
+:where(.craft-secondary-actions) .ant-btn-default:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-disabled) {
   color: var(--craft-action-secondary-text);
   border-color: var(--craft-action-secondary-border);
   background: transparent;
@@ -256,13 +272,15 @@ textarea::placeholder,
 }
 
 .craft-action-button--secondary.ant-btn:hover:not(:disabled):not(.ant-btn-disabled),
-.craft-action-button--secondary.ant-btn:focus-visible:not(:disabled):not(.ant-btn-disabled) {
+.craft-action-button--secondary.ant-btn:focus-visible:not(:disabled):not(.ant-btn-disabled),
+:where(.craft-secondary-actions) .ant-btn-default:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-disabled):is(:hover, :focus-visible) {
   color: var(--craft-action-secondary-text);
   border-color: var(--craft-action-secondary-border-hover);
   background: var(--craft-action-secondary-hover);
 }
 
-.craft-action-button--secondary.ant-btn:focus-visible:not(:disabled):not(.ant-btn-disabled) {
+.craft-action-button--secondary.ant-btn:focus-visible:not(:disabled):not(.ant-btn-disabled),
+:where(.craft-secondary-actions) .ant-btn-default:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-disabled):focus-visible {
   outline: 2px solid var(--craft-border-strong);
   outline-offset: 2px;
 }

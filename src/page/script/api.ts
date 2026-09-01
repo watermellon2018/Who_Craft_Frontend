@@ -1,9 +1,12 @@
 import api from '../../api/http';
+import type {MissingCharactersResponse} from '../../api/generated/contracts';
 import type {
   CompactCharactersResponse,
   Scene,
   SceneMutation,
+  SceneOrderUpdate,
   ScenePatch,
+  SceneReorderResponse,
   ScriptWorkspaceResponse,
 } from './types';
 
@@ -45,6 +48,13 @@ export const scriptApi = {
     return response.data.characters;
   },
 
+  async getMissingCharacters(projectId: string) {
+    const response = await api.get<MissingCharactersResponse>(
+      `${scenesUrl(projectId)}missing-characters/`,
+    );
+    return response.data.characters;
+  },
+
   async createScene(projectId: string, scene: Scene) {
     const response = await api.post<Scene | {scene: Scene}>(
       scenesUrl(projectId),
@@ -59,6 +69,14 @@ export const scriptApi = {
       toScenePatch(scene),
     );
     return unwrapScene(response.data);
+  },
+
+  async reorderScenes(projectId: string, scenes: SceneOrderUpdate[]) {
+    const response = await api.patch<SceneReorderResponse>(
+      `${scenesUrl(projectId)}reorder/`,
+      {scenes},
+    );
+    return response.data.scenes;
   },
 
   async deleteScene(projectId: string, sceneId: number) {

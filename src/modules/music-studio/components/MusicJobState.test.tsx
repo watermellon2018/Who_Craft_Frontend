@@ -106,3 +106,29 @@ test('hides cancellation after processing starts', () => {
   })).not.toBeInTheDocument();
   expect(screen.getByText(i18n.t('musicStudio.job.cancelUnavailable'))).toBeInTheDocument();
 });
+
+test('warns when a queued job has not been claimed by a worker', () => {
+  renderJob({
+    ...job,
+    attempts: 0,
+    createdAt: new Date(Date.now() - 31_000).toISOString(),
+    stage: 'queued',
+    status: 'queued',
+  }, true);
+
+  expect(screen.getByText(i18n.t('musicStudio.job.queueDelayed'))).toBeInTheDocument();
+  expect(screen.getByText(
+    i18n.t('musicStudio.job.queueDelayedDescription'),
+  )).toBeInTheDocument();
+});
+
+test('does not report an ordinary short queue wait as an error', () => {
+  renderJob({
+    ...job,
+    createdAt: new Date(Date.now() - 5_000).toISOString(),
+    stage: 'queued',
+    status: 'queued',
+  }, true);
+
+  expect(screen.queryByText(i18n.t('musicStudio.job.queueDelayed'))).not.toBeInTheDocument();
+});

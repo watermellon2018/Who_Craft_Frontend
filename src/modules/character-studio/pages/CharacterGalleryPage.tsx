@@ -1,9 +1,10 @@
 import React, {useEffect, useState} from 'react';
-import {Alert, Button, Empty, Input, Modal, Spin, message} from 'antd';
+import {Alert, Button, Empty, Input, Spin, message} from 'antd';
 import {PlusOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 import {useNavigate} from 'react-router-dom';
 import {characterCreatePath, characterVariantsPath} from '../../../routes/pathConstant';
+import {craftModal} from '../../../theme/CraftModalHost';
 import {characterApi} from '../api/characterApi';
 import CharacterCard from '../components/CharacterCard';
 import {CHARACTER_LIST_UPDATED_EVENT, notifyCharacterListUpdated, notifyCharacterTreeUpdated} from '../events';
@@ -32,7 +33,7 @@ export default function CharacterGalleryPage() {
 
   const deleteCharacter = (character: StudioCharacter) => {
     const isDraft = character.status === 'draft';
-    Modal.confirm({
+    craftModal.confirm({
       title: t(isDraft
         ? 'characterStudio.gallery.deleteDraftConfirmTitle'
         : 'characterStudio.gallery.deleteConfirmTitle'),
@@ -106,10 +107,7 @@ export default function CharacterGalleryPage() {
         type="primary"
         icon={<PlusOutlined />}
         onClick={goCreate}
-        className="character-gallery-page__create"
-      >
-        {t('characterStudio.gallery.createCharacter')}
-      </Button>
+      />
     </div>
 
     {error && (

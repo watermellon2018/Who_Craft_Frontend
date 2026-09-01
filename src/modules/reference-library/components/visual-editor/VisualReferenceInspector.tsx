@@ -26,23 +26,53 @@ import type {
 
 const RELATION_KINDS: VisualRelationKind[] = ['character', 'location'];
 const SELECT_POPUP_CLASS_NAME = 'visual-reference-select-popup';
+const AUTO_IMAGE_MODEL = '__auto__';
+
+export interface VisualReferenceImageModelOption {
+  configured: boolean;
+  key: string;
+  label: string;
+  supportsGenerate: boolean;
+}
 
 export interface MainSettingsTabProps {
   category: VisualReferenceType;
   description: string;
   disabled: boolean;
+  effectiveImageModel?: string | null;
+  imageModel?: string | null;
+  imageModels?: VisualReferenceImageModelOption[];
+  imageModelsError?: boolean;
+  imageModelsLoading?: boolean;
   onCategoryChange: (category: VisualReferenceType) => void;
   onDescriptionChange: (description: string) => void;
+  onImageModelChange?: (imageModel: string | null) => void;
 }
 
 export function MainSettingsTab({
   category,
   description,
   disabled,
+  effectiveImageModel,
+  imageModel,
+  imageModels = [],
+  imageModelsError = false,
+  imageModelsLoading = false,
   onCategoryChange,
   onDescriptionChange,
+  onImageModelChange,
 }: MainSettingsTabProps) {
   const {t} = useTranslation();
+  const effectiveModelLabel = imageModels.find(({key}) => key === effectiveImageModel)?.label
+    ?? effectiveImageModel
+    ?? t('referenceLibrary.editor.models.autoFallback');
+  const imageModelHelp = imageModelsLoading
+    ? t('referenceLibrary.editor.models.loading')
+    : imageModelsError
+      ? t('referenceLibrary.editor.models.unavailable')
+      : imageModel
+        ? t('referenceLibrary.editor.models.explicitHelp')
+        : t('referenceLibrary.editor.models.autoHelp');
 
   return (
     <Form layout="vertical" className="visual-reference-inspector__form">
@@ -59,6 +89,53 @@ export function MainSettingsTab({
           onChange={onCategoryChange}
         />
       </Form.Item>
+      {onImageModelChange && (
+        <Form.Item
+          label={t('referenceLibrary.editor.fields.imageModel')}
+          help={(
+            <span
+              id="visual-reference-image-model-help"
+              className="visual-reference-model-help"
+              role={imageModelsLoading || imageModelsError ? 'status' : undefined}
+            >
+              {imageModelHelp}
+            </span>
+          )}
+        >
+          <Select<string>
+            aria-describedby="visual-reference-image-model-help"
+            aria-label={t('referenceLibrary.editor.fields.imageModel')}
+            disabled={disabled || imageModelsLoading}
+            loading={imageModelsLoading}
+            notFoundContent={imageModelsError
+              ? t('referenceLibrary.editor.models.unavailable')
+              : t('referenceLibrary.editor.models.empty')}
+            optionFilterProp="label"
+            optionLabelProp="label"
+            popupClassName={SELECT_POPUP_CLASS_NAME}
+            showSearch
+            value={imageModel ?? AUTO_IMAGE_MODEL}
+            options={[
+              {
+                label: t('referenceLibrary.editor.models.auto', {model: effectiveModelLabel}),
+                value: AUTO_IMAGE_MODEL,
+              },
+              ...imageModels
+                .filter(({supportsGenerate}) => supportsGenerate)
+                .map((model) => ({
+                  disabled: !model.configured,
+                  label: model.configured
+                    ? model.label
+                    : t('referenceLibrary.editor.models.notConfigured', {model: model.label}),
+                  value: model.key,
+                })),
+            ]}
+            onChange={(value) => onImageModelChange(
+              value === AUTO_IMAGE_MODEL ? null : value,
+            )}
+          />
+        </Form.Item>
+      )}
       <Form.Item label={t('referenceLibrary.editor.fields.description')}>
         <Input.TextArea
           aria-label={t('referenceLibrary.editor.fields.description')}
@@ -303,12 +380,18 @@ export default function VisualReferenceInspector({
   description,
   disabled,
   drafts,
+  effectiveImageModel,
+  imageModel,
+  imageModels,
+  imageModelsError,
+  imageModelsLoading,
   primaryImageId,
   relationCandidates,
   relations,
   onBriefChange,
   onCategoryChange,
   onDescriptionChange,
+  onImageModelChange,
   onDeleteDraft,
   onPrimaryChange,
   onRelationsChange,
@@ -332,8 +415,14 @@ export default function VisualReferenceInspector({
                 category={category}
                 description={description}
                 disabled={disabled}
+                effectiveImageModel={effectiveImageModel}
+                imageModel={imageModel}
+                imageModels={imageModels}
+                imageModelsError={imageModelsError}
+                imageModelsLoading={imageModelsLoading}
                 onCategoryChange={onCategoryChange}
                 onDescriptionChange={onDescriptionChange}
+                onImageModelChange={onImageModelChange}
               />
             ),
           },

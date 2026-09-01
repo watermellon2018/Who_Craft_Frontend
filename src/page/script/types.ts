@@ -1,4 +1,6 @@
-export type WorkspaceMode = 'screenplay' | 'cards' | 'characters' | 'locations';
+import type {MissingCharacter} from '../../api/generated/contracts';
+
+export type WorkspaceMode = 'screenplay' | 'cards' | 'characters';
 
 export type ScriptBlockType =
   | 'scene_heading'
@@ -93,6 +95,8 @@ export interface CompactCharactersResponse {
   characters: CompactCharacter[];
 }
 
+export type MissingScriptCharacter = MissingCharacter;
+
 export interface SceneMutation {
   title: string;
   description: string;
@@ -110,6 +114,21 @@ export interface SceneMutation {
 
 export interface ScenePatch extends SceneMutation {
   version: number;
+}
+
+export interface SceneOrderUpdate {
+  id: number;
+  order: number;
+  act: number;
+  version: number;
+}
+
+export interface SceneOrderResult extends SceneOrderUpdate {
+  updatedAt: string;
+}
+
+export interface SceneReorderResponse {
+  scenes: SceneOrderResult[];
 }
 
 export interface WorkspaceConflict {

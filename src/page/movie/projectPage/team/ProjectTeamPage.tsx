@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Button, Dropdown, Modal, Select, message, Spin, Empty } from 'antd';
+import { Button, Dropdown, Select, message, Spin, Empty } from 'antd';
 import {
   ArrowLeftOutlined,
   MoreOutlined,
@@ -10,6 +10,7 @@ import {
 import withAuth from '../../../../utils/auth/check_auth';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import PathConstants, {projectDashboardPath} from '../../../../routes/pathConstant';
+import {craftModal} from '../../../../theme/CraftModalHost';
 import {
   AccessRole,
   ACCESS_ROLE_LABELS,
@@ -128,7 +129,7 @@ const ProjectTeamPage: React.FC = () => {
   };
 
   const handleRemove = (member: TeamMember) => {
-    Modal.confirm({
+    craftModal.confirm({
       title: `Удалить участника ${member.displayName}?`,
       content:
         'Доступ будет отозван немедленно. Созданные участником материалы останутся в проекте.',
@@ -154,7 +155,7 @@ const ProjectTeamPage: React.FC = () => {
   };
 
   const handleTransfer = (member: TeamMember) => {
-    Modal.confirm({
+    craftModal.confirm({
       title: `Передать владение участнику ${member.displayName}?`,
       content:
         'Вы станете администратором, а выбранный участник — владельцем проекта. Это действие нельзя отменить обычным способом.',

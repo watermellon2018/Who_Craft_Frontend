@@ -1,6 +1,7 @@
 import api from '../../../../api/http';
+import type {VideoPreparationCompact} from '../../../../api/generated/contracts';
 
-import {
+import type {
   AccentColor,
   ActivityItemMock,
   CharacterMock,
@@ -8,6 +9,7 @@ import {
   ProjectMock,
   QuickActionMock,
   StatMock,
+  StoryboardReviewSceneMock,
   TrackMock,
 } from './mocks';
 
@@ -114,12 +116,33 @@ export interface DashboardMusicTrack {
   usageLabel: string;
 }
 
+export interface DashboardReadiness {
+  overall: number;
+  script: number;
+  characters: number | null;
+  storyboard: number;
+  video: number;
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: DashboardStoryboardReviewScene[];
+  videoPreparation?: DashboardVideoPreparationSummary;
+}
+
+export type DashboardVideoPreparationSummary = VideoPreparationCompact;
+
 export interface DashboardProgress {
   overall: number;
   script: number;
   visual: number;
   audio: number;
   postproduction: number;
+  readiness?: DashboardReadiness;
+}
+
+export interface DashboardStoryboardReviewScene {
+  sceneId: number;
+  title: string;
+  currentRevision: number;
+  acceptedRevision: number;
 }
 
 export interface DashboardQuickAction {
@@ -258,15 +281,6 @@ function pick<T>(arr: T[], i: number): T {
   return arr[((i % arr.length) + arr.length) % arr.length];
 }
 
-function plural(n: number, one: string, few: string, many: string): string {
-  const a = Math.abs(n) % 100;
-  const a1 = a % 10;
-  if (a > 10 && a < 20) return many;
-  if (a1 === 1) return one;
-  if (a1 >= 2 && a1 <= 4) return few;
-  return many;
-}
-
 export function adaptProject(api: DashboardProject): ProjectMock {
   const team = (api.teamMembers || []).slice(0, 4).map((m, i) => ({
     id: String(m.id),
@@ -325,8 +339,6 @@ const STAT_DEFS: Array<{
   iconKey: StatMock['iconKey'];
   accent: AccentColor;
   total: keyof DashboardStats;
-  sub: keyof DashboardStats;
-  subLabel: (n: number) => string;
 }> = [
   {
     key: 'characters',
@@ -334,8 +346,6 @@ const STAT_DEFS: Array<{
     iconKey: 'characters',
     accent: 'purple',
     total: 'charactersTotal',
-    sub: 'charactersActive',
-    subLabel: (n) => `${n} ${plural(n, 'активный', 'активных', 'активных')}`,
   },
   {
     key: 'scenes',
@@ -343,8 +353,6 @@ const STAT_DEFS: Array<{
     iconKey: 'scenes',
     accent: 'blue',
     total: 'scenesTotal',
-    sub: 'scenesCompleted',
-    subLabel: (n) => `${n} ${plural(n, 'завершена', 'завершено', 'завершено')}`,
   },
   {
     key: 'music',
@@ -352,9 +360,6 @@ const STAT_DEFS: Array<{
     iconKey: 'music',
     accent: 'green',
     total: 'musicTotal',
-    sub: 'musicUsed',
-    subLabel: (n) =>
-      `${n} ${plural(n, 'трек используется', 'трека используется', 'треков используется')}`,
   },
   {
     key: 'locations',
@@ -362,13 +367,6 @@ const STAT_DEFS: Array<{
     iconKey: 'locations',
     accent: 'yellow',
     total: 'locationsTotal',
-    sub: 'locationsCreated',
-    subLabel: (n) => `${n} ${plural(
-      n,
-      'готовый материал',
-      'готовых материала',
-      'готовых материалов',
-    )}`,
   },
 ];
 
@@ -379,7 +377,6 @@ export function adaptStats(api: DashboardStats): StatMock[] {
     iconKey: d.iconKey,
     accent: d.accent,
     value: Number(api[d.total] || 0),
-    subtitle: d.subLabel(Number(api[d.sub] || 0)),
   }));
 }
 
@@ -447,18 +444,54 @@ export function adaptMusic(list: DashboardMusicTrack[]): TrackMock[] {
 
 export interface ProgressView {
   overall: number;
-  legend: { label: string; value: number; accent: AccentColor }[];
+  legend: { label: string; value: number | null; accent: AccentColor }[];
+  storyboardNeedsReview: number;
+  storyboardReviewScenes: StoryboardReviewSceneMock[];
+}
+
+function toProgressPercent(value: number): number {
+  const ratio = Number.isFinite(value) ? value : 0;
+  return Math.round(Math.max(0, Math.min(1, ratio)) * 100);
+}
+
+function toLegacyPercent(value: number): number {
+  const numeric = Number.isFinite(value) ? value : 0;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
 export function adaptProgress(api: DashboardProgress): ProgressView {
+  const readiness = api.readiness;
+  if (!readiness) {
+    return {
+      overall: toLegacyPercent(api.overall),
+      legend: [
+        {label: 'Сценарий', value: toLegacyPercent(api.script), accent: 'yellow'},
+        {label: 'Персонажи', value: null, accent: 'purple'},
+        {label: 'Раскадровка', value: toLegacyPercent(api.visual), accent: 'green'},
+        {label: 'Видео', value: toLegacyPercent(api.postproduction), accent: 'blue'},
+      ],
+      storyboardNeedsReview: 0,
+      storyboardReviewScenes: [],
+    };
+  }
   return {
-    overall: Number(api.overall || 0),
+    overall: toProgressPercent(readiness.overall),
     legend: [
-      { label: 'Сценарий', value: Number(api.script || 0), accent: 'yellow' },
-      { label: 'Визуал', value: Number(api.visual || 0), accent: 'purple' },
-      { label: 'Аудио', value: Number(api.audio || 0), accent: 'green' },
-      { label: 'Постпродакшн', value: Number(api.postproduction || 0), accent: 'blue' },
+      { label: 'Сценарий', value: toProgressPercent(readiness.script), accent: 'yellow' },
+      {
+        label: 'Персонажи',
+        value: readiness.characters === null ? null : toProgressPercent(readiness.characters),
+        accent: 'purple',
+      },
+      {
+        label: 'Раскадровка',
+        value: toProgressPercent(readiness.storyboard),
+        accent: 'green',
+      },
+      { label: 'Видео', value: toProgressPercent(readiness.video), accent: 'blue' },
     ],
+    storyboardNeedsReview: Math.max(0, Math.floor(readiness.storyboardNeedsReview)),
+    storyboardReviewScenes: (readiness.storyboardReviewScenes || []).map((scene) => ({...scene})),
   };
 }
 

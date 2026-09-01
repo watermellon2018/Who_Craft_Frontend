@@ -1,8 +1,8 @@
 import {useEffect} from 'react';
-import {Modal} from 'antd';
 import {useBlocker} from 'react-router-dom';
 
 import i18n from '../../../i18n';
+import {craftModal} from '../../../theme/CraftModalHost';
 
 interface UnsavedMusicGuardCopy {
   description: string;
@@ -16,13 +16,15 @@ export function useUnsavedMusicGuard(isDirty: boolean, copy?: UnsavedMusicGuardC
 
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
-    const confirmation = Modal.confirm({
+    const confirmation = craftModal.confirm({
       cancelText: copy?.stay ?? i18n.t('musicStudio.unsaved.stay') as string,
+      className: 'music-unsaved-confirm-modal',
       content: copy?.description ?? i18n.t('musicStudio.unsaved.description') as string,
       okText: copy?.leave ?? i18n.t('musicStudio.unsaved.leave') as string,
       onCancel: () => blocker.reset(),
       onOk: () => blocker.proceed(),
       title: copy?.title ?? i18n.t('musicStudio.unsaved.title') as string,
+      width: 560,
     });
     return () => confirmation.destroy();
   }, [blocker, copy?.description, copy?.leave, copy?.stay, copy?.title]);

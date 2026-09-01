@@ -832,6 +832,13 @@
   gap: 2px;
 }
 
+.visual-reference-model-help {
+  display: block;
+  color: var(--craft-text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .visual-reference-inspector .ant-form-item {
   margin-bottom: 17px;
 }

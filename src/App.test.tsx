@@ -7,6 +7,11 @@ import PathConstants, {
   projectDashboardPath,
   projectEditPath,
   projectPosterPath,
+  scriptScenePath,
+  storyboardPath,
+  videoGenerationPath,
+  videoPath,
+  videoPreparationPath,
 } from './routes/pathConstant';
 
 test('defines character studio and project routes', () => {
@@ -25,9 +30,21 @@ test('defines character studio and project routes', () => {
     '/project/42/characters/char-1/variants?jobId=job%201&treeNodeId=tree%201',
   );
   expect(PathConstants.SCRIPT_PAGE).toBe('/project/:projectId/script');
+  expect(PathConstants.STORYBOARD).toBe('/project/:projectId/storyboard');
+  expect(storyboardPath(42)).toBe('/project/42/storyboard');
   expect(PathConstants.CHARACTER_STUDIO_EDITOR).toBe('/project/:projectId/characters/:characterId/edit');
   expect(PathConstants.CREDITS).toBe('/credits');
+  expect(PathConstants.PROFILE_SETTINGS).toBe('/profile/settings');
+  expect(videoPath(42)).toBe('/project/42/video');
+  expect(videoPreparationPath(42)).toBe('/project/42/video/preparation');
+  expect(videoGenerationPath(42)).toBe('/project/42/video/generate');
+  expect(scriptScenePath(42, 7)).toBe('/project/42/script?sceneId=7');
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.VIDEO)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.STORYBOARD)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.VIDEO_PREPARATION)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.VIDEO_GENERATE)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.CREDITS)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.PROFILE_SETTINGS)).toBe(true);
 });
 
 test('recognizes canonical project edit and script workspace paths', () => {

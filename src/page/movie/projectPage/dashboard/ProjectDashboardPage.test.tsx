@@ -72,7 +72,12 @@ beforeEach(() => {
   mockedAdaptCharacters.mockReturnValue([]);
   mockedAdaptPipeline.mockReturnValue([]);
   mockedAdaptMusic.mockReturnValue([]);
-  mockedAdaptProgress.mockReturnValue({overall: 0, legend: []});
+  mockedAdaptProgress.mockReturnValue({
+    overall: 0,
+    legend: [],
+    storyboardNeedsReview: 0,
+    storyboardReviewScenes: [],
+  });
   mockedAdaptQuickActions.mockReturnValue([]);
   mockedAdaptActivity.mockReturnValue([]);
 });
@@ -117,21 +122,57 @@ it('navigates from the project actions menu to the canonical edit page', async (
   expect(await screen.findByText('Страница редактирования проекта')).toBeInTheDocument();
 });
 
-it('opens Music Studio from the dashboard music statistic', async () => {
+it.each([
+  ['characters', 'Персонажи', 'characters', 'purple', '/project/:projectId/characters', 'Библиотека персонажей'],
+  ['scenes', 'Сцены', 'scenes', 'blue', '/project/:projectId/script', 'Сценарий проекта'],
+  ['music', 'Музыка', 'music', 'green', '/project/:projectId/music', 'Музыкальная студия проекта'],
+  ['locations', 'Визуальная библиотека', 'locations', 'yellow', '/project/:projectId/references', 'Визуальная библиотека проекта'],
+] as const)('opens the project section from the %s dashboard statistic', async (
+  key,
+  label,
+  iconKey,
+  accent,
+  route,
+  destination,
+) => {
   mockedFetchProjectDashboard.mockResolvedValue({} as never);
-  mockedAdaptStats.mockReturnValue([{key: 'music', label: 'Музыка', value: 2, subtitle: '1 используется', iconKey: 'music', accent: 'green'}]);
+  mockedAdaptStats.mockReturnValue([{key, label, value: 2, iconKey, accent}]);
 
   render(
     <MemoryRouter initialEntries={['/projects/42']}>
       <Routes>
         <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
-        <Route path="/project/:projectId/music" element={<div>Музыкальная студия проекта</div>} />
+        <Route path={route} element={<div>{destination}</div>} />
       </Routes>
     </MemoryRouter>,
   );
 
-  fireEvent.click(await screen.findByRole('button', {name: 'Музыка'}));
-  expect(await screen.findByText('Музыкальная студия проекта')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', {name: label}));
+  expect(await screen.findByText(destination)).toBeInTheDocument();
+});
+
+it('opens Storyboard from the project pipeline', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({} as never);
+  mockedAdaptPipeline.mockReturnValue([{
+    accent: 'purple',
+    iconKey: 'storyboard',
+    key: 'storyboard',
+    label: 'Сториборд',
+    progress: 55,
+    subtitle: '13 сцен',
+  }]);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/project/:projectId/storyboard" element={<div>Раскадровка проекта</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', {name: 'Открыть: Сториборд'}));
+  expect(await screen.findByText('Раскадровка проекта')).toBeInTheDocument();
 });
 
 it('opens visual reference creation from quick actions for editors only', async () => {
@@ -191,7 +232,7 @@ it('places the visual library before Music Studio', async () => {
   );
 
   const library = await screen.findByTestId('visual-library-section');
-  const music = screen.getByRole('heading', {name: 'Музыкальная студия'}).closest('section');
+  const music = screen.getByRole('heading', {name: 'Звукостудия'}).closest('section');
   expect(music).not.toBeNull();
   expect(library.compareDocumentPosition(music as Node) & Node.DOCUMENT_POSITION_FOLLOWING)
     .toBeTruthy();
@@ -251,3 +292,60 @@ it.each([
     expect(await screen.findByText(destinationLabel)).toBeInTheDocument();
   },
 );
+
+it('keeps video generation enabled when prerequisites are incomplete and opens the entry gate', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({
+    progress: {
+      readiness: {
+        videoPreparation: {ready: false, taskCount: 3},
+      },
+    },
+  } as never);
+  mockedAdaptQuickActions.mockReturnValue([
+    {accent: 'red', iconKey: 'genVideo', key: 'generate_video', label: 'Генерация видео'},
+  ] as never);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route path="/project/:projectId/video" element={<div>Вход в создание видео</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  const generationButton = await screen.findByRole('button', {name: 'Генерация видео'});
+  expect(generationButton).toBeEnabled();
+  fireEvent.click(generationButton);
+  expect(await screen.findByText('Вход в создание видео')).toBeInTheDocument();
+});
+
+it('opens preparation from the compact dashboard status', async () => {
+  mockedFetchProjectDashboard.mockResolvedValue({
+    progress: {
+      readiness: {
+        videoPreparation: {ready: false, taskCount: 3},
+      },
+    },
+  } as never);
+  mockedAdaptQuickActions.mockReturnValue([
+    {accent: 'red', iconKey: 'genVideo', key: 'generate_video', label: 'Генерация видео'},
+  ] as never);
+
+  render(
+    <MemoryRouter initialEntries={['/projects/42']}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectDashboardPage />} />
+        <Route
+          path="/project/:projectId/video/preparation"
+          element={<div>Чек-лист подготовки</div>}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(await screen.findByRole('button', {
+    name: 'Подготовка к видео: ⚠ Не готово к видео · 3 задачи → Открыть',
+  }));
+  expect(await screen.findByText('Чек-лист подготовки')).toBeInTheDocument();
+});
