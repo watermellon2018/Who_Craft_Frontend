@@ -10,7 +10,8 @@ import type {
 import api, {backendAssetUrl} from '../../api/http';
 import {scriptApi} from '../../page/script/api';
 import type {Scene} from '../../page/script/types';
-import {hydrateEditorDrafts, loadEditorDrafts} from './editorDrafts';
+import {getEditorSaveState, hydrateEditorDrafts, loadEditorDrafts} from './editorDrafts';
+import {applyEditorFrameJobs, editorFrameService} from './editorFrameJobs';
 import type {
   CameraIntent,
   CameraMovementType,
@@ -266,7 +267,15 @@ export const storyboardApi = {
     const scenes = scriptWorkspace.scenes
       .map((scene) => mapStoryboardScene(scene, summaries.get(scene.id), workspaces.get(scene.id)))
       .sort((left, right) => left.order - right.order);
-    return hydrateEditorDrafts(projectId, scenes, drafts);
+    const restored = hydrateEditorDrafts(projectId, scenes, drafts);
+    return Promise.all(restored.map(async (scene) => {
+      if (!scene.shots.length || scene.draftRevision === undefined) return scene;
+      // Image availability must not block access to the screenplay or editable draft.
+      try {
+        const jobs = await editorFrameService.list(projectId, scene.id);
+        return applyEditorFrameJobs(scene, jobs, getEditorSaveState(projectId, scene.draftAuthGeneration) !== 'saved');
+      } catch {return scene;}
+    }));
   },
 
   async suggestShotList(

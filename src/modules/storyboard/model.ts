@@ -1,5 +1,6 @@
 import {safeImageUrl} from '../../utils/safeUrl';
 import type {ScriptBlock} from '../../page/script/types';
+import type {StoryboardCanvasDocument} from './canvasModel';
 
 export type StoryboardSceneStatus = 'empty' | 'draft' | 'completed';
 
@@ -87,6 +88,8 @@ export interface CameraIntent {
 }
 
 export interface GenerationReference {
+  versionId?: string;
+  assetId?: string;
   id: string;
   imageUrl: string;
   primary?: boolean;
@@ -97,11 +100,13 @@ export interface GenerationReference {
 }
 
 export interface StoryboardKeyframe {
+  canvas?: StoryboardCanvasDocument;
   cameraIntent: CameraIntent;
   generationReferences?: GenerationReference[];
   generationStatus: KeyframeGenerationStatus;
   id: string;
   imageUrl?: string;
+  imageOutdated?: boolean;
   position: number;
   shotId: string;
   type: StoryboardKeyframeType;
@@ -153,6 +158,8 @@ export type StoryboardEntityType =
   | 'other';
 
 export interface StoryboardSceneEntity {
+  versionId?: string;
+  assetId?: string;
   id: string;
   imageUrl?: string;
   title: string;
@@ -343,13 +350,7 @@ export function sortKeyframes(
 
 export function isShotReady(shot: StoryboardShot): boolean {
   const start = shot.keyframes.find(({type}) => type === 'start');
-  const end = shot.keyframes.find(({type}) => type === 'end');
-  return Boolean(
-    normalizeStoryboardImageUrl(start?.imageUrl)
-    && normalizeStoryboardImageUrl(end?.imageUrl)
-    && start?.cameraIntent
-    && end?.cameraIntent,
-  );
+  return Boolean(start && shot.keyframes.every((frame) => normalizeStoryboardImageUrl(frame.imageUrl) && !frame.imageOutdated && frame.cameraIntent));
 }
 
 export function normalizeStoryboardImageUrl(imageUrl: unknown): string | null {
@@ -370,14 +371,10 @@ export function createInitialKeyframes(
       shotId,
       type: 'start',
     },
-    {
-      cameraIntent: cameraIntent(presets.end ?? presets.start),
-      generationStatus: 'idle',
-      id: `${shotId}-end`,
-      position: 1,
-      shotId,
-      type: 'end',
-    },
+    ...(presets.end ? [{
+      cameraIntent: cameraIntent(presets.end), generationStatus: 'idle' as const,
+      id: `${shotId}-end`, position: 1, shotId, type: 'end' as const,
+    }] : []),
   ];
 }
 
@@ -390,7 +387,7 @@ export function suggestContinuityReferences(
     if (!previousShot) return [];
 
     const previousEnd = sortKeyframes(previousShot.keyframes)
-      .find((candidate) => candidate.type === 'end');
+      .reverse().find((candidate) => normalizeStoryboardImageUrl(candidate.imageUrl));
     const reference = previousEnd
       ? referenceFromKeyframe(previousEnd, previousShot, 'previous-shot', true)
       : null;

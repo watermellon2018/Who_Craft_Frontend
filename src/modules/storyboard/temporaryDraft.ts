@@ -1,4 +1,5 @@
 import {createInitialKeyframes} from './model';
+import {normalizeCanvas} from './canvasModel';
 import type {CameraIntent, GenerationReference, StoryboardKeyframe, StoryboardShot} from './model';
 
 export interface TemporaryStoryboardDraft {
@@ -106,8 +107,11 @@ function normalizeKeyframe(value: unknown, shotId: string): StoryboardKeyframe |
   const cameraIntent = normalizeCamera(value.cameraIntent);
   if (!cameraIntent) return null;
   const imageUrl = persistentImageUrl(value.imageUrl);
+  const canvas = value.canvas === undefined ? undefined : normalizeCanvas(value.canvas);
+  if (canvas === null) return null;
   return {
     cameraIntent,
+    ...(canvas ? {canvas} : {}),
     generationReferences: Array.isArray(value.generationReferences)
       ? value.generationReferences.map(normalizeReference).filter((entry): entry is GenerationReference => Boolean(entry))
       : [],
@@ -159,7 +163,7 @@ export function normalizeTemporaryShots(value: unknown, sceneId: string): Storyb
     const normalizedKeyframes = keyframes.filter((keyframe): keyframe is StoryboardKeyframe => Boolean(keyframe));
     if (new Set(normalizedKeyframes.map(({id}) => id)).size !== normalizedKeyframes.length) return null;
     const defaults = createInitialKeyframes(entry.id);
-    for (const type of ['start', 'end'] as const) {
+    for (const type of ['start'] as const) {
       if (!normalizedKeyframes.some((keyframe) => keyframe.type === type)) {
         const boundary = defaults.find((keyframe) => keyframe.type === type);
         if (boundary) {

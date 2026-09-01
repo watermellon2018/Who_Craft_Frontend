@@ -16,6 +16,9 @@ import {
 } from './editorDrafts';
 import type {EditorSaveState, EditorDraftStage} from './editorDrafts';
 import {createInitialKeyframes, isShotReady, sortKeyframes} from './model';
+import {cloneCanvas} from './canvasModel';
+import type {EditorFrameJob} from './editorFrameJobs';
+import {applyEditorFrameJobs} from './editorFrameJobs';
 import type {
   CameraIntent,
   CameraMovementType,
@@ -64,6 +67,7 @@ function cloneIntent(intent: CameraIntent): CameraIntent {
 function cloneKeyframe(keyframe: StoryboardKeyframe): StoryboardKeyframe {
   return {
     ...keyframe,
+    canvas: keyframe.canvas ? cloneCanvas(keyframe.canvas) : undefined,
     cameraIntent: cloneIntent(keyframe.cameraIntent),
     generationReferences: keyframe.generationReferences?.map((reference) => ({...reference})),
   };
@@ -124,7 +128,6 @@ export function createShot(
 ): StoryboardShot {
   const id = createLocalId(`${scene.id}-shot`);
   const keyframes = createInitialKeyframes(id, {
-    end: {targetId: input.characterIds?.[0] || input.referenceIds?.[0]},
     start: {targetId: input.characterIds?.[0] || input.referenceIds?.[0]},
   });
   return {
@@ -446,7 +449,7 @@ export function useStoryboardWorkspace(
   }, [selectedShotId, updateSelectedScene]);
 
   const addIntermediate = useCallback(() => {
-    if (!selectedShot) return;
+    if (!selectedShot || selectedScene?.canEdit === false || editorSessionExpired(projectId, selectedScene?.draftAuthGeneration)) return;
     const ordered = sortKeyframes(selectedShot.keyframes);
     let widestGap = 0;
     let position = 0.5;
@@ -460,6 +463,7 @@ export function useStoryboardWorkspace(
     const source = selectedKeyframe ?? ordered[0];
     if (!source) return;
     const keyframe: StoryboardKeyframe = {
+      canvas: source.canvas ? cloneCanvas(source.canvas) : undefined,
       cameraIntent: cloneIntent(source.cameraIntent),
       generationStatus: 'idle',
       id: createLocalId(`${selectedShot.id}-intermediate`),
@@ -472,11 +476,11 @@ export function useStoryboardWorkspace(
       return {...shot, keyframes, transitions: buildTransitions(shot.id, keyframes, shot.transitions)};
     });
     setSelectedKeyframeId(keyframe.id);
-  }, [selectedKeyframe, selectedShot, updateSelectedShot]);
+  }, [selectedKeyframe, selectedShot, selectedScene, projectId, updateSelectedShot]);
 
   const deleteKeyframe = useCallback((keyframeId: string) => {
-    if (!selectedShot) return;
-    const keyframes = selectedShot.keyframes.filter(({id, type}) => id !== keyframeId || type !== 'intermediate');
+    if (!selectedShot || selectedScene?.canEdit === false || editorSessionExpired(projectId, selectedScene?.draftAuthGeneration)) return;
+    const keyframes = selectedShot.keyframes.filter(({id, type}) => id !== keyframeId || type === 'start');
     updateSelectedShot((shot) => ({
       ...shot,
       keyframes,
@@ -485,7 +489,23 @@ export function useStoryboardWorkspace(
     if (selectedKeyframeId === keyframeId) {
       setSelectedKeyframeId(sortKeyframes(keyframes)[0]?.id ?? null);
     }
-  }, [selectedKeyframeId, selectedShot, updateSelectedShot]);
+  }, [selectedKeyframeId, selectedShot, selectedScene, projectId, updateSelectedShot]);
+
+  const addEnd = useCallback(() => {
+    if (!selectedShot || selectedScene?.canEdit === false || editorSessionExpired(projectId, selectedScene?.draftAuthGeneration)
+      || selectedShot.keyframes.some(({type}) => type === 'end')) return;
+    const endId = createLocalId(`${selectedShot.id}-end`);
+    updateSelectedShot((shot) => {
+      const source = shot.keyframes.find(({id}) => id === selectedKeyframeId) ?? shot.keyframes[0];
+      if (!source || shot.keyframes.some(({type}) => type === 'end')) return shot;
+      const end: StoryboardKeyframe = {...cloneKeyframe(source), id: endId,
+        type: 'end', position: 1, imageUrl: undefined, imageOutdated: undefined,
+        generationStatus: 'idle', generationReferences: undefined};
+      const keyframes = sortKeyframes([...shot.keyframes, end]);
+      return {...shot, keyframes, transitions: buildTransitions(shot.id, keyframes, shot.transitions)};
+    });
+    setSelectedKeyframeId(endId);
+  }, [selectedKeyframeId, selectedShot, selectedScene, projectId, updateSelectedShot]);
 
   const repositionKeyframe = useCallback((keyframeId: string, position: number) => {
     updateSelectedShot((shot) => {
@@ -503,7 +523,8 @@ export function useStoryboardWorkspace(
     updateSelectedShot((shot) => ({
       ...shot,
       keyframes: shot.keyframes.map((keyframe) => (
-        keyframe.id === selectedKeyframeId ? {...keyframe, cameraIntent: cloneIntent(intent)} : keyframe
+        keyframe.id === selectedKeyframeId ? {...keyframe, cameraIntent: cloneIntent(intent),
+          imageOutdated: Boolean(keyframe.imageUrl)} : keyframe
       )),
     }));
   }, [selectedKeyframeId, updateSelectedShot]);
@@ -534,6 +555,15 @@ export function useStoryboardWorkspace(
   }, [selectedKeyframeId, updateSelectedShot]);
 
   const retrySave = useCallback(() => retryEditorSave(projectId), [projectId]);
+  const setFrameMedia = useCallback((sceneId: string, jobs: EditorFrameJob[], requestedRevision?: number) => {
+    setScenes((current) => {
+      const next = current.map((scene) => scene.id !== sceneId ? scene : applyEditorFrameJobs(scene, jobs,
+        getEditorSaveState(projectId, scene.draftAuthGeneration) !== 'saved'
+          || requestedRevision !== scene.draftRevision));
+      scenesRef.current = next;
+      return next;
+    });
+  }, [projectId]);
   const refreshDrafts = useCallback(async () => {
     if (!persistenceEnabled) return;
     const requestId = loadRequestRef.current.requestId;
@@ -550,6 +580,7 @@ export function useStoryboardWorkspace(
   }, [projectId, selectedScene, setSceneShotList]);
 
   return {
+    addEnd,
     addIntermediate,
     addShot,
     authInvalid: persistenceEnabled && editorSessionExpired(projectId, scenes[0]?.draftAuthGeneration),
@@ -587,6 +618,7 @@ export function useStoryboardWorkspace(
     setMode,
     setSelectedKeyframeId,
     setSceneShotList,
+    setFrameMedia,
     setShotList,
     updateCameraIntent,
     updateSelectedShot,

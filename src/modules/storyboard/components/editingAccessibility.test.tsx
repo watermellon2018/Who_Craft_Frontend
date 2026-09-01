@@ -7,7 +7,7 @@ import CompositionEditor from './CompositionEditor';
 import KeyframeTimeline from './KeyframeTimeline';
 
 test('repositions an intermediate keyframe with the keyboard', () => {
-  const [start, end] = createInitialKeyframes('shot-keyboard');
+  const [start, end] = createInitialKeyframes('shot-keyboard', {end: {}});
   const intermediate: StoryboardKeyframe = {
     ...start,
     id: 'shot-keyboard-intermediate',

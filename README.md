@@ -205,11 +205,9 @@ existing project edit permission.
 
 Open a project's **Storyboard** step at `/project/:projectId/storyboard` to turn
 screenplay scenes into an ordered shot list and direct each shot through visual
-keyframes. Every shot starts with required **Start** and **End** keyframes;
-editors can add intermediate keyframes, set semantic camera intent, adjust the
-composition guides, and choose or override the camera movement between adjacent
-keyframes. Continuity references can carry a character or location forward from
-the preceding generated shot.
+keyframes. A new shot starts with one primary image. **Add ending image** copies
+the current staging when a second state is useful; intermediate images are
+optional too. Existing Start/End and intermediate states are preserved.
 
 The workspace loads screenplay scenes and existing storyboard progress from the
 project identified by the route. It no longer substitutes demo scenes from a
@@ -217,11 +215,67 @@ different project, and AI shot-list proposals use the selected project's scene
 context. Editing automatically saves a permanent scene working draft on the
 server, including shots, ordering, source links, camera settings, and the current
 workflow stage. This does not create or update structured backend Shot/Keyframe
-history or production-readiness metrics. Image generation, asset references, and preview
-changes are still frontend-only prototype behavior and do not yet call a backend
-provider. Camera controls deliberately describe
+history or production-readiness metrics. Image generation now uses durable
+backend jobs and real project library references. Camera controls deliberately describe
 filmmaking intent (position, height, distance, framing, lens, composition, and
 movement) without exposing XYZ coordinates, a 3D scene, or video generation.
+
+### Staging canvas
+
+After **Continue to staging**, the center switches between **Layout** and
+**Image**. The layout is the camera view: add a person, animal, prop or simple
+shape from the left palette, or search the project's Character Studio and
+Reference Library. Click or drag to add; move, resize, rotate, flip, hide, lock,
+or reorder objects. A primitive may have its own description or a pinned library
+asset/version. Changed or unavailable library links show a warning and are not
+silently replaced. The bottom filmstrip selects shots.
+
+The right inspector switches between frame and object properties. Duration and
+camera movement stay prominent; lens/framing/angle are collapsed generation
+guidance because object placement and scale come from the layout. Selecting a
+camera move automatically draws a distinct editing symbol for pan/tilt,
+dolly/zoom, truck/crane, orbit or follow. **Custom** enables a camera-path tool:
+drag from its start to its end, then move the start, middle and end handles.
+Camera tempo is slow, medium or fast; the optional tracking object explains which
+layout object the camera works relative to. Object controls hold pose, description,
+facing, timing, and a motion path. Exact geometry remains in a collapsed
+section with integer values for keyboard access and precise alignment. Adding a
+frame marker from notes creates it immediately; drag its numbered badge to place
+it, or activate the badge to reopen frame notes. Click a path endpoint, then
+adjust its points.
+Arrow keys move the focused object or handle; Shift increases the step, Escape
+cancels a gesture, and Delete removes an unlocked object. Ctrl/Cmd+Z and
+Ctrl/Cmd+Shift+Z undo/redo layout edits within the current image; they do not
+intercept typing in inputs. Comments can be pinned to the layout. Downloaded PNG
+files include object and camera movement arrows, but exclude the grid, selection
+handles, object labels and comments. The clean generation condition still omits
+all directing marks.
+
+The versioned canvas document saves inside each keyframe's existing scene draft,
+including library IDs, paths, light settings and notes. Limits are 80 objects and
+30 comment markers per image. This is a 2D planning tool: camera settings guide
+generation but do not recalculate perspective, simulate lighting, or animate the
+scene. The image model may interpret composition approximately. A blank canvas
+can generate from the shot description and camera settings alone.
+
+**Create image** opens the backend image-model catalog and cost estimate. A
+launch waits for the current draft acknowledgement, then submits its revision,
+shot/keyframe IDs, model and an idempotent request ID to
+`POST .../scenes/{sceneId}/editor-frame-jobs/`. The worker renders clean canvas
+conditioning and resolves pinned project references; unsupported reference
+counts fail explicitly. It never silently substitutes a mock or another model.
+Accepted generation continues after navigation or closing the browser. Returning
+loads the saved image and job status; signed media URLs refresh without starting
+another generation. A new staging edit marks an existing image as outdated and
+never discards it. A reset or deletion during generation cannot restore removed
+shots. Errors require an explicit retry; an uncertain paid request can still
+incur a charge. Viewers can inspect but cannot edit or start generation.
+
+Run the backend migration and restart
+`python manage.py run_generation_worker --queue storyboard` after updating.
+The worker and web process need the same PostgreSQL/private media/provider and
+credit configuration. No new frontend dependencies or canvas-specific keys are
+required. See `backend/docs/storyboard.md` for API and billing details.
 
 The **Suggest shot list with AI** action first loads the server model allowlist,
 scene context, model availability, and a best-effort USD estimate from
@@ -283,7 +337,8 @@ structured Shot/Keyframe history or media assets. Cancel leaves the draft intact
 An AI response started before the reset cannot automatically put the old shots
 back; if it arrives later, it is retained separately for an explicit choice.
 
-Inside an expanded shot, **Show in screenplay** opens the full scene in a
+Inside an expanded shot, and beside the selected shot title in the staging
+canvas, **Show in screenplay** opens the full scene in a
 drawer, highlights every passage linked to the shot, and scrolls to the first.
 When the saved text matches the screenplay blocks, the drawer retains the
 screenplay font and paragraph layout for characters, dialogue, remarks, and

@@ -263,10 +263,10 @@ export default function CameraIntentPanel({
           </h3>
         </div>
         <div className="storyboard-inline-actions">
-          <Button icon={<CopyOutlined aria-hidden="true" />} onClick={onDuplicateSettings} size="small">
+          <Button icon={<CopyOutlined aria-hidden="true" />} onClick={onDuplicateSettings}>
             {t('storyboard.camera.duplicateSettings')}
           </Button>
-          <Button icon={<ReloadOutlined aria-hidden="true" />} onClick={onReset} size="small">
+          <Button icon={<ReloadOutlined aria-hidden="true" />} onClick={onReset}>
             {t('storyboard.camera.reset')}
           </Button>
         </div>

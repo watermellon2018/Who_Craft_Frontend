@@ -822,6 +822,8 @@ export interface StoryboardEditorDraftReference {
   primary?: boolean;
   sourceKeyframeId?: StoryboardEditorDraftId;
   sourceShotId?: StoryboardEditorDraftId;
+  versionId?: StoryboardEditorDraftId;
+  assetId?: StoryboardEditorDraftId;
 }
 
 export interface StoryboardEditorDraftKeyframe {
@@ -832,6 +834,7 @@ export interface StoryboardEditorDraftKeyframe {
   generationStatus: "idle" | "ready" | "failed";
   cameraIntent: StoryboardEditorDraftCameraIntent;
   generationReferences?: Array<StoryboardEditorDraftReference>;
+  canvas?: StoryboardCanvasDocument;
 }
 
 export interface StoryboardEditorDraftTransition {
@@ -1682,4 +1685,63 @@ export interface SceneReferences {
 export interface SceneReferencesReplaceRequest {
   expectedSceneVersion: number;
   items: Array<SceneReferenceRequest>;
+}
+
+export interface StoryboardCanvasDocument {
+  version: 1;
+  aspectRatio: "16:9" | "9:16" | "1:1";
+  objects: Array<{ x: number; y: number; id: StoryboardEditorDraftId; kind: "person" | "animal" | "prop" | "rectangle" | "ellipse" | "line"; width: number; height: number; rotation: number; flipX: boolean; hidden: boolean; locked: boolean; title: string; description: string; comment: string; pose: "front" | "profile" | "back" | "sitting"; entity?: { id: StoryboardEditorDraftId; type: "character" | "location" | "object" | "clothing" | "other"; title: string; versionId?: StoryboardEditorDraftId; assetId?: StoryboardEditorDraftId; }; motion: { type: "static" | "path"; points: Array<{ x: number; y: number; }>; start: number; end: number; facing: string; }; }>;
+  cameraMotion: { type: "Static" | "Dolly In" | "Dolly Out" | "Pan" | "Pan Left" | "Pan Right" | "Tilt Up" | "Tilt Down" | "Orbit Left" | "Orbit Right" | "Truck Left" | "Truck Right" | "Crane Up" | "Crane Down" | "Follow" | "Custom" | "Zoom In" | "Zoom Out"; targetId?: StoryboardEditorDraftId; intensity: "low" | "medium" | "high"; points?: Array<{ x: number; y: number; }>; start: number; end: number; };
+  lighting: { preset: "daylight" | "studio" | "night" | "custom"; direction: "front" | "left" | "right" | "top-left" | "top-right" | "back" | "top"; softness: "soft" | "hard"; temperature: "warm" | "neutral" | "cool"; contrast: "low" | "medium" | "high"; notes: string; };
+  notes: string;
+  markers: Array<{ x: number; y: number; id: StoryboardEditorDraftId; text: string; }>;
+}
+
+export interface StoryboardEditorFrameCreate {
+  shotId: StoryboardEditorDraftId;
+  keyframeId: StoryboardEditorDraftId;
+  expectedRevision: number;
+  imageModel: string;
+  routingMode?: "manual";
+  requestId: string;
+}
+
+export interface StoryboardEditorFrameModelOption {
+  id: string;
+  label: string;
+  available: boolean;
+  supportsReferences: boolean;
+  maxReferenceImages: number;
+  estimatedCost: string | null;
+  currency: "USD";
+}
+
+export interface StoryboardEditorFrameOptions {
+  models: Array<StoryboardEditorFrameModelOption>;
+  defaultModel: string | null;
+  canGenerate: boolean;
+}
+
+export interface StoryboardEditorFrameJob {
+  jobId: string;
+  sceneId: number;
+  shotId: StoryboardEditorDraftId;
+  keyframeId: StoryboardEditorDraftId;
+  status: "queued" | "running" | "succeeded" | "failed";
+  model: string;
+  expectedRevision: number;
+  inputFingerprint: string;
+  matchesCurrentDraft: boolean;
+  assetId: string | null;
+  imageUrl: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  estimatedSeconds: number;
+  errorCode: string | null;
+  billing: Record<string, unknown> | null;
+}
+
+export interface StoryboardEditorFrameJobList {
+  jobs: Array<StoryboardEditorFrameJob>;
 }

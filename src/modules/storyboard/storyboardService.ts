@@ -11,6 +11,9 @@ import i18n from '../../i18n';
 import {MOCK_STORYBOARD_SCENES} from './mockData';
 import {storyboardApi} from './storyboardApi';
 import {shotListJobService} from './shotListJobs';
+import {editorFrameService, loadCanvasLibrary} from './editorFrameJobs';
+import type {EditorFrameService} from './editorFrameJobs';
+import type {StoryboardSceneEntity} from './model';
 import type {ShotListJobService} from './shotListJobs';
 import {createMockShotList, createShot} from './useStoryboardWorkspace';
 
@@ -25,6 +28,8 @@ export interface GenerateStoryboardFrameResult {
 }
 
 export interface StoryboardFrontendService {
+  editorFrames?: EditorFrameService;
+  loadCanvasLibrary?: (projectId: string, signal?: AbortSignal) => Promise<StoryboardSceneEntity[]>;
   shotListJobs?: ShotListJobService;
   generateFrame: (input: GenerateStoryboardFrameInput) => Promise<GenerateStoryboardFrameResult>;
   loadScenes: (projectId: string) => Promise<StoryboardScene[]>;
@@ -86,7 +91,9 @@ export const storyboardMockService: StoryboardFrontendService = {
 };
 
 export const storyboardService: StoryboardFrontendService = {
-  ...storyboardMockService,
+  generateFrame: async () => {throw new Error('Use the durable editor-frame-jobs endpoint.');},
+  editorFrames: editorFrameService,
+  loadCanvasLibrary,
   shotListJobs: shotListJobService,
   loadScenes: storyboardApi.loadScenes,
   loadShotListOptions: async (scene, projectId) => (

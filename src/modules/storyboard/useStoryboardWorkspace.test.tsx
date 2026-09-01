@@ -1,4 +1,5 @@
 import {act, renderHook, waitFor} from '@testing-library/react';
+import {randomFillSync} from 'crypto';
 
 import api, {getAuthGeneration} from '../../api/http';
 import {editorPayload, hydrateEditorDrafts} from './editorDrafts';
@@ -7,6 +8,16 @@ import {MOCK_STORYBOARD_SCENES} from './mockData';
 import type {StoryboardScene} from './model';
 import {storyboardMockService} from './storyboardService';
 import {createMockShotList, useStoryboardWorkspace} from './useStoryboardWorkspace';
+import {createCanvas, createCanvasObject} from './canvasModel';
+
+const originalCrypto = window.crypto;
+beforeAll(() => Object.defineProperty(window, 'crypto', {configurable: true, value: {getRandomValues: randomFillSync}}));
+afterAll(() => Object.defineProperty(window, 'crypto', {configurable: true, value: originalCrypto}));
+
+function present<T>(value: T | undefined | null): T {
+  if (value === undefined || value === null) throw new Error('Expected loaded storyboard test value');
+  return value;
+}
 
 test('creates unique shot ids when several shots are created in the same clock tick', () => {
   const scene = MOCK_STORYBOARD_SCENES.find(({id}) => id === 'scene-03');
@@ -19,7 +30,7 @@ test('creates unique shot ids when several shots are created in the same clock t
 
   expect(new Set(shots.map(({id}) => id)).size).toBe(shots.length);
   expect(new Set(shots.flatMap(({keyframes}) => keyframes.map(({id}) => id))).size)
-    .toBe(shots.length * 2);
+    .toBe(shots.length);
 });
 
 test('keeps shot mutations in the editor and removes stale generation references on duplicate', async () => {
@@ -79,9 +90,70 @@ test('repairs a legacy shot without keyframes before entering the editor', async
   act(() => result.current.enterEditor());
 
   expect(result.current.mode).toBe('editor');
-  expect(result.current.selectedShot?.keyframes.map(({type}) => type)).toEqual(['start', 'end']);
+  expect(result.current.selectedShot?.keyframes.map(({type}) => type)).toEqual(['start']);
   expect(result.current.selectedKeyframe?.type).toBe('start');
   unmount();
+});
+
+test('adds an optional end as an independent copy of the selected composition without copying generated media', async () => {
+  const {result} = renderHook(() => useStoryboardWorkspace('42', storyboardMockService.loadScenes));
+  await waitFor(() => expect(result.current.scenes).toHaveLength(3));
+  act(() => result.current.selectScene('scene-03'));
+  const source = present(result.current.selectedScene).shots[0];
+  const canvas = createCanvas();
+  const object = createCanvasObject('person', 'Анчоус', 4,
+    {id: 'character-1', type: 'character', title: 'Анчоус', versionId: 'version-1'});
+  object.motion = {...object.motion, type: 'path', points: [{x: 40, y: 40}, {x: 75, y: 40}]};
+  canvas.objects = [object];
+  canvas.markers = [{id: 'comment-1', x: 20, y: 20, text: 'Смотреть вправо'}];
+  const start = {...source.keyframes[0], canvas, imageUrl: '/media/start.png', imageOutdated: true};
+  act(() => result.current.setShotList([{...source, keyframes: [start], transitions: []}]));
+  act(() => result.current.enterEditor());
+  expect(present(result.current.selectedShot).keyframes).toHaveLength(1);
+
+  act(() => result.current.addEnd());
+  const end = present(result.current.selectedKeyframe);
+  expect(end).toMatchObject({type: 'end', position: 1, generationStatus: 'idle', canvas, cameraIntent: start.cameraIntent});
+  expect(end.imageUrl).toBeUndefined();
+  expect(end.imageOutdated).toBeUndefined();
+  expect(end.generationReferences).toBeUndefined();
+  expect(end.canvas).not.toBe(start.canvas);
+  expect(present(end.canvas).objects[0]).not.toBe(start.canvas.objects[0]);
+  expect(present(end.canvas).objects[0].motion.points[0]).not.toBe(start.canvas.objects[0].motion.points[0]);
+  expect(present(end.canvas).objects[0].entity).not.toBe(start.canvas.objects[0].entity);
+  expect(present(end.canvas).markers[0]).not.toBe(start.canvas.markers[0]);
+  expect(end.cameraIntent).not.toBe(start.cameraIntent);
+  expect(present(result.current.selectedShot).transitions).toEqual([
+    expect.objectContaining({fromKeyframeId: start.id, toKeyframeId: end.id}),
+  ]);
+  act(() => result.current.addEnd());
+  expect(present(result.current.selectedShot).keyframes).toHaveLength(2);
+});
+
+test('protects the primary state while deleting optional end and intermediate states and rebuilding transitions', async () => {
+  const {result} = renderHook(() => useStoryboardWorkspace('42', storyboardMockService.loadScenes));
+  await waitFor(() => expect(result.current.scenes).toHaveLength(3));
+  act(() => result.current.selectScene('scene-03'));
+  act(() => result.current.enterEditor());
+  const start = present(result.current.selectedKeyframe);
+  const original = present(result.current.selectedShot);
+  act(() => result.current.deleteKeyframe(start.id));
+  expect(present(result.current.selectedShot).keyframes).toEqual(original.keyframes);
+  expect(result.current.selectedKeyframe?.id).toBe(start.id);
+
+  act(() => result.current.addIntermediate());
+  const intermediate = present(result.current.selectedKeyframe);
+  const end = present(present(result.current.selectedShot).keyframes.find(({type}) => type === 'end'));
+  expect(intermediate.type).toBe('intermediate');
+  act(() => result.current.deleteKeyframe(end.id));
+  expect(present(result.current.selectedShot).keyframes.map(({type}) => type)).toEqual(['start', 'intermediate']);
+  expect(present(result.current.selectedShot).transitions).toEqual([
+    expect.objectContaining({fromKeyframeId: start.id, toKeyframeId: intermediate.id}),
+  ]);
+  act(() => result.current.deleteKeyframe(intermediate.id));
+  expect(present(result.current.selectedShot).keyframes).toEqual([start]);
+  expect(present(result.current.selectedShot).transitions).toEqual([]);
+  expect(result.current.selectedKeyframe?.id).toBe(start.id);
 });
 
 test('tags loaded scenes with their authorized project and ignores a late response for a previous project', async () => {
@@ -154,6 +226,26 @@ test('does not mutate a read-only project scene', async () => {
   const original = result.current.selectedScene?.shots;
   act(() => result.current.addShot({title: 'Не записывать', description: 'Нет доступа'}));
   expect(result.current.selectedScene?.shots).toEqual(original);
+});
+
+test('read-only state actions keep the existing keyframe selection as well as the scene data', async () => {
+  const loadScenes = async (projectId: string) => (await storyboardMockService.loadScenes(projectId)).map((scene) => ({
+    ...scene, canEdit: false, shots: scene.shots.map((shot) => ({...shot,
+      keyframes: shot.keyframes.filter(({type}) => type === 'start'), transitions: []})),
+  }));
+  const {result} = renderHook(() => useStoryboardWorkspace('42', loadScenes));
+  await waitFor(() => expect(result.current.scenes).toHaveLength(3));
+  act(() => result.current.selectScene('scene-03'));
+  const original = present(result.current.selectedScene).shots;
+  act(() => result.current.enterEditor());
+  const selectedId = result.current.selectedKeyframeId;
+  expect(result.current.selectedKeyframe?.type).toBe('start');
+  act(() => result.current.addEnd());
+  expect(present(result.current.selectedScene).shots).toEqual(original);
+  expect(result.current.selectedKeyframeId).toBe(selectedId);
+  act(() => result.current.addIntermediate());
+  expect(present(result.current.selectedScene).shots).toEqual(original);
+  expect(result.current.selectedKeyframeId).toBe(selectedId);
 });
 
 test('a late save acknowledgement does not reopen manual selection after the user has returned to overview', async () => {

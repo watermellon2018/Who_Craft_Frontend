@@ -1,5 +1,6 @@
 import api, {getAuthGeneration} from '../../api/http';
 import {isShotReady} from './model';
+import {cloneCanvas} from './canvasModel';
 import type {GenerationReference, StoryboardKeyframe, StoryboardScene, StoryboardShot, StoryboardShotSource} from './model';
 import {
   normalizeTemporaryShots,
@@ -150,6 +151,7 @@ export function editorPayload(scene: Pick<StoryboardScene, 'shots' | 'editorStag
       duration: shot.duration,
       id: shot.id,
       keyframes: shot.keyframes.map((keyframe) => ({
+        ...(keyframe.canvas ? {canvas: cloneCanvas(keyframe.canvas)} : {}),
         cameraIntent: {...keyframe.cameraIntent},
         generationReferences: keyframe.generationReferences?.map((reference) => ({
           id: reference.id,
@@ -158,6 +160,8 @@ export function editorPayload(scene: Pick<StoryboardScene, 'shots' | 'editorStag
           sourceShotId: reference.sourceShotId,
           title: reference.title,
           type: reference.type,
+          versionId: reference.versionId,
+          assetId: reference.assetId,
         })),
         generationStatus: keyframe.generationStatus === 'loading' ? 'idle' : keyframe.generationStatus,
         id: keyframe.id,
@@ -192,6 +196,8 @@ function normalizedReference(value: unknown): GenerationReference | null {
     imageUrl: '',
     title: value.title,
     type: value.type as GenerationReference['type'],
+    ...(typeof value.versionId === 'string' ? {versionId: value.versionId} : {}),
+    ...(typeof value.assetId === 'string' ? {assetId: value.assetId} : {}),
     ...(typeof value.primary === 'boolean' ? {primary: value.primary} : {}),
     ...(typeof value.sourceKeyframeId === 'string' ? {sourceKeyframeId: value.sourceKeyframeId} : {}),
     ...(typeof value.sourceShotId === 'string' ? {sourceShotId: value.sourceShotId} : {}),
@@ -267,6 +273,7 @@ function normalizePayload(value: unknown, sceneId: string): EditorDraftPayload |
 }
 
 function restoreShots(payload: EditorDraftPayload, scene: StoryboardScene): StoryboardShot[] {
+  const staleImages = new Map(scene.shots.flatMap((shot) => shot.keyframes.map((frame) => [frame.id, frame.imageOutdated] as const)));
   const images = new Map(scene.shots.flatMap((shot) => shot.keyframes.map((frame) => [frame.id, frame.imageUrl] as const)));
   const entities = new Map(scene.entities.map((entity) => [entity.id, entity.imageUrl]));
   return payload.shots.map((shot) => ({
@@ -274,6 +281,7 @@ function restoreShots(payload: EditorDraftPayload, scene: StoryboardScene): Stor
     keyframes: shot.keyframes.map((frame) => ({
       ...frame,
       imageUrl: images.get(frame.id),
+      imageOutdated: staleImages.get(frame.id),
       generationReferences: frame.generationReferences?.map((reference) => ({
         ...reference,
         imageUrl: (reference.sourceKeyframeId ? images.get(reference.sourceKeyframeId) : entities.get(reference.id)) ?? '',

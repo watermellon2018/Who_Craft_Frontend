@@ -2,6 +2,7 @@ import type {StoryboardShotProposal} from '../../api/generated/contracts';
 import type {StoryboardScene} from './model';
 import {storyboardApi} from './storyboardApi';
 import {storyboardService} from './storyboardService';
+import {MOCK_STORYBOARD_SCENES} from './mockData';
 
 jest.mock('./storyboardApi', () => ({storyboardApi: {
   loadScenes: jest.fn(), loadShotListOptions: jest.fn(), suggestShotList: jest.fn(),
@@ -38,6 +39,13 @@ test('carries the authoritative source snapshot and shared segment IDs into loca
   expect(shots[1].source?.document).toBe(shots[0].source?.document);
   expect(shots[1].source?.segmentIds).toEqual(['a']);
   expect(shots[1].source?.segmentIds).not.toBe(shots[0].source?.segmentIds);
+  expect(shots.every(({keyframes}) => keyframes.length === 1 && keyframes[0].type === 'start')).toBe(true);
   expect(suggest).toHaveBeenCalledTimes(1);
   expect(suggest).toHaveBeenCalledWith('7', scene.id, {maxShots: 12, model: 'qwen'}, 7);
+});
+
+test('does not silently return mock artwork through the obsolete real-service generation method', async () => {
+  const shot = MOCK_STORYBOARD_SCENES[0].shots[0];
+  await expect(storyboardService.generateFrame({shot, keyframe: shot.keyframes[0], references: []}))
+    .rejects.toThrow('Use the durable editor-frame-jobs endpoint.');
 });

@@ -56,7 +56,7 @@ test('detects directional orbit and crane movement', () => {
 });
 
 test('sorts keyframes by position without mutating the input', () => {
-  const [start, end] = createInitialKeyframes('shot-01');
+  const [start, end] = createInitialKeyframes('shot-01', {end: {}});
   const intermediate: StoryboardKeyframe = {
     ...start,
     id: 'shot-01-intermediate',
@@ -77,7 +77,10 @@ test('sorts keyframes by position without mutating the input', () => {
   ]);
 });
 
-test('creates required start and end keyframes from camera presets', () => {
+test('creates only a start by default and preserves explicit legacy end presets', () => {
+  expect(createInitialKeyframes('single-shot')).toEqual([
+    expect.objectContaining({id: 'single-shot-start', type: 'start', position: 0}),
+  ]);
   const keyframes = createInitialKeyframes('shot-02', {
     end: {distance: 'near', framing: 'medium-close'},
     start: {azimuth: 'front-left', targetId: 'anna'},
@@ -120,7 +123,7 @@ test('suggests the previous shot end for a new shot start', () => {
 });
 
 test('suggests the closest earlier keyframe for intermediate and end frames', () => {
-  const [start, end] = createInitialKeyframes('shot-current');
+  const [start, end] = createInitialKeyframes('shot-current', {end: {}});
   const startWithImage = {...start, imageUrl: '/start.jpg'};
   const intermediate: StoryboardKeyframe = {
     ...start,
@@ -208,7 +211,7 @@ test('lists earlier generated keyframes while keeping the immediate predecessor 
   ]);
 });
 
-test('requires generated Start and End images before a shot is ready', () => {
+test('requires images for the states actually present and rejects outdated images', () => {
   const completedScene = MOCK_STORYBOARD_SCENES.find(({id}) => id === 'scene-01');
   const draftScene = MOCK_STORYBOARD_SCENES.find(({id}) => id === 'scene-03');
 
@@ -216,4 +219,21 @@ test('requires generated Start and End images before a shot is ready', () => {
   expect(draftScene?.shots[2] && isShotReady(draftScene.shots[2])).toBe(false);
   expect(normalizeStoryboardImageUrl('javascript:alert(1)')).toBeNull();
   expect(normalizeStoryboardImageUrl('mock://storyboard/frame')).toBe('mock://storyboard/frame');
+  const shot = completedScene?.shots[0];
+  if (!shot) throw new Error('Expected completed fixture shot');
+  const start = {...shot.keyframes[0], imageUrl: '/media/start.png'};
+  expect(isShotReady({...shot, keyframes: [start]})).toBe(true);
+  expect(isShotReady({...shot, keyframes: [{...start, imageOutdated: true}]})).toBe(false);
+  expect(isShotReady({...shot, keyframes: [start, {...start, id: 'end', type: 'end', position: 1, imageUrl: undefined}]})).toBe(false);
+  expect(isShotReady({...shot, keyframes: []})).toBe(false);
+});
+
+test('uses the last available reference from a previous shot with only one image', () => {
+  const previous = {...MOCK_STORYBOARD_SCENES[0].shots[0], keyframes: [
+    {...createInitialKeyframes('previous')[0], imageUrl: '/media/previous.png'},
+  ]};
+  const current = {...previous, id: 'current', order: previous.order + 1, keyframes: createInitialKeyframes('current')};
+  expect(suggestContinuityReferences(current.keyframes[0], current, previous)).toEqual([
+    expect.objectContaining({sourceKeyframeId: 'previous-start', imageUrl: '/media/previous.png', primary: true}),
+  ]);
 });

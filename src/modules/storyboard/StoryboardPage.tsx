@@ -13,17 +13,14 @@ import {getAuthGeneration} from '../../api/http';
 import {craftModal} from '../../theme/CraftModalHost';
 import DashboardHeader from '../profile/components/DashboardHeader';
 import {projectDashboardPath} from '../../routes/pathConstant';
-import CameraIntentPanel from './components/CameraIntentPanel';
+import BlockingEditor from './components/BlockingEditor';
 import GenerationDrawer from './components/GenerationDrawer';
-import KeyframeTimeline from './components/KeyframeTimeline';
 import SceneOverview from './components/SceneOverview';
 import type {SceneEntity} from './components/SceneOverview';
 import SceneSidebar from './components/SceneSidebar';
 import {chooseShotListAiConfiguration} from './components/ShotListAiModal';
 import ShotListBuilder from './components/ShotListBuilder';
-import ShotSidebar from './components/ShotSidebar';
 import StoryboardPreview from './components/StoryboardPreview';
-import StoryboardViewport from './components/StoryboardViewport';
 import ManualShotMarkup from './components/ManualShotMarkup';
 import type {GenerationTiming} from './components/GenerationTimer';
 import VisualReferenceDrawer from './components/VisualReferenceDrawer';
@@ -300,49 +297,6 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
     }, 720);
   };
 
-  const handleRegenerate = () => {
-    handleGenerate(workspace.selectedKeyframe?.generationReferences ?? []);
-  };
-
-  const handleDuplicateSettings = () => {
-    if (!workspace.selectedShot || !workspace.selectedKeyframe) return;
-    const sourceIntent = workspace.selectedKeyframe.cameraIntent;
-    const ordered = [...workspace.selectedShot.keyframes].sort((a, b) => a.position - b.position);
-    const currentIndex = ordered.findIndex(({id}) => id === workspace.selectedKeyframe?.id);
-    const target = ordered[currentIndex + 1] ?? ordered[currentIndex - 1];
-    if (!target) return;
-    workspace.updateSelectedShot((shot) => ({
-      ...shot,
-      keyframes: shot.keyframes.map((keyframe) => keyframe.id === target.id ? {
-        ...keyframe,
-        cameraIntent: {
-          ...sourceIntent,
-          composition: sourceIntent.composition?.map((subject) => ({...subject})),
-        },
-      } : keyframe),
-    }));
-    message.success(t('storyboard.messages.settingsDuplicated'));
-  };
-
-  const handleResetCamera = () => {
-    workspace.updateCameraIntent({
-      azimuth: 'front',
-      composition: workspace.selectedKeyframe?.cameraIntent.targetId ? [{
-        height: 48,
-        subjectId: workspace.selectedKeyframe.cameraIntent.targetId,
-        width: 28,
-        x: 58,
-        y: 27,
-      }] : undefined,
-      distance: 'medium',
-      elevation: 'eye-level',
-      framing: 'medium',
-      lens: 50,
-      targetId: workspace.selectedKeyframe?.cameraIntent.targetId,
-    });
-    message.info(t('storyboard.messages.cameraReset'));
-  };
-
   const handleApplyReferences = (ids: string[]) => {
     if (!workspace.selectedShot || !workspace.selectedScene) return;
     const entityById = new Map(workspace.selectedScene.entities.map((entity) => [entity.id, entity]));
@@ -456,57 +410,10 @@ export default function StoryboardPage({service = storyboardService}: Storyboard
   );
 
   const renderEditor = () => (
-    <main className="storyboard-editor">
-      <div className="storyboard-editor__viewport">
-        <StoryboardViewport
-          error={generationError?.keyframeId === workspace.selectedKeyframeId
-            ? generationError.message
-            : null}
-          keyframe={workspace.selectedKeyframe}
-          loading={generatingKeyframeId === workspace.selectedKeyframeId}
-          onEditReferences={() => setGenerationDrawerOpen(true)}
-          onGenerate={() => setGenerationDrawerOpen(true)}
-          onRegenerate={handleRegenerate}
-          shot={workspace.selectedShot}
-        />
-      </div>
-      <div className="storyboard-editor__shots">
-        <ShotSidebar
-          entities={workspace.selectedScene?.entities ?? []}
-          onAdd={() => handleAddShot(workspace.selectedShotId ?? undefined)}
-          onDelete={handleDeleteShot}
-          onDuplicate={(shotId) => workspace.duplicateShot(shotId, t('storyboard.copySuffix'))}
-          onEditContext={() => setReferenceDrawerOpen(true)}
-          onMove={workspace.moveShot}
-          onSelect={workspace.selectShot}
-          onUpdateDuration={(shotId, duration) => workspace.updateShot(shotId, {
-            duration: duration ?? undefined,
-          })}
-          selectedShotId={workspace.selectedShotId}
-          shots={workspace.selectedScene?.shots ?? []}
-        />
-      </div>
-      <div className="storyboard-editor__timeline">
-        <KeyframeTimeline
-          onAddIntermediate={workspace.addIntermediate}
-          onDelete={workspace.deleteKeyframe}
-          onReposition={workspace.repositionKeyframe}
-          onSelect={workspace.setSelectedKeyframeId}
-          selectedKeyframeId={workspace.selectedKeyframeId}
-          shot={workspace.selectedShot}
-        />
-      </div>
-      <div className="storyboard-editor__camera">
-        <CameraIntentPanel
-          keyframe={workspace.selectedKeyframe}
-          onDuplicateSettings={handleDuplicateSettings}
-          onReset={handleResetCamera}
-          onUpdateIntent={workspace.updateCameraIntent}
-          onUpdateTransition={workspace.updateTransition}
-          shot={workspace.selectedShot}
-        />
-      </div>
-    </main>
+    <BlockingEditor key={`${projectId}:${workspace.selectedSceneId}`} workspace={workspace}
+      projectId={projectId} service={service}
+      onAddShot={() => handleAddShot(workspace.selectedShotId ?? undefined)}
+      onLegacyGenerate={() => setGenerationDrawerOpen(true)} />
   );
 
   return (

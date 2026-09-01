@@ -46,8 +46,7 @@ export default function ShotSourceDetails({scene, shot}: ShotSourceDetailsProps)
         {document?.truncated && (
           <Alert message={t('storyboard.source.truncated')} showIcon type="warning" />
         )}
-        {!missing && <p>{t(shot.source?.origin === 'manual'
-          ? 'storyboard.source.manualHighlightHelp' : 'storyboard.source.highlightHelp')}</p>}
+
         <ReadOnlyScreenplay
           className="storyboard-source-viewer__text"
           firstHighlightRef={firstHighlightRef}

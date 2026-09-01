@@ -57,7 +57,7 @@ function createShot(
 ): StoryboardShot {
   const id = `scene-03-shot-${String(order).padStart(2, '0')}`;
   const keyframes = createInitialKeyframes(id, {
-    end: {...DEFAULT_SHOT_CAMERA, ...presets.end},
+    ...(presets.end ? {end: {...DEFAULT_SHOT_CAMERA, ...presets.end}} : {}),
     start: {...DEFAULT_SHOT_CAMERA, ...presets.start},
   });
 
@@ -72,13 +72,11 @@ function createShot(
     referenceIds: [ENVELOPE_ID],
     sceneId: SCENE_03_ID,
     title,
-    transitions: [
-      {
+    transitions: keyframes[1] ? [{
         fromKeyframeId: keyframes[0].id,
         id: `${id}-start-to-end`,
         toKeyframeId: keyframes[1].id,
-      },
-    ],
+      }] : [],
   };
 }
 

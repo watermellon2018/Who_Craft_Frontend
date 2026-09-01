@@ -6,7 +6,7 @@ import type {StoryboardShot} from '../model';
 import StoryboardViewport from './StoryboardViewport';
 
 test('renders a real storyboard image while preserving the mock fallback contract', () => {
-  const [start, end] = createInitialKeyframes('shot-real');
+  const [start, end] = createInitialKeyframes('shot-real', {end: {}});
   const keyframe = {...start, imageUrl: '/media/storyboard/start.jpg'};
   const shot: StoryboardShot = {
     characterIds: [],

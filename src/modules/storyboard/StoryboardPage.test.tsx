@@ -1,4 +1,5 @@
 import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {randomFillSync} from 'crypto';
 import React from 'react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
 
@@ -10,10 +11,18 @@ import StoryboardPage from './StoryboardPage';
 import type {StoryboardShot, StoryboardShotListOptions} from './model';
 import {storyboardMockService} from './storyboardService';
 import type {StoryboardFrontendService} from './storyboardService';
+import type {EditorFrameJob, EditorFrameService} from './editorFrameJobs';
 import type {ShotListJob} from './shotListJobs';
 import {createMockShotList} from './useStoryboardWorkspace';
 import {setStoredUserTokens} from '../../api/http';
 import i18n from '../../i18n';
+
+// These page flows mount multiple real Ant Design dialogs and the complete directing editor.
+jest.setTimeout(15000);
+
+const originalCrypto = window.crypto;
+beforeAll(() => Object.defineProperty(window, 'crypto', {configurable: true, value: {getRandomValues: randomFillSync}}));
+afterAll(() => Object.defineProperty(window, 'crypto', {configurable: true, value: originalCrypto}));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -52,7 +61,7 @@ function selectScene(index: number) {
 }
 
 function selectShot(index: number) {
-  const shot = document.querySelectorAll<HTMLButtonElement>('.storyboard-shot-button__select')[index];
+  const shot = within(screen.getByRole('navigation', {name: 'Кадры сцены'})).getAllByRole('button')[index];
   expect(shot).toBeDefined();
   fireEvent.click(shot);
 }
@@ -118,19 +127,94 @@ test('opens the directing workspace and adds an optional intermediate keyframe',
   await waitForStoryboard();
   openKitchenEditor();
 
-  expect(document.querySelector('.storyboard-camera-header h3')).toHaveTextContent(
-    'Настройки камеры · 0%',
-  );
-  const tabs = Array.from(document.querySelectorAll('.ant-tabs-tab')).map((tab) => tab.textContent);
-  expect(tabs).toEqual(expect.arrayContaining(['Камера', 'Композиция', 'Движение']));
-  const shotsSidebar = document.querySelector('.storyboard-shots');
-  expect(shotsSidebar).not.toBeNull();
-  expect(within(shotsSidebar as HTMLElement).getByText('Общий')).toBeInTheDocument();
+  const inspector = screen.getByRole('complementary', {name: 'Параметры постановки'});
+  expect(within(inspector).getByRole('combobox', {name: 'Крупность'})).toBeInTheDocument();
+  expect(within(inspector).getByRole('spinbutton', {name: 'Объектив, мм'})).toHaveValue('35');
+  expect(within(inspector).getByText('Движение камеры')).toBeInTheDocument();
+  expect(screen.getByRole('navigation', {name: 'Кадры сцены'})).toBeInTheDocument();
 
   clickButtonWithText('Добавить промежуточный кадр');
 
-  expect(document.querySelector('button[aria-label="Удалить промежуточный кадр"]')).toBeInTheDocument();
+  expect(screen.getAllByRole('button', {name: 'Удалить опорное изображение'})).toHaveLength(2);
   expect(screen.getAllByText('Промежуточный')).not.toHaveLength(0);
+});
+
+test('keeps the selected Schema view while moving between scene shots', async () => {
+  renderStoryboard();
+  await waitForStoryboard();
+  openKitchenEditor();
+
+  fireEvent.click(screen.getByRole('radio', {name: 'Схема'}));
+  expect(screen.getByRole('group', {name: 'Схема кадра — вид через камеру'})).toBeInTheDocument();
+  selectShot(1);
+
+  await waitFor(() => expect(screen.getByRole('radio', {name: 'Схема'})).toBeChecked());
+  expect(screen.getByRole('group', {name: 'Схема кадра — вид через камеру'})).toBeInTheDocument();
+});
+
+test('shows active image generation progress inside the image canvas', async () => {
+  const scenes = await storyboardMockService.loadScenes('42');
+  const shot = scenes[2].shots[0];
+  const startedAt = new Date(Date.now() - 10_000).toISOString();
+  const runningJob: EditorFrameJob = {
+    jobId: 'editor-frame-job', sceneId: 3, shotId: shot.id, keyframeId: shot.keyframes[0].id,
+    status: 'running', model: 'openrouter-flash-image', expectedRevision: 4,
+    inputFingerprint: 'fingerprint', matchesCurrentDraft: true, assetId: null, imageUrl: null,
+    createdAt: startedAt, startedAt, finishedAt: null, estimatedSeconds: 45,
+    errorCode: null, billing: null,
+  };
+  const editorFrames: EditorFrameService = {
+    options: async () => ({models: [], defaultModel: null, canGenerate: false}),
+    list: async () => [runningJob],
+    start: async () => runningJob,
+  };
+  renderStoryboard({...storyboardMockService, editorFrames});
+  await waitForStoryboard();
+  openKitchenEditor();
+
+  const progress = await screen.findByRole('status', {name: 'Создаём изображение'});
+  expect(progress.closest('.blocking-editor__image-stage')).not.toBeNull();
+  expect(progress.querySelector('.ant-progress')).not.toBeNull();
+  expect(progress).toHaveTextContent('Осталось примерно');
+});
+
+test('starts a newly generated shot with only the primary state and adds the ending on demand', async () => {
+  renderStoryboard();
+  await waitForStoryboard();
+  selectScene(1);
+  clickButtonWithText('Предложить shot list с ИИ');
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  fireEvent.click(await screen.findByRole('button', {name: 'Перейти к постановке'}));
+
+  expect(screen.getByText('Основное')).toBeInTheDocument();
+  expect(screen.queryByText('Конечное')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', {name: 'Добавить конечное'}));
+  expect(screen.getByText('Конечное')).toBeInTheDocument();
+});
+
+test('adds a visible marker directly from frame notes and opens its text field', async () => {
+  renderStoryboard();
+  await waitForStoryboard();
+  openKitchenEditor();
+
+  const inspector = screen.getByRole('complementary', {name: 'Параметры постановки'});
+  fireEvent.click(within(inspector).getByText('Заметки к кадру', {selector: 'summary'}));
+  fireEvent.click(within(inspector).getByRole('button', {name: 'Добавить пометку на кадр'}));
+
+  const text = await within(inspector).findByRole('textbox', {name: 'Пометка 1'});
+  expect(text).toBeVisible();
+  const notes = text.closest('details');
+  const marker = screen.getByRole('button', {name: 'Комментарий 1:'});
+  expect(marker).toBeInTheDocument();
+  expect(within(inspector).queryByRole('spinbutton', {name: /Пометка 1 · [XY]/})).not.toBeInTheDocument();
+
+  fireEvent.click(within(inspector).getByText('Заметки к кадру', {selector: 'summary'}));
+  expect(notes).not.toHaveAttribute('open');
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+  fireEvent.click(marker);
+  await waitFor(() => expect(notes).toHaveAttribute('open'));
 });
 
 test('suggests the previous shot end as continuity for a new start frame', async () => {
@@ -139,7 +223,7 @@ test('suggests the previous shot end as continuity for a new start frame', async
   openKitchenEditor();
 
   selectShot(2);
-  clickButtonWithText('Создать storyboard frame');
+  clickButtonWithText('Создать изображение');
 
   expect(await screen.findByText('Референсы непрерывности')).toBeInTheDocument();
   expect(screen.getByText('Shot 02 · End')).toBeInTheDocument();
@@ -210,30 +294,43 @@ test('closes the AI configuration when the page unmounts', async () => {
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });
 
+test('opens the screenplay passage from the directing workspace', async () => {
+  renderStoryboard();
+  await waitForStoryboard();
+  openKitchenEditor();
+
+  fireEvent.click(screen.getByRole('button', {name: 'Показать в сценарии'}));
+
+  const drawer = await screen.findByRole('dialog');
+  expect(within(drawer).getByRole('heading', {name: 'Wide shot'})).toBeInTheDocument();
+  expect(within(drawer).getByText('Anna enters the kitchen. She notices an envelope lying on the table. She approaches it, picks it up and looks surprised.')).toBeInTheDocument();
+  expect(within(drawer).getByText('Связь со сценарием не сохранена. Можно прочитать всю сцену, но выделить исходный фрагмент этого кадра нельзя.')).toBeInTheDocument();
+});
+
 test('returns through storyboard stages without losing camera settings or added keyframes', async () => {
   renderStoryboard();
   await waitForStoryboard();
   expect(screen.getByRole('link', {name: 'Вернуться к проекту'})).toBeInTheDocument();
   openKitchenEditor();
 
-  const cameraPanel = document.querySelector('.storyboard-camera-panel') as HTMLElement;
-  const lens = within(cameraPanel).getByRole('spinbutton');
+  const cameraPanel = screen.getByRole('complementary', {name: 'Параметры постановки'});
+  const lens = within(cameraPanel).getByRole('spinbutton', {name: 'Объектив, мм'});
   fireEvent.change(lens, {target: {value: '85'}});
   fireEvent.blur(lens);
   clickButtonWithText('Добавить промежуточный кадр');
   fireEvent.click(screen.getByRole('button', {name: 'Вернуться к списку кадров'}));
 
   expect(screen.getByRole('heading', {name: /Кадры сцены ·/})).toBeInTheDocument();
-  expect(document.querySelector('.storyboard-camera-panel')).not.toBeInTheDocument();
+  expect(screen.queryByRole('complementary', {name: 'Параметры постановки'})).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', {name: 'Вернуться к выбору сцены'}));
   expect(screen.getByRole('heading', {name: 'Выберите сцену'})).toBeInTheDocument();
 
   selectScene(2);
   expect(screen.getByRole('heading', {name: /Кадры сцены ·/})).toBeInTheDocument();
   clickButtonWithText('Перейти к постановке');
-  const restoredCamera = document.querySelector('.storyboard-camera-panel') as HTMLElement;
-  expect(within(restoredCamera).getByRole('spinbutton')).toHaveValue('85');
-  expect(screen.getByRole('button', {name: 'Удалить промежуточный кадр'})).toBeInTheDocument();
+  const restoredCamera = screen.getByRole('complementary', {name: 'Параметры постановки'});
+  expect(within(restoredCamera).getByRole('spinbutton', {name: 'Объектив, мм'})).toHaveValue('85');
+  expect(screen.getAllByRole('button', {name: 'Удалить опорное изображение'})).toHaveLength(2);
 });
 
 test('returns from manual markup to the screenplay or the existing shot list', async () => {
@@ -583,7 +680,7 @@ test('keeps generation references open and reports a rejected frame generation',
   openKitchenEditor();
 
   selectShot(2);
-  clickButtonWithText('Создать storyboard frame');
+  clickButtonWithText('Создать изображение');
   clickButtonWithText('Создать кадр');
 
   await waitFor(() => expect(service.generateFrame).toHaveBeenCalled(), {timeout: 2500});
@@ -594,7 +691,7 @@ test('keeps generation references open and reports a rejected frame generation',
 
   fireEvent.click(document.querySelector('.ant-drawer-close') as HTMLButtonElement);
   selectShot(3);
-  expect(document.querySelector('.storyboard-viewport .ant-alert-error')).not.toBeInTheDocument();
+  expect(document.querySelector('.blocking-editor .ant-alert-error')).not.toBeInTheDocument();
 });
 
 test('persists and renders the image URL returned by the generation service', async () => {
@@ -607,9 +704,11 @@ test('persists and renders the image URL returned by the generation service', as
   openKitchenEditor();
 
   selectShot(2);
-  clickButtonWithText('Создать storyboard frame');
+  clickButtonWithText('Создать изображение');
   clickButtonWithText('Создать кадр');
 
+  await waitFor(() => expect(service.generateFrame).toHaveBeenCalled(), {timeout: 2500});
+  fireEvent.click(screen.getByRole('radio', {name: 'Изображение'}));
   await waitFor(() => expect(
     document.querySelector('img[src="/media/storyboard/generated.jpg"]'),
   ).toBeInTheDocument(), {timeout: 2500});
@@ -625,7 +724,7 @@ test('rejects an unsafe image URL returned by the generation service', async () 
   openKitchenEditor();
 
   selectShot(2);
-  clickButtonWithText('Создать storyboard frame');
+  clickButtonWithText('Создать изображение');
   clickButtonWithText('Создать кадр');
 
   await waitFor(() => expect(service.generateFrame).toHaveBeenCalled(), {timeout: 2500});

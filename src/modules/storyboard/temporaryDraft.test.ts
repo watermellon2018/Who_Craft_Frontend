@@ -11,7 +11,7 @@ const shot: StoryboardShot = {
   characterIds: ['character-1'],
   description: 'Полный текст описания.\nВторая строка. '.repeat(120),
   id: 'shot-1',
-  keyframes: createInitialKeyframes('shot-1'),
+  keyframes: createInitialKeyframes('shot-1', {end: {}}),
   order: 1,
   referenceIds: [],
   sceneId: 'scene-1',
@@ -74,10 +74,13 @@ test('normalizes transient generation state and excludes signed URLs, binary dat
   expect(result[0]).not.toHaveProperty('source');
 });
 
-test('rejects malformed nested cache data and repairs legacy missing boundary keyframes', () => {
+test('rejects malformed nested cache data and repairs a missing start without inventing an end', () => {
   expect(normalizeTemporaryShots([{...shot, keyframes: [{id: 'broken'}]}], 'scene-1')).toBeNull();
   expect(normalizeTemporaryShots([shot, shot], 'scene-1')).toBeNull();
-  expect(normalizeTemporaryShots([{...shot, keyframes: []}], 'scene-1')?.[0].keyframes).toHaveLength(2);
+  expect(normalizeTemporaryShots([{...shot, keyframes: []}], 'scene-1')?.[0].keyframes).toEqual([
+    expect.objectContaining({type: 'start'}),
+  ]);
+  expect(normalizeTemporaryShots([{...shot, keyframes: [shot.keyframes[0]]}], 'scene-1')?.[0].keyframes).toHaveLength(1);
   localStorage.setItem(temporaryDraftKey(9, 'project-1'), JSON.stringify({
     version: 1,
     projectId: 'project-1',

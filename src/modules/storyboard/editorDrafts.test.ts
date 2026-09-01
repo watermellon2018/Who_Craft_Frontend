@@ -25,6 +25,7 @@ import type {EditorDraftEntry, EditorDraftPayload} from './editorDrafts';
 import type {StoryboardScene, StoryboardShot} from './model';
 import {createInitialKeyframes} from './model';
 import {readTemporaryDraft, writeTemporaryDraft} from './temporaryDraft';
+import {createCanvas, createCanvasObject} from './canvasModel';
 
 const putMock = api.put as jest.MockedFunction<typeof api.put>;
 const getMock = api.get as jest.MockedFunction<typeof api.get>;
@@ -78,6 +79,28 @@ beforeEach(() => {
   generationMock.mockReturnValue(0);
   window.localStorage.clear();
   projectCounter += 1;
+});
+
+test('saves and restores a single-image canvas with pinned library links and no signed media URLs', async () => {
+  const projectId = String(projectCounter);
+  const initial = initialize(projectId);
+  const staging = shot();
+  const canvas = createCanvas();
+  canvas.objects = [createCanvasObject('person', 'Hero', 4, {id: 'hero', type: 'character', title: 'Hero', assetId: 'asset'})];
+  canvas.objects[0].motion = {type: 'path', start: 0, end: 3, facing: 'right', points: [{x: 10, y: 20}, {x: 75, y: 20}]};
+  canvas.markers = [{id: 'note', text: 'Reaction', x: 20, y: 30}];
+  staging.keyframes[0].canvas = canvas;
+  staging.keyframes[0].imageUrl = 'https://example.com/signed-frame.png';
+  const pending = deferredResponse(); putMock.mockReturnValueOnce(pending.promise);
+  saveEditorScene(projectId, {...initial, shots: [staging], editorStage: 'editor'});
+  const payload = requestPayload(0).payload;
+  expect(payload.shots[0].keyframes[0].canvas).toEqual(canvas);
+  expect(JSON.stringify(payload)).not.toContain('signed-frame');
+  pending.resolve({data: {sceneId: 17, revision: 1, payload}});
+  await savedEditorSceneRevision(projectId, initial);
+  const restored = restoreEditorScene(projectId, scene());
+  expect(restored.shots[0].keyframes).toHaveLength(1);
+  expect(restored.shots[0].keyframes[0].canvas).toEqual(canvas);
 });
 
 test('waits for a pending draft acknowledgement before launching or reconciling server generation', async () => {
