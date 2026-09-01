@@ -4,6 +4,8 @@ import type {
   StoryboardMovement as ApiMovement,
   StoryboardSceneSummary,
   StoryboardShotProposal,
+  StoryboardShotMetadataRequest,
+  StoryboardShotMetadataSuggestion,
   StoryboardShot as ApiShot,
   StoryboardWorkspace as ApiWorkspace,
 } from '../../api/generated/contracts';
@@ -287,6 +289,20 @@ export const storyboardApi = {
     const response = await api.post<StoryboardShotProposal>(
       `${storyboardPath(projectId)}${encodeURIComponent(sceneId)}/suggest-shots/`,
       configuration,
+      {expectedAuthGeneration: authGeneration},
+    );
+    return response.data;
+  },
+
+  async suggestShotMetadata(
+    projectId: string,
+    sceneId: string,
+    request: StoryboardShotMetadataRequest,
+    authGeneration?: number,
+  ): Promise<StoryboardShotMetadataSuggestion> {
+    const response = await api.post<StoryboardShotMetadataSuggestion>(
+      `${storyboardPath(projectId)}${encodeURIComponent(sceneId)}/suggest-shot-metadata/`,
+      request,
       {expectedAuthGeneration: authGeneration},
     );
     return response.data;

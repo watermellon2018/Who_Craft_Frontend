@@ -393,6 +393,18 @@
       "titleLabel": "Title",
       "descriptionLabel": "Description",
       "defaultTitle": "Shot {{number}}",
+      "ai": {
+        "title": {
+          "action": "Generate title with AI",
+          "tooltip": "Suggest a title from the selected passage",
+          "error": "Could not suggest a title. Try again."
+        },
+        "description": {
+          "action": "Generate description with AI",
+          "tooltip": "Suggest a description from the selected passage",
+          "error": "Could not suggest a description. Try again."
+        }
+      },
       "add": "Add shot",
       "cancelSelection": "Cancel selection",
       "complete": "Review shot list",

@@ -787,6 +787,18 @@ export interface StoryboardSuggestShotsRequest {
   maxShots?: number;
 }
 
+export interface StoryboardShotMetadataRequest {
+  field: "title" | "description";
+  range: { start: number; end: number; };
+  sceneVersion: number;
+  language?: "ru" | "en";
+}
+
+export interface StoryboardShotMetadataSuggestion {
+  field: "title" | "description";
+  value: string;
+}
+
 export type StoryboardEditorDraftId = string;
 
 export interface StoryboardEditorDraftSourceDocument {

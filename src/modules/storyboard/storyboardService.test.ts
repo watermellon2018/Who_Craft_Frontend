@@ -6,9 +6,13 @@ import {MOCK_STORYBOARD_SCENES} from './mockData';
 
 jest.mock('./storyboardApi', () => ({storyboardApi: {
   loadScenes: jest.fn(), loadShotListOptions: jest.fn(), suggestShotList: jest.fn(),
+  suggestShotMetadata: jest.fn(),
 }}));
 
 const suggest = storyboardApi.suggestShotList as jest.MockedFunction<typeof storyboardApi.suggestShotList>;
+const suggestMetadata = storyboardApi.suggestShotMetadata as jest.MockedFunction<
+  typeof storyboardApi.suggestShotMetadata
+>;
 
 test('carries the authoritative source snapshot and shared segment IDs into local shots', async () => {
   const scene: StoryboardScene = {
@@ -48,4 +52,24 @@ test('does not silently return mock artwork through the obsolete real-service ge
   const shot = MOCK_STORYBOARD_SCENES[0].shots[0];
   await expect(storyboardService.generateFrame({shot, keyframe: shot.keyframes[0], references: []}))
     .rejects.toThrow('Use the durable editor-frame-jobs endpoint.');
+});
+
+test('uses the current scene version and auth generation for manual field suggestions', async () => {
+  const scene: StoryboardScene = {
+    draftAuthGeneration: 9,
+    entities: [], id: '17', locationIds: [], order: 1, shots: [], status: 'empty',
+    text: 'Анна входит.', title: 'Кухня', version: 4,
+  };
+  suggestMetadata.mockResolvedValue({field: 'title', value: 'Анна входит'});
+
+  await expect(storyboardService.suggestShotMetadata(
+    scene, '61', 'title', {start: 0, end: 11},
+  )).resolves.toBe('Анна входит');
+
+  expect(suggestMetadata).toHaveBeenCalledWith('61', '17', {
+    field: 'title',
+    language: expect.stringMatching(/^(ru|en)$/u),
+    range: {start: 0, end: 11},
+    sceneVersion: 4,
+  }, 9);
 });
