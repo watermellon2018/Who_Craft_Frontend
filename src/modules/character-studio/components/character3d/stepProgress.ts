@@ -5,7 +5,7 @@ export type StepState = 'done' | 'active' | 'locked';
 
 export interface StepDescriptor {
   key: StepKey;
-  label: string;
+  translationKey: string;
   state: StepState;
 }
 
@@ -36,15 +36,15 @@ export function computeStepStates(
     model3d: !!character?.model3d_params && Object.keys(character.model3d_params).length > 0,
   };
 
-  const LABELS: Array<{key: StepKey; label: string}> = [
-    {key: 'parameters', label: 'Параметры'},
-    {key: 'variants', label: 'Варианты'},
-    {key: 'editor', label: 'Редактор'},
-    {key: 'references', label: 'Референсы'},
-    {key: 'model3d', label: '3D модель'},
+  const LABELS: Array<{key: StepKey; translationKey: string}> = [
+    {key: 'parameters', translationKey: 'characterStudio3d.steps.parameters'},
+    {key: 'variants', translationKey: 'characterStudio3d.steps.variants'},
+    {key: 'editor', translationKey: 'characterStudio3d.steps.editor'},
+    {key: 'references', translationKey: 'characterStudio3d.steps.references'},
+    {key: 'model3d', translationKey: 'characterStudio3d.steps.model3d'},
   ];
 
-  return LABELS.map(({key, label}) => {
+  return LABELS.map(({key, translationKey}) => {
     let state: StepState;
     if (key === current) {
       state = 'active';
@@ -53,6 +53,6 @@ export function computeStepStates(
     } else {
       state = 'locked';
     }
-    return {key, label, state};
+    return {key, translationKey, state};
   });
 }

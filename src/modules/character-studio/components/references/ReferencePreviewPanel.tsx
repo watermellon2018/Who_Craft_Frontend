@@ -7,8 +7,9 @@ import {
   ReloadOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {CharacterReference, REFERENCE_TYPE_ORDER} from '../../types/character.types';
-import {REFERENCE_LABELS, STATUS_LABELS} from './referenceLabels';
+import {REFERENCE_LABEL_KEYS, STATUS_LABEL_KEYS} from './referenceLabels';
 import {isRequiredReferenceType} from './referenceReadiness';
 
 interface Props {
@@ -39,7 +40,9 @@ const ReferencePreviewPanel: React.FC<Props> = ({
   onUpload,
   onRetry,
 }) => {
-  const labels = REFERENCE_LABELS[reference.reference_type];
+  const {t} = useTranslation();
+  const labelKeys = REFERENCE_LABEL_KEYS[reference.reference_type];
+  const title = t(labelKeys.title);
   const index = REFERENCE_TYPE_ORDER.indexOf(reference.reference_type) + 1;
   const total = REFERENCE_TYPE_ORDER.length;
   const isReady = reference.status === 'ready' && Boolean(reference.image_url);
@@ -55,16 +58,16 @@ const ReferencePreviewPanel: React.FC<Props> = ({
       <div className="character-preview-stage references-stage">
         {isReady ? (
           <div className="character-preview-subject">
-            <img src={reference.image_url || undefined} alt={labels.title} />
+            <img src={reference.image_url || undefined} alt={title} />
           </div>
         ) : reference.status === 'generating' || showAutoPending ? (
           <div className="character-preview-generating">
             <div className="character-preview-generating__spinner" />
-            <h3>Генерируем «{labels.title.toLowerCase()}»…</h3>
+            <h3>{t('characterStudio.references.generatingTitle', {label: title.toLocaleLowerCase()})}</h3>
             <p>
               {isRequiredType
-                ? 'Это нужно для подготовки персонажа к 3D модели. Можно пока выбрать другой ракурс.'
-                : 'Это занимает несколько секунд. Можно пока выбрать другой ракурс.'}
+                ? t('characterStudio.references.generatingRequiredHint')
+                : t('characterStudio.references.generatingOptionalHint')}
             </p>
             {isRequiredType && requiredTotal > 0 ? (
               <>
@@ -75,7 +78,7 @@ const ReferencePreviewPanel: React.FC<Props> = ({
                   />
                 </div>
                 <span className="character-preview-generating__progress-label">
-                  {requiredReadyCount} из {requiredTotal} обязательных готово
+                  {t('characterStudio.references.requiredProgress', {ready: requiredReadyCount, total: requiredTotal})}
                 </span>
               </>
             ) : (
@@ -87,37 +90,37 @@ const ReferencePreviewPanel: React.FC<Props> = ({
         ) : reference.status === 'failed' ? (
           <div className="character-preview-failed">
             <div className="character-preview-failed__icon">!</div>
-            <h3>Не удалось сгенерировать</h3>
-            <p>{reference.error_message || 'Попробуйте повторить генерацию или загрузить изображение вручную.'}</p>
+            <h3>{t('characterStudio.references.generationFailed')}</h3>
+            <p>{reference.error_message || t('characterStudio.references.generationFailedHint')}</p>
             <button type="button" className="character-preview-failed__retry" onClick={onRetry}>
-              Повторить генерацию
+              {t('characterStudio.references.retryGeneration')}
             </button>
           </div>
         ) : (
           <div className="character-preview-empty">
             <div className="character-preview-empty__silhouette" />
-            <h3>Референс ещё не создан</h3>
+            <h3>{t('characterStudio.references.notCreated')}</h3>
             <p>
               {isRequiredType
-                ? 'Сгенерируйте этот ракурс, чтобы продолжить подготовку к 3D модели.'
-                : 'Этот ракурс можно сгенерировать дополнительно.'}
+                ? t('characterStudio.references.requiredMissingHint')
+                : t('characterStudio.references.optionalMissingHint')}
             </p>
             <div className="character-preview-empty__actions">
-              <button type="button" onClick={onGenerate}>Сгенерировать ракурс</button>
+              <button type="button" onClick={onGenerate}>{t('characterStudio.references.generateAngle')}</button>
             </div>
           </div>
         )}
 
         {isReady && (
           <div className="references-stage__actions">
-            <Button size="small" icon={<DownloadOutlined />} onClick={onDownload}>Скачать</Button>
-            <Button size="small" icon={<ExpandOutlined />} onClick={onOpen}>Открыть</Button>
-            <Button size="small" icon={<SwapOutlined />} onClick={onCompare}>Сравнить</Button>
+            <Button size="small" icon={<DownloadOutlined />} onClick={onDownload}>{t('characterStudio.references.download')}</Button>
+            <Button size="small" icon={<ExpandOutlined />} onClick={onOpen}>{t('characterStudio.references.open')}</Button>
+            <Button size="small" icon={<SwapOutlined />} onClick={onCompare}>{t('characterStudio.references.compare')}</Button>
           </div>
         )}
 
         {isReady && reference.is_primary && (
-          <div className="references-stage__primary">Основной референс</div>
+          <div className="references-stage__primary">{t('characterStudio.references.primaryLabel')}</div>
         )}
 
         {/* Index pinned to the top-left so it never collides with the
@@ -126,15 +129,17 @@ const ReferencePreviewPanel: React.FC<Props> = ({
         <div className="references-stage__index">
           <span>{index} / {total}</span>
           <em>·</em>
-          <span>{labels.title}</span>
+          <span>{title}</span>
         </div>
 
         <div className={`references-stage__status-badge references-stage__status-badge--${reference.status}`}>
-          {STATUS_LABELS[reference.status]}
+          {t(STATUS_LABEL_KEYS[reference.status])}
           {reference.source && reference.status === 'ready' && (
             <>
               <em>·</em>
-              <span>{reference.source === 'uploaded' ? 'Загружено' : 'Сгенерировано'}</span>
+              <span>{reference.source === 'uploaded'
+                ? t('characterStudio.references.sourceUploaded')
+                : t('characterStudio.references.sourceGenerated')}</span>
             </>
           )}
         </div>
@@ -147,10 +152,10 @@ const ReferencePreviewPanel: React.FC<Props> = ({
       {isReady && (
         <div className="references-stage__quick-row">
           <Button size="small" icon={<ReloadOutlined />} onClick={onGenerate}>
-            Перегенерировать
+            {t('characterStudio.references.regenerate')}
           </Button>
           <Button size="small" icon={<CloudUploadOutlined />} onClick={onUpload}>
-            Заменить изображение
+            {t('characterStudio.references.uploadAction')}
           </Button>
         </div>
       )}

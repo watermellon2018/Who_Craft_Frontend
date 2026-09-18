@@ -4,6 +4,7 @@ import {
 } from '@ant-design/icons';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {InputNumber, Select} from 'antd';
+import {useTranslation} from 'react-i18next';
 
 import {backendAssetUrl} from '../../api/http';
 import {
@@ -14,6 +15,7 @@ import type {
   CharacterRelationshipMetric,
 } from './characterAnalytics';
 import type {CompactCharacter, Scene} from './types';
+import {CHARACTER_ROLE_LABEL_KEYS} from './types';
 
 interface CharactersViewProps {
   characters: CompactCharacter[];
@@ -84,19 +86,6 @@ const initials = (name: string) => name
   .join('')
   .toUpperCase();
 
-const pluralize = (value: number, one: string, few: string, many: string) => {
-  const absoluteValue = Math.abs(value) % 100;
-  const lastDigit = absoluteValue % 10;
-  if (absoluteValue > 10 && absoluteValue < 20) return many;
-  if (lastDigit === 1) return one;
-  if (lastDigit >= 2 && lastDigit <= 4) return few;
-  return many;
-};
-
-const formatMetric = (value: number, one: string, few: string, many: string) => (
-  `${value} ${pluralize(value, one, few, many)}`
-);
-
 const buildGraphLayout = (count: number) => {
   if (count === 0) return {height: GRAPH_MIN_HEIGHT, positions: [] as GraphPosition[]};
   if (count === 1) {
@@ -142,6 +131,7 @@ const relationshipCharacterIds = (relationship: CharacterRelationshipMetric) => 
 ];
 
 export default function CharactersView({characters, scenes}: CharactersViewProps) {
+  const {t} = useTranslation();
   const [scope, setScope] = useState('all');
   const [visibleCharacterCount, setVisibleCharacterCount] = useState(DEFAULT_VISIBLE_CHARACTER_COUNT);
   const [showAll, setShowAll] = useState(false);
@@ -217,14 +207,17 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
   const scopeOptions = useMemo(() => {
     const acts = Array.from(new Set(scenes.map((scene) => scene.act))).sort((first, second) => first - second);
     return [
-      {label: 'Весь сценарий', value: 'all'},
-      ...acts.map((act) => ({label: `Акт ${act}`, value: `act:${act}`})),
+      {label: t('script.characters.entireScreenplay'), value: 'all'},
+      ...acts.map((act) => ({label: t('script.common.actNumber', {number: act}), value: `act:${act}`})),
       ...scenes.map((scene) => ({
-        label: `Сцена ${scene.order} · ${scene.title || 'Без названия'}`,
+        label: t('script.characters.sceneOption', {
+          number: scene.order,
+          title: scene.title || t('script.common.untitled'),
+        }),
         value: `scene:${scene.id}`,
       })),
     ];
-  }, [scenes]);
+  }, [scenes, t]);
 
   useEffect(() => {
     if (!selection) return;
@@ -242,9 +235,16 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
   }, [layout.height]);
 
   const relationshipName = (relationship: CharacterRelationshipMetric) => {
-    const source = characterById.get(relationship.sourceId)?.name ?? 'Персонаж';
-    const target = characterById.get(relationship.targetId)?.name ?? 'Персонаж';
+    const source = characterById.get(relationship.sourceId)?.name
+      ?? t('script.characters.characterFallback');
+    const target = characterById.get(relationship.targetId)?.name
+      ?? t('script.characters.characterFallback');
     return `${source} — ${target}`;
+  };
+
+  const characterRoleLabel = (character: CompactCharacter) => {
+    const key = CHARACTER_ROLE_LABEL_KEYS[character.role];
+    return key ? t(key) : character.role || t('script.characters.characterFallback');
   };
 
   const nodeRadius = (metric: CharacterMetric) => (
@@ -383,14 +383,14 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
   return <main className="character-analysis">
     <header className="character-analysis__header">
       <div className="character-analysis__intro">
-        <span className="script-eyebrow">АНАЛИТИКА СЦЕНАРИЯ</span>
-        <h2>Связи персонажей</h2>
+        <span className="script-eyebrow">{t('script.characters.analyticsEyebrow')}</span>
+        <h2>{t('script.characters.title')}</h2>
       </div>
       <div className="character-analysis__filters">
         <label>
-          <span>Анализировать</span>
+          <span>{t('script.characters.analyze')}</span>
           <Select
-            aria-label="Период анализа"
+            aria-label={t('script.characters.analysisPeriod')}
             className="character-analysis__scope"
             options={scopeOptions}
             showSearch
@@ -403,11 +403,11 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
           />
         </label>
         <div className="character-analysis__limit">
-          <label htmlFor="character-graph-limit">Персонажей на графе</label>
+          <label htmlFor="character-graph-limit">{t('script.characters.graphLimit')}</label>
           <div>
             <InputNumber
               id="character-graph-limit"
-              aria-label="Персонажей на графе"
+              aria-label={t('script.characters.graphLimit')}
               disabled={showAll || analysis.characters.length === 0}
               max={Math.max(1, analysis.characters.length)}
               min={1}
@@ -422,32 +422,31 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
               }}
             />
             <button
-              aria-label="Показать всех персонажей"
+              aria-label={t('script.characters.showAllLabel')}
               aria-pressed={showAll}
               className={showAll ? 'is-active' : ''}
               disabled={analysis.characters.length === 0}
               type="button"
               onClick={() => setShowAll((current) => !current)}
-            >Все</button>
+            >{t('script.characters.all')}</button>
           </div>
         </div>
       </div>
     </header>
 
-    <section className="character-analysis__summary" aria-label="Сводка по персонажам">
-      <article><strong>{analysis.characters.length}</strong><span>в тексте</span></article>
-      <article><strong>{analysis.dialogueCount}</strong><span>реплик</span></article>
-      <article><strong>{analysis.relationships.length}</strong><span>связей</span></article>
+    <section className="character-analysis__summary" aria-label={t('script.characters.summaryLabel')}>
+      <article><strong>{analysis.characters.length}</strong><span>{t('script.characters.inText')}</span></article>
+      <article><strong>{analysis.dialogueCount}</strong><span>{t('script.characters.dialogueLabel', {count: analysis.dialogueCount})}</span></article>
+      <article><strong>{analysis.relationships.length}</strong><span>{t('script.characters.relationshipLabel', {count: analysis.relationships.length})}</span></article>
       <article className={analysis.unlinkedDialogueCount > 0 ? 'has-warning' : ''}>
-        <strong>{analysis.unlinkedDialogueCount}</strong><span>без привязки</span>
+        <strong>{analysis.unlinkedDialogueCount}</strong><span>{t('script.characters.unlinked')}</span>
       </article>
     </section>
 
     <div className={`character-analysis__body${detailsOpen ? '' : ' is-details-collapsed'}`}>
-      <section className="character-analysis__graph-panel" aria-label="Граф связей персонажей">
+      <section className="character-analysis__graph-panel" aria-label={t('script.characters.graphLabel')}>
         <p className="screen-reader-only" id="character-graph-navigation-instructions">
-          Колесо мыши меняет масштаб. Зажмите левую кнопку и тяните увеличенный граф.
-          С клавиатуры используйте плюс и минус для масштаба, стрелки для перемещения и ноль для сброса.
+          {t('script.characters.graphInstructions')}
         </p>
         <div className="character-graph__navigation-hint" aria-hidden="true">
           <strong>{graphView.zoom}%</strong>
@@ -457,19 +456,19 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
           className="character-graph__viewport"
           role="region"
           tabIndex={0}
-          aria-label="Навигация по графу"
+          aria-label={t('script.characters.graphNavigation')}
           aria-describedby="character-graph-navigation-instructions"
           onKeyDown={handleGraphKeyDown}
         >
           {analysis.characters.length === 0 ? <section className="character-graph__empty">
             <span aria-hidden="true">◌</span>
-            <h3>{characters.length === 0 ? 'Персонажи пока не добавлены' : 'Нет привязанных персонажей'}</h3>
+            <h3>{characters.length === 0 ? t('script.characters.noCharacters') : t('script.characters.noLinkedCharacters')}</h3>
             <p>{characters.length === 0
-              ? 'Добавленные в проект персонажи появятся здесь после привязки к репликам.'
-              : 'Выберите персонажей в блоках сценария — тогда здесь появятся объективные данные.'}</p>
+              ? t('script.characters.noCharactersDescription')
+              : t('script.characters.noLinkedCharactersDescription')}</p>
           </section> : <>
             {visibleRelationships.length === 0 && <p className="character-graph__no-links">
-              Между показанными персонажами пока нет последовательных обменов репликами.
+              {t('script.characters.noRelationships')}
             </p>}
             <svg
               ref={graphRef}
@@ -479,7 +478,10 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
                 isPanning ? 'is-panning' : '',
               ].filter(Boolean).join(' ')}
               role="group"
-              aria-label={`Граф связей: ${visibleCharacters.length} персонажей, ${visibleRelationships.length} связей`}
+              aria-label={t('script.characters.graphSummary', {
+                characters: t('script.characters.characterCount', {count: visibleCharacters.length}),
+                relationships: t('script.characters.relationshipCount', {count: visibleRelationships.length}),
+              })}
               viewBox={graphViewBox}
               style={{minHeight: Math.min(layout.height, 920)}}
               onClickCapture={(event) => {
@@ -517,7 +519,10 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
                   key={relationship.id}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Связь ${relationshipName(relationship)}: ${formatMetric(relationship.exchangeCount, 'обмен', 'обмена', 'обменов')}`}
+                  aria-label={t('script.characters.relationshipAria', {
+                    exchanges: t('script.characters.exchangeCount', {count: relationship.exchangeCount}),
+                    name: relationshipName(relationship),
+                  })}
                   className={`character-graph__edge${selected ? ' is-selected' : ''}`}
                   onClick={selectRelationship}
                   onKeyDown={(event) => activateWithKeyboard(event, selectRelationship)}
@@ -546,7 +551,10 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
                   role="button"
                   tabIndex={0}
                   data-testid="character-graph-node"
-                  aria-label={`${metric.character.name}: ${formatMetric(metric.dialogueCount, 'реплика', 'реплики', 'реплик')}`}
+                  aria-label={t('script.characters.characterAria', {
+                    dialogues: t('script.characters.dialogueCount', {count: metric.dialogueCount}),
+                    name: metric.character.name,
+                  })}
                   className={`character-graph__node${selected ? ' is-selected' : ''}`}
                   transform={`translate(${position.x} ${position.y})`}
                   onClick={selectCharacter}
@@ -572,10 +580,10 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
                     {metric.character.name}
                   </text>
                   <text className="character-graph__role" x="0" y={radius + 51} textAnchor="middle">
-                    {metric.character.roleLabel || metric.character.role || 'Персонаж'}
+                    {characterRoleLabel(metric.character)}
                   </text>
                   <text className="character-graph__metric" x="0" y={radius + 69} textAnchor="middle">
-                    {formatMetric(metric.dialogueCount, 'реплика', 'реплики', 'реплик')}
+                    {t('script.characters.dialogueCount', {count: metric.dialogueCount})}
                   </text>
                 </g>;
               })}
@@ -587,7 +595,7 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
       <button
         aria-controls="character-analysis-details"
         aria-expanded={detailsOpen}
-        aria-label={detailsOpen ? 'Скрыть панель деталей' : 'Показать панель деталей'}
+        aria-label={detailsOpen ? t('script.characters.hideDetails') : t('script.characters.showDetails')}
         className={`character-analysis__details-handle ${detailsOpen ? 'is-open' : 'is-collapsed'}`}
         type="button"
         onClick={() => setDetailsOpen((current) => !current)}
@@ -600,20 +608,20 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
       <aside
         className="character-analysis__details"
         id="character-analysis-details"
-        aria-label="Детали анализа"
+        aria-label={t('script.characters.detailsLabel')}
         aria-live="polite"
         hidden={!detailsOpen}
       >
         {selectedCharacter && <>
-          <span className="script-eyebrow">ПЕРСОНАЖ</span>
+          <span className="script-eyebrow">{t('script.characters.characterEyebrow')}</span>
           <h3>{selectedCharacter.character.name}</h3>
           <dl className="character-analysis__metrics">
-            <div><dt>Реплики</dt><dd>{selectedCharacter.dialogueCount}</dd></div>
-            <div><dt>Слова</dt><dd>{selectedCharacter.wordCount}</dd></div>
-            <div><dt>Сцены</dt><dd>{selectedCharacter.sceneIds.length}</dd></div>
-            <div><dt>Собеседники</dt><dd>{selectedCharacter.relationshipCount}</dd></div>
+            <div><dt>{t('script.characters.dialogues')}</dt><dd>{selectedCharacter.dialogueCount}</dd></div>
+            <div><dt>{t('script.characters.words')}</dt><dd>{selectedCharacter.wordCount}</dd></div>
+            <div><dt>{t('script.common.scenes')}</dt><dd>{selectedCharacter.sceneIds.length}</dd></div>
+            <div><dt>{t('script.characters.interlocutors')}</dt><dd>{selectedCharacter.relationshipCount}</dd></div>
           </dl>
-          <h4>Основные собеседники</h4>
+          <h4>{t('script.characters.mainInterlocutors')}</h4>
           <div className="character-analysis__relation-list">
             {analysis.relationships
               .filter((relationship) => relationshipCharacterIds(relationship)
@@ -627,65 +635,71 @@ export default function CharactersView({characters, scenes}: CharactersViewProps
                   type="button"
                   onClick={() => setSelection({id: relationship.id, type: 'relationship'})}
                 >
-                  <span>{characterById.get(otherId)?.name ?? 'Персонаж'}</span>
-                  <strong>{formatMetric(relationship.exchangeCount, 'обмен', 'обмена', 'обменов')}</strong>
+                  <span>{characterById.get(otherId)?.name ?? t('script.characters.characterFallback')}</span>
+                  <strong>{t('script.characters.exchangeCount', {count: relationship.exchangeCount})}</strong>
                 </button>;
               })}
-            {selectedCharacter.relationshipCount === 0 && <p>Последовательных обменов репликами пока нет.</p>}
+            {selectedCharacter.relationshipCount === 0 && <p>{t('script.characters.noConsecutiveExchanges')}</p>}
           </div>
         </>}
 
         {selectedRelationship && <>
-          <span className="script-eyebrow">СВЯЗЬ</span>
+          <span className="script-eyebrow">{t('script.characters.relationshipEyebrow')}</span>
           <h3>{relationshipName(selectedRelationship)}</h3>
           <dl className="character-analysis__metrics">
-            <div><dt>Обмены</dt><dd>{selectedRelationship.exchangeCount}</dd></div>
-            <div><dt>Общие сцены</dt><dd>{selectedRelationship.commonSceneIds.length}</dd></div>
-            <div><dt>Сцены с диалогом</dt><dd>{selectedRelationship.dialogueSceneIds.length}</dd></div>
+            <div><dt>{t('script.characters.exchanges')}</dt><dd>{selectedRelationship.exchangeCount}</dd></div>
+            <div><dt>{t('script.characters.commonScenes')}</dt><dd>{selectedRelationship.commonSceneIds.length}</dd></div>
+            <div><dt>{t('script.characters.dialogueScenes')}</dt><dd>{selectedRelationship.dialogueSceneIds.length}</dd></div>
           </dl>
-          <h4>По актам</h4>
+          <h4>{t('script.characters.byAct')}</h4>
           <div className="character-analysis__act-list">
             {selectedRelationship.actBreakdown.map((act) => <span key={act.act}>
-              Акт {act.act} · {formatMetric(act.exchangeCount, 'обмен', 'обмена', 'обменов')}
+              {t('script.characters.actExchanges', {
+                act: act.act,
+                exchanges: t('script.characters.exchangeCount', {count: act.exchangeCount}),
+              })}
             </span>)}
           </div>
-          <h4>Общие сцены</h4>
+          <h4>{t('script.characters.commonScenes')}</h4>
           <ol className="character-analysis__scene-list">
             {selectedRelationship.commonSceneIds.map((sceneId) => {
               const scene = sceneById.get(sceneId);
               return <li key={sceneId}>
-                <span>Сцена {scene?.order ?? sceneId}</span>
-                <strong>{scene?.title || 'Без названия'}</strong>
+                <span>{t('script.common.sceneNumber', {number: scene?.order ?? sceneId})}</span>
+                <strong>{scene?.title || t('script.common.untitled')}</strong>
               </li>;
             })}
           </ol>
         </>}
 
         {!selectedCharacter && !selectedRelationship && <>
-          <h3>КАК ЧИТАТЬ ГРАФ</h3>
+          <h3>{t('script.characters.howToReadGraph')}</h3>
           <ul className="character-analysis__legend">
-            <li><i className="is-node" />Крупнее узел — больше реплик.</li>
-            <li><i className="is-edge" />Толще линия — больше смен говорящих.</li>
+            <li><i className="is-node" />{t('script.characters.nodeLegend')}</li>
+            <li><i className="is-edge" />{t('script.characters.edgeLegend')}</li>
           </ul>
           {strongestRelationship && <>
-            <h4>Самая активная связь</h4>
+            <h4>{t('script.characters.strongestRelationship')}</h4>
             <button
               className="character-analysis__strongest"
               type="button"
               onClick={() => setSelection({id: strongestRelationship.id, type: 'relationship'})}
             >
               <span>{relationshipName(strongestRelationship)}</span>
-              <strong>{formatMetric(strongestRelationship.exchangeCount, 'обмен', 'обмена', 'обменов')}</strong>
+              <strong>{t('script.characters.exchangeCount', {count: strongestRelationship.exchangeCount})}</strong>
             </button>
           </>}
           {analysis.unlinkedDialogueCount > 0 && <p className="character-analysis__warning">
-            {formatMetric(analysis.unlinkedDialogueCount, 'реплика не привязана', 'реплики не привязаны', 'реплик не привязаны')} к персонажам и не входит в статистику.
+            {t('script.characters.unlinkedWarning', {count: analysis.unlinkedDialogueCount})}
           </p>}
         </>}
       </aside>
     </div>
     <div className="screen-reader-only" role="status">
-      Показано {visibleCharacters.length} из {analysis.characters.length} персонажей.
+      {t('script.characters.shownCharacters', {
+        count: analysis.characters.length,
+        shown: visibleCharacters.length,
+      })}
     </div>
   </main>;
 }

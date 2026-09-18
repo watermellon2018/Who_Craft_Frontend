@@ -5,18 +5,20 @@ import GenerationBillingSummary from '../../credits/components/GenerationBilling
 import {characterApi} from '../api/characterApi';
 import {isGenerationJobActive} from '../types/character.types';
 import type {GenerationJob} from '../types/character.types';
+import {useTranslation} from 'react-i18next';
+import type {TFunction} from 'i18next';
 
 import './GenerationJobHistory.css';
 
 const HISTORY_POLL_INTERVAL_MS = 3000;
 
-const STATUS_LABELS: Record<GenerationJob['status'], string> = {
-  queued: 'В очереди',
-  processing: 'В работе',
-  cancellation_requested: 'Отмена запрошена',
-  completed: 'Готово',
-  failed: 'Ошибка',
-  cancelled: 'Отменено',
+const STATUS_KEYS: Record<GenerationJob['status'], string> = {
+  queued: 'characterStudio.history.status.queued',
+  processing: 'characterStudio.history.status.processing',
+  cancellation_requested: 'characterStudio.history.status.cancellationRequested',
+  completed: 'characterStudio.history.status.completed',
+  failed: 'characterStudio.history.status.failed',
+  cancelled: 'characterStudio.history.status.cancelled',
 };
 
 const TECHNICAL_ERROR_MARKERS = [
@@ -29,18 +31,15 @@ const TECHNICAL_ERROR_MARKERS = [
   'static\\media\\',
   'static/media/',
 ] as const;
-const GENERATION_FAILURE_MESSAGE = '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044e. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u043f\u044b\u0442\u043a\u0443.';
-const MODEL3D_FAILURE_MESSAGE = '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0437\u0434\u0430\u0442\u044c 3D-\u043c\u043e\u0434\u0435\u043b\u044c. \u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043f\u043e\u043f\u044b\u0442\u043a\u0443.';
-
-function publicFailureMessage(job: GenerationJob): string {
+function publicFailureMessage(job: GenerationJob, t: TFunction): string {
   const message = job.error_message?.trim();
   if (job.job_type === 'model3d_reconstruction') {
-    return MODEL3D_FAILURE_MESSAGE;
+    return t('characterStudio.history.model3dFailure');
   }
-  if (!message) return GENERATION_FAILURE_MESSAGE;
+  if (!message) return t('characterStudio.history.generationFailure');
   const normalized = message.toLowerCase();
   if (TECHNICAL_ERROR_MARKERS.some((marker) => normalized.includes(marker))) {
-    return GENERATION_FAILURE_MESSAGE;
+    return t('characterStudio.history.generationFailure');
   }
   return message;
 }
@@ -94,6 +93,7 @@ export default function GenerationJobHistory({
   onJobStarted,
   projectId,
 }: GenerationJobHistoryProps) {
+  const {t} = useTranslation();
   const [jobs, setJobs] = useState<GenerationJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionJobId, setActionJobId] = useState<string | null>(null);
@@ -122,11 +122,11 @@ export default function GenerationJobHistory({
       setError(null);
     } catch (loadError: unknown) {
       if (isStale()) return;
-      setError(getApiErrorMessage(loadError, 'Не удалось загрузить историю генераций'));
+      setError(getApiErrorMessage(loadError, t('characterStudio.history.loadError')));
     } finally {
       if (!isStale()) setLoading(false);
     }
-  }, [characterId, projectId]);
+  }, [characterId, projectId, t]);
 
   useEffect(() => {
     let alive = true;
@@ -158,7 +158,7 @@ export default function GenerationJobHistory({
       onJobStarted?.(nextJob.job_id, sourceJob);
       await load();
     } catch (actionError: unknown) {
-      setError(getApiErrorMessage(actionError, 'Не удалось повторить генерацию'));
+      setError(getApiErrorMessage(actionError, t('characterStudio.history.retryError')));
       loadSequenceRef.current += 1;
     } finally {
       setActionJobId(null);
@@ -178,7 +178,7 @@ export default function GenerationJobHistory({
     } catch (actionError: unknown) {
       loadSequenceRef.current += 1;
       setJobs((current) => upsertJob(current, sourceJob));
-      setError(getApiErrorMessage(actionError, 'Не удалось запросить отмену'));
+      setError(getApiErrorMessage(actionError, t('characterStudio.history.cancelError')));
     } finally {
       setActionJobId(null);
     }
@@ -192,54 +192,56 @@ export default function GenerationJobHistory({
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
-        <span>История генераций</span>
+        <span>{t('characterStudio.history.title')}</span>
         <span className="generation-history__summary">
-          {activeCount > 0 ? `Активных: ${activeCount}` : `${visibleJobs.length}`}
+          {activeCount > 0 ? t('characterStudio.history.activeCount', {count: activeCount}) : `${visibleJobs.length}`}
           <span aria-hidden="true">{open ? '−' : '+'}</span>
         </span>
       </button>
       {open && (
         <div className="generation-history__body">
           {error && <p className="generation-history__error" role="alert">{error}</p>}
-          {loading && visibleJobs.length === 0 && <p className="generation-history__empty">Загружаем историю…</p>}
-          {!loading && visibleJobs.length === 0 && <p className="generation-history__empty">Генераций пока нет</p>}
+          {loading && visibleJobs.length === 0 && <p className="generation-history__empty">{t('characterStudio.history.loading')}</p>}
+          {!loading && visibleJobs.length === 0 && <p className="generation-history__empty">{t('characterStudio.history.empty')}</p>}
           {visibleJobs.slice(0, 8).map((job) => {
             const busy = actionJobId === job.job_id;
             return (
               <div className="generation-history__job" key={job.job_id}>
                 <div className="generation-history__job-copy">
                   <span className={`generation-history__status generation-history__status--${job.status}`}>
-                    {STATUS_LABELS[job.status]}
+                    {t(STATUS_KEYS[job.status])}
                   </span>
                   <span className="generation-history__job-type">
-                    {job.job_type === 'model3d_reconstruction' ? '3D-реконструкция' : 'Генерация персонажа'}
+                    {job.job_type === 'model3d_reconstruction'
+                      ? t('characterStudio.history.model3dJob')
+                      : t('characterStudio.history.characterJob')}
                   </span>
                   {job.status === 'processing' && <span>{Math.max(0, Math.min(100, job.progress ?? 0))}%</span>}
                 </div>
                 <div className="generation-history__actions">
                   {(job.status === 'failed' || job.status === 'cancelled') && (
                     <button disabled={busy} onClick={() => void retry(job)} type="button">
-                      {busy ? 'Запускаем…' : 'Повторить'}
+                      {busy ? t('characterStudio.history.starting') : t('characterStudio.history.retry')}
                     </button>
                   )}
                   {job.status === 'queued' && (
                     <button disabled={busy} onClick={() => void requestCancellation(job)} type="button">
-                      {busy ? 'Отменяем…' : 'Отменить генерацию'}
+                      {busy ? t('characterStudio.history.cancelling') : t('characterStudio.history.cancel')}
                     </button>
                   )}
                 </div>
                 {job.status === 'processing' && (
                   <p className="generation-history__notice">
-                    Генерация уже запущена, отменить её нельзя.
+                    {t('characterStudio.history.processingNotice')}
                   </p>
                 )}
                 {job.status === 'cancellation_requested' && (
                   <p className="generation-history__notice">
-                    Уже начатая генерация может завершиться, но результат не будет применён.
+                    {t('characterStudio.history.cancellationNotice')}
                   </p>
                 )}
                 {job.status === 'failed' && (
-                  <p className="generation-history__notice generation-history__notice--error">{publicFailureMessage(job)}</p>
+                  <p className="generation-history__notice generation-history__notice--error">{publicFailureMessage(job, t)}</p>
                 )}
                 <GenerationBillingSummary billing={job.billing} compact />
               </div>

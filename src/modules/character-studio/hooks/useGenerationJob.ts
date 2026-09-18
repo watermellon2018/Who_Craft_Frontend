@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
 import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
 import {notifyCreditBalanceUpdated} from '../../credits/api/creditApi';
 import {characterApi} from '../api/characterApi';
@@ -28,6 +29,7 @@ export function useGenerationJob(
   projectId?: string | number,
   characterId?: string,
 ) {
+  const {t} = useTranslation();
   const requestKey = `${projectId ?? ''}:${characterId ?? ''}:${jobId ?? ''}`;
   const activeRequestRef = useRef(requestKey);
   activeRequestRef.current = requestKey;
@@ -69,7 +71,7 @@ export function useGenerationJob(
         if (!belongsToOwner) {
           setState({
             ...initialState(requestKey),
-            errorMessage: 'Задание генерации не принадлежит текущему персонажу',
+            errorMessage: t('characterStudio.job.ownerMismatch'),
           });
           stopPolling();
           return;
@@ -88,10 +90,10 @@ export function useGenerationJob(
           ...initialState(requestKey),
           errorStatus: status,
           errorMessage: status === 403
-            ? 'Нет доступа к заданию генерации'
+            ? t('characterStudio.job.forbidden')
             : status === 404
-              ? 'Задание генерации не найдено'
-              : getApiErrorMessage(error, 'Не удалось загрузить задание генерации'),
+              ? t('characterStudio.job.notFound')
+              : getApiErrorMessage(error, t('characterStudio.job.loadError')),
         });
         stopPolling();
       }
@@ -102,7 +104,7 @@ export function useGenerationJob(
       cancelled = true;
       stopPolling();
     };
-  }, [characterId, jobId, projectId, requestKey, retryRevision]);
+  }, [characterId, jobId, projectId, requestKey, retryRevision, t]);
 
   return {
     job: visibleState.job,

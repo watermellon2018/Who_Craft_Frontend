@@ -1,6 +1,8 @@
 import React, {useEffect} from 'react';
 import {Input, Select} from 'antd';
 import {ControlOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
+import type {TFunction} from 'i18next';
 import {useImageModelCatalog} from '../../hooks/useImageModelCatalog';
 import type {ImageModelCatalogEntry} from '../../types/character.types';
 
@@ -23,10 +25,10 @@ interface GenerationSettingsPanelProps {
 
 const countOptions: Array<GenerationOptions['count']> = [1, 2, 4];
 
-const creativityOptions: Array<{value: GenerationCreativity; label: string; description: string}> = [
-  {value: 'strict', label: 'Строго', description: 'Максимально близко к описанию'},
-  {value: 'balanced', label: 'Сбалансировано', description: 'Точный образ с небольшой вариативностью'},
-  {value: 'creative', label: 'Креативно', description: 'Больше художественных решений'},
+const creativityOptions: Array<{value: GenerationCreativity; labelKey: string; descriptionKey: string}> = [
+  {value: 'strict', labelKey: 'characterStudio.create.generation.strictLabel', descriptionKey: 'characterStudio.create.generation.strictDesc'},
+  {value: 'balanced', labelKey: 'characterStudio.create.generation.balancedLabel', descriptionKey: 'characterStudio.create.generation.balancedDesc'},
+  {value: 'creative', labelKey: 'characterStudio.create.generation.creativeLabel', descriptionKey: 'characterStudio.create.generation.creativeDesc'},
 ];
 
 export const defaultGenerationOptions: GenerationOptions = {
@@ -58,19 +60,19 @@ function getProviderLabel(model: ImageModelCatalogEntry) {
   return providerLabels[model.backend] ?? model.backend;
 }
 
-function getUnavailableReason(model: ImageModelCatalogEntry, operation: 'generate' | 'reference') {
-  if (!model.configured) return 'Провайдер не настроен';
-  if (!model.supports_generate) return 'Не поддерживает генерацию';
+function getUnavailableReason(model: ImageModelCatalogEntry, operation: 'generate' | 'reference', t: TFunction) {
+  if (!model.configured) return t('characterStudio.create.generation.providerNotConfigured');
+  if (!model.supports_generate) return t('characterStudio.create.generation.generateUnsupported');
   if (operation === 'reference' && !model.supports_reference) {
-    return 'Не поддерживает работу с референсом';
+    return t('characterStudio.create.generation.referenceUnsupported');
   }
   return null;
 }
 
-function getCapabilityHint(model: ImageModelCatalogEntry) {
-  const capabilities = ['генерация'];
-  if (model.supports_reference) capabilities.push('референсы');
-  if (model.supports_edit) capabilities.push('редактирование');
+function getCapabilityHint(model: ImageModelCatalogEntry, t: TFunction) {
+  const capabilities = [t('characterStudio.create.generation.capabilities.generate')];
+  if (model.supports_reference) capabilities.push(t('characterStudio.create.generation.capabilities.reference'));
+  if (model.supports_edit) capabilities.push(t('characterStudio.create.generation.capabilities.edit'));
   if (supportsSeed(model)) capabilities.push('seed');
   return capabilities.join(' · ');
 }
@@ -81,6 +83,7 @@ export default function GenerationSettingsPanel({
   operation = 'generate',
   projectId,
 }: GenerationSettingsPanelProps) {
+  const {t} = useTranslation();
   const {catalog, error: catalogError, loading: catalogLoading} = useImageModelCatalog(projectId);
   const update = (changes: Partial<GenerationOptions>) => onChange({...value, ...changes});
   const explicitModel = value.imageModel
@@ -91,10 +94,10 @@ export default function GenerationSettingsPanel({
   );
   const selectedModelSupportsSeed = Boolean(selectedModel && supportsSeed(selectedModel));
   const seedUnavailableHint = selectedModel
-    ? 'Выбранная модель не поддерживает seed.'
+    ? t('characterStudio.create.generation.seedUnsupported')
     : catalogLoading
-      ? 'Seed будет доступен после загрузки каталога моделей.'
-      : 'Не удалось определить поддержку seed для выбранной модели.';
+      ? t('characterStudio.create.generation.seedLoading')
+      : t('characterStudio.create.generation.seedUnknown');
 
   useEffect(() => {
     if (!selectedModelSupportsSeed && (value.lockSeed || value.seed)) {
@@ -120,14 +123,14 @@ export default function GenerationSettingsPanel({
           <ControlOutlined />
         </span>
         <div>
-          <h2>Параметры генерации</h2>
+          <h2>{t('characterStudio.create.generation.title')}</h2>
         </div>
       </div>
 
       <div className="generation-settings-panel__body">
-        <GenerationSettingGroup title="Модель изображения">
+        <GenerationSettingGroup title={t('characterStudio.create.generation.modelLabel')}>
           <Select<string>
-            aria-label="Модель изображения"
+            aria-label={t('characterStudio.create.generation.modelLabel')}
             className="generation-model-select"
             loading={catalogLoading}
             optionFilterProp="label"
@@ -137,14 +140,14 @@ export default function GenerationSettingsPanel({
             value={value.imageModel}
             onChange={handleModelChange}
           >
-            <Select.Option value="" label="Авто — настройки проекта">
+            <Select.Option value="" label={t('characterStudio.create.generation.autoModel')}>
               <div className="generation-model-option">
-                <strong>Авто — настройки проекта</strong>
-                <span>Использовать модель, выбранную для проекта или профиля</span>
+                <strong>{t('characterStudio.create.generation.autoModel')}</strong>
+                <span>{t('characterStudio.create.generation.autoModelHint')}</span>
               </div>
             </Select.Option>
             {catalog?.available.map((model) => {
-              const unavailableReason = getUnavailableReason(model, operation);
+              const unavailableReason = getUnavailableReason(model, operation, t);
               return (
                 <Select.Option
                   key={model.key}
@@ -155,7 +158,7 @@ export default function GenerationSettingsPanel({
                   <div className="generation-model-option">
                     <strong>{model.label}</strong>
                     <span>
-                      {unavailableReason ?? `${getProviderLabel(model)} · ${getCapabilityHint(model)}`}
+                      {unavailableReason ?? `${getProviderLabel(model)} · ${getCapabilityHint(model, t)}`}
                     </span>
                   </div>
                 </Select.Option>
@@ -164,17 +167,17 @@ export default function GenerationSettingsPanel({
           </Select>
 
           {catalogLoading && (
-            <p className="generation-model-status" role="status">Загружаем доступные модели…</p>
+            <p className="generation-model-status" role="status">{t('characterStudio.create.generation.modelsLoading')}</p>
           )}
           {catalogError && (
             <p className="generation-model-status generation-model-status--warning" role="status">
-              Каталог моделей временно недоступен. Автовыбор продолжит работать.
+              {t('characterStudio.create.generation.modelsUnavailable')}
             </p>
           )}
         </GenerationSettingGroup>
 
-        <GenerationSettingGroup title="Количество вариантов">
-          <div className="generation-segmented" role="group" aria-label="Количество вариантов">
+        <GenerationSettingGroup title={t('characterStudio.create.generation.countLabel')}>
+          <div className="generation-segmented" role="group" aria-label={t('characterStudio.create.generation.countLabel')}>
             {countOptions.map((count) => (
               <button
                 key={count}
@@ -188,8 +191,8 @@ export default function GenerationSettingsPanel({
           </div>
         </GenerationSettingGroup>
 
-        <GenerationSettingGroup title="Точность следования описанию">
-          <div className="generation-creativity-options" role="group" aria-label="Точность следования описанию">
+        <GenerationSettingGroup title={t('characterStudio.create.generation.accuracyLabel')}>
+          <div className="generation-creativity-options" role="group" aria-label={t('characterStudio.create.generation.accuracyLabel')}>
             {creativityOptions.map((option) => (
               <button
                 key={option.value}
@@ -197,8 +200,8 @@ export default function GenerationSettingsPanel({
                 className={value.creativity === option.value ? 'is-active' : ''}
                 onClick={() => update({creativity: option.value})}
               >
-                <strong>{option.label}</strong>
-                <span>{option.description}</span>
+                <strong>{t(option.labelKey)}</strong>
+                <span>{t(option.descriptionKey)}</span>
               </button>
             ))}
           </div>
@@ -213,7 +216,7 @@ export default function GenerationSettingsPanel({
               onChange={(event) => update({lockSeed: event.target.checked, seed: event.target.checked ? value.seed : ''})}
             />
             <span />
-            <strong>Зафиксировать результат</strong>
+            <strong>{t('characterStudio.create.generation.seedLock')}</strong>
           </label>
 
           {!selectedModelSupportsSeed && (
@@ -230,7 +233,7 @@ export default function GenerationSettingsPanel({
                 pattern="[0-9]*"
                 autoComplete="off"
                 value={value.seed || ''}
-                placeholder="Например: 184205"
+                placeholder={t('characterStudio.create.generation.seedPlaceholder')}
                 onChange={(event) => update({seed: event.target.value.replace(/\D/g, '')})}
               />
             </div>

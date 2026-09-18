@@ -1,4 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
 
 import {
     getPosterJob,
@@ -12,19 +13,22 @@ import type {
     PosterOperationResponse,
     PosterVariant,
 } from '../../../api/posters';
-import {getApiErrorMessage} from '../../../api/errors';
 import {notifyCreditBalanceUpdated} from '../../../modules/credits/api/creditApi';
 import GenerationBillingSummary from '../../../modules/credits/components/GenerationBillingSummary';
+import {
+    getPosterErrorTranslationKey,
+    getPosterJobErrorTranslationKey,
+} from './errorLocalization';
 
 const POLL_INTERVAL_MS = 3000;
 
-const STATUS_LABELS: Record<PosterJobStatus, string> = {
-    queued: 'В очереди',
-    processing: 'В работе',
-    cancellation_requested: 'Отмена запрошена',
-    completed: 'Готово',
-    failed: 'Ошибка',
-    cancelled: 'Отменено',
+const STATUS_LABEL_KEYS: Record<PosterJobStatus, string> = {
+    queued: 'poster.history.status.queued',
+    processing: 'poster.history.status.processing',
+    cancellation_requested: 'poster.history.status.cancellationRequested',
+    completed: 'poster.history.status.completed',
+    failed: 'poster.history.status.failed',
+    cancelled: 'poster.history.status.cancelled',
 };
 
 interface PosterJobHistoryProps {
@@ -53,10 +57,11 @@ function jobFromAction(
 }
 
 export default function PosterJobHistory({onVariantReady, projectId}: PosterJobHistoryProps) {
+    const {t} = useTranslation();
     const [jobs, setJobs] = useState<PosterJob[]>([]);
     const [loading, setLoading] = useState(true);
     const [actionJobId, setActionJobId] = useState<number | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    const [errorKey, setErrorKey] = useState<string | null>(null);
     const previewedJobIds = useRef(new Set<number>());
     const settledCreditJobIds = useRef(new Set<number>());
     const loadSequenceRef = useRef(0);
@@ -101,11 +106,11 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
             });
             if (hasNewSettlement) notifyCreditBalanceUpdated();
             setJobs(nextJobs);
-            setError(null);
+            setErrorKey(null);
             await publishLatestVariant(nextJobs, () => !isStale());
         } catch (loadError: unknown) {
             if (isStale()) return;
-            setError(getApiErrorMessage(loadError, 'Не удалось загрузить историю генераций'));
+            setErrorKey(getPosterErrorTranslationKey(loadError, 'poster.history.errors.load'));
         } finally {
             if (!isStale()) setLoading(false);
         }
@@ -132,7 +137,7 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
     const retry = async (sourceJob: PosterJob) => {
         loadSequenceRef.current += 1;
         setActionJobId(sourceJob.id);
-        setError(null);
+        setErrorKey(null);
         try {
             const response = await retryPosterJob(projectId, sourceJob.id);
             loadSequenceRef.current += 1;
@@ -141,7 +146,7 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
             await load();
         } catch (actionError: unknown) {
             loadSequenceRef.current += 1;
-            setError(getApiErrorMessage(actionError, 'Не удалось повторить генерацию'));
+            setErrorKey(getPosterErrorTranslationKey(actionError, 'poster.history.errors.retry'));
         } finally {
             setActionJobId(null);
         }
@@ -150,7 +155,7 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
     const requestCancellation = async (sourceJob: PosterJob) => {
         loadSequenceRef.current += 1;
         setActionJobId(sourceJob.id);
-        setError(null);
+        setErrorKey(null);
         try {
             const response = await requestPosterJobCancellation(projectId, sourceJob.id);
             loadSequenceRef.current += 1;
@@ -159,21 +164,21 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
         } catch (actionError: unknown) {
             loadSequenceRef.current += 1;
             setJobs((current) => upsertJob(current, sourceJob));
-            setError(getApiErrorMessage(actionError, 'Не удалось запросить отмену'));
+            setErrorKey(getPosterErrorTranslationKey(actionError, 'poster.history.errors.cancel'));
         } finally {
             setActionJobId(null);
         }
     };
 
     if (loading && jobs.length === 0) {
-        return <p style={{color: '#94A3B8', margin: 0}}>Загружаем историю…</p>;
+        return <p style={{color: '#94A3B8', margin: 0}}>{t('poster.history.loading')}</p>;
     }
 
     return (
         <div style={{display: 'grid', gap: 10}}>
-            {error && <p role="alert" style={{color: '#EF4444', fontSize: 12, margin: 0}}>{error}</p>}
+            {errorKey && <p role="alert" style={{color: '#EF4444', fontSize: 12, margin: 0}}>{t(errorKey)}</p>}
             {!loading && jobs.length === 0 && (
-                <p style={{color: '#94A3B8', margin: 0}}>Генераций пока нет</p>
+                <p style={{color: '#94A3B8', margin: 0}}>{t('poster.history.empty')}</p>
             )}
             {jobs.slice(0, 8).map((job) => {
                 const busy = actionJobId === job.id;
@@ -192,35 +197,39 @@ export default function PosterJobHistory({onVariantReady, projectId}: PosterJobH
                         <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10}}>
                             <div style={{display: 'flex', alignItems: 'center', gap: 8, minWidth: 0}}>
                                 <strong style={{color: '#F8FAFC', fontSize: 12}}>
-                                    {job.operation === 'edit' ? 'Правка постера' : 'Генерация постера'}
+                                    {t(job.operation === 'edit'
+                                        ? 'poster.history.operation.edit'
+                                        : 'poster.history.operation.generate')}
                                 </strong>
-                                <span style={{color: '#FBBF24', fontSize: 11}}>{STATUS_LABELS[job.status]}</span>
+                                <span style={{color: '#FBBF24', fontSize: 11}}>{t(STATUS_LABEL_KEYS[job.status])}</span>
                             </div>
                             <div style={{display: 'flex', gap: 6}}>
                                 {(job.status === 'failed' || job.status === 'cancelled') && (
                                     <button disabled={busy} onClick={() => void retry(job)} type="button">
-                                        {busy ? 'Запускаем…' : 'Повторить'}
+                                        {t(busy ? 'poster.history.retrying' : 'common.retry')}
                                     </button>
                                 )}
                                 {job.status === 'queued' && (
                                     <button disabled={busy} onClick={() => void requestCancellation(job)} type="button">
-                                        {busy ? 'Отменяем…' : 'Отменить генерацию'}
+                                        {t(busy ? 'poster.history.cancelling' : 'poster.history.cancel')}
                                     </button>
                                 )}
                             </div>
                         </div>
                         {job.status === 'processing' && (
                             <p style={{color: '#94A3B8', fontSize: 11, lineHeight: 1.45, margin: 0}}>
-                                Генерация уже запущена, отменить её нельзя.
+                                {t('poster.history.processingHint')}
                             </p>
                         )}
                         {job.status === 'cancellation_requested' && (
                             <p style={{color: '#94A3B8', fontSize: 11, lineHeight: 1.45, margin: 0}}>
-                                Уже начатая генерация может завершиться, но результат не будет применён.
+                                {t('poster.history.cancellationHint')}
                             </p>
                         )}
-                        {job.status === 'failed' && job.errorMessage && (
-                            <p style={{color: '#EF4444', fontSize: 11, margin: 0}}>{job.errorMessage}</p>
+                        {job.status === 'failed' && (job.errorCode || job.errorMessage) && (
+                            <p style={{color: '#EF4444', fontSize: 11, margin: 0}}>
+                                {t(getPosterJobErrorTranslationKey(job.errorCode))}
+                            </p>
                         )}
                         <GenerationBillingSummary billing={job.billing} compact />
                     </div>

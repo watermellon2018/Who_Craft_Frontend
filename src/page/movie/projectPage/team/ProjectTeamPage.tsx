@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import {useTranslation} from 'react-i18next';
 import { Button, Dropdown, Select, message, Spin, Empty } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -13,7 +14,6 @@ import PathConstants, {projectDashboardPath} from '../../../../routes/pathConsta
 import {craftModal} from '../../../../theme/CraftModalHost';
 import {
   AccessRole,
-  ACCESS_ROLE_LABELS,
   PendingInvitation,
   ProjectPermissions,
   TeamMember,
@@ -22,7 +22,6 @@ import {
   changeMemberAccessRole,
   fetchPendingInvitations,
   fetchTeamSummary,
-  pluralMembers,
   removeMember,
   transferOwnership,
   teamErrorCode,
@@ -38,16 +37,16 @@ const AVATAR_GRADIENTS = [
   'linear-gradient(135deg, #EC4899, #BE185D)',
 ];
 
-const ASSIGNABLE_ROLES: { value: Exclude<AccessRole, 'owner'>; label: string }[] = [
-  { value: 'admin', label: 'Администратор' },
-  { value: 'editor', label: 'Редактор' },
-  { value: 'viewer', label: 'Наблюдатель' },
+const ASSIGNABLE_ROLES: { value: Exclude<AccessRole, 'owner'>; labelKey: string }[] = [
+  { value: 'admin', labelKey: 'project.team.accessRoles.admin' },
+  { value: 'editor', labelKey: 'project.team.accessRoles.editor' },
+  { value: 'viewer', labelKey: 'project.team.accessRoles.viewer' },
 ];
 
-function joinedLabel(joinedAt?: string | null): string {
+function joinedLabel(joinedAt: string | null | undefined, locale: string): string {
   if (!joinedAt) return '';
   try {
-    return new Date(joinedAt).toLocaleDateString('ru-RU', {
+    return new Date(joinedAt).toLocaleDateString(locale, {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -58,6 +57,7 @@ function joinedLabel(joinedAt?: string | null): string {
 }
 
 const ProjectTeamPage: React.FC = () => {
+  const {t, i18n} = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
@@ -77,7 +77,7 @@ const ProjectTeamPage: React.FC = () => {
 
   const load = useCallback(async () => {
     if (!projectId) {
-      setError('Проект не найден');
+      setError('project.team.errors.notFound');
       setLoading(false);
       return;
     }
@@ -96,13 +96,13 @@ const ProjectTeamPage: React.FC = () => {
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 403) {
-        setError('Нет доступа к проекту');
+        setError('project.team.errors.forbidden');
         // Access revoked — bounce back to the projects list.
         setTimeout(() => navigate(PathConstants.PROJECTS), 1200);
       } else if (status === 404) {
-        setError('Проект не найден');
+        setError('project.team.errors.notFound');
       } else {
-        setError('Не удалось загрузить команду');
+        setError('project.team.errors.load');
       }
     } finally {
       setLoading(false);
@@ -120,33 +120,34 @@ const ProjectTeamPage: React.FC = () => {
   const handleRoleChange = async (member: TeamMember, role: Exclude<AccessRole, 'owner'>) => {
     try {
       await changeMemberAccessRole(projectId!, member.id, role);
-      message.success('Роль обновлена');
+      message.success(t('project.team.notifications.roleUpdated'));
       load();
     } catch (e) {
       const code = teamErrorCode(e);
-      message.error(code === 'INSUFFICIENT_PERMISSIONS' ? 'Недостаточно прав' : 'Не удалось изменить роль');
+      message.error(t(code === 'INSUFFICIENT_PERMISSIONS'
+        ? 'project.team.errors.forbiddenAction'
+        : 'project.team.errors.changeRole'));
     }
   };
 
   const handleRemove = (member: TeamMember) => {
     craftModal.confirm({
-      title: `Удалить участника ${member.displayName}?`,
-      content:
-        'Доступ будет отозван немедленно. Созданные участником материалы останутся в проекте.',
-      okText: 'Удалить',
+      title: t('project.team.remove.title', {name: member.displayName}),
+      content: t('project.team.remove.description'),
+      okText: t('project.team.remove.action'),
       okButtonProps: { danger: true },
-      cancelText: 'Отмена',
+      cancelText: t('project.common.cancel'),
       onOk: async () => {
         try {
           await removeMember(projectId!, member.id);
-          message.success('Участник удалён');
+          message.success(t('project.team.notifications.memberRemoved'));
           load();
         } catch (e) {
           const code = teamErrorCode(e);
           message.error(
             code === 'CANNOT_REMOVE_OWNER'
-              ? 'Нельзя удалить владельца'
-              : 'Не удалось удалить участника',
+              ? t('project.team.errors.removeOwner')
+              : t('project.team.errors.removeMember'),
           );
           throw e;
         }
@@ -156,21 +157,20 @@ const ProjectTeamPage: React.FC = () => {
 
   const handleTransfer = (member: TeamMember) => {
     craftModal.confirm({
-      title: `Передать владение участнику ${member.displayName}?`,
-      content:
-        'Вы станете администратором, а выбранный участник — владельцем проекта. Это действие нельзя отменить обычным способом.',
-      okText: 'Передать владение',
+      title: t('project.team.transfer.title', {name: member.displayName}),
+      content: t('project.team.transfer.description'),
+      okText: t('project.team.transfer.action'),
       okButtonProps: {
         style: { background: 'var(--craft-accent)', borderColor: 'var(--craft-accent)', color: '#111827', fontWeight: 700 },
       },
-      cancelText: 'Отмена',
+      cancelText: t('project.common.cancel'),
       onOk: async () => {
         try {
           await transferOwnership(projectId!, member.id);
-          message.success('Владение передано');
+          message.success(t('project.team.notifications.ownershipTransferred'));
           load();
         } catch (e) {
-          message.error('Не удалось передать владение');
+          message.error(t('project.team.errors.transfer'));
           throw e;
         }
       },
@@ -181,16 +181,16 @@ const ProjectTeamPage: React.FC = () => {
     try {
       await cancelInvitation(projectId!, inv.id);
       setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
-      message.success('Приглашение отменено');
+      message.success(t('project.team.notifications.invitationCancelled'));
     } catch {
-      message.error('Не удалось отменить приглашение');
+      message.error(t('project.team.errors.cancelInvitation'));
     }
   };
 
   if (loading) {
     return (
       <div className="proj-dash team-page">
-        <DashboardHeader sectionTitle="Команда проекта" />
+        <DashboardHeader sectionTitle={t('project.team.title')} />
         <main className="app-main profile-scroll team-page-center">
           <Spin size="large" />
         </main>
@@ -201,9 +201,9 @@ const ProjectTeamPage: React.FC = () => {
   if (error || !summary) {
     return (
       <div className="proj-dash team-page">
-        <DashboardHeader sectionTitle="Команда проекта" />
+        <DashboardHeader sectionTitle={t('project.team.title')} />
         <main className="app-main profile-scroll team-page-center">
-          <Empty description={error || 'Команда недоступна'} />
+          <Empty description={error ? t(error) : t('project.team.errors.unavailable')} />
         </main>
       </div>
     );
@@ -214,7 +214,7 @@ const ProjectTeamPage: React.FC = () => {
 
   return (
     <div className="proj-dash team-page">
-      <DashboardHeader sectionTitle="Команда проекта" />
+      <DashboardHeader sectionTitle={t('project.team.title')} />
       <main className="app-main profile-scroll">
         <div className="team-page-wrap">
           {/* Header */}
@@ -225,12 +225,12 @@ const ProjectTeamPage: React.FC = () => {
               onClick={goBack}
               className="team-back-btn"
             >
-              Назад к проекту
+              {t('project.team.backToProject')}
             </Button>
             <div className="team-page-titles">
-              <h1 className="team-page-h1">Команда проекта</h1>
+              <h1 className="team-page-h1">{t('project.team.title')}</h1>
               <span className="team-page-subtitle">
-                {summary.projectTitle} · {pluralMembers(summary.memberCount)}
+                {summary.projectTitle} · {t('project.team.memberCount', {count: summary.memberCount})}
               </span>
             </div>
             {canManage && (
@@ -240,14 +240,14 @@ const ProjectTeamPage: React.FC = () => {
                 onClick={() => setInviteOpen(true)}
                 className="craft-action-button team-invite-button"
               >
-                Пригласить
+                {t('project.team.invite.action')}
               </Button>
             )}
           </div>
 
           {/* Active members */}
           <section className="team-section">
-            <div className="team-section-title">Активные участники</div>
+            <div className="team-section-title">{t('project.team.activeMembers')}</div>
             <div className="team-members-list">
               {summary.members.map((m, i) => {
                 const menuItems = [];
@@ -255,14 +255,14 @@ const ProjectTeamPage: React.FC = () => {
                   menuItems.push({
                     key: 'remove',
                     danger: true,
-                    label: 'Удалить из команды',
+                    label: t('project.team.remove.menuAction'),
                     onClick: () => handleRemove(m),
                   });
                 }
                 if (canTransfer && !m.isOwner) {
                   menuItems.push({
                     key: 'transfer',
-                    label: 'Передать владение',
+                    label: t('project.team.transfer.action'),
                     onClick: () => handleTransfer(m),
                   });
                 }
@@ -284,7 +284,7 @@ const ProjectTeamPage: React.FC = () => {
                         {m.isOwner && (
                           <CrownOutlined
                             className="team-owner-icon"
-                            title="Владелец"
+                            title={t('project.team.owner')}
                           />
                         )}
                       </div>
@@ -292,7 +292,9 @@ const ProjectTeamPage: React.FC = () => {
                         <span className="team-member-username">@{m.username}</span>
                         {m.joinedAt && (
                           <span className="team-member-joined">
-                            · в команде с {joinedLabel(m.joinedAt)}
+                            · {t('project.team.joinedAt', {
+                              date: joinedLabel(m.joinedAt, i18n.resolvedLanguage || i18n.language),
+                            })}
                           </span>
                         )}
                       </div>
@@ -305,16 +307,23 @@ const ProjectTeamPage: React.FC = () => {
                           size="small"
                           value={m.accessRole}
                           onChange={(v) => handleRoleChange(m, v as Exclude<AccessRole, 'owner'>)}
-                          options={ASSIGNABLE_ROLES}
+                          options={ASSIGNABLE_ROLES.map((role) => ({
+                            value: role.value,
+                            label: t(role.labelKey),
+                          }))}
                           style={{ width: 150 }}
                         />
                       ) : (
                         <span className={`team-role-badge team-role-${m.accessRole}`}>
-                          {ACCESS_ROLE_LABELS[m.accessRole]}
+                          {t(`project.team.accessRoles.${m.accessRole}`)}
                         </span>
                       )}
-                      {m.teamRoleLabel && (
-                        <span className="team-prof-role">{m.teamRoleLabel}</span>
+                      {m.teamRole && (
+                        <span className="team-prof-role">
+                          {m.teamRole === 'other' && (m.customTeamRole || m.teamRoleLabel)
+                            ? (m.customTeamRole || m.teamRoleLabel)
+                            : t(`project.team.professionalRoles.${m.teamRole || 'other'}`)}
+                        </span>
                       )}
                     </div>
 
@@ -328,7 +337,7 @@ const ProjectTeamPage: React.FC = () => {
                           type="text"
                           icon={<MoreOutlined />}
                           className="team-member-menu-btn"
-                          aria-label="Действия с участником"
+                          aria-label={t('project.team.memberActions')}
                         />
                       </Dropdown>
                     )}
@@ -341,9 +350,9 @@ const ProjectTeamPage: React.FC = () => {
           {/* Pending invitations (managers only) */}
           {canManage && (
             <section className="team-section">
-              <div className="team-section-title">Ожидающие приглашения</div>
+              <div className="team-section-title">{t('project.team.pendingInvitations')}</div>
               {invitations.length === 0 ? (
-                <div className="team-empty">Нет ожидающих приглашений</div>
+                <div className="team-empty">{t('project.team.noPendingInvitations')}</div>
               ) : (
                 <div className="team-invitations-list">
                   {invitations.map((inv) => (
@@ -352,26 +361,35 @@ const ProjectTeamPage: React.FC = () => {
                         <div className="team-invitation-target">
                           {inv.invitationType === 'username'
                             ? `@${inv.invitedUsername}`
-                            : 'Ссылка-приглашение'}
+                            : t('project.team.invite.linkAriaLabel')}
                         </div>
                         <div className="team-invitation-meta">
                           <span className={`team-role-badge team-role-${inv.accessRole}`}>
-                            {inv.accessRoleLabel}
+                            {t(`project.team.accessRoles.${inv.accessRole}`)}
                           </span>
-                          {inv.teamRoleLabel && <span>· {inv.teamRoleLabel}</span>}
+                          {inv.teamRole && (
+                            <span>
+                              · {inv.teamRole === 'other' && (inv.customTeamRole || inv.teamRoleLabel)
+                                ? (inv.customTeamRole || inv.teamRoleLabel)
+                                : t(`project.team.professionalRoles.${inv.teamRole || 'other'}`)}
+                            </span>
+                          )}
                           {inv.invitedByUsername && (
-                            <span>· создал @{inv.invitedByUsername}</span>
+                            <span>· {t('project.team.invitedBy', {username: inv.invitedByUsername})}</span>
                           )}
                           {inv.expiresAt && (
                             <span>
-                              · истекает{' '}
-                              {new Date(inv.expiresAt).toLocaleDateString('ru-RU')}
+                              · {t('project.team.expiresAt', {
+                                date: new Date(inv.expiresAt).toLocaleDateString(
+                                  i18n.resolvedLanguage || i18n.language,
+                                ),
+                              })}
                             </span>
                           )}
                         </div>
                       </div>
                       <Button size="small" danger ghost onClick={() => handleCancelInvitation(inv)}>
-                        Отменить
+                        {t('project.common.cancel')}
                       </Button>
                     </div>
                   ))}

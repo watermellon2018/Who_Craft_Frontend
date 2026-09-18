@@ -3,7 +3,7 @@ import {Button, Card, Tag} from 'antd';
 import {CloseOutlined, LockOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
 import type {StudioCharacter} from '../types/character.types';
-import {roleLabelMap} from './create/characterCreateOptions';
+import {getRoleLabel} from './create/characterCreateOptions';
 
 // Only fall back to character assets that legitimately stand in for a portrait
 // (a generated portrait asset or the user's original uploaded reference photo).
@@ -50,7 +50,7 @@ export default function CharacterCard({busy = false, character, onEdit, onDelete
           description={isDraft
             ? t('characterStudio.gallery.draftDescription')
             : character.role
-              ? (roleLabelMap[character.role] ?? character.role)
+              ? getRoleLabel(character.role, t)
               : t('characterStudio.gallery.roleMissing')}
         />
         {isDraft && (

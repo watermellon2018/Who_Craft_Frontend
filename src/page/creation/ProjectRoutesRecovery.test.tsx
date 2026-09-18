@@ -20,6 +20,7 @@ jest.mock('../../utils/global/notification', () => ({
 jest.mock('../../api/posters', () => ({
   editPoster: jest.fn(),
   generatePoster: jest.fn(),
+  getPosterClientErrorCode: jest.fn(() => null),
   selectPosterVariant: jest.fn(),
 }));
 jest.mock('./edit_generation', () => () => null);
@@ -78,7 +79,7 @@ test('restores poster context from the URL and shows an explicit not-found state
   mockedFetchProject.mockRejectedValue({response: {status: 404, data: {detail: 'Not found'}}});
   renderRoute('/projects/404/poster', <GenPosterPage />, '/projects/:projectId/poster');
 
-  expect(await screen.findByText('Проект не найден')).toBeInTheDocument();
+  expect(await screen.findByText('Проект не найден.')).toBeInTheDocument();
 });
 
 test('keeps poster generation disabled until a new project is saved', () => {

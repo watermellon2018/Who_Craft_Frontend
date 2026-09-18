@@ -67,25 +67,18 @@ export default function MissingCharactersNotice({
       <UserOutlined aria-hidden="true" className="script-missing-characters__icon" />
       <div className="script-missing-characters__copy">
         <h2 id="missing-characters-title">
-          {t('videoPreparation.scriptNotice.title', {
-            defaultValue: 'Для сценария не хватает персонажей',
-          })}
+          {t('script.missingCharacters.title')}
         </h2>
         <p>
-          {t('videoPreparation.scriptNotice.description', {
-            defaultValue: 'Создайте персонажей проекта, которые уже играют значимую роль в сценарии.',
-          })}
+          {t('script.missingCharacters.description')}
         </p>
       </div>
-      <ul aria-label={t('videoPreparation.scriptNotice.listLabel', {
-        defaultValue: 'Недостающие персонажи сценария',
-      })}>
+      <ul aria-label={t('script.missingCharacters.listLabel')}>
         {characters.map((character) => (
           <li key={character.name}>
             {canCreate ? (
               <button
-                aria-label={t('videoPreparation.scriptNotice.createLabel', {
-                  defaultValue: `Создать персонажа «${character.name}»`,
+                aria-label={t('script.missingCharacters.createLabel', {
                   name: character.name,
                 })}
                 onClick={() => onCreate(character)}
@@ -99,12 +92,10 @@ export default function MissingCharactersNotice({
         ))}
       </ul>
       <button
-        aria-label={t('videoPreparation.scriptNotice.dismissLabel', {
-          defaultValue: 'Закрыть уведомление о недостающих персонажах',
-        })}
+        aria-label={t('script.missingCharacters.dismissLabel')}
         className="script-missing-characters__close"
         onClick={dismiss}
-        title={t('videoPreparation.scriptNotice.dismissTitle', {defaultValue: 'Закрыть'})}
+        title={t('script.actions.close')}
         type="button"
       >
         <CloseOutlined aria-hidden="true" />

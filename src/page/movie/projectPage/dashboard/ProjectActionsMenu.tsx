@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {useTranslation} from 'react-i18next';
 import {
   EditOutlined,
   InboxOutlined,
@@ -28,6 +29,7 @@ const ProjectActionsMenu: React.FC<Props> = ({
   onDelete,
   onLeave,
 }) => {
+  const {t} = useTranslation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -73,7 +75,7 @@ const ProjectActionsMenu: React.FC<Props> = ({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Действия с проектом"
+        aria-label={t('project.dashboard.actions.menu')}
       >
         <MoreOutlined />
       </button>
@@ -96,33 +98,33 @@ const ProjectActionsMenu: React.FC<Props> = ({
           }}
         >
           {canEditSettings && (
-            <MenuItem icon={<EditOutlined />} label="Редактировать проект" onClick={handle(onEdit)} />
+            <MenuItem icon={<EditOutlined />} label={t('project.dashboard.actions.edit')} onClick={handle(onEdit)} />
           )}
           {canArchive && !isArchived && (
             <MenuItem
               icon={<InboxOutlined />}
-              label="Архивировать проект"
+              label={t('project.dashboard.actions.archive')}
               onClick={handle(onArchive)}
             />
           )}
           {canArchive && isArchived && (
             <MenuItem
               icon={<UndoOutlined />}
-              label="Восстановить проект"
+              label={t('project.dashboard.actions.restore')}
               onClick={handle(onUnarchive)}
             />
           )}
           {canLeave && (
             <MenuItem
               icon={<LogoutOutlined />}
-              label="Покинуть проект"
+              label={t('project.dashboard.actions.leave')}
               onClick={handle(onLeave!)}
             />
           )}
           {canDelete && (
             <MenuItem
               icon={<DeleteOutlined />}
-              label="Удалить проект"
+              label={t('project.dashboard.actions.delete')}
               onClick={handle(onDelete)}
               danger
             />

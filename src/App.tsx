@@ -53,6 +53,7 @@ import VideoEntryGatePage from './modules/video/pages/VideoEntryGatePage';
 import VideoGenerationPage from './modules/video/pages/VideoGenerationPage';
 import VideoPreparationPage from './modules/video/pages/VideoPreparationPage';
 import {NotificationProvider} from './modules/notifications/NotificationProvider';
+import ProfileLanguageSync from './i18n/ProfileLanguageSync';
 
 // All private pages are wrapped once here so adding a new private route is a
 // one-line change and we can't forget the auth gate on any single page.
@@ -161,7 +162,13 @@ function ThemedApp() {
                 .filter(({key}) => PUBLIC_ROUTE_KEYS.has(key))
                 .map(({path, component}) => ({path, element: component})),
             {
-                element: <NotificationProvider><Outlet /></NotificationProvider>,
+                element: (
+                    <ProfileLanguageSync>
+                        <NotificationProvider>
+                            <Outlet />
+                        </NotificationProvider>
+                    </ProfileLanguageSync>
+                ),
                 children: APP_ROUTES
                     .filter(({key}) => !PUBLIC_ROUTE_KEYS.has(key))
                     .map(({path, component}) => ({path, element: component})),

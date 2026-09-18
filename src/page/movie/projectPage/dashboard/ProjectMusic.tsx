@@ -58,9 +58,9 @@ const MusicTrackRow: React.FC<MusicTrackRowProps> = ({
         className="proj-track-play"
         disabled={!track.audioUrl}
         onClick={onToggle}
-        title={track.audioUrl ? undefined : t('musicStudio.player.unavailable', {defaultValue: 'Аудиофайл недоступен'})}
+        title={track.audioUrl ? undefined : t('musicStudio.player.unavailable')}
         aria-label={isPlaying
-          ? t('musicStudio.player.pauseTrack', {title: track.title, defaultValue: 'Пауза — ' + track.title})
+          ? t('musicStudio.player.pauseTrack', {title: track.title})
           : t('musicStudio.player.track', {title: track.title})}
       >
         {isPlaying ? <PauseOutlined /> : <CaretRightOutlined />}

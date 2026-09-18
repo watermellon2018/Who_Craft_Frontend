@@ -82,8 +82,8 @@ function buildEmptyViewModel(): ViewModel {
   return {
     project: {
       id: '',
-      title: 'Загрузка…',
-      subtitle: 'Страница проекта',
+      title: '',
+      subtitle: 'project.dashboard.subtitle',
       status: 'work',
       statusLabel: '',
       isFavorite: false,
@@ -96,29 +96,29 @@ function buildEmptyViewModel(): ViewModel {
       teamExtraCount: 0,
     },
     stats: [
-      { key: 'characters', label: 'Персонажи', value: 0, iconKey: 'characters', accent: 'purple' },
-      { key: 'scenes', label: 'Сцены', value: 0, iconKey: 'scenes', accent: 'blue' },
-      { key: 'music', label: 'Музыка', value: 0, iconKey: 'music', accent: 'green' },
-      { key: 'locations', label: 'Визуальная библиотека', value: 0, iconKey: 'locations', accent: 'yellow' },
+      { key: 'characters', label: 'project.dashboard.stats.characters', value: 0, iconKey: 'characters', accent: 'purple' },
+      { key: 'scenes', label: 'project.dashboard.stats.scenes', value: 0, iconKey: 'scenes', accent: 'blue' },
+      { key: 'music', label: 'project.dashboard.stats.music', value: 0, iconKey: 'music', accent: 'green' },
+      { key: 'locations', label: 'project.dashboard.stats.references', value: 0, iconKey: 'locations', accent: 'yellow' },
     ],
     characters: [],
     roadmap: null,
     music: [],
     progressOverall: 0,
     progressLegend: [
-      { label: 'Сценарий', value: 0, accent: 'yellow' },
-      { label: 'Персонажи', value: null, accent: 'purple' },
-      { label: 'Раскадровка', value: 0, accent: 'green' },
-      { label: 'Видео', value: 0, accent: 'blue' },
+      { label: 'project.dashboard.progress.script', value: 0, accent: 'yellow' },
+      { label: 'project.dashboard.progress.characters', value: null, accent: 'purple' },
+      { label: 'project.dashboard.progress.storyboard', value: 0, accent: 'green' },
+      { label: 'project.dashboard.progress.video', value: 0, accent: 'blue' },
     ],
     storyboardNeedsReview: 0,
     storyboardReviewScenes: [],
     quickActions: [
-      { key: 'new_scene', label: 'Новая сцена', iconKey: 'newScene', accent: 'blue' },
-      { key: 'generate_video', label: 'Создать видео', iconKey: 'genVideo', accent: 'red' },
-      { key: 'create_location', label: 'Создать визуальную опору', iconKey: 'newReference', accent: 'yellow' },
-      { key: 'create_character', label: 'Создать персонажа', iconKey: 'newCharacter', accent: 'purple' },
-      { key: 'create_track', label: 'Создать трек', iconKey: 'newTrack', accent: 'green' },
+      { key: 'new_scene', label: 'project.dashboard.quickActions.new_scene', iconKey: 'newScene', accent: 'blue' },
+      { key: 'generate_video', label: 'project.dashboard.quickActions.generate_video', iconKey: 'genVideo', accent: 'red' },
+      { key: 'create_location', label: 'project.dashboard.quickActions.create_location', iconKey: 'newReference', accent: 'yellow' },
+      { key: 'create_character', label: 'project.dashboard.quickActions.create_character', iconKey: 'newCharacter', accent: 'purple' },
+      { key: 'create_track', label: 'project.dashboard.quickActions.create_track', iconKey: 'newTrack', accent: 'green' },
     ],
     activity: [],
     videoPreparation: null,
@@ -154,7 +154,7 @@ export const ProjectDashboardPage: React.FC = () => {
   const [, setSidebarOpen] = useState(false);
   const [viewModel, setViewModel] = useState<ViewModel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ status: number | null; message: string } | null>(null);
+  const [error, setError] = useState<{status: number | null} | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -182,7 +182,7 @@ export const ProjectDashboardPage: React.FC = () => {
   useEffect(() => {
     if (!projectId) {
       setViewModel(null);
-      setError({ status: null, message: 'Не указан проект' });
+      setError({status: null});
       setLoading(false);
       return;
     }
@@ -199,14 +199,7 @@ export const ProjectDashboardPage: React.FC = () => {
       .catch((requestError: unknown) => {
         if (cancelled) return;
         const status = getApiStatus(requestError);
-        const messageText = status === 401
-          ? 'Требуется повторная авторизация'
-          : status === 403
-            ? 'Нет доступа к проекту'
-            : status === 404
-              ? 'Проект не найден'
-              : 'Не удалось загрузить проект';
-        setError({ status, message: messageText });
+        setError({status});
         setLoading(false);
       });
     return () => {
@@ -303,7 +296,7 @@ export const ProjectDashboardPage: React.FC = () => {
       statusLabel: string;
       isFavorite: boolean;
       tags?: string[];
-      updatedAtLabel?: string;
+      updatedAt?: string | null;
     }) => {
       setViewModel((prev) => {
         if (!prev) return prev;
@@ -317,7 +310,7 @@ export const ProjectDashboardPage: React.FC = () => {
             statusLabel: summary.statusLabel,
             isFavorite: summary.isFavorite,
             genres: summary.tags ?? prev.project.genres,
-            updatedAtLabel: summary.updatedAtLabel ?? prev.project.updatedAtLabel,
+            updatedAtLabel: summary.updatedAt ?? prev.project.updatedAtLabel,
             status:
               summary.status === 'completed'
                 ? 'done'
@@ -340,14 +333,7 @@ export const ProjectDashboardPage: React.FC = () => {
         title: view.project.title,
         description: view.project.description,
         status: next,
-        statusLabel:
-          next === 'draft'
-            ? 'Черновик'
-            : next === 'in_progress'
-            ? 'В работе'
-            : next === 'completed'
-            ? 'Завершён'
-            : 'В архиве',
+        statusLabel: `project.status.${next}`,
         isFavorite: view.project.isFavorite,
         tags: view.project.genres,
       });
@@ -361,9 +347,9 @@ export const ProjectDashboardPage: React.FC = () => {
           statusLabel: summary.statusLabel,
           isFavorite: summary.isFavorite,
           tags: summary.tags,
-          updatedAtLabel: summary.updatedAtLabel,
+          updatedAt: summary.updatedAt,
         });
-        message.success('Статус обновлён');
+        message.success(t('project.dashboard.notifications.statusUpdated'));
       } catch (requestError: unknown) {
         // Roll back.
         if (prev) {
@@ -377,13 +363,13 @@ export const ProjectDashboardPage: React.FC = () => {
           });
         }
         const status = getApiStatus(requestError);
-        if (status === 403) message.error('Нет прав изменить статус');
-        else message.error('Не удалось изменить статус');
+        if (status === 403) message.error(t('project.dashboard.errors.changeStatusForbidden'));
+        else message.error(t('project.dashboard.errors.changeStatus'));
       } finally {
         setStatusUpdating(false);
       }
     },
-    [projectId, view.project, applySummaryToView],
+    [projectId, view.project, applySummaryToView, t],
   );
 
   const handleEdit = useCallback(() => {
@@ -416,11 +402,10 @@ export const ProjectDashboardPage: React.FC = () => {
   const handleArchive = useCallback(() => {
     if (!projectId) return;
     craftModal.confirm({
-      title: 'Архивировать проект?',
-      content:
-        'Проект будет перемещён в архив. Вы сможете восстановить его позже.',
-      okText: 'Архивировать',
-      cancelText: 'Отмена',
+      title: t('project.dashboard.archive.title'),
+      content: t('project.dashboard.archive.description'),
+      okText: t('project.dashboard.archive.action'),
+      cancelText: t('project.common.cancel'),
       okButtonProps: {
         style: { background: 'var(--craft-accent)', borderColor: 'var(--craft-accent)', color: '#111827', fontWeight: 700 },
       },
@@ -434,18 +419,18 @@ export const ProjectDashboardPage: React.FC = () => {
             statusLabel: summary.statusLabel,
             isFavorite: summary.isFavorite,
             tags: summary.tags,
-            updatedAtLabel: summary.updatedAtLabel,
+            updatedAt: summary.updatedAt,
           });
-          message.success('Проект архивирован');
+          message.success(t('project.dashboard.notifications.archived'));
         } catch (requestError: unknown) {
           const status = getApiStatus(requestError);
-          if (status === 403) message.error('Нет прав архивировать проект');
-          else message.error('Не удалось архивировать проект');
+          if (status === 403) message.error(t('project.dashboard.errors.archiveForbidden'));
+          else message.error(t('project.dashboard.errors.archive'));
           throw requestError;
         }
       },
     });
-  }, [projectId, applySummaryToView]);
+  }, [projectId, applySummaryToView, t]);
 
   const handleUnarchive = useCallback(async () => {
     if (!projectId) return;
@@ -458,51 +443,49 @@ export const ProjectDashboardPage: React.FC = () => {
         statusLabel: summary.statusLabel,
         isFavorite: summary.isFavorite,
         tags: summary.tags,
-        updatedAtLabel: summary.updatedAtLabel,
+        updatedAt: summary.updatedAt,
       });
-      message.success('Проект восстановлен');
+      message.success(t('project.dashboard.notifications.restored'));
     } catch (requestError: unknown) {
       const status = getApiStatus(requestError);
-      if (status === 403) message.error('Нет прав восстановить проект');
-      else message.error('Не удалось восстановить проект');
+      if (status === 403) message.error(t('project.dashboard.errors.restoreForbidden'));
+      else message.error(t('project.dashboard.errors.restore'));
     }
-  }, [projectId, applySummaryToView]);
+  }, [projectId, applySummaryToView, t]);
 
   const handleLeave = useCallback(() => {
     if (!projectId) return;
     craftModal.confirm({
-      title: 'Покинуть проект?',
-      content:
-        'Ваш доступ будет отозван немедленно. Созданные вами материалы останутся в проекте.',
-      okText: 'Покинуть',
+      title: t('project.dashboard.leave.title'),
+      content: t('project.dashboard.leave.description'),
+      okText: t('project.dashboard.leave.action'),
       okButtonProps: { danger: true },
-      cancelText: 'Отмена',
+      cancelText: t('project.common.cancel'),
       onOk: async () => {
         try {
           await leaveProject(projectId);
-          message.success('Вы покинули проект');
+          message.success(t('project.dashboard.notifications.left'));
           navigate(PathConstants.PROJECTS);
         } catch (requestError: unknown) {
           const code = teamErrorCode(requestError);
           if (code === 'OWNER_CANNOT_LEAVE') {
-            message.error('Владелец не может покинуть проект — сначала передайте владение');
+            message.error(t('project.dashboard.errors.ownerCannotLeave'));
           } else {
-            message.error('Не удалось покинуть проект');
+            message.error(t('project.dashboard.errors.leave'));
           }
           throw requestError;
         }
       },
     });
-  }, [projectId, navigate]);
+  }, [projectId, navigate, t]);
 
   const handleDelete = useCallback(() => {
     if (!projectId) return;
     craftModal.confirm({
-      title: 'Удалить проект?',
-      content:
-        'Это действие нельзя отменить. Проект, персонажи, сцены, музыка, ассеты и история активности будут удалены.',
-      okText: 'Удалить',
-      cancelText: 'Отмена',
+      title: t('project.dashboard.delete.title'),
+      content: t('project.dashboard.delete.description'),
+      okText: t('project.dashboard.delete.action'),
+      cancelText: t('project.common.cancel'),
       okButtonProps: {
         danger: true,
         style: { fontWeight: 600 },
@@ -510,26 +493,35 @@ export const ProjectDashboardPage: React.FC = () => {
       onOk: async () => {
         try {
           await apiDeleteProject(projectId);
-          message.success('Проект удалён');
+          message.success(t('project.dashboard.notifications.deleted'));
           navigate(PathConstants.PROJECTS);
         } catch (requestError: unknown) {
           const status = getApiStatus(requestError);
-          if (status === 403) message.error('Нет прав удалить проект');
-          else message.error('Не удалось удалить проект');
+          if (status === 403) message.error(t('project.dashboard.errors.deleteForbidden'));
+          else message.error(t('project.dashboard.errors.delete'));
           throw requestError;
         }
       },
     });
-  }, [projectId, navigate]);
+  }, [projectId, navigate, t]);
 
   if (error) {
     const retryable = error.status !== 403 && error.status !== 404;
+    const errorTitle = error.status === 401
+      ? t('project.dashboard.errors.authentication')
+      : error.status === 403
+        ? t('project.dashboard.errors.forbidden')
+        : error.status === 404
+          ? t('project.dashboard.errors.notFound')
+          : error.status === null
+            ? t('project.dashboard.errors.missingProject')
+            : t('project.dashboard.errors.load');
     return (
       <div className="proj-dash">
         <DashboardHeader
           user={user}
           onMenuToggle={() => setSidebarOpen((open) => !open)}
-          sectionTitle="Проект"
+          sectionTitle={t('project.common.project')}
         />
         <main className="app-main profile-scroll">
           <section
@@ -537,13 +529,13 @@ export const ProjectDashboardPage: React.FC = () => {
             className="proj-card"
             style={{maxWidth: 640, margin: '64px auto', padding: 32, textAlign: 'center'}}
           >
-            <h1 className="text-white text-2xl font-bold">{error.message}</h1>
+            <h1 className="text-white text-2xl font-bold">{errorTitle}</h1>
             <p className="text-white/60 mt-3">
               {error.status === 403
-                ? 'Попросите владельца проекта выдать вам доступ.'
+                ? t('project.dashboard.errors.forbiddenDescription')
                 : error.status === 404
-                  ? 'Возможно, проект был удалён или адрес устарел.'
-                  : 'Проверьте соединение и попробуйте снова.'}
+                  ? t('project.dashboard.errors.notFoundDescription')
+                  : t('project.dashboard.errors.loadDescription')}
             </p>
             <div className="flex flex-wrap justify-center gap-3 mt-6">
               {retryable && error.status !== 401 && (
@@ -555,7 +547,7 @@ export const ProjectDashboardPage: React.FC = () => {
                     setReloadKey((key) => key + 1);
                   }}
                 >
-                  Повторить
+                  {t('project.common.retry')}
                 </button>
               )}
               {error.status === 401 && (
@@ -567,7 +559,7 @@ export const ProjectDashboardPage: React.FC = () => {
                     state: {returnTo: window.location.pathname},
                   })}
                 >
-                  Войти снова
+                  {t('project.dashboard.actions.signInAgain')}
                 </button>
               )}
               <button
@@ -575,7 +567,7 @@ export const ProjectDashboardPage: React.FC = () => {
                 className="proj-btn proj-btn-secondary"
                 onClick={() => navigate(PathConstants.PROJECTS)}
               >
-                К проектам
+                {t('project.common.backToProjects')}
               </button>
             </div>
           </section>
@@ -584,7 +576,9 @@ export const ProjectDashboardPage: React.FC = () => {
     );
   }
 
-  const sectionTitle = loading ? 'Проект' : (view.project.title || 'Проект');
+  const sectionTitle = loading
+    ? t('project.common.project')
+    : (view.project.title || t('project.common.project'));
   return (
     <div className="proj-dash">
       <DashboardHeader
@@ -656,13 +650,10 @@ export const ProjectDashboardPage: React.FC = () => {
                 loading={loading}
                 videoPreparation={view.videoPreparation}
                 videoPreparationLabel={view.videoPreparation?.ready
-                  ? t('videoPreparation.dashboard.ready', {
-                    defaultValue: '✓ Готово к созданию видео',
-                  })
+                  ? t('videoPreparation.dashboard.ready')
                   : view.videoPreparation
                     ? t('videoPreparation.dashboard.notReady', {
                       count: view.videoPreparation.taskCount,
-                      defaultValue: `Подготовка к видео: ⚠ Не готово к видео · ${view.videoPreparation.taskCount} задач → Открыть`,
                     })
                     : undefined}
                 onOpenVideoPreparation={handleOpenVideoPreparation}
@@ -677,7 +668,7 @@ export const ProjectDashboardPage: React.FC = () => {
           projectId={projectId}
           teamRoleOptions={teamRoleOptions}
           onClose={() => setInviteOpen(false)}
-          onInvited={() => message.success('Приглашение создано')}
+          onInvited={() => message.success(t('project.team.notifications.invitationCreated'))}
         />
       )}
     </div>

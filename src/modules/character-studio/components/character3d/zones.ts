@@ -20,7 +20,7 @@ export type ParameterUi = 'slider' | 'drag' | 'swatch' | 'preset' | 'toggle';
 
 export interface EditableParameter {
   id: string;
-  label: string;
+  translationKey: string;
   type: ParameterType;
   ui: ParameterUi;
   defaultValue: number | string | boolean;
@@ -28,16 +28,16 @@ export interface EditableParameter {
   max?: number;
   step?: number;
   // For swatch/preset UIs.
-  options?: Array<{value: string; label: string; preview?: string}>;
+  options?: Array<{value: string; translationKey: string; preview?: string}>;
   // Optional hint shown under the control (e.g. "Можно тянуть зону на модели").
-  hint?: string;
+  hintTranslationKey?: string;
 }
 
 export type ZoneGroup = 'body' | 'face' | 'hair' | 'skin' | 'pose' | 'clothing';
 
 export interface EditableZone {
   id: string;
-  label: string;
+  translationKey: string;
   group: ZoneGroup;
   level: 1 | 2 | 3;
   parentId?: string;
@@ -48,50 +48,50 @@ export interface EditableZone {
 
 // ─────────── Swatch palettes ───────────
 const HAIR_COLORS = [
-  {value: '#0c0a09', label: 'Угольный'},
-  {value: '#1E1A18', label: 'Тёмный шоколад'},
-  {value: '#3a2a1f', label: 'Каштан'},
-  {value: '#7a4a2a', label: 'Светло-каштановый'},
-  {value: '#c98257', label: 'Клубничный блонд'},
-  {value: '#c4a06a', label: 'Блонд'},
+  {value: '#0c0a09', translationKey: 'characterStudio3d.options.hairColor.charcoal'},
+  {value: '#1E1A18', translationKey: 'characterStudio3d.options.hairColor.darkChocolate'},
+  {value: '#3a2a1f', translationKey: 'characterStudio3d.options.hairColor.chestnut'},
+  {value: '#7a4a2a', translationKey: 'characterStudio3d.options.hairColor.lightChestnut'},
+  {value: '#c98257', translationKey: 'characterStudio3d.options.hairColor.strawberryBlonde'},
+  {value: '#c4a06a', translationKey: 'characterStudio3d.options.hairColor.blonde'},
 ];
 
 const EYE_COLORS = [
-  {value: '#3a6ca8', label: 'Стальной'},
-  {value: '#244a2a', label: 'Изумруд'},
-  {value: '#7a4a1a', label: 'Карий'},
-  {value: '#a45a8a', label: 'Аметист'},
-  {value: '#6ac7d9', label: 'Ледяной'},
+  {value: '#3a6ca8', translationKey: 'characterStudio3d.options.eyeColor.steel'},
+  {value: '#244a2a', translationKey: 'characterStudio3d.options.eyeColor.emerald'},
+  {value: '#7a4a1a', translationKey: 'characterStudio3d.options.eyeColor.brown'},
+  {value: '#a45a8a', translationKey: 'characterStudio3d.options.eyeColor.amethyst'},
+  {value: '#6ac7d9', translationKey: 'characterStudio3d.options.eyeColor.ice'},
 ];
 
 const SKIN_TONES = [
-  {value: '#f0d8c0', label: 'Светлая'},
-  {value: '#dac0a3', label: 'Тёплая'},
-  {value: '#b58a6a', label: 'Загар'},
-  {value: '#8a6a55', label: 'Смуглая'},
-  {value: '#5a3a2a', label: 'Тёмная'},
+  {value: '#f0d8c0', translationKey: 'characterStudio3d.options.skinTone.light'},
+  {value: '#dac0a3', translationKey: 'characterStudio3d.options.skinTone.warm'},
+  {value: '#b58a6a', translationKey: 'characterStudio3d.options.skinTone.tan'},
+  {value: '#8a6a55', translationKey: 'characterStudio3d.options.skinTone.medium'},
+  {value: '#5a3a2a', translationKey: 'characterStudio3d.options.skinTone.dark'},
 ];
 
 // Garment fabric colors for the A5 clothing layer (top / bottom). A fixed
 // palette — like every other swatch here, clothing is analytic/parametric, not
 // AI-generated, so the "no generative nets in the core" invariant holds.
 const CLOTHING_COLORS = [
-  {value: '#3b5266', label: 'Синий'},
-  {value: '#6b3b3b', label: 'Бордовый'},
-  {value: '#2d2d33', label: 'Графит'},
-  {value: '#3b5a3b', label: 'Зелёный'},
-  {value: '#c9b99b', label: 'Бежевый'},
+  {value: '#3b5266', translationKey: 'characterStudio3d.options.clothingColor.blue'},
+  {value: '#6b3b3b', translationKey: 'characterStudio3d.options.clothingColor.burgundy'},
+  {value: '#2d2d33', translationKey: 'characterStudio3d.options.clothingColor.graphite'},
+  {value: '#3b5a3b', translationKey: 'characterStudio3d.options.clothingColor.green'},
+  {value: '#c9b99b', translationKey: 'characterStudio3d.options.clothingColor.beige'},
 ];
 
 const CLOTHING_TOP_STYLES = [
-  {value: 'tshirt', label: 'Футболка'},
-  {value: 'sleeveless', label: 'Без рукавов'},
-  {value: 'long_sleeve', label: 'Длинный рукав'},
+  {value: 'tshirt', translationKey: 'characterStudio3d.options.clothingTop.tshirt'},
+  {value: 'sleeveless', translationKey: 'characterStudio3d.options.clothingTop.sleeveless'},
+  {value: 'long_sleeve', translationKey: 'characterStudio3d.options.clothingTop.longSleeve'},
 ];
 
 const CLOTHING_BOTTOM_STYLES = [
-  {value: 'shorts', label: 'Шорты'},
-  {value: 'trousers', label: 'Брюки'},
+  {value: 'shorts', translationKey: 'characterStudio3d.options.clothingBottom.shorts'},
+  {value: 'trousers', translationKey: 'characterStudio3d.options.clothingBottom.trousers'},
 ];
 
 // hairStyle picks the SILHOUETTE (built as distinct geometry in rig.ts);
@@ -100,75 +100,75 @@ const CLOTHING_BOTTOM_STYLES = [
 // no-ops for it. Unknown saved values degrade to 'default' in the rig, so
 // older characters (which had no hairStyle at all) keep rendering.
 const HAIR_STYLES = [
-  {value: 'default', label: 'Обычные'},
-  {value: 'long', label: 'Длинные'},
-  {value: 'bob', label: 'Каре'},
-  {value: 'ponytail', label: 'Хвост'},
-  {value: 'bun', label: 'Пучок'},
-  {value: 'afro', label: 'Афро'},
-  {value: 'none', label: 'Без волос'},
+  {value: 'default', translationKey: 'characterStudio3d.options.hairStyle.default'},
+  {value: 'long', translationKey: 'characterStudio3d.options.hairStyle.long'},
+  {value: 'bob', translationKey: 'characterStudio3d.options.hairStyle.bob'},
+  {value: 'ponytail', translationKey: 'characterStudio3d.options.hairStyle.ponytail'},
+  {value: 'bun', translationKey: 'characterStudio3d.options.hairStyle.bun'},
+  {value: 'afro', translationKey: 'characterStudio3d.options.hairStyle.afro'},
+  {value: 'none', translationKey: 'characterStudio3d.options.hairStyle.none'},
 ];
 
 // «Короткие» (buzz) was removed on purpose: it ignored hairLength and made
 // the length slider look broken — short hair is just a low hairLength value.
 const HAIR_PRESETS = [
-  {value: 'straight', label: 'Прямые'},
-  {value: 'wavy', label: 'Волнистые'},
-  {value: 'curly', label: 'Кудрявые'},
+  {value: 'straight', translationKey: 'characterStudio3d.options.hairShape.straight'},
+  {value: 'wavy', translationKey: 'characterStudio3d.options.hairShape.wavy'},
+  {value: 'curly', translationKey: 'characterStudio3d.options.hairShape.curly'},
 ];
 
 const POSTURE_PRESETS = [
-  {value: 'neutral', label: 'Нейтральная'},
-  {value: 'confident', label: 'Уверенная'},
-  {value: 'relaxed', label: 'Расслабленная'},
-  {value: 'dynamic', label: 'Динамичная'},
+  {value: 'neutral', translationKey: 'characterStudio3d.options.posture.neutral'},
+  {value: 'confident', translationKey: 'characterStudio3d.options.posture.confident'},
+  {value: 'relaxed', translationKey: 'characterStudio3d.options.posture.relaxed'},
+  {value: 'dynamic', translationKey: 'characterStudio3d.options.posture.dynamic'},
 ];
 
 // Compact slider builder so the tree stays readable.
-const morphSlider = (id: string, label: string, hint?: string): EditableParameter => ({
+const morphSlider = (id: string, translationKey: string, hintTranslationKey?: string): EditableParameter => ({
   id,
-  label,
+  translationKey,
   type: 'morph',
   ui: 'slider',
   defaultValue: 0,
   min: -1,
   max: 1,
   step: 0.05,
-  hint,
+  hintTranslationKey,
 });
 
-const boneSlider = (id: string, label: string, hint?: string): EditableParameter => ({
+const boneSlider = (id: string, translationKey: string, hintTranslationKey?: string): EditableParameter => ({
   id,
-  label,
+  translationKey,
   type: 'bone',
   ui: 'slider',
   defaultValue: 0,
   min: -1,
   max: 1,
   step: 0.05,
-  hint,
+  hintTranslationKey,
 });
 
-const dragSlider = (id: string, label: string, type: ParameterType = 'morph'): EditableParameter => ({
+const dragSlider = (id: string, translationKey: string, type: ParameterType = 'morph'): EditableParameter => ({
   id,
-  label,
+  translationKey,
   type,
   ui: 'drag',
   defaultValue: 0,
   min: -1,
   max: 1,
   step: 0.05,
-  hint: 'Можно тянуть зону на модели',
+  hintTranslationKey: 'characterStudio3d.parameters.dragHint',
 });
 
 const swatch = (
   id: string,
-  label: string,
-  options: Array<{value: string; label: string}>,
+  translationKey: string,
+  options: Array<{value: string; translationKey: string}>,
   defaultValue: string,
 ): EditableParameter => ({
   id,
-  label,
+  translationKey,
   type: 'material',
   ui: 'swatch',
   defaultValue,
@@ -177,13 +177,13 @@ const swatch = (
 
 const preset = (
   id: string,
-  label: string,
-  options: Array<{value: string; label: string}>,
+  translationKey: string,
+  options: Array<{value: string; translationKey: string}>,
   defaultValue: string,
   type: ParameterType = 'asset',
 ): EditableParameter => ({
   id,
-  label,
+  translationKey,
   type,
   ui: 'preset',
   defaultValue,
@@ -192,12 +192,12 @@ const preset = (
 
 const toggle = (
   id: string,
-  label: string,
+  translationKey: string,
   type: ParameterType = 'material',
   defaultValue = false,
 ): EditableParameter => ({
   id,
-  label,
+  translationKey,
   type,
   ui: 'toggle',
   defaultValue,
@@ -208,72 +208,72 @@ export const ZONE_TREE: EditableZone[] = [
   // ───── Body ─────
   {
     id: 'body',
-    label: 'Тело',
+    translationKey: 'characterStudio3d.zones.body',
     group: 'body',
     level: 1,
     children: [
       {
         id: 'head_neck',
-        label: 'Голова и шея',
+        translationKey: 'characterStudio3d.zones.headNeck',
         group: 'body',
         level: 2,
         parentId: 'body',
         parameters: [
-          morphSlider('headSize', 'Размер головы'),
-          morphSlider('neckLength', 'Длина шеи'),
-          morphSlider('neckThickness', 'Толщина шеи'),
+          morphSlider('headSize', 'characterStudio3d.parameters.headSize'),
+          morphSlider('neckLength', 'characterStudio3d.parameters.neckLength'),
+          morphSlider('neckThickness', 'characterStudio3d.parameters.neckThickness'),
         ],
       },
       {
         id: 'shoulders',
-        label: 'Плечи',
+        translationKey: 'characterStudio3d.zones.shoulders',
         group: 'body',
         level: 2,
         parentId: 'body',
         isSymmetric: true,
         parameters: [
-          dragSlider('shouldersWidth', 'Ширина плеч'),
-          boneSlider('shouldersSlope', 'Наклон плеч'),
-          boneSlider('shouldersHeight', 'Высота плеч'),
+          dragSlider('shouldersWidth', 'characterStudio3d.parameters.shouldersWidth'),
+          boneSlider('shouldersSlope', 'characterStudio3d.parameters.shouldersSlope'),
+          boneSlider('shouldersHeight', 'characterStudio3d.parameters.shouldersHeight'),
         ],
       },
       {
         id: 'torso',
-        label: 'Торс',
+        translationKey: 'characterStudio3d.zones.torso',
         group: 'body',
         level: 2,
         parentId: 'body',
         parameters: [
-          morphSlider('chestWidth', 'Ширина груди'),
-          morphSlider('chestDepth', 'Глубина груди'),
-          morphSlider('backWidth', 'Ширина спины'),
+          morphSlider('chestWidth', 'characterStudio3d.parameters.chestWidth'),
+          morphSlider('chestDepth', 'characterStudio3d.parameters.chestDepth'),
+          morphSlider('backWidth', 'characterStudio3d.parameters.backWidth'),
         ],
       },
       {
         id: 'waist',
-        label: 'Талия',
+        translationKey: 'characterStudio3d.zones.waist',
         group: 'body',
         level: 2,
         parentId: 'body',
         parameters: [
-          dragSlider('waistWidth', 'Ширина талии'),
-          morphSlider('torsoCurve', 'Силуэт'),
+          dragSlider('waistWidth', 'characterStudio3d.parameters.waistWidth'),
+          morphSlider('torsoCurve', 'characterStudio3d.parameters.torsoCurve'),
         ],
       },
       {
         id: 'hips',
-        label: 'Бёдра',
+        translationKey: 'characterStudio3d.zones.hips',
         group: 'body',
         level: 2,
         parentId: 'body',
         parameters: [
-          dragSlider('hipsWidth', 'Ширина бёдер'),
-          morphSlider('hipsShape', 'Форма бёдер'),
+          dragSlider('hipsWidth', 'characterStudio3d.parameters.hipsWidth'),
+          morphSlider('hipsShape', 'characterStudio3d.parameters.hipsShape'),
         ],
       },
       {
         id: 'arms',
-        label: 'Руки',
+        translationKey: 'characterStudio3d.zones.arms',
         group: 'body',
         level: 2,
         parentId: 'body',
@@ -281,46 +281,46 @@ export const ZONE_TREE: EditableZone[] = [
         children: [
           {
             id: 'upper_arm',
-            label: 'Верх руки',
+            translationKey: 'characterStudio3d.zones.upperArm',
             group: 'body',
             level: 3,
             parentId: 'arms',
             isSymmetric: true,
             parameters: [
-              dragSlider('volume', 'Объём'),
-              morphSlider('definition', 'Рельеф'),
-              boneSlider('length', 'Длина'),
+              dragSlider('volume', 'characterStudio3d.parameters.volume'),
+              morphSlider('definition', 'characterStudio3d.parameters.definition'),
+              boneSlider('length', 'characterStudio3d.parameters.length'),
             ],
           },
           {
             id: 'forearm',
-            label: 'Предплечье',
+            translationKey: 'characterStudio3d.zones.forearm',
             group: 'body',
             level: 3,
             parentId: 'arms',
             isSymmetric: true,
             parameters: [
-              morphSlider('thickness', 'Толщина'),
-              boneSlider('length', 'Длина'),
+              morphSlider('thickness', 'characterStudio3d.parameters.thickness'),
+              boneSlider('length', 'characterStudio3d.parameters.length'),
             ],
           },
           {
             id: 'hand',
-            label: 'Кисть',
+            translationKey: 'characterStudio3d.zones.hand',
             group: 'body',
             level: 3,
             parentId: 'arms',
             isSymmetric: true,
             parameters: [
-              morphSlider('size', 'Размер кисти'),
-              morphSlider('fingerLength', 'Длина пальцев'),
+              morphSlider('size', 'characterStudio3d.parameters.handSize'),
+              morphSlider('fingerLength', 'characterStudio3d.parameters.fingerLength'),
             ],
           },
         ],
       },
       {
         id: 'legs',
-        label: 'Ноги',
+        translationKey: 'characterStudio3d.zones.legs',
         group: 'body',
         level: 2,
         parentId: 'body',
@@ -328,37 +328,37 @@ export const ZONE_TREE: EditableZone[] = [
         children: [
           {
             id: 'thigh',
-            label: 'Бедро',
+            translationKey: 'characterStudio3d.zones.thigh',
             group: 'body',
             level: 3,
             parentId: 'legs',
             isSymmetric: true,
             parameters: [
-              dragSlider('thighVolume', 'Объём'),
-              boneSlider('thighLength', 'Длина'),
+              dragSlider('thighVolume', 'characterStudio3d.parameters.volume'),
+              boneSlider('thighLength', 'characterStudio3d.parameters.length'),
             ],
           },
           {
             id: 'calf',
-            label: 'Икра',
+            translationKey: 'characterStudio3d.zones.calf',
             group: 'body',
             level: 3,
             parentId: 'legs',
             isSymmetric: true,
             parameters: [
-              morphSlider('calfVolume', 'Объём'),
-              boneSlider('calfLength', 'Длина'),
+              morphSlider('calfVolume', 'characterStudio3d.parameters.volume'),
+              boneSlider('calfLength', 'characterStudio3d.parameters.length'),
             ],
           },
           {
             id: 'foot',
-            label: 'Стопа',
+            translationKey: 'characterStudio3d.zones.foot',
             group: 'body',
             level: 3,
             parentId: 'legs',
             isSymmetric: true,
             parameters: [
-              morphSlider('footSize', 'Размер стопы'),
+              morphSlider('footSize', 'characterStudio3d.parameters.footSize'),
             ],
           },
         ],
@@ -369,108 +369,108 @@ export const ZONE_TREE: EditableZone[] = [
   // ───── Face ─────
   {
     id: 'face',
-    label: 'Лицо',
+    translationKey: 'characterStudio3d.zones.face',
     group: 'face',
     level: 1,
     children: [
       {
         id: 'face_shape',
-        label: 'Форма лица',
+        translationKey: 'characterStudio3d.zones.faceShape',
         group: 'face',
         level: 2,
         parentId: 'face',
         parameters: [
           preset(
             'shape',
-            'Форма',
+            'characterStudio3d.parameters.shape',
             [
-              {value: 'oval', label: 'Овал'},
-              {value: 'round', label: 'Круг'},
-              {value: 'square', label: 'Квадрат'},
-              {value: 'heart', label: 'Сердце'},
+              {value: 'oval', translationKey: 'characterStudio3d.options.faceShape.oval'},
+              {value: 'round', translationKey: 'characterStudio3d.options.faceShape.round'},
+              {value: 'square', translationKey: 'characterStudio3d.options.faceShape.square'},
+              {value: 'heart', translationKey: 'characterStudio3d.options.faceShape.heart'},
             ],
             'oval',
             'morph',
           ),
-          morphSlider('cheekbones', 'Скулы'),
-          morphSlider('faceDepth', 'Глубина лица'),
+          morphSlider('cheekbones', 'characterStudio3d.parameters.cheekbones'),
+          morphSlider('faceDepth', 'characterStudio3d.parameters.faceDepth'),
         ],
       },
       {
         id: 'eyes',
-        label: 'Глаза',
+        translationKey: 'characterStudio3d.zones.eyes',
         group: 'face',
         level: 2,
         parentId: 'face',
         isSymmetric: true,
         parameters: [
-          morphSlider('eyeSize', 'Размер глаз'),
-          morphSlider('eyeDistance', 'Расстояние'),
-          morphSlider('eyeTilt', 'Наклон'),
-          swatch('eyeColor', 'Цвет', EYE_COLORS, '#3a6ca8'),
+          morphSlider('eyeSize', 'characterStudio3d.parameters.eyeSize'),
+          morphSlider('eyeDistance', 'characterStudio3d.parameters.distance'),
+          morphSlider('eyeTilt', 'characterStudio3d.parameters.tilt'),
+          swatch('eyeColor', 'characterStudio3d.parameters.color', EYE_COLORS, '#3a6ca8'),
         ],
       },
       {
         id: 'brows',
-        label: 'Брови',
+        translationKey: 'characterStudio3d.zones.brows',
         group: 'face',
         level: 2,
         parentId: 'face',
         isSymmetric: true,
         parameters: [
-          morphSlider('browHeight', 'Высота'),
-          morphSlider('browAngle', 'Наклон'),
-          morphSlider('browThickness', 'Толщина'),
+          morphSlider('browHeight', 'characterStudio3d.parameters.height'),
+          morphSlider('browAngle', 'characterStudio3d.parameters.tilt'),
+          morphSlider('browThickness', 'characterStudio3d.parameters.thickness'),
         ],
       },
       {
         id: 'nose',
-        label: 'Нос',
+        translationKey: 'characterStudio3d.zones.nose',
         group: 'face',
         level: 2,
         parentId: 'face',
         parameters: [
-          morphSlider('noseLength', 'Длина'),
-          morphSlider('noseWidth', 'Ширина'),
-          morphSlider('noseTip', 'Кончик носа'),
-          morphSlider('bridgeHeight', 'Переносица'),
+          morphSlider('noseLength', 'characterStudio3d.parameters.length'),
+          morphSlider('noseWidth', 'characterStudio3d.parameters.width'),
+          morphSlider('noseTip', 'characterStudio3d.parameters.noseTip'),
+          morphSlider('bridgeHeight', 'characterStudio3d.parameters.bridgeHeight'),
         ],
       },
       {
         id: 'mouth',
-        label: 'Рот и губы',
+        translationKey: 'characterStudio3d.zones.mouth',
         group: 'face',
         level: 2,
         parentId: 'face',
         parameters: [
-          morphSlider('mouthWidth', 'Ширина рта'),
-          morphSlider('upperLip', 'Верхняя губа'),
-          morphSlider('lowerLip', 'Нижняя губа'),
-          morphSlider('cornerLift', 'Уголки губ'),
+          morphSlider('mouthWidth', 'characterStudio3d.parameters.mouthWidth'),
+          morphSlider('upperLip', 'characterStudio3d.parameters.upperLip'),
+          morphSlider('lowerLip', 'characterStudio3d.parameters.lowerLip'),
+          morphSlider('cornerLift', 'characterStudio3d.parameters.cornerLift'),
         ],
       },
       {
         id: 'jaw_chin',
-        label: 'Челюсть и подбородок',
+        translationKey: 'characterStudio3d.zones.jawChin',
         group: 'face',
         level: 2,
         parentId: 'face',
         parameters: [
-          morphSlider('jawWidth', 'Ширина челюсти'),
-          morphSlider('chinLength', 'Длина подбородка'),
-          morphSlider('chinShape', 'Форма подбородка'),
+          morphSlider('jawWidth', 'characterStudio3d.parameters.jawWidth'),
+          morphSlider('chinLength', 'characterStudio3d.parameters.chinLength'),
+          morphSlider('chinShape', 'characterStudio3d.parameters.chinShape'),
         ],
       },
       {
         id: 'ears',
-        label: 'Уши',
+        translationKey: 'characterStudio3d.zones.ears',
         group: 'face',
         level: 2,
         parentId: 'face',
         isSymmetric: true,
         parameters: [
-          morphSlider('earSize', 'Размер'),
-          morphSlider('earAngle', 'Наклон'),
+          morphSlider('earSize', 'characterStudio3d.parameters.size'),
+          morphSlider('earAngle', 'characterStudio3d.parameters.tilt'),
         ],
       },
     ],
@@ -479,15 +479,15 @@ export const ZONE_TREE: EditableZone[] = [
   // ───── Hair ─────
   {
     id: 'hair',
-    label: 'Волосы',
+    translationKey: 'characterStudio3d.zones.hair',
     group: 'hair',
     level: 1,
     parameters: [
-      preset('hairStyle', 'Причёска', HAIR_STYLES, 'default'),
-      swatch('hairColor', 'Цвет волос', HAIR_COLORS, '#1E1A18'),
+      preset('hairStyle', 'characterStudio3d.parameters.hairStyle', HAIR_STYLES, 'default'),
+      swatch('hairColor', 'characterStudio3d.parameters.hairColor', HAIR_COLORS, '#1E1A18'),
       {
         id: 'hairLength',
-        label: 'Длина',
+        translationKey: 'characterStudio3d.parameters.length',
         type: 'asset',
         ui: 'slider',
         defaultValue: 0.5,
@@ -495,40 +495,40 @@ export const ZONE_TREE: EditableZone[] = [
         max: 1,
         step: 0.05,
       },
-      morphSlider('hairVolume', 'Объём'),
-      preset('hairShape', 'Форма', HAIR_PRESETS, 'wavy'),
+      morphSlider('hairVolume', 'characterStudio3d.parameters.volume'),
+      preset('hairShape', 'characterStudio3d.parameters.shape', HAIR_PRESETS, 'wavy'),
     ],
   },
 
   // ───── Skin ─────
   {
     id: 'skin',
-    label: 'Кожа',
+    translationKey: 'characterStudio3d.zones.skin',
     group: 'skin',
     level: 1,
     children: [
       {
         id: 'skin_color',
-        label: 'Цвет кожи',
+        translationKey: 'characterStudio3d.zones.skinColor',
         group: 'skin',
         level: 2,
         parentId: 'skin',
         parameters: [
-          swatch('skinTone', 'Тон кожи', SKIN_TONES, '#dac0a3'),
-          morphSlider('skinSaturation', 'Насыщенность'),
+          swatch('skinTone', 'characterStudio3d.parameters.skinTone', SKIN_TONES, '#dac0a3'),
+          morphSlider('skinSaturation', 'characterStudio3d.parameters.saturation'),
         ],
       },
       {
         id: 'skin_details',
-        label: 'Детали кожи',
+        translationKey: 'characterStudio3d.zones.skinDetails',
         group: 'skin',
         level: 2,
         parentId: 'skin',
         parameters: [
-          toggle('freckles', 'Веснушки', 'texture'),
-          toggle('moles', 'Родинки', 'texture'),
-          toggle('scars', 'Шрамы', 'texture'),
-          toggle('blush', 'Румянец', 'texture'),
+          toggle('freckles', 'characterStudio3d.parameters.freckles', 'texture'),
+          toggle('moles', 'characterStudio3d.parameters.moles', 'texture'),
+          toggle('scars', 'characterStudio3d.parameters.scars', 'texture'),
+          toggle('blush', 'characterStudio3d.parameters.blush', 'texture'),
         ],
       },
     ],
@@ -543,32 +543,32 @@ export const ZONE_TREE: EditableZone[] = [
   // character is dressed; 'color' is a fixed fabric palette.
   {
     id: 'clothing',
-    label: 'Одежда',
+    translationKey: 'characterStudio3d.zones.clothing',
     group: 'clothing',
     level: 1,
     children: [
       {
         id: 'clothing_top',
-        label: 'Верх',
+        translationKey: 'characterStudio3d.zones.clothingTop',
         group: 'clothing',
         level: 2,
         parentId: 'clothing',
         parameters: [
-          toggle('enabled', 'Надеть верх', 'asset', true),
-          preset('style', 'Форма', CLOTHING_TOP_STYLES, 'tshirt'),
-          swatch('color', 'Цвет', CLOTHING_COLORS, '#3b5266'),
+          toggle('enabled', 'characterStudio3d.parameters.wearTop', 'asset', true),
+          preset('style', 'characterStudio3d.parameters.shape', CLOTHING_TOP_STYLES, 'tshirt'),
+          swatch('color', 'characterStudio3d.parameters.color', CLOTHING_COLORS, '#3b5266'),
         ],
       },
       {
         id: 'clothing_bottom',
-        label: 'Низ',
+        translationKey: 'characterStudio3d.zones.clothingBottom',
         group: 'clothing',
         level: 2,
         parentId: 'clothing',
         parameters: [
-          toggle('enabled', 'Надеть низ', 'asset', true),
-          preset('style', 'Форма', CLOTHING_BOTTOM_STYLES, 'shorts'),
-          swatch('color', 'Цвет', CLOTHING_COLORS, '#2d2d33'),
+          toggle('enabled', 'characterStudio3d.parameters.wearBottom', 'asset', true),
+          preset('style', 'characterStudio3d.parameters.shape', CLOTHING_BOTTOM_STYLES, 'shorts'),
+          swatch('color', 'characterStudio3d.parameters.color', CLOTHING_COLORS, '#2d2d33'),
         ],
       },
     ],
@@ -577,56 +577,56 @@ export const ZONE_TREE: EditableZone[] = [
   // ───── Pose ─────
   {
     id: 'pose',
-    label: 'Поза',
+    translationKey: 'characterStudio3d.zones.pose',
     group: 'pose',
     level: 1,
     children: [
       {
         id: 'posture',
-        label: 'Осанка',
+        translationKey: 'characterStudio3d.zones.posture',
         group: 'pose',
         level: 2,
         parentId: 'pose',
         parameters: [
-          preset('posturePreset', 'Тип', POSTURE_PRESETS, 'neutral', 'pose'),
-          boneSlider('postureStraightness', 'Прямая / сутулая'),
-          boneSlider('shouldersForward', 'Плечи вперёд/назад'),
-          boneSlider('torsoTilt', 'Наклон корпуса'),
+          preset('posturePreset', 'characterStudio3d.parameters.type', POSTURE_PRESETS, 'neutral', 'pose'),
+          boneSlider('postureStraightness', 'characterStudio3d.parameters.postureStraightness'),
+          boneSlider('shouldersForward', 'characterStudio3d.parameters.shouldersForward'),
+          boneSlider('torsoTilt', 'characterStudio3d.parameters.torsoTilt'),
         ],
       },
       {
         id: 'head_pose',
-        label: 'Голова',
+        translationKey: 'characterStudio3d.zones.head',
         group: 'pose',
         level: 2,
         parentId: 'pose',
         parameters: [
-          boneSlider('headTilt', 'Наклон головы'),
-          boneSlider('headTurn', 'Поворот головы'),
+          boneSlider('headTilt', 'characterStudio3d.parameters.headTilt'),
+          boneSlider('headTurn', 'characterStudio3d.parameters.headTurn'),
         ],
       },
       {
         id: 'arms_pose',
-        label: 'Руки',
+        translationKey: 'characterStudio3d.zones.arms',
         group: 'pose',
         level: 2,
         parentId: 'pose',
         isSymmetric: true,
         parameters: [
-          boneSlider('armsRaise', 'Подъём рук'),
-          boneSlider('armsForward', 'Руки вперёд/назад'),
+          boneSlider('armsRaise', 'characterStudio3d.parameters.armsRaise'),
+          boneSlider('armsForward', 'characterStudio3d.parameters.armsForward'),
         ],
       },
       {
         id: 'expression',
-        label: 'Мимика',
+        translationKey: 'characterStudio3d.zones.expression',
         group: 'pose',
         level: 2,
         parentId: 'pose',
         parameters: [
           {
             id: 'smile',
-            label: 'Улыбка',
+            translationKey: 'characterStudio3d.parameters.smile',
             type: 'blendshape',
             ui: 'slider',
             defaultValue: 0,
@@ -636,7 +636,7 @@ export const ZONE_TREE: EditableZone[] = [
           },
           {
             id: 'squint',
-            label: 'Прищур',
+            translationKey: 'characterStudio3d.parameters.squint',
             type: 'blendshape',
             ui: 'slider',
             defaultValue: 0,
@@ -646,7 +646,7 @@ export const ZONE_TREE: EditableZone[] = [
           },
           {
             id: 'browRaise',
-            label: 'Поднятие бровей',
+            translationKey: 'characterStudio3d.parameters.browRaise',
             type: 'blendshape',
             ui: 'slider',
             defaultValue: 0,
@@ -656,7 +656,7 @@ export const ZONE_TREE: EditableZone[] = [
           },
           {
             id: 'mouthOpen',
-            label: 'Открытость рта',
+            translationKey: 'characterStudio3d.parameters.mouthOpen',
             type: 'blendshape',
             ui: 'slider',
             defaultValue: 0,

@@ -193,7 +193,7 @@ const CharacterReferencesPage: React.FC = () => {
     return <div className="references-empty">{t('characterStudio.references.cannotDetermine')}</div>;
   }
 
-  const characterName = refs.state?.character.name || 'Персонаж';
+  const characterName = refs.state?.character.name || t('characterStudio.editor.tipsCharacter');
   const identityLocked = Boolean(refs.state?.character.identity_locked);
   const checklist = refs.state?.checklist || EMPTY_CHECKLIST;
   const canProceed = canProceedTo3DFromReferences({

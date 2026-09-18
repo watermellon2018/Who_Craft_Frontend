@@ -1,36 +1,12 @@
 import React, {useState} from 'react';
 import {Collapse, Form, Input, Select} from 'antd';
 import {PlusOutlined, CloseOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {StudioCharacter} from '../types/character.types';
 
-const ROLE_OPTIONS = [
-  {value: 'main', label: 'Главный герой'},
-  {value: 'secondary', label: 'Второстепенный персонаж'},
-  {value: 'antagonist', label: 'Антагонист'},
-  {value: 'episodic', label: 'Эпизодический персонаж'},
-  {value: 'cameo', label: 'Камео'},
-];
-
-const BEHAVIOR_TYPE_OPTIONS = [
-  {value: 'calm', label: 'Спокойный, уверенный'},
-  {value: 'aggressive', label: 'Агрессивный'},
-  {value: 'charismatic', label: 'Харизматичный'},
-  {value: 'introverted', label: 'Замкнутый'},
-  {value: 'impulsive', label: 'Импульсивный'},
-  {value: 'cautious', label: 'Осторожный'},
-  {value: 'ironic', label: 'Ироничный'},
-  {value: 'cold', label: 'Хладнокровный'},
-];
-
-const SPEECH_STYLE_OPTIONS = [
-  {value: 'neutral', label: 'Нейтральный'},
-  {value: 'formal', label: 'Формальный'},
-  {value: 'soft', label: 'Мягкий'},
-  {value: 'sharp', label: 'Резкий'},
-  {value: 'sarcastic', label: 'Саркастичный'},
-  {value: 'reserved', label: 'Сдержанный'},
-  {value: 'emotional', label: 'Эмоциональный'},
-];
+const ROLE_VALUES = ['main', 'secondary', 'antagonist', 'episodic', 'cameo'] as const;
+const BEHAVIOR_VALUES = ['calm', 'aggressive', 'charismatic', 'introverted', 'impulsive', 'cautious', 'ironic', 'cold'] as const;
+const SPEECH_STYLE_VALUES = ['neutral', 'formal', 'soft', 'sharp', 'sarcastic', 'reserved', 'emotional'] as const;
 
 interface PersonalityEditorPanelProps {
   character: StudioCharacter;
@@ -38,6 +14,10 @@ interface PersonalityEditorPanelProps {
 }
 
 export default function PersonalityEditorPanel({character, onChange}: PersonalityEditorPanelProps) {
+  const {t} = useTranslation();
+  const roleOptions = ROLE_VALUES.map((value) => ({value, label: t(`characterStudio.options.role.${value}`)}));
+  const behaviorOptions = BEHAVIOR_VALUES.map((value) => ({value, label: t(`characterStudio.personality.behavior.${value}`)}));
+  const speechStyleOptions = SPEECH_STYLE_VALUES.map((value) => ({value, label: t(`characterStudio.personality.speechStyle.${value}`)}));
   const personality = (character.personality || {}) as Record<string, unknown>;
   const traits = (personality.personality_traits as string[]) || [];
   const [newTrait, setNewTrait] = useState('');
@@ -67,30 +47,30 @@ export default function PersonalityEditorPanel({character, onChange}: Personalit
   return (
     <div className="character-settings-panel">
       <div className="character-settings-panel__header">
-        <p>Контекстная панель</p>
-        <h2>Настройки: Характер</h2>
+        <p>{t('characterStudio.editor.scenePanel.eyebrow')}</p>
+        <h2>{t('characterStudio.personality.settingsTitle')}</h2>
       </div>
       <div className="character-settings-panel__body">
 
         {/* Блок 1: Основное */}
         <section className="character-settings-section character-settings-section--primary">
-          <h3>Основное</h3>
+          <h3>{t('characterStudio.editor.bodyPanel.mainSection')}</h3>
           <Form layout="vertical">
-            <Form.Item label="Роль персонажа">
+            <Form.Item label={t('characterStudio.personality.role')}>
               <Select
                 value={character.role || undefined}
-                options={ROLE_OPTIONS}
+                options={roleOptions}
                 onChange={(v) => onChange({role: v})}
-                placeholder="Выберите роль"
+                placeholder={t('characterStudio.personality.rolePlaceholder')}
                 popupClassName="character-editor-select-dropdown"
               />
             </Form.Item>
-            <Form.Item label="Тип поведения">
+            <Form.Item label={t('characterStudio.personality.behaviorLabel')}>
               <Select
                 value={(personality.behavior_type as string) || undefined}
-                options={BEHAVIOR_TYPE_OPTIONS}
+                options={behaviorOptions}
                 onChange={(v) => updatePersonality('behavior_type', v)}
-                placeholder="Выберите тип поведения"
+                placeholder={t('characterStudio.personality.behaviorPlaceholder')}
                 popupClassName="character-editor-select-dropdown"
               />
             </Form.Item>
@@ -99,7 +79,7 @@ export default function PersonalityEditorPanel({character, onChange}: Personalit
 
         {/* Блок 2: Черты характера */}
         <section className="character-settings-section">
-          <h3>Черты характера</h3>
+          <h3>{t('characterStudio.personality.traits')}</h3>
           <div className="feature-chip-grid personality-traits-grid">
             {traits.map((trait, index) => (
               <span key={index} className="personality-trait-chip">
@@ -108,7 +88,7 @@ export default function PersonalityEditorPanel({character, onChange}: Personalit
                   type="button"
                   className="personality-trait-chip__remove"
                   onClick={() => removeTrait(index)}
-                  aria-label={`Удалить черту "${trait}"`}
+                  aria-label={t('characterStudio.personality.removeTrait', {trait})}
                 >
                   <CloseOutlined />
                 </button>
@@ -119,7 +99,7 @@ export default function PersonalityEditorPanel({character, onChange}: Personalit
                 size="small"
                 value={newTrait}
                 autoFocus
-                placeholder="Введите черту..."
+                placeholder={t('characterStudio.personality.traitPlaceholder')}
                 onChange={(e) => setNewTrait(e.target.value)}
                 onPressEnter={addTrait}
                 onBlur={() => { addTrait(); if (!newTrait.trim()) setAddingTrait(false); }}
@@ -131,7 +111,7 @@ export default function PersonalityEditorPanel({character, onChange}: Personalit
                 className="personality-trait-add"
                 onClick={() => setAddingTrait(true)}
               >
-                <PlusOutlined /> Добавить
+                <PlusOutlined /> {t('characterStudio.personality.addTrait')}
               </button>
             )}
           </div>
@@ -139,22 +119,22 @@ export default function PersonalityEditorPanel({character, onChange}: Personalit
 
         {/* Блок 3: Манера общения */}
         <section className="character-settings-section">
-          <h3>Манера общения</h3>
+          <h3>{t('characterStudio.personality.communication')}</h3>
           <Form layout="vertical">
-            <Form.Item label="Стиль речи">
+            <Form.Item label={t('characterStudio.personality.speechStyleLabel')}>
               <Select
                 value={(personality.speech_style_type as string) || undefined}
-                options={SPEECH_STYLE_OPTIONS}
+                options={speechStyleOptions}
                 onChange={(v) => updatePersonality('speech_style_type', v)}
-                placeholder="Выберите стиль речи"
+                placeholder={t('characterStudio.personality.speechStylePlaceholder')}
                 popupClassName="character-editor-select-dropdown"
               />
             </Form.Item>
-            <Form.Item label="Описание стиля речи">
+            <Form.Item label={t('characterStudio.personality.speechDescription')}>
               <Input.TextArea
                 value={character.speech_style || ''}
                 onChange={(e) => onChange({speech_style: e.target.value})}
-                placeholder="Например: говорит короткими фразами, редко показывает эмоции, использует сухой юмор."
+                placeholder={t('characterStudio.personality.speechDescriptionPlaceholder')}
                 rows={3}
                 maxLength={500}
               />
@@ -169,24 +149,24 @@ export default function PersonalityEditorPanel({character, onChange}: Personalit
           items={[
             {
               key: 'scene_behavior',
-              label: 'Поведение в сценах',
+              label: t('characterStudio.personality.sceneBehavior'),
               children: (
                 <div className="character-collapse-content">
                   <Form layout="vertical">
-                    <Form.Item label="Реакция на конфликт">
+                    <Form.Item label={t('characterStudio.personality.conflictReaction')}>
                       <Input.TextArea
                         value={(personality.conflict_reaction as string) || ''}
                         onChange={(e) => updatePersonality('conflict_reaction', e.target.value)}
-                        placeholder="Например: сохраняет спокойствие, анализирует ситуацию, избегает ненужной агрессии."
+                        placeholder={t('characterStudio.personality.conflictPlaceholder')}
                         rows={3}
                         maxLength={500}
                       />
                     </Form.Item>
-                    <Form.Item label="Реакция на опасность">
+                    <Form.Item label={t('characterStudio.personality.dangerReaction')}>
                       <Input.TextArea
                         value={(personality.danger_reaction as string) || ''}
                         onChange={(e) => updatePersonality('danger_reaction', e.target.value)}
-                        placeholder="Например: быстро оценивает угрозу, действует хладнокровно и расчетливо."
+                        placeholder={t('characterStudio.personality.dangerPlaceholder')}
                         rows={3}
                         maxLength={500}
                       />

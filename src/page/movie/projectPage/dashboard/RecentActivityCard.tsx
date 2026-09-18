@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import {
   UserOutlined,
   VideoCameraOutlined,
@@ -20,19 +21,31 @@ interface Props {
 }
 
 const RecentActivityCard: React.FC<Props> = ({ activity, loading = false }) => {
+  const {t, i18n} = useTranslation();
   return (
     <div className="proj-card p-5">
-      <h4 className="text-white text-sm font-semibold mb-3">Последняя активность</h4>
+      <h4 className="text-white text-sm font-semibold mb-3">{t('project.dashboard.activity.title')}</h4>
 
       {!loading && activity.length === 0 && (
         <div className="text-white/45 text-xs py-4 text-center">
-          Нет активности
+          {t('project.dashboard.activity.empty')}
         </div>
       )}
 
       <div className="flex flex-col">
         {activity.map((item) => {
           const accent = ACCENT_HEX[item.accent];
+          const description = item.description.startsWith('project.')
+            ? t(item.description)
+            : item.description;
+          const title = item.title.startsWith('project.') ? t(item.title) : item.title;
+          const parsedTime = item.time ? new Date(item.time) : null;
+          const time = parsedTime && !Number.isNaN(parsedTime.getTime())
+            ? new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              }).format(parsedTime)
+            : '';
           return (
             <div key={item.id} className="proj-activity-item">
               <span
@@ -46,12 +59,12 @@ const RecentActivityCard: React.FC<Props> = ({ activity, loading = false }) => {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="text-white text-sm font-medium leading-tight truncate">
-                  {item.title}
+                  {title}
                 </div>
                 <div className="text-white/70 text-xs mt-0.5">
-                  {item.description}
+                  {description}
                 </div>
-                <div className="text-white/50 text-[11px] mt-1">{item.time}</div>
+                <div className="text-white/50 text-[11px] mt-1">{time}</div>
               </div>
               {item.thumbnailGradient && (
                 <div

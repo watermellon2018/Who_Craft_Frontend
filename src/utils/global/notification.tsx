@@ -1,20 +1,17 @@
 import React from "react";
 import {notification} from "antd";
+import i18n from '../../i18n';
 
 /**
- * Открывает уведомление с указанной иконкой и сообщением.
- * @param {React.ReactNode} desc - Описание уведомления. Это может быть строка или React-элемент.
- * @param {React.ReactNode} [mes="Ошибка в заполнении"] - Сообщение, которое отображается в уведомлении.
- * Это может быть строка или React-элемент. По умолчанию равно "Ошибка в заполнении".
- * @param {'success' | 'info' | 'error' | 'warning'} [type='error'] - Тип уведомления для отображения.
- * Может быть одним из следующих значений: 'success', 'info', 'error' или 'warning'. По умолчанию равно 'error'."
+ * Opens a notification with the requested message and severity.
+ * When no title is provided, the current interface language supplies the default title.
  */
 
 const openNotificationWithIcon = (desc: React.ReactNode,
-                                  mes: React.ReactNode = "Ошибка в заполнении",
+                                  mes?: React.ReactNode,
                                   type: 'success' | 'info' | 'error' | 'warning' ='error') => {
     notification[type]({
-        message: mes,
+        message: mes ?? i18n.t('notifications.invalidInput'),
         description: desc,
     });
 };

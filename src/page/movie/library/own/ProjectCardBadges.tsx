@@ -1,9 +1,8 @@
 import React from 'react';
 import { TeamOutlined } from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {
   AccessRole,
-  ACCESS_ROLE_LABELS,
-  pluralMembers,
 } from '../../../../api/projects/team';
 import { ProjectListItem } from '../../../../api/projects/projectList';
 
@@ -27,6 +26,7 @@ const AVATAR_GRADIENTS = [
  * team projects — only the badge text and the "Командный проект" chip differ.
  */
 const ProjectCardBadges: React.FC<{ project: ProjectListItem }> = ({ project }) => {
+  const {t} = useTranslation();
   const role = (project.currentUserRole as AccessRole) || 'viewer';
   const roleColors = ROLE_BADGE_COLORS[role];
   const memberCount = project.memberCount ?? 1;
@@ -40,12 +40,12 @@ const ProjectCardBadges: React.FC<{ project: ProjectListItem }> = ({ project }) 
           className="proj-card-role-badge"
           style={{ background: roleColors.bg, color: roleColors.fg }}
         >
-          {ACCESS_ROLE_LABELS[role]}
+          {t(`project.team.accessRoles.${role}`)}
         </span>
         {project.isTeamProject && (
           <span className="proj-card-team-chip">
             <TeamOutlined style={{ fontSize: 11 }} />
-            Командный проект
+            {t('project.team.teamProject')}
           </span>
         )}
       </div>
@@ -64,13 +64,13 @@ const ProjectCardBadges: React.FC<{ project: ProjectListItem }> = ({ project }) 
           {extra > 0 && (
             <span
               className="proj-card-avatar proj-card-avatar-extra"
-              title={`Ещё ${extra}`}
+              title={t('project.common.moreCount', {count: extra})}
             >
               +{extra}
             </span>
           )}
         </span>
-        <span className="proj-card-member-count">{pluralMembers(memberCount)}</span>
+        <span className="proj-card-member-count">{t('project.team.memberCount', {count: memberCount})}</span>
       </div>
     </div>
   );

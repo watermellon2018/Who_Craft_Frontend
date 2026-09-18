@@ -8,19 +8,21 @@ import {
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 
-const tabs: Array<{key: CharacterRegion | 'personality'; label: string; description: string; icon: React.ReactNode}> = [
-  {key: 'face', label: 'Лицо', description: 'Черты и мимика', icon: <UserOutlined />},
-  {key: 'hair', label: 'Волосы', description: 'Прическа и борода', icon: <BgColorsOutlined />},
-  {key: 'body', label: 'Тело', description: 'Телосложение', icon: <TeamOutlined />},
-  {key: 'outfit', label: 'Одежда', description: 'Слои и силуэт', icon: <SkinOutlined />},
-  {key: 'style', label: 'Настройки', description: 'Стиль и сцена', icon: <SettingOutlined />},
-  {key: 'personality', label: 'Характер', description: 'Поведение и роль', icon: <EyeOutlined />},
+const tabs: Array<{key: CharacterRegion | 'personality'; icon: React.ReactNode}> = [
+  {key: 'face', icon: <UserOutlined />},
+  {key: 'hair', icon: <BgColorsOutlined />},
+  {key: 'body', icon: <TeamOutlined />},
+  {key: 'outfit', icon: <SkinOutlined />},
+  {key: 'style', icon: <SettingOutlined />},
+  {key: 'personality', icon: <EyeOutlined />},
 ];
 
 export default function CharacterCategorySidebar({active, onSelect}: {active: string; onSelect: (key: string) => void;}) {
+  const {t} = useTranslation();
   return (
-    <nav className="character-category-menu" aria-label="Категории редактора">
+    <nav className="character-category-menu" aria-label={t('characterStudio.categories.ariaLabel')}>
       {tabs.map((tab) => (
         <button
           key={tab.key}
@@ -30,8 +32,8 @@ export default function CharacterCategorySidebar({active, onSelect}: {active: st
         >
           <span className="character-category-card__icon">{tab.icon}</span>
           <span className="character-category-card__copy">
-            <span>{tab.label}</span>
-            <small>{tab.description}</small>
+            <span>{t(`characterStudio.categories.${tab.key}.label`)}</span>
+            <small>{t(`characterStudio.categories.${tab.key}.description`)}</small>
           </span>
         </button>
       ))}

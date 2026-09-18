@@ -32,6 +32,7 @@ export interface PosterJob {
     createdAt?: string | null;
     completedAt?: string | null;
     errorMessage?: string | null;
+    errorCode?: string | null;
     variants?: PosterVariant[];
     billing?: GenerationBilling | null;
 }
@@ -62,6 +63,31 @@ interface EditPosterParams {
 const POSTER_POLL_INTERVAL_MS = 1000;
 const POSTER_POLL_ATTEMPTS = 90;
 
+export const POSTER_CLIENT_ERROR_CODES = {
+    cancellationRequested: 'POSTER_CANCELLATION_REQUESTED',
+    generationFailed: 'POSTER_GENERATION_FAILED',
+    noVariant: 'POSTER_NO_VARIANT',
+    timeout: 'POSTER_TIMEOUT',
+} as const;
+
+export type PosterClientErrorCode = (
+    typeof POSTER_CLIENT_ERROR_CODES[keyof typeof POSTER_CLIENT_ERROR_CODES]
+);
+
+export class PosterClientError extends Error {
+    readonly code: string;
+
+    constructor(code: string) {
+        super(code);
+        this.name = 'PosterClientError';
+        this.code = code;
+    }
+}
+
+export function getPosterClientErrorCode(error: unknown): string | null {
+    return error instanceof PosterClientError ? error.code : null;
+}
+
 function idempotencyHeaders() {
     return {'Idempotency-Key': uuidv4()};
 }
@@ -78,14 +104,11 @@ function operationStatus(response: PosterOperationResponse): PosterJobStatus | u
 function throwTerminalError(response: PosterOperationResponse): void {
     const status = operationStatus(response);
     if (status === 'cancellation_requested') {
-        throw new Error(
-            'Отмена запрошена. Уже начатая генерация может завершиться, но результат не будет применён.',
-        );
+        throw new PosterClientError(POSTER_CLIENT_ERROR_CODES.cancellationRequested);
     }
     if (status === 'failed' || status === 'cancelled') {
-        throw new Error(
-            response.job?.errorMessage ||
-            'Генерация постера не завершилась. Повторите попытку.',
+        throw new PosterClientError(
+            response.job?.errorCode || POSTER_CLIENT_ERROR_CODES.generationFailed,
         );
     }
 }
@@ -104,7 +127,7 @@ async function waitForVariant(
 
     const jobId = initial.jobId ?? initial.job_id ?? initial.job?.id;
     if (!jobId || operationStatus(initial) === 'completed') {
-        throw new Error('Сервер не вернул вариант постера. Повторите попытку.');
+        throw new PosterClientError(POSTER_CLIENT_ERROR_CODES.noVariant);
     }
 
     for (let attempt = 0; attempt < POSTER_POLL_ATTEMPTS; attempt += 1) {
@@ -118,7 +141,7 @@ async function waitForVariant(
         if (operationStatus(response.data) === 'completed') break;
     }
 
-    throw new Error('Генерация постера заняла слишком много времени. Повторите попытку позже.');
+    throw new PosterClientError(POSTER_CLIENT_ERROR_CODES.timeout);
 }
 
 export function listPosterJobs(projectId: ProjectId) {

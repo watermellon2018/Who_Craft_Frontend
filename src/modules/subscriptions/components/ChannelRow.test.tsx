@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
+import i18n from '../../../i18n';
 import ChannelRow from './ChannelRow';
 import { Channel } from '../types';
 
@@ -113,5 +114,28 @@ describe('ChannelRow', () => {
     const unsubscribeBtn = screen.getByText('Отписаться');
     fireEvent.click(unsubscribeBtn);
     expect(onUnsubscribe).toHaveBeenCalledWith(7);
+  });
+
+  it('renders subscription actions in English when English is selected', async () => {
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
+
+    render(
+      <ChannelRow
+        channel={makeChannel({isSubscribed: false})}
+        isDropdownOpen={false}
+        onToggleDropdown={jest.fn()}
+        onSubscribe={jest.fn()}
+        onUnsubscribe={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', {name: 'Subscribe'})).toBeInTheDocument();
+    expect(screen.getByText('subscribers')).toBeInTheDocument();
+
+    await act(async () => {
+      await i18n.changeLanguage('ru');
+    });
   });
 });

@@ -136,34 +136,43 @@ export interface WorkspaceConflict {
   message: string;
 }
 
-export const BLOCK_LABELS: Record<ScriptBlockType, string> = {
-  scene_heading: 'Заголовок сцены',
-  action: 'Действие',
-  character: 'Персонаж',
-  dialogue: 'Диалог',
-  remark: 'Ремарка',
-  camera: 'Камера',
-  transition: 'Переход',
-  sound: 'Звук',
-  note: 'Заметка',
+export const BLOCK_LABEL_KEYS: Record<ScriptBlockType, string> = {
+  scene_heading: 'script.blockTypes.sceneHeading',
+  action: 'script.blockTypes.action',
+  character: 'script.blockTypes.character',
+  dialogue: 'script.blockTypes.dialogue',
+  remark: 'script.blockTypes.remark',
+  camera: 'script.blockTypes.camera',
+  transition: 'script.blockTypes.transition',
+  sound: 'script.blockTypes.sound',
+  note: 'script.blockTypes.note',
 };
 
-export const SCENE_TYPE_LABELS: Record<string, string> = {
-  setup: 'Завязка',
-  provocation: 'Провокация',
-  turn: 'Поворот',
-  obstacle: 'Препятствие',
-  escalation: 'Эскалация',
-  climax: 'Кульминация',
-  resolution: 'Развязка',
-  final: 'Финал',
+export const SCENE_TYPE_LABEL_KEYS: Record<string, string> = {
+  setup: 'script.sceneTypes.setup',
+  provocation: 'script.sceneTypes.provocation',
+  turn: 'script.sceneTypes.turn',
+  obstacle: 'script.sceneTypes.obstacle',
+  escalation: 'script.sceneTypes.escalation',
+  climax: 'script.sceneTypes.climax',
+  resolution: 'script.sceneTypes.resolution',
+  final: 'script.sceneTypes.final',
 };
 
-export const MOOD_LABELS: Record<string, string> = {
-  calm: 'Спокойное',
-  tense: 'Напряжённое',
-  joyful: 'Радостное',
-  sad: 'Грустное',
-  mysterious: 'Таинственное',
-  romantic: 'Романтическое',
+export const MOOD_LABEL_KEYS: Record<string, string> = {
+  calm: 'script.moods.calm',
+  tense: 'script.moods.tense',
+  joyful: 'script.moods.joyful',
+  sad: 'script.moods.sad',
+  mysterious: 'script.moods.mysterious',
+  romantic: 'script.moods.romantic',
+};
+
+export const CHARACTER_ROLE_LABEL_KEYS: Record<string, string> = {
+  main: 'script.characterRoles.main',
+  secondary: 'script.characterRoles.secondary',
+  supporting: 'script.characterRoles.supporting',
+  antagonist: 'script.characterRoles.antagonist',
+  episodic: 'script.characterRoles.episodic',
+  cameo: 'script.characterRoles.cameo',
 };

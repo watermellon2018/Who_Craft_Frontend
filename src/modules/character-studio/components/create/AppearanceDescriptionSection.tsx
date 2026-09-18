@@ -1,65 +1,67 @@
 import React from 'react';
 import {EyeOutlined, ProfileOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import FormSectionCard, {TextareaWithCounter, TextField} from './FormSectionCard';
 
 export default function AppearanceDescriptionSection() {
+  const {t} = useTranslation();
   return (
     <>
       <FormSectionCard
         icon={<EyeOutlined />}
-        title="Описание внешности"
-        subtitle="Опишите, как выглядит персонаж"
+        title={t('characterStudio.create.appearance.title')}
+        subtitle={t('characterStudio.create.appearance.subtitle')}
       >
         <TextareaWithCounter
           id="description-character-appearance"
           name="appearance_description"
-          label="Внешность"
+          label={t('characterStudio.create.appearance.label')}
           maxLength={500}
           minRows={4}
-          placeholder="Опишите форму тела, цвет, фактуру, лицо/морду, одежду, особенности, пропорции и общее впечатление персонажа..."
+          placeholder={t('characterStudio.create.appearance.placeholder')}
           required
-          rules={[{required: true, message: 'Опишите внешность персонажа'}]}
+          rules={[{required: true, message: t('characterStudio.create.appearance.required')}]}
         />
 
         <div className="description-form-grid description-form-grid--two">
           <TextField
             id="description-character-body-structure"
             name="body_structure"
-            label="Тип тела / строение"
+            label={t('characterStudio.create.appearance.bodyStructure')}
             maxLength={128}
-            placeholder="Например: человекоподобное, четвероногое, крылатое, гибридное"
+            placeholder={t('characterStudio.create.appearance.bodyStructurePlaceholder')}
           />
           <TextField
             id="description-character-surface-material"
             name="surface_material"
-            label="Покров / материал"
+            label={t('characterStudio.create.appearance.surfaceMaterial')}
             maxLength={128}
-            placeholder="Например: кожа, шерсть, чешуя, металл, светящаяся энергия"
+            placeholder={t('characterStudio.create.appearance.surfaceMaterialPlaceholder')}
           />
         </div>
 
         <TextareaWithCounter
           id="description-character-special-features"
           name="special_features"
-          label="Особые признаки"
+          label={t('characterStudio.create.appearance.specialFeatures')}
           maxLength={300}
           minRows={3}
-          placeholder="Например: крылья, рога, светящиеся глаза, металлическая кожа, шерсть, чешуя, хвост, шрамы, аксессуары..."
+          placeholder={t('characterStudio.create.appearance.specialFeaturesPlaceholder')}
         />
       </FormSectionCard>
 
       <FormSectionCard
         icon={<ProfileOutlined />}
-        title="Краткое описание"
-        subtitle="Коротко сформулируйте суть персонажа"
+        title={t('characterStudio.create.shortDescription.title')}
+        subtitle={t('characterStudio.create.shortDescription.subtitle')}
       >
         <TextareaWithCounter
           id="description-character-short-description"
           name="short_description"
-          label="Описание"
+          label={t('characterStudio.create.shortDescription.label')}
           maxLength={300}
           minRows={3}
-          placeholder="Например, рыжеволосая школьница с тревожным и саркастичным характером."
+          placeholder={t('characterStudio.create.shortDescription.placeholder')}
         />
       </FormSectionCard>
     </>

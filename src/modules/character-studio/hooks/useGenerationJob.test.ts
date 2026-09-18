@@ -147,7 +147,9 @@ test('retries an explicitly failed poll and clears the error while retrying', as
 
   const {result} = renderHook(() => useGenerationJob('job-a', '1', 'char-a'));
 
-  await waitFor(() => expect(result.current.errorMessage).toBe('network unavailable'));
+  await waitFor(() => (
+    expect(result.current.errorMessage).toBe('Не удалось загрузить задание генерации')
+  ));
   expect(result.current.loading).toBe(false);
 
   act(() => result.current.retry());

@@ -38,27 +38,29 @@ const FeatureItem: React.FC<FeatureItemProps> = ({ icon, title }) => (
     </li>
 );
 
-const PromoPanel: React.FC = () => (
-    <aside className="wc-login__promo">
-        <div className="wc-login__promo-glow" aria-hidden />
-        <div className="wc-login__promo-content">
-            <span className="wc-login__promo-tag">AI Studio</span>
-            <h2 className="wc-login__promo-title">
-                Создавайте фильмы
-                <br />
-                <span className="wc-login__promo-accent">нового поколения</span>
-            </h2>
-            <p className="wc-login__promo-desc">
-                Генерируйте сцены, персонажей и истории с помощью искусственного интеллекта.
-            </p>
-            <ul className="wc-login__features">
-                <FeatureItem icon={<ThunderboltOutlined />} title="AI-генерация сцен" />
-                <FeatureItem icon={<UserOutlined />} title="Уникальные персонажи" />
-                <FeatureItem icon={<VideoCameraOutlined />} title="Кинематографичное качество" />
-            </ul>
-        </div>
-    </aside>
-);
+const PromoPanel: React.FC = () => {
+    const {t} = useTranslation();
+
+    return (
+        <aside className="wc-login__promo">
+            <div className="wc-login__promo-glow" aria-hidden />
+            <div className="wc-login__promo-content">
+                <span className="wc-login__promo-tag">AI Studio</span>
+                <h2 className="wc-login__promo-title">
+                    {t('auth.login.promo.title')}
+                    <br />
+                    <span className="wc-login__promo-accent">{t('auth.login.promo.accent')}</span>
+                </h2>
+                <p className="wc-login__promo-desc">{t('auth.login.promo.description')}</p>
+                <ul className="wc-login__features">
+                    <FeatureItem icon={<ThunderboltOutlined />} title={t('auth.login.promo.featureScenes')} />
+                    <FeatureItem icon={<UserOutlined />} title={t('auth.login.promo.featureCharacters')} />
+                    <FeatureItem icon={<VideoCameraOutlined />} title={t('auth.login.promo.featureQuality')} />
+                </ul>
+            </div>
+        </aside>
+    );
+};
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();

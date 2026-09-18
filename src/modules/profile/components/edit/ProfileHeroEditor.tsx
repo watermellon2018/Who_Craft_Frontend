@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 
 interface Props {
   username: string;
@@ -28,6 +29,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
   onCoverFileSelected,
   onCoverDelete,
 }) => {
+  const {t} = useTranslation();
   const handleAvatarPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -46,13 +48,13 @@ const ProfileHeroEditor: React.FC<Props> = ({
         className="text-white font-semibold text-base"
         style={{ color: '#ffffff' }}
       >
-        Ваш профиль
+        {t('profile.edit.media.title')}
       </h3>
       <p
         className="text-sm mt-1 mb-4"
         style={{ color: 'rgba(255,255,255,0.65)' }}
       >
-        Настройте аватар и обложку профиля.
+        {t('profile.edit.media.description')}
       </p>
 
       <div className="relative rounded-2xl overflow-hidden border border-white/5">
@@ -70,13 +72,13 @@ const ProfileHeroEditor: React.FC<Props> = ({
             onClick={() => coverInputRef.current?.click()}
             className="inline-flex items-center gap-2 bg-black/60 hover:bg-black/80 text-white text-xs font-medium px-3 py-2 rounded-xl border border-white/10 backdrop-blur transition-colors"
           >
-            📷 Изменить обложку
+            📷 {t('profile.edit.media.changeCover')}
           </button>
           {coverUrl && (
             <button
               type="button"
               onClick={onCoverDelete}
-              aria-label="Удалить обложку"
+              aria-label={t('profile.edit.media.deleteCover')}
               className="w-8 h-8 inline-flex items-center justify-center bg-black/60 hover:bg-red-600/80 text-white text-sm rounded-xl border border-white/10 backdrop-blur transition-colors"
             >
               ✕
@@ -95,7 +97,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
       <div className="relative -mt-10 ml-1 mb-4 w-fit">
         <div className="w-20 h-20 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] flex items-center justify-center text-accent font-bold text-3xl shadow-lg overflow-hidden">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+            <img src={avatarUrl} alt={t('profile.hero.avatarAlt')} className="w-full h-full object-cover" />
           ) : (
             initial(username)
           )}
@@ -103,7 +105,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
         <button
           type="button"
           onClick={() => avatarInputRef.current?.click()}
-          aria-label="Загрузить аватар"
+          aria-label={t('profile.edit.media.uploadAvatar')}
           className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-accent text-[#13151a] text-xs flex items-center justify-center shadow-md border-2 border-[#16191f] hover:bg-[#fcc419] transition-colors"
         >
           📷
@@ -123,13 +125,13 @@ const ProfileHeroEditor: React.FC<Props> = ({
             className="font-semibold text-lg truncate"
             style={{ color: '#ffffff' }}
           >
-            {username || 'admin'}
+            {username || t('common.user')}
           </p>
           <p
             className="text-sm truncate"
             style={{ color: 'rgba(255,255,255,0.7)' }}
           >
-            {bio.split('\n')[0] || 'Расскажите о себе'}
+            {bio.split('\n')[0] || t('profile.edit.media.bioFallback')}
           </p>
         </div>
 
@@ -139,7 +141,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
             onClick={() => avatarInputRef.current?.click()}
             className="inline-flex items-center gap-2 bg-accent text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors"
           >
-            ⬆ Загрузить аватар
+            ⬆ {t('profile.edit.media.uploadAvatar')}
           </button>
           <button
             type="button"
@@ -148,7 +150,7 @@ const ProfileHeroEditor: React.FC<Props> = ({
             className="inline-flex items-center gap-2 bg-white/5 text-sm font-medium px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ color: 'rgba(255,255,255,0.85)' }}
           >
-            🗑 Удалить
+            🗑 {t('profile.edit.media.delete')}
           </button>
         </div>
       </div>

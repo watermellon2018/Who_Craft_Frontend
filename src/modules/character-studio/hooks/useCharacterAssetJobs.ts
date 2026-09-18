@@ -147,7 +147,7 @@ export function useCharacterAssetJobs(
             projectId,
             characterId,
             variants[0].variant_id,
-            `Автогенерация ${type}`,
+            i18n.t('characterStudio.assetJobs.autoGeneration', {type}) as string,
             type,
             null,
           );

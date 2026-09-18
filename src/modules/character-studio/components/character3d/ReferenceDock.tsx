@@ -1,5 +1,6 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {LeftOutlined, LoadingOutlined, PictureOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {backendAssetUrl} from '../../../../api/http';
 import {characterApi} from '../../api/characterApi';
 import type {CharacterReference} from '../../types/character.types';
@@ -11,12 +12,12 @@ interface Props {
   fitting: boolean;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  portrait: 'Портрет',
-  full_body: 'В полный рост',
-  three_quarter: 'Три четверти',
-  profile: 'Профиль',
-  back_view: 'Со спины',
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  portrait: 'characterStudio3d.references.types.portrait',
+  full_body: 'characterStudio3d.references.types.fullBody',
+  three_quarter: 'characterStudio3d.references.types.threeQuarter',
+  profile: 'characterStudio3d.references.types.profile',
+  back_view: 'characterStudio3d.references.types.backView',
 };
 
 // Read-only strip of the character's locked references, docked to the
@@ -27,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
 // Deliberately NOT useCharacterReferences — that hook auto-generates
 // missing references on mount, which a viewer must never trigger.
 const ReferenceDock: React.FC<Props> = ({projectId, characterId, fitting}) => {
+  const {t} = useTranslation();
   const [references, setReferences] = useState<CharacterReference[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   // Collapsed by default — the dock would otherwise cover the model on open.
@@ -67,11 +69,11 @@ const ReferenceDock: React.FC<Props> = ({projectId, characterId, fitting}) => {
         type="button"
         className="c3d-refdock c3d-refdock--collapsed"
         onClick={() => setCollapsed(false)}
-        aria-label="Показать референсы"
-        title="Показать референсы"
+        aria-label={t('characterStudio3d.references.show')}
+        title={t('characterStudio3d.references.show')}
       >
         <PictureOutlined />
-        <span>Референсы</span>
+        <span>{t('characterStudio3d.references.title')}</span>
       </button>
     );
   }
@@ -79,12 +81,12 @@ const ReferenceDock: React.FC<Props> = ({projectId, characterId, fitting}) => {
   return (
     <aside className="c3d-refdock">
       <header className="c3d-refdock__head">
-        <span>Референсы</span>
+        <span>{t('characterStudio3d.references.title')}</span>
         <button
           type="button"
           className="c3d-refdock__toggle"
           onClick={() => setCollapsed(true)}
-          aria-label="Свернуть референсы"
+          aria-label={t('characterStudio3d.references.collapse')}
         >
           <LeftOutlined />
         </button>
@@ -93,13 +95,22 @@ const ReferenceDock: React.FC<Props> = ({projectId, characterId, fitting}) => {
       {active && activeUrl ? (
         <figure className="c3d-refdock__preview">
           <div className="c3d-refdock__preview-frame">
-            <img src={activeUrl} alt={TYPE_LABELS[active.reference_type] ?? active.reference_type} />
+            <img
+              src={activeUrl}
+              alt={TYPE_LABEL_KEYS[active.reference_type]
+                ? t(TYPE_LABEL_KEYS[active.reference_type])
+                : active.reference_type}
+            />
           </div>
-          <figcaption>{TYPE_LABELS[active.reference_type] ?? active.reference_type}</figcaption>
+          <figcaption>
+            {TYPE_LABEL_KEYS[active.reference_type]
+              ? t(TYPE_LABEL_KEYS[active.reference_type])
+              : active.reference_type}
+          </figcaption>
         </figure>
       ) : null}
 
-      <div className="c3d-refdock__thumbs" role="tablist" aria-label="Референсы персонажа">
+      <div className="c3d-refdock__thumbs" role="tablist" aria-label={t('characterStudio3d.references.listLabel')}>
         {references.map((ref, index) => (
           <button
             key={`${ref.reference_type}-${index}`}
@@ -108,7 +119,9 @@ const ReferenceDock: React.FC<Props> = ({projectId, characterId, fitting}) => {
             aria-selected={index === activeIndex}
             className={`c3d-refdock__thumb ${index === activeIndex ? 'c3d-refdock__thumb--active' : ''}`}
             onClick={() => setActiveIndex(index)}
-            title={TYPE_LABELS[ref.reference_type] ?? ref.reference_type}
+            title={TYPE_LABEL_KEYS[ref.reference_type]
+              ? t(TYPE_LABEL_KEYS[ref.reference_type])
+              : ref.reference_type}
           >
             <img src={backendAssetUrl(ref.image_url ?? '')} alt="" />
           </button>
@@ -118,7 +131,7 @@ const ReferenceDock: React.FC<Props> = ({projectId, characterId, fitting}) => {
       {fitting ? (
         <div className="c3d-refdock__status" role="status">
           <LoadingOutlined />
-          <span>Подгоняем по фото…</span>
+          <span>{t('characterStudio3d.references.fitting')}</span>
         </div>
       ) : null}
     </aside>

@@ -32,8 +32,8 @@ function avatarFallback(name: string, username: string | null): string {
   return source.slice(0, 2).toUpperCase();
 }
 
-function toChannel(api: ApiChannel): Channel {
-  const name = api.displayName || api.username || 'Unknown';
+function toChannel(api: ApiChannel, unknownName: string): Channel {
+  const name = api.displayName || api.username || unknownName;
   return {
     id: api.id,
     name,
@@ -72,7 +72,7 @@ const SubscriptionsPage: React.FC = () => {
     setLoadingSubs(true);
     try {
       const res = await fetchMySubscriptions(PAGE_SIZE, 0);
-      setMySubs(res.items.map(toChannel));
+      setMySubs(res.items.map((item) => toChannel(item, t('subscriptions.channel.unknown'))));
       setTotalSubs(res.total);
       setFavoriteCount(res.favoriteCount);
     } catch {
@@ -100,7 +100,7 @@ const SubscriptionsPage: React.FC = () => {
       try {
         const res = await searchChannels(normalizedQuery, PAGE_SIZE, 0);
         if (seq !== searchSeqRef.current) return;
-        setSearchResults(res.items.map(toChannel));
+        setSearchResults(res.items.map((item) => toChannel(item, t('subscriptions.channel.unknown'))));
         setSearchTotal(res.total);
       } catch {
         if (seq !== searchSeqRef.current) return;
@@ -132,7 +132,7 @@ const SubscriptionsPage: React.FC = () => {
         isFavorite: res.subscription.isFavorite,
         notificationsEnabled: res.subscription.notificationsEnabled,
       });
-      // Refresh subscriptions list + counters so the new subscription appears in "Мои подписки".
+      // Refresh the list and counters so the new subscription appears immediately.
       loadMySubs({silent: true});
     } catch {
       message.error(t('subscriptions.errors.subscribeFailed'));
@@ -142,7 +142,7 @@ const SubscriptionsPage: React.FC = () => {
   const handleUnsubscribe = useCallback(async (id: number) => {
     try {
       const res = await unsubscribeFromChannel(id);
-      // Drop from "Мои подписки" immediately; in search mode keep the item but flip state.
+      // Remove it from the personal list immediately; search results keep the item with updated state.
       setMySubs((prev) => prev.filter((c) => c.id !== id));
       setSearchResults((prev) => prev.map((c) =>
         c.id === id
@@ -176,7 +176,9 @@ const SubscriptionsPage: React.FC = () => {
         if (sequence !== searchSeqRef.current) return;
         setSearchResults((current) => {
           const existingIds = new Set(current.map((channel) => channel.id));
-          const nextItems = response.items.map(toChannel).filter((channel) => !existingIds.has(channel.id));
+          const nextItems = response.items
+            .map((item) => toChannel(item, t('subscriptions.channel.unknown')))
+            .filter((channel) => !existingIds.has(channel.id));
           return [...current, ...nextItems];
         });
         setSearchTotal(response.total);
@@ -184,7 +186,9 @@ const SubscriptionsPage: React.FC = () => {
         const response = await fetchMySubscriptions(PAGE_SIZE, offset);
         setMySubs((current) => {
           const existingIds = new Set(current.map((channel) => channel.id));
-          const nextItems = response.items.map(toChannel).filter((channel) => !existingIds.has(channel.id));
+          const nextItems = response.items
+            .map((item) => toChannel(item, t('subscriptions.channel.unknown')))
+            .filter((channel) => !existingIds.has(channel.id));
           return [...current, ...nextItems];
         });
         setTotalSubs(response.total);
@@ -224,7 +228,7 @@ const SubscriptionsPage: React.FC = () => {
       <ProfileSidebar
         mobileOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        activeItem="Подписки"
+        activeItem={t('profile.sidebar.subscriptions')}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

@@ -53,11 +53,11 @@ describe('scene structure helpers', () => {
 
   it('extracts a compact heading and location', () => {
     const scene = makeScene();
-    expect(getSceneHeading(scene)).toBe('ИНТ. КАФЕ — НОЧЬ');
-    expect(getSceneLocation(scene)).toBe('КАФЕ');
+    expect(getSceneHeading(scene, 'Заголовок не указан')).toBe('ИНТ. КАФЕ — НОЧЬ');
+    expect(getSceneLocation(scene, 'Место не указано')).toBe('КАФЕ');
     expect(getSceneLocation(makeScene({
       scriptBlocks: [{id: 'heading', type: 'scene_heading', text: 'ИНТ. ЛОКАЦИЯ — ДЕНЬ'}],
-    }))).toBe('Место не указано');
+    }), 'Место не указано')).toBe('Место не указано');
   });
 
   it('marks heading-only scenes as empty and estimates duration from screenplay text', () => {
@@ -69,9 +69,10 @@ describe('scene structure helpers', () => {
     });
 
     expect(isSceneEmpty(empty)).toBe(true);
-    expect(formatEstimatedDuration(empty)).toBe('≈ 0 мин');
+    const labels = {lessThanMinute: '< 1 мин', minute: 'мин', second: 'сек'};
+    expect(formatEstimatedDuration(empty, labels)).toBe('≈ 0 мин');
     expect(isSceneEmpty(minute)).toBe(false);
     expect(estimateSceneDurationSeconds(minute)).toBe(60);
-    expect(formatEstimatedDuration(minute)).toBe('≈ 1 мин');
+    expect(formatEstimatedDuration(minute, labels)).toBe('≈ 1 мин');
   });
 });

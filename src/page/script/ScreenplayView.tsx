@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import {Select} from 'antd';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
 
 import SceneInspector from './SceneInspector';
 import type {
@@ -18,7 +19,7 @@ import type {
   ScriptBlock,
   ScriptBlockType,
 } from './types';
-import {BLOCK_LABELS} from './types';
+import {BLOCK_LABEL_KEYS, CHARACTER_ROLE_LABEL_KEYS} from './types';
 
 interface ScreenplayViewProps {
   characters: CompactCharacter[];
@@ -52,11 +53,7 @@ interface ScreenplayPaperStyle extends React.CSSProperties {
 
 type ZoomMode = 'fit' | number;
 
-const BLOCK_TYPES = Object.keys(BLOCK_LABELS) as ScriptBlockType[];
-const BLOCK_TYPE_OPTIONS = BLOCK_TYPES.map((type) => ({
-  label: BLOCK_LABELS[type],
-  value: type,
-}));
+const BLOCK_TYPES = Object.keys(BLOCK_LABEL_KEYS) as ScriptBlockType[];
 const CHARACTER_LINKED_BLOCK_TYPES = new Set<ScriptBlockType>(['character', 'dialogue', 'remark']);
 const DEFAULT_ZOOM = 100;
 const MAX_ZOOM = 200;
@@ -133,6 +130,7 @@ const readStoredZoom = (): ZoomMode => {
 };
 
 export default function ScreenplayView(props: ScreenplayViewProps) {
+  const {t} = useTranslation();
   const scene = props.selectedScene;
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -149,6 +147,14 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
   const redoRef = useRef(new Map<number, ScreenplayHistoryEntry[]>());
   const firstBlockId = scene?.scriptBlocks[0]?.id;
   const zoomPercent = zoomMode === 'fit' ? fitZoom : zoomMode;
+  const blockTypeOptions = useMemo(() => BLOCK_TYPES.map((type) => ({
+    label: t(BLOCK_LABEL_KEYS[type]),
+    value: type,
+  })), [t]);
+  const characterRoleLabel = useCallback((character: CompactCharacter) => {
+    const key = CHARACTER_ROLE_LABEL_KEYS[character.role];
+    return key ? t(key) : character.role || t('script.characters.characterFallback');
+  }, [t]);
 
   const paperStyle = useMemo<ScreenplayPaperStyle>(() => {
     const scale = zoomPercent / DEFAULT_ZOOM;
@@ -165,9 +171,14 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
   }, [zoomPercent]);
 
   const zoomOptions = useMemo(() => [
-    {label: zoomMode === 'fit' ? `По ширине · ${fitZoom}%` : 'По ширине', value: 'fit' as const},
+    {
+      label: zoomMode === 'fit'
+        ? t('script.screenplay.fitWidthPercent', {percent: fitZoom})
+        : t('script.screenplay.fitWidth'),
+      value: 'fit' as const,
+    },
     ...ZOOM_LEVELS.map((zoom) => ({label: `${zoom}%`, value: zoom})),
-  ], [fitZoom, zoomMode]);
+  ], [fitZoom, t, zoomMode]);
 
   const activeBlock = useMemo(
     () => scene?.scriptBlocks.find((block) => block.id === activeBlockId) ?? null,
@@ -516,10 +527,10 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
   if (!scene) {
     return <div className="script-center-empty">
       <span>✦</span>
-      <h2>Сценарий пока пуст</h2>
-      <p>Добавьте первую сцену, чтобы начать писать.</p>
+      <h2>{t('script.screenplay.emptyTitle')}</h2>
+      <p>{t('script.screenplay.emptyDescription')}</p>
       {props.canEdit && <button className="script-button script-button--primary" onClick={props.onAddScene}>
-        <PlusOutlined /> Добавить сцену
+        <PlusOutlined /> {t('script.actions.addScene')}
       </button>}
     </div>;
   }
@@ -529,62 +540,62 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
 
   return <div className={`screenplay-layout${inspectorOpen ? ' is-inspector-open' : ''}`}>
     <main className="screenplay-editor">
-      <div className="screenplay-editor-toolbar" aria-label="Инструменты редактора">
+      <div className="screenplay-editor-toolbar" aria-label={t('script.screenplay.toolbar')}>
         {props.canEdit && <>
-          <button aria-label="Отменить" title="Отменить (Ctrl+Z)" onClick={undo}><UndoOutlined /></button>
-          <button aria-label="Повторить" title="Повторить (Ctrl+Shift+Z)" onClick={redo}><RedoOutlined /></button>
+          <button aria-label={t('script.screenplay.undo')} title={t('script.screenplay.undoShortcut')} onClick={undo}><UndoOutlined /></button>
+          <button aria-label={t('script.screenplay.redo')} title={t('script.screenplay.redoShortcut')} onClick={redo}><RedoOutlined /></button>
           <span className="screenplay-toolbar-divider" />
           <Select<ScriptBlockType>
-            aria-label="Тип абзаца"
+            aria-label={t('script.screenplay.paragraphType')}
             className="screenplay-toolbar-select screenplay-toolbar-select--format"
             disabled={!activeBlock}
-            options={BLOCK_TYPE_OPTIONS}
+            options={blockTypeOptions}
             value={activeBlock?.type ?? 'action'}
             onChange={(value) => activeBlock && selectBlockType(activeBlock.id, value)}
           />
           {activeBlock?.type === 'dialogue' && <Select<string>
             allowClear
-            aria-label="Персонаж реплики"
+            aria-label={t('script.screenplay.dialogueCharacter')}
             className="screenplay-toolbar-select screenplay-toolbar-select--character"
             options={props.characters.map((character) => ({
               label: character.name,
               value: character.id,
             }))}
-            placeholder="Персонаж…"
+            placeholder={t('script.screenplay.characterPlaceholder')}
             value={activeBlock.characterId || undefined}
             onChange={(value) => changeBlock(activeBlock.id, {
               characterId: value,
             })}
           />}
           <button
-            aria-label="Удалить абзац"
+            aria-label={t('script.screenplay.deleteParagraph')}
             disabled={!activeBlock}
-            title="Удалить абзац"
+            title={t('script.screenplay.deleteParagraph')}
             onClick={() => activeBlock && deleteBlock(activeBlock.id)}
           ><DeleteOutlined /></button>
         </>}
-        <span className="screenplay-editor-toolbar__hint">Enter — новый абзац · Tab — формат · / — команды</span>
+        <span className="screenplay-editor-toolbar__hint">{t('script.screenplay.toolbarHint')}</span>
         <button
           ref={inspectorButtonRef}
-          aria-label="Заметки сцены"
+          aria-label={t('script.screenplay.sceneNotes')}
           aria-controls="scene-notes"
           aria-expanded={inspectorOpen}
           className={inspectorOpen ? 'is-active' : ''}
           onClick={() => setInspectorOpen((current) => !current)}
-        ><FileTextOutlined /> <span>Заметки</span></button>
+        ><FileTextOutlined /> <span>{t('script.common.notes')}</span></button>
       </div>
 
       <div ref={canvasRef} className="screenplay-canvas">
         <div className="screenplay-scene-meta">
-          <span>Сцена {props.scenePosition} из {props.sceneCount}</span>
-          <small aria-live="polite">{saving ? 'Сохраняем…' : dirty ? 'Есть изменения' : 'Сохранено'}</small>
+          <span>{t('script.screenplay.scenePosition', {count: props.sceneCount, position: props.scenePosition})}</span>
+          <small aria-live="polite">{saving ? t('script.status.savingEllipsis') : dirty ? t('script.status.changed') : t('script.status.saved')}</small>
         </div>
         <div className="screenplay-paper" style={paperStyle}>
           <header>
-            <span>СЦЕНА {scene.order}</span>
+            <span>{t('script.common.sceneNumber', {number: scene.order})}</span>
           </header>
           <input
-            aria-label="Название сцены"
+            aria-label={t('script.screenplay.sceneTitle')}
             className="screenplay-title-input"
             disabled={!props.canEdit}
             value={scene.title}
@@ -597,9 +608,11 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
                 className={`screenplay-block screenplay-block--${block.type}${activeBlockId === block.id ? ' is-active' : ''}`}
               >
                 {props.canEdit && activeBlockId === block.id && <button
-                  aria-label={`Удалить абзац «${BLOCK_LABELS[block.type]}»`}
+                  aria-label={t('script.screenplay.deleteTypedParagraph', {
+                    type: t(BLOCK_LABEL_KEYS[block.type]),
+                  })}
                   className="screenplay-block__delete"
-                  title="Удалить абзац"
+                  title={t('script.screenplay.deleteParagraph')}
                   onClick={() => deleteBlock(block.id)}
                 ><DeleteOutlined /></button>}
                 <textarea
@@ -611,7 +624,7 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
                       textareaRefs.current.delete(block.id);
                     }
                   }}
-                  aria-label={BLOCK_LABELS[block.type]}
+                  aria-label={t(BLOCK_LABEL_KEYS[block.type])}
                   aria-activedescendant={
                     slashMenu?.blockId === block.id
                       ? `format-option-${block.id}-${BLOCK_TYPES[slashMenu.index]}`
@@ -643,7 +656,7 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
                       : undefined
                   }
                   disabled={!props.canEdit}
-                  placeholder={BLOCK_LABELS[block.type]}
+                  placeholder={t(BLOCK_LABEL_KEYS[block.type])}
                   rows={1}
                   value={block.text}
                   onChange={(event) => {
@@ -678,10 +691,10 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
                   className="screenplay-character-menu"
                   id={`character-list-${block.id}`}
                   role="listbox"
-                  aria-label="Персонажи проекта"
+                  aria-label={t('script.screenplay.projectCharacters')}
                 >
-                  <strong>Персонажи проекта</strong>
-                  <small>Начните вводить имя для поиска</small>
+                  <strong>{t('script.screenplay.projectCharacters')}</strong>
+                  <small>{t('script.screenplay.characterSearchHint')}</small>
                   {filterCharacters(props.characters, block.text).map((character, index) => <button
                     key={character.id}
                     ref={(option) => {
@@ -698,17 +711,17 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
                     onClick={() => selectCharacter(block.id, character)}
                   >
                     <span>{character.name}</span>
-                    <small>{character.roleLabel || character.role}</small>
+                    <small>{characterRoleLabel(character)}</small>
                   </button>)}
-                  {filterCharacters(props.characters, block.text).length === 0 && <span>Персонаж не найден</span>}
+                  {filterCharacters(props.characters, block.text).length === 0 && <span>{t('script.screenplay.characterNotFound')}</span>}
                 </div>}
                 {slashMenu?.blockId === block.id && <div
                   className="screenplay-command-menu"
                   id={`format-list-${block.id}`}
                   role="listbox"
-                  aria-label="Формат абзаца"
+                  aria-label={t('script.screenplay.paragraphFormat')}
                 >
-                  <strong>Формат абзаца</strong>
+                  <strong>{t('script.screenplay.paragraphFormat')}</strong>
                   {BLOCK_TYPES.map((type, index) => <button
                     key={type}
                     id={`format-option-${block.id}-${type}`}
@@ -718,7 +731,7 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
                     tabIndex={-1}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => selectBlockType(block.id, type)}
-                  >{BLOCK_LABELS[type]}</button>)}
+                  >{t(BLOCK_LABEL_KEYS[type])}</button>)}
                 </div>}
               </div>
             ))}
@@ -730,37 +743,37 @@ export default function ScreenplayView(props: ScreenplayViewProps) {
                 updateBlocks([block]);
                 focusBlock(block.id);
               }}
-            >Начните со строки места и времени действия</button>}
+            >{t('script.screenplay.startWithHeading')}</button>}
           </div>
         </div>
       </div>
-      <div className="screenplay-zoom" role="group" aria-label="Масштаб листа">
+      <div className="screenplay-zoom" role="group" aria-label={t('script.screenplay.zoom')}>
         <button
-          aria-label="Уменьшить масштаб листа"
+          aria-label={t('script.screenplay.zoomOutPage')}
           disabled={zoomPercent <= MIN_ZOOM}
-          title="Уменьшить масштаб"
+          title={t('script.screenplay.zoomOut')}
           onClick={() => stepZoom(-1)}
         ><ZoomOutOutlined /></button>
         <Select<ZoomMode>
-          aria-label="Масштаб листа"
+          aria-label={t('script.screenplay.zoom')}
           options={zoomOptions}
           value={zoomMode}
           onChange={setZoomMode}
         />
         <button
-          aria-label="Увеличить масштаб листа"
+          aria-label={t('script.screenplay.zoomInPage')}
           disabled={zoomPercent >= MAX_ZOOM}
-          title="Увеличить масштаб"
+          title={t('script.screenplay.zoomIn')}
           onClick={() => stepZoom(1)}
         ><ZoomInOutlined /></button>
         <span className="screen-reader-only" aria-live="polite">
-          Масштаб листа {zoomPercent}%
+          {t('script.screenplay.zoomStatus', {percent: zoomPercent})}
         </span>
       </div>
     </main>
 
     {inspectorOpen && <div
-      aria-label="Заметки сцены"
+      aria-label={t('script.screenplay.sceneNotes')}
       className="screenplay-inspector-drawer"
       id="scene-notes"
       role="complementary"

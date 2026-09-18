@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {CloseOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import * as THREE from 'three';
 import {Canvas, ThreeEvent, useFrame, useThree} from '@react-three/fiber';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
@@ -51,7 +52,6 @@ interface Props {
   reconstructedHairUrl?: string | null;
   reconstructionStatus?: 'missing' | 'queued' | 'processing' | 'cancellation_requested' | 'ready' | 'failed';
   reconstructionProgress?: number;
-  reconstructionError?: string;
   reconstructionRetryBusy?: boolean;
   onRetryReconstruction?: () => void;
 }
@@ -77,10 +77,10 @@ const CharacterViewport: React.FC<Props> = ({
   reconstructedHairUrl = null,
   reconstructionStatus,
   reconstructionProgress = 0,
-  reconstructionError,
   reconstructionRetryBusy = false,
   onRetryReconstruction,
 }) => {
+  const {t} = useTranslation();
   const [rig, setRig] = useState<MorphRig | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [hintDismissed, setHintDismissed] = useState(false);
@@ -263,7 +263,7 @@ const CharacterViewport: React.FC<Props> = ({
     <button
       type="button"
       className="c3d-empty-hint__close"
-      aria-label="Закрыть"
+      aria-label={t('characterStudio3d.actions.close')}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={() => setHintDismissed(true)}
     >
@@ -375,23 +375,25 @@ const CharacterViewport: React.FC<Props> = ({
           <div className="c3d-empty-hint__copy">
             <span>
               {loadFailed
-                ? 'Персональная модель готова, но GLB не удалось загрузить. Обновите страницу'
+                ? t('characterStudio3d.viewport.loadFailed')
                 : reconstructionStatus === 'cancellation_requested'
-                  ? 'Отмена запрошена'
+                  ? t('characterStudio3d.viewport.cancellationRequested')
                 : reconstructionStatus === 'failed'
-                  ? reconstructionError || 'Не удалось создать 3D-модель по референсам'
+                  ? t('characterStudio3d.viewport.creationFailed')
                   : reconstructionStatus === 'missing'
-                    ? 'Сначала завершите и подтвердите этап референсов'
+                    ? t('characterStudio3d.viewport.referencesRequired')
                     : reconstructionStatus === 'ready'
-                      ? 'Загружаем персональную 3D-модель…'
-                      : `Воссоздаём лицо и волосы по референсам — ${boundedReconstructionProgress}%`}
+                      ? t('characterStudio3d.viewport.loadingModel')
+                      : t('characterStudio3d.viewport.reconstructing', {
+                        progress: boundedReconstructionProgress,
+                      })}
             </span>
             {reconstructionInProgress ? (
               <>
                 <div
                   className="c3d-model-progress"
                   role="progressbar"
-                  aria-label="Создание персональной 3D-модели"
+                  aria-label={t('characterStudio3d.viewport.progressLabel')}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={boundedReconstructionProgress}
@@ -400,8 +402,8 @@ const CharacterViewport: React.FC<Props> = ({
                 </div>
                 <small>
                   {reconstructionStatus === 'cancellation_requested'
-                    ? 'Уже начатая реконструкция может завершиться, но результат не будет применён.'
-                    : 'Создание продолжается в фоне и может занять несколько минут.'}
+                    ? t('characterStudio3d.viewport.cancellationHint')
+                    : t('characterStudio3d.viewport.backgroundHint')}
                 </small>
               </>
             ) : null}
@@ -414,19 +416,21 @@ const CharacterViewport: React.FC<Props> = ({
               onPointerDown={(event) => event.stopPropagation()}
               onClick={onRetryReconstruction}
             >
-              {reconstructionRetryBusy ? 'Перезапускаем…' : 'Повторить'}
+              {reconstructionRetryBusy
+                ? t('characterStudio3d.viewport.retrying')
+                : t('characterStudio3d.actions.retry')}
             </button>
           ) : null}
           {dismissHintButton}
         </div>
       ) : !hintDismissed && rig && !selectedZoneId ? (
         <div className="c3d-empty-hint">
-          <span>Кликните на часть персонажа, чтобы редактировать её · Вращайте сцену мышью</span>
+          <span>{t('characterStudio3d.viewport.selectHint')}</span>
           {dismissHintButton}
         </div>
       ) : !hintDismissed && rig && selectedBinding ? (
         <div className="c3d-empty-hint">
-          <span>Тяните выбранную зону мышью прямо на модели</span>
+          <span>{t('characterStudio3d.viewport.dragHint')}</span>
           {dismissHintButton}
         </div>
       ) : null}

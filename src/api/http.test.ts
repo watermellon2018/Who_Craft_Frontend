@@ -20,6 +20,7 @@ jest.mock('axios', () => {
 });
 
 import axios from 'axios';
+import i18n from '../i18n';
 import {
     AUTH_EXPIRED_EVENT,
     getAuthGeneration,
@@ -81,6 +82,16 @@ describe('queued private request ownership', () => {
         const headers = {set: jest.fn()};
         onRequest({headers, expectedAuthGeneration: getAuthGeneration()});
         expect(headers.set).toHaveBeenCalledWith('X-User-Token', 'access');
+    });
+
+    it('sends the active interface language with API requests', async () => {
+        await i18n.changeLanguage('en');
+        const headers = {set: jest.fn()};
+
+        onRequest({headers});
+
+        expect(headers.set).toHaveBeenCalledWith('Accept-Language', 'en');
+        await i18n.changeLanguage('ru');
     });
 
     it('keeps queued writes authorized after another tab refreshes the same login', () => {

@@ -74,12 +74,12 @@ const ProfileDashboardPage: React.FC = () => {
             {error && !loading && (
               <div className="flex flex-col items-center justify-center py-24 gap-4">
                 <div className="text-5xl">⚠️</div>
-                <p className="text-white/60 text-lg font-medium">Не удалось загрузить личный кабинет</p>
+                <p className="text-white/60 text-lg font-medium">{t('profile.dashboard.loadError')}</p>
                 <button
                   onClick={load}
                   className="bg-accent text-[#13151a] font-semibold px-6 py-2.5 rounded-xl hover:bg-[#fcc419] transition-colors"
                 >
-                  Повторить
+                  {t('common.retry')}
                 </button>
               </div>
             )}

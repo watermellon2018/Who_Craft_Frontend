@@ -205,7 +205,7 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           }
           if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
             if (job.status === 'failed') {
-              failedJobs.push({referenceType, reason: job.error_message || 'Ошибка генерации.'});
+              failedJobs.push({referenceType, reason: job.error_message || tx('characterStudio.errors.generationError')});
             }
             completedJobs.push({referenceType, jobId});
           }

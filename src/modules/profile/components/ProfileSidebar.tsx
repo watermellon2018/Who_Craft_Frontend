@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import PathConstants from '../../../routes/pathConstant';
@@ -7,24 +8,24 @@ import { logout } from '../../../api/http';
 
 interface MenuItem {
   icon: string;
-  label: string;
+  labelKey: string;
   path?: string;
   disabled?: boolean;
 }
 
 const mainItems: MenuItem[] = [
-  { icon: '🏠', label: 'Мой кабинет', path: PathConstants.PROFILE },
-  { icon: '💬', label: 'Сообщения', disabled: true },
-  { icon: '👥', label: 'Подписки', path: PathConstants.PROFILE_SUBSCRIPTIONS },
-  { icon: '📺', label: 'История просмотров', disabled: true },
-  { icon: '📊', label: 'Статистика', disabled: true },
-  { icon: '✨', label: 'Рекомендации', disabled: true },
-  { icon: '🏆', label: 'Награды', disabled: true },
-  { icon: '🔖', label: 'Сохранённое', disabled: true },
+  { icon: '🏠', labelKey: 'profile.sidebar.profile', path: PathConstants.PROFILE },
+  { icon: '💬', labelKey: 'profile.sidebar.messages', disabled: true },
+  { icon: '👥', labelKey: 'profile.sidebar.subscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS },
+  { icon: '📺', labelKey: 'profile.sidebar.history', disabled: true },
+  { icon: '📊', labelKey: 'profile.sidebar.statistics', disabled: true },
+  { icon: '✨', labelKey: 'profile.sidebar.recommendations', disabled: true },
+  { icon: '🏆', labelKey: 'profile.sidebar.awards', disabled: true },
+  { icon: '🔖', labelKey: 'profile.sidebar.saved', disabled: true },
 ];
 
 const bottomItems: MenuItem[] = [
-  { icon: '⚙️', label: 'Настройки', path: PathConstants.PROFILE_SETTINGS },
+  { icon: '⚙️', labelKey: 'profile.sidebar.settings', path: PathConstants.PROFILE_SETTINGS },
 ];
 
 interface Props {
@@ -34,6 +35,7 @@ interface Props {
 }
 
 const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) => {
+  const {t} = useTranslation();
   const navigate = useNavigate();
   const {pathname} = useLocation();
 
@@ -42,7 +44,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
       return pathname === PathConstants.PROFILE || pathname === PathConstants.PROFILE_EDIT;
     }
     if (item.path) return pathname === item.path;
-    return activeItem === item.label;
+    return activeItem === t(item.labelKey);
   };
 
   const handleNav = (item: MenuItem) => {
@@ -81,7 +83,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
         <nav className="flex-1 overflow-y-auto profile-scroll py-4 px-3">
           {mainItems.map((item) => (
             <button
-              key={item.label}
+              key={item.labelKey}
               onClick={() => handleNav(item)}
               disabled={item.disabled}
               className={`
@@ -97,7 +99,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
               aria-current={isActive(item) ? 'page' : undefined}
             >
               <span className="text-base">{item.icon}</span>
-              {item.label}
+              {t(item.labelKey)}
             </button>
           ))}
         </nav>
@@ -105,7 +107,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
         <div className="px-3 pb-2 pt-3 border-t border-white/5">
           {bottomItems.map((item) => (
             <button
-              key={item.label}
+              key={item.labelKey}
               onClick={() => handleNav(item)}
               disabled={item.disabled}
               className={`
@@ -121,7 +123,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
               aria-current={isActive(item) ? 'page' : undefined}
             >
               <span className="text-base">{item.icon}</span>
-              {item.label}
+              {t(item.labelKey)}
             </button>
           ))}
 
@@ -130,7 +132,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm font-medium text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-all duration-150"
           >
             <span className="text-base">🚪</span>
-            Выйти
+            {t('common.logout')}
           </button>
         </div>
       </aside>

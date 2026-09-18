@@ -7,6 +7,7 @@ import {
   SyncOutlined,
   UndoOutlined,
 } from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import type {ViewAngle} from './CharacterViewport';
 import type {EditableZone} from './zones';
 
@@ -34,12 +35,12 @@ interface Props {
   saveDisabled?: boolean;
 }
 
-// Canonical reference angles surfaced as buttons. Short Russian labels keep
+// Canonical reference angles surfaced as buttons. Short labels keep
 // the chips compact; titles spell them out.
-const VIEW_PRESETS: {angle: ViewAngle; label: string; title: string}[] = [
-  {angle: 'front', label: 'Фас', title: 'Фас (вид спереди)'},
-  {angle: 'threeQuarter', label: '¾', title: 'Три четверти'},
-  {angle: 'side', label: 'Профиль', title: 'Профиль (вид сбоку)'},
+const VIEW_PRESETS: {angle: ViewAngle; labelKey: string; titleKey: string}[] = [
+  {angle: 'front', labelKey: 'characterStudio3d.camera.front', titleKey: 'characterStudio3d.camera.frontTitle'},
+  {angle: 'threeQuarter', labelKey: 'characterStudio3d.camera.threeQuarterShort', titleKey: 'characterStudio3d.camera.threeQuarter'},
+  {angle: 'side', labelKey: 'characterStudio3d.camera.profile', titleKey: 'characterStudio3d.camera.profileTitle'},
 ];
 
 // Slim bottom bar.
@@ -72,6 +73,8 @@ const BottomQuickBar: React.FC<Props> = ({
   onSave,
   saveDisabled = false,
 }) => {
+  const {t} = useTranslation();
+
   // Find the first swatch parameter on the selected zone — that's the
   // one the quick-color row mirrors.
   const swatchParam = selectedZone?.parameters?.find((p) => p.ui === 'swatch');
@@ -82,15 +85,15 @@ const BottomQuickBar: React.FC<Props> = ({
       <div className="c3d-bottom__left">
         <button type="button" className="c3d-bottom__chip" onClick={onReset} disabled={!hasChanges}>
           <ReloadOutlined />
-          <span>Сбросить</span>
+          <span>{t('characterStudio3d.actions.reset')}</span>
         </button>
         <button
           type="button"
           className="c3d-bottom__chip c3d-bottom__chip--icon"
           onClick={onUndo}
           disabled={!canUndo}
-          title="Отменить (Ctrl+Z)"
-          aria-label="Отменить"
+          title={t('characterStudio3d.actions.undoShortcut')}
+          aria-label={t('characterStudio3d.actions.undo')}
         >
           <UndoOutlined />
         </button>
@@ -99,8 +102,8 @@ const BottomQuickBar: React.FC<Props> = ({
           className="c3d-bottom__chip c3d-bottom__chip--icon"
           onClick={onRedo}
           disabled={!canRedo}
-          title="Повторить (Ctrl+Shift+Z)"
-          aria-label="Повторить"
+          title={t('characterStudio3d.actions.redoShortcut')}
+          aria-label={t('characterStudio3d.actions.redo')}
         >
           <RedoOutlined />
         </button>
@@ -109,8 +112,8 @@ const BottomQuickBar: React.FC<Props> = ({
           className="c3d-bottom__chip c3d-bottom__chip--icon"
           onClick={onSnapshot}
           disabled={!onSnapshot}
-          title="Снимок PNG"
-          aria-label="Снимок PNG"
+          title={t('characterStudio3d.actions.snapshotPng')}
+          aria-label={t('characterStudio3d.actions.snapshotPng')}
         >
           <CameraOutlined />
         </button>
@@ -119,8 +122,8 @@ const BottomQuickBar: React.FC<Props> = ({
           className="c3d-bottom__chip c3d-bottom__chip--icon"
           onClick={onExportGlb}
           disabled={!onExportGlb}
-          title="Экспорт GLB"
-          aria-label="Экспорт GLB"
+          title={t('characterStudio3d.actions.exportGlb')}
+          aria-label={t('characterStudio3d.actions.exportGlb')}
         >
           <DownloadOutlined />
         </button>
@@ -128,18 +131,18 @@ const BottomQuickBar: React.FC<Props> = ({
         {/* Camera: canonical reference angles + turntable. These set up the
             shot the PNG snapshot above then captures. */}
         <span className="c3d-bottom__divider" aria-hidden="true" />
-        <div className="c3d-preset-row" role="group" aria-label="Ракурс камеры">
-          {VIEW_PRESETS.map(({angle, label, title}) => (
+        <div className="c3d-preset-row" role="group" aria-label={t('characterStudio3d.camera.groupLabel')}>
+          {VIEW_PRESETS.map(({angle, labelKey, titleKey}) => (
             <button
               key={angle}
               type="button"
               className="c3d-preset"
               onClick={() => onSetView?.(angle)}
               disabled={!onSetView}
-              title={title}
-              aria-label={title}
+              title={t(titleKey)}
+              aria-label={t(titleKey)}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -148,8 +151,8 @@ const BottomQuickBar: React.FC<Props> = ({
           className={`c3d-bottom__chip c3d-bottom__chip--icon ${turntableOn ? 'c3d-bottom__chip--active' : ''}`}
           onClick={onToggleTurntable}
           disabled={!onToggleTurntable}
-          title="Турнтейбл (вращение вокруг фигуры)"
-          aria-label="Турнтейбл"
+          title={t('characterStudio3d.camera.turntableTitle')}
+          aria-label={t('characterStudio3d.camera.turntable')}
           aria-pressed={!!turntableOn}
         >
           <SyncOutlined spin={!!turntableOn} />
@@ -160,7 +163,7 @@ const BottomQuickBar: React.FC<Props> = ({
       <div className="c3d-bottom__center">
         {swatchParam ? (
           <div className="c3d-bottom__group">
-            <span className="c3d-bottom__label">{swatchParam.label}</span>
+            <span className="c3d-bottom__label">{t(swatchParam.translationKey)}</span>
             <div className="c3d-color-row">
               {swatchParam.options?.map((opt) => {
                 const active = currentSwatchValue === opt.value;
@@ -170,7 +173,7 @@ const BottomQuickBar: React.FC<Props> = ({
                     type="button"
                     className={`c3d-color-pill ${active ? 'c3d-color-pill--active' : ''}`}
                     onClick={() => onParameterChange(selectedZone!.id, swatchParam.id, opt.value)}
-                    aria-label={opt.label}
+                    aria-label={t(opt.translationKey)}
                     aria-pressed={active}
                     style={{background: opt.value}}
                   />
@@ -181,7 +184,9 @@ const BottomQuickBar: React.FC<Props> = ({
         ) : (
           <div className="c3d-bottom__group c3d-bottom__group--muted">
             <span className="c3d-bottom__label">
-              {selectedZone ? 'У этой зоны нет цветовых параметров' : 'Выберите зону, чтобы редактировать'}
+              {selectedZone
+                ? t('characterStudio3d.bottomBar.noColorParameters')
+                : t('characterStudio3d.bottomBar.selectZone')}
             </span>
           </div>
         )}
@@ -190,7 +195,7 @@ const BottomQuickBar: React.FC<Props> = ({
       <div className="c3d-bottom__right">
         {generationHistory}
         <button type="button" className="c3d-bottom__ghost" onClick={onCancel}>
-          Отмена
+          {t('characterStudio3d.actions.cancel')}
         </button>
         <button
           type="button"
@@ -198,10 +203,10 @@ const BottomQuickBar: React.FC<Props> = ({
           onClick={onApply}
           disabled={!hasChanges}
         >
-          Применить
+          {t('characterStudio3d.actions.apply')}
         </button>
         <button type="button" className="c3d-bottom__primary" onClick={onSave} disabled={saveDisabled}>
-          <span>Сохранить</span>
+          <span>{t('characterStudio3d.actions.save')}</span>
           <svg viewBox="0 0 16 16" aria-hidden="true">
             <path
               d="M3 8 L7 12 L13 4"

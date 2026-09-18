@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
+import {useTranslation} from 'react-i18next';
 import {useNavigate, useParams} from "react-router-dom";
 import {
     ArrowLeftOutlined,
@@ -21,7 +22,7 @@ import EditGenComponent from "../edit_generation";
 import PosterJobHistory from './PosterJobHistory';
 import {editPoster, generatePoster, selectPosterVariant} from "../../../api/posters";
 import type {PosterVariant} from "../../../api/posters";
-import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
+import {getApiStatus} from '../../../api/errors';
 import {API_CONSTRAINTS} from '../../../api/generated/contracts';
 import {projectEditPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
@@ -30,6 +31,7 @@ import {
     GenerationCostPreview,
     runGenerationWithCredits,
 } from '../../../modules/credits/components/GenerationCostGuard';
+import {translatePosterError} from './errorLocalization';
 
 // ============== Design tokens ==============
 const COLORS = {
@@ -59,30 +61,30 @@ type FormatId = 'vertical' | 'square' | 'horizontal';
 
 interface StyleOption {
     id: StyleId;
-    title: string;
-    subtitle: string;
+    titleKey: string;
+    subtitleKey: string;
     icon: ReactNode;
 }
 
 const STYLES: StyleOption[] = [
-    { id: 'cinematic',    title: 'Кинематографичный', subtitle: 'Кино-кадр, объём, свет', icon: <VideoCameraOutlined /> },
-    { id: 'anime',        title: 'Аниме',             subtitle: 'Графика, выразительность', icon: <SmileOutlined /> },
-    { id: 'dark_fantasy', title: 'Тёмное фэнтези',    subtitle: 'Мистика и контраст',     icon: <FireOutlined /> },
-    { id: 'realism',      title: 'Реализм',           subtitle: 'Фотореалистичный кадр',  icon: <CameraOutlined /> },
+    {id: 'cinematic', titleKey: 'poster.styles.cinematic.title', subtitleKey: 'poster.styles.cinematic.subtitle', icon: <VideoCameraOutlined />},
+    {id: 'anime', titleKey: 'poster.styles.anime.title', subtitleKey: 'poster.styles.anime.subtitle', icon: <SmileOutlined />},
+    {id: 'dark_fantasy', titleKey: 'poster.styles.darkFantasy.title', subtitleKey: 'poster.styles.darkFantasy.subtitle', icon: <FireOutlined />},
+    {id: 'realism', titleKey: 'poster.styles.realism.title', subtitleKey: 'poster.styles.realism.subtitle', icon: <CameraOutlined />},
 ];
 
 interface FormatOption {
     id: FormatId;
-    title: string;
+    titleKey: string;
     ratioLabel: string;
     aspect: string;
     boxStyle: React.CSSProperties;
 }
 
 const FORMATS: FormatOption[] = [
-    { id: 'vertical',   title: 'Вертикальный',  ratioLabel: '2:3',  aspect: '2 / 3',  boxStyle: { width: 16, height: 24 } },
-    { id: 'square',     title: 'Квадратный',    ratioLabel: '1:1',  aspect: '1 / 1',  boxStyle: { width: 22, height: 22 } },
-    { id: 'horizontal', title: 'Горизонтальный', ratioLabel: '16:9', aspect: '16 / 9', boxStyle: { width: 30, height: 17 } },
+    {id: 'vertical', titleKey: 'poster.formats.vertical', ratioLabel: '2:3', aspect: '2 / 3', boxStyle: {width: 16, height: 24}},
+    {id: 'square', titleKey: 'poster.formats.square', ratioLabel: '1:1', aspect: '1 / 1', boxStyle: {width: 22, height: 22}},
+    {id: 'horizontal', titleKey: 'poster.formats.horizontal', ratioLabel: '16:9', aspect: '16 / 9', boxStyle: {width: 30, height: 17}},
 ];
 
 // Reserved for future thumbnails strip — empty for now so empty state shows.
@@ -258,6 +260,7 @@ interface ReferenceDropzoneProps {
 }
 
 const ReferenceDropzone: React.FC<ReferenceDropzoneProps> = ({ file, onFile }) => {
+    const {t} = useTranslation();
     const [over, setOver] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -270,11 +273,19 @@ const ReferenceDropzone: React.FC<ReferenceDropzoneProps> = ({ file, onFile }) =
         // valid .jpg never gets rejected on a quirk of the OS/browser.
         const mimeOk = !mime || REFERENCE_MIME.includes(mime);
         if (!extOk || !mimeOk) {
-            openNotificationWithIcon('Только PNG, JPG или WEBP', 'Неподдерживаемый формат', 'error');
+            openNotificationWithIcon(
+                t('poster.reference.unsupportedDescription'),
+                t('poster.reference.unsupportedTitle'),
+                'error',
+            );
             return false;
         }
         if (f.size > REFERENCE_MAX_BYTES) {
-            openNotificationWithIcon('Максимальный размер — 10 MB', 'Файл слишком большой', 'error');
+            openNotificationWithIcon(
+                t('poster.reference.tooLargeDescription'),
+                t('poster.reference.tooLargeTitle'),
+                'error',
+            );
             return false;
         }
         return true;
@@ -347,7 +358,7 @@ const ReferenceDropzone: React.FC<ReferenceDropzoneProps> = ({ file, onFile }) =
                         padding: '4px 10px',
                         borderRadius: 8,
                     }}
-                    aria-label="Убрать референс"
+                    aria-label={t('poster.reference.remove')}
                 >
                     ×
                 </button>
@@ -377,10 +388,10 @@ const ReferenceDropzone: React.FC<ReferenceDropzoneProps> = ({ file, onFile }) =
         >
             <UploadOutlined style={{ fontSize: 26, color: over ? COLORS.accent : COLORS.textSecondary }} />
             <div style={{ color: COLORS.textPrimary, fontSize: 14, fontWeight: 500 }}>
-                Загрузите изображение для вдохновения
+                {t('poster.reference.upload')}
             </div>
             <div style={{ color: COLORS.textMuted, fontSize: 12 }}>
-                PNG, JPG или WEBP до 10 MB
+                {t('poster.reference.requirements')}
             </div>
             <input
                 ref={inputRef}
@@ -397,7 +408,10 @@ const ReferenceDropzone: React.FC<ReferenceDropzoneProps> = ({ file, onFile }) =
 };
 
 // ============== Empty preview state ==============
-const EmptyPosterState: React.FC = () => (
+const EmptyPosterState: React.FC = () => {
+    const {t} = useTranslation();
+
+    return (
     <div
         className="gen-poster-preview-box"
         style={{
@@ -433,7 +447,7 @@ const EmptyPosterState: React.FC = () => (
             <PictureOutlined />
         </div>
         <div style={{ color: COLORS.textPrimary, fontWeight: 600, fontSize: 16 }}>
-            Ваш постер появится здесь
+            {t('poster.preview.emptyTitle')}
         </div>
         <div
             style={{
@@ -443,10 +457,11 @@ const EmptyPosterState: React.FC = () => (
                 maxWidth: 360,
             }}
         >
-            Опишите идею постера, выберите стиль и нажмите «Сгенерировать постер» — AI создаст несколько вариантов в высоком качестве.
+            {t('poster.preview.emptyDescription')}
         </div>
     </div>
-);
+    );
+};
 
 // ============== Recent posters strip ==============
 interface RecentPostersStripProps {
@@ -454,6 +469,8 @@ interface RecentPostersStripProps {
 }
 
 const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
+    const {t} = useTranslation();
+
     return (
         <div
             className="gen-poster-recent-strip"
@@ -484,7 +501,7 @@ const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
                               lineHeight: 1.35,
                           }}
                       >
-                          {i === 0 ? 'Пока нет вариантов' : ''}
+                          {i === 0 ? t('poster.recent.empty') : ''}
                       </div>
                   ))
                 : posters.map((p) => (
@@ -510,7 +527,7 @@ const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
                       >
                           <img
                               src={p.url}
-                              alt="Вариант постера"
+                              alt={t('poster.recent.variantAlt')}
                               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                           />
                       </div>
@@ -532,7 +549,7 @@ const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
                     }}
                 >
                     <RightOutlined />
-                    Смотреть все
+                    {t('poster.recent.viewAll')}
                 </div>
             )}
         </div>
@@ -541,6 +558,7 @@ const RecentPostersStrip: React.FC<RecentPostersStripProps> = ({ posters }) => {
 
 // ============== Page ==============
 const GenPosterPage: React.FC = () => {
+    const {t} = useTranslation();
     const navigate = useNavigate();
     const {projectId} = useParams<{projectId: string}>();
 
@@ -553,26 +571,26 @@ const GenPosterPage: React.FC = () => {
     const [sourceVariantId, setSourceVariantId] = useState<number | null>(null);
     const [recentPosters] = useState<RecentPoster[]>([]);
     const [contextLoading, setContextLoading] = useState(true);
-    const [contextError, setContextError] = useState<string | null>(null);
+    const [contextErrorKey, setContextErrorKey] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
         if (!projectId) {
-            setContextError('Проект не найден');
+            setContextErrorKey('poster.errors.projectNotFound');
             setContextLoading(false);
             return () => { cancelled = true; };
         }
         setContextLoading(true);
-        setContextError(null);
+        setContextErrorKey(null);
         fetch_project(projectId)
             .catch((error: unknown) => {
                 if (cancelled) return;
                 const status = getApiStatus(error);
-                setContextError(status === 403
-                    ? 'Нет доступа к проекту'
+                setContextErrorKey(status === 403
+                    ? 'poster.errors.projectAccessDenied'
                     : status === 404
-                        ? 'Проект не найден'
-                        : 'Не удалось загрузить проект');
+                        ? 'poster.errors.projectNotFound'
+                        : 'poster.errors.projectLoad');
             })
             .finally(() => {
                 if (!cancelled) setContextLoading(false);
@@ -583,8 +601,8 @@ const GenPosterPage: React.FC = () => {
     const requireProjectId = () => {
         if (projectId) return projectId;
         openNotificationWithIcon(
-            'Сначала сохраните проект, затем откройте генератор постера снова.',
-            'Нужен существующий проект',
+            t('poster.errors.projectRequiredDescription'),
+            t('poster.errors.projectRequiredTitle'),
             'error',
         );
         return null;
@@ -593,16 +611,16 @@ const GenPosterPage: React.FC = () => {
     const catchError = (
         error: unknown,
         resetImage = true,
-        fallbackMessage = 'Ошибка при генерации изображения. Что-то пошло не так',
+        fallbackKey = 'poster.errors.generationFailed',
     ) => {
-        const message = getApiErrorMessage(error, fallbackMessage);
+        const message = translatePosterError(error, t, fallbackKey);
 
         setIsGenerating(false);
         if (resetImage) {
             setImageGeneratedUrl('');
             setSourceVariantId(null);
         }
-        openNotificationWithIcon('Упс!', message, 'error');
+        openNotificationWithIcon(message, t('poster.errors.title'), 'error');
     };
 
     const handleBack = () => {
@@ -621,7 +639,7 @@ const GenPosterPage: React.FC = () => {
             catchError(
                 error,
                 false,
-                'Не удалось сохранить выбранный постер. Повторите попытку.',
+                'poster.errors.save',
             );
         }
     };
@@ -694,14 +712,14 @@ const GenPosterPage: React.FC = () => {
 
     const generateDisabled = !projectId || !prompt.trim() || isGenerating;
 
-    if (contextLoading || contextError) {
+    if (contextLoading || contextErrorKey) {
         return (
             <>
                 <DashboardHeader title="" />
                 <div style={{background: COLORS.pageBg, minHeight: '100vh', color: COLORS.textPrimary, padding: 48, textAlign: 'center'}}>
-                    <h1>{contextLoading ? 'Загружаем проект…' : contextError}</h1>
+                    <h1>{contextLoading ? t('poster.projectLoading') : t(contextErrorKey ?? '')}</h1>
                     {!contextLoading && (
-                        <PrimaryButton onClick={handleBack}>Вернуться к проектам</PrimaryButton>
+                        <PrimaryButton onClick={handleBack}>{t('poster.backToProjects')}</PrimaryButton>
                     )}
                 </div>
             </>
@@ -845,7 +863,7 @@ const GenPosterPage: React.FC = () => {
                                         lineHeight: 1.2,
                                     }}
                                 >
-                                    Создание постера
+                                    {t('poster.title')}
                                 </h1>
                                 <p
                                     style={{
@@ -855,14 +873,14 @@ const GenPosterPage: React.FC = () => {
                                         lineHeight: 1.55,
                                     }}
                                 >
-                                    Опишите идею, выберите стиль и создайте уникальный постер с помощью AI
+                                    {t('poster.subtitle')}
                                 </p>
                             </div>
                         </div>
 
                         <div className="gen-poster-header-back">
                             <SecondaryButton onClick={handleBack} icon={<ArrowLeftOutlined />} block>
-                                Назад к проекту
+                                {t('poster.backToProject')}
                             </SecondaryButton>
                         </div>
                     </header>
@@ -870,7 +888,7 @@ const GenPosterPage: React.FC = () => {
                     <div className="gen-poster-grid">
                         {/* LEFT — Preview + Recent */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
-                            <Card title="Превью постера" icon={<PictureOutlined />} style={{ padding: 20 }}>
+                            <Card title={t('poster.preview.title')} icon={<PictureOutlined />} style={{ padding: 20 }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                     {isGenerating ? (
                                         <div
@@ -888,7 +906,7 @@ const GenPosterPage: React.FC = () => {
                                             }}
                                         >
                                             <LoadingOutlined style={{ fontSize: 28, color: COLORS.accent }} />
-                                            <span style={{ fontSize: 14 }}>Генерируем постер…</span>
+                                            <span style={{ fontSize: 14 }}>{t('poster.generating')}</span>
                                         </div>
                                     ) : imageGeneratedUrl ? (
                                         <div
@@ -906,7 +924,7 @@ const GenPosterPage: React.FC = () => {
                                         >
                                             <img
                                                 src={imageGeneratedUrl}
-                                                alt="Сгенерированный постер"
+                                                alt={t('poster.preview.generatedAlt')}
                                                 style={{
                                                     maxWidth: '100%',
                                                     maxHeight: '100%',
@@ -923,7 +941,7 @@ const GenPosterPage: React.FC = () => {
                                     {imageGeneratedUrl && !isGenerating && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                             <PrimaryButton onClick={savePoster} icon={<SaveOutlined />} block>
-                                                Сохранить
+                                                {t('common.save')}
                                             </PrimaryButton>
                                             <div
                                                 style={{
@@ -941,7 +959,7 @@ const GenPosterPage: React.FC = () => {
                             </Card>
 
                             <Card
-                                title="Недавние варианты"
+                                title={t('poster.recent.title')}
                                 icon={<HistoryOutlined />}
                                 style={{ padding: '16px 20px' }}
                             >
@@ -949,7 +967,7 @@ const GenPosterPage: React.FC = () => {
                             </Card>
 
                             <Card
-                                title="История генераций"
+                                title={t('poster.history.title')}
                                 icon={<HistoryOutlined />}
                                 style={{padding: '16px 20px'}}
                             >
@@ -959,7 +977,7 @@ const GenPosterPage: React.FC = () => {
 
 
                         {/* RIGHT — Settings */}
-                        <Card title="Настройки генерации" icon={<ThunderboltOutlined />}>
+                        <Card title={t('poster.settings.title')} icon={<ThunderboltOutlined />}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                 {/* Block 1 — Prompt */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -971,14 +989,14 @@ const GenPosterPage: React.FC = () => {
                                             margin: 0,
                                         }}
                                     >
-                                        1. Опишите, как должен выглядеть постер
+                                        {t('poster.settings.promptLabel')}
                                     </h3>
                                     <textarea
                                         className="gen-poster-textarea"
                                         value={prompt}
                                         onChange={(e) => setPrompt(e.target.value.slice(0, PROMPT_MAX))}
                                         maxLength={PROMPT_MAX}
-                                        placeholder="Например: Мрачный постер в стиле научной фантастики. Одинокий астронавт на пустынной планете, на фоне — разрушенный космический корабль и красное небо."
+                                        placeholder={t('poster.settings.promptPlaceholder')}
                                     />
                                 </div>
 
@@ -992,7 +1010,7 @@ const GenPosterPage: React.FC = () => {
                                             margin: 0,
                                         }}
                                     >
-                                        2. Стиль постера
+                                        {t('poster.settings.styleLabel')}
                                     </h3>
                                     <div className="gen-poster-style-grid">
                                         {STYLES.map((s) => (
@@ -1036,7 +1054,7 @@ const GenPosterPage: React.FC = () => {
                                                                 lineHeight: 1.25,
                                                             }}
                                                         >
-                                                            {s.title}
+                                                            {t(s.titleKey)}
                                                         </div>
                                                         <div
                                                             style={{
@@ -1046,7 +1064,7 @@ const GenPosterPage: React.FC = () => {
                                                                 lineHeight: 1.35,
                                                             }}
                                                         >
-                                                            {s.subtitle}
+                                                            {t(s.subtitleKey)}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1065,7 +1083,7 @@ const GenPosterPage: React.FC = () => {
                                             margin: 0,
                                         }}
                                     >
-                                        3. Формат постера
+                                        {t('poster.settings.formatLabel')}
                                     </h3>
                                     <div className="gen-poster-format-grid">
                                         {FORMATS.map((f) => (
@@ -1122,7 +1140,7 @@ const GenPosterPage: React.FC = () => {
                                                             textAlign: 'center',
                                                         }}
                                                     >
-                                                        {f.title}
+                                                        {t(f.titleKey)}
                                                     </div>
                                                     <div
                                                         style={{
@@ -1149,7 +1167,10 @@ const GenPosterPage: React.FC = () => {
                                             margin: 0,
                                         }}
                                     >
-                                        4. Референс <span style={{ color: COLORS.textMuted, fontWeight: 400 }}>(необязательно)</span>
+                                        {t('poster.settings.referenceLabel')}{' '}
+                                        <span style={{ color: COLORS.textMuted, fontWeight: 400 }}>
+                                            {t('poster.settings.optional')}
+                                        </span>
                                     </h3>
                                     <ReferenceDropzone file={referenceFile} onFile={setReferenceFile} />
                                 </div>
@@ -1166,7 +1187,7 @@ const GenPosterPage: React.FC = () => {
                                 >
                                     {!projectId && (
                                         <div role="alert" style={{ color: COLORS.danger, fontSize: 13, lineHeight: 1.5 }}>
-                                            Сначала сохраните проект, затем откройте генератор постера снова.
+                                            {t('poster.errors.projectRequiredDescription')}
                                         </div>
                                     )}
                                     <PrimaryButton
@@ -1175,7 +1196,7 @@ const GenPosterPage: React.FC = () => {
                                         block
                                         icon={isGenerating ? <LoadingOutlined /> : <ThunderboltOutlined />}
                                     >
-                                        {isGenerating ? 'Генерируем…' : 'Сгенерировать постер'}
+                                        {t(isGenerating ? 'poster.generatingShort' : 'poster.generate')}
                                     </PrimaryButton>
                                     <GenerationCostPreview intent={{
                                         domain: 'poster',

@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 
 interface Props {
   bio: string;
@@ -6,22 +7,24 @@ interface Props {
 }
 
 const AboutCard: React.FC<Props> = ({ bio, interests }) => {
+  const {t} = useTranslation();
+
   return (
     <div className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
-      <h3 className="text-white font-semibold text-base mb-3">👤 О себе</h3>
+      <h3 className="text-white font-semibold text-base mb-3">{t('profile.about.title')}</h3>
 
       {bio ? (
         <p className="text-white/60 text-sm leading-relaxed mb-4">{bio}</p>
       ) : (
         <div className="mb-4 p-3 rounded-xl bg-white/3 border border-white/5 text-center">
-          <p className="text-white/30 text-sm mb-2">Расскажите о себе, своих проектах и творческих интересах.</p>
-          <button className="text-accent text-xs hover:underline">Заполнить профиль</button>
+          <p className="text-white/30 text-sm mb-2">{t('profile.about.empty')}</p>
+          <button className="text-accent text-xs hover:underline">{t('profile.about.fillProfile')}</button>
         </div>
       )}
 
       {interests.length > 0 && (
         <div>
-          <p className="text-white/30 text-xs mb-2 uppercase tracking-wider">Интересы</p>
+          <p className="text-white/30 text-xs mb-2 uppercase tracking-wider">{t('profile.about.interests')}</p>
           <div className="flex flex-wrap gap-2">
             {interests.map((tag) => (
               <span

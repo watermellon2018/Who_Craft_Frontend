@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import {useTranslation} from 'react-i18next';
 
 import { PROJECT_TARGET_AUDIENCE_OPTIONS } from "../../../constants/projectOptions";
 
@@ -65,6 +66,7 @@ const Chip: React.FC<ChipProps> = ({ label, active, onClick }) => {
 };
 
 const AudienceSelect: React.FC<AudienceI> = ({ selectedAudience, setSelectedAudience }) => {
+    const {t} = useTranslation();
     const handleAudienceClick = (value: string) => {
         if (value === ALL_VALUE) {
             // Tap "Все" — collapse to ["all"]; tapping it again does nothing.
@@ -87,14 +89,14 @@ const AudienceSelect: React.FC<AudienceI> = ({ selectedAudience, setSelectedAudi
     return (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Chip
-                label={allOption.label}
+                label={t(allOption.labelKey)}
                 active={isAllActive}
                 onClick={() => handleAudienceClick(ALL_VALUE)}
             />
             {specificOptions.map((opt) => (
                 <Chip
                     key={opt.value}
-                    label={opt.label}
+                    label={t(opt.labelKey)}
                     active={!isAllActive && selectedAudience.includes(opt.value)}
                     onClick={() => handleAudienceClick(opt.value)}
                 />

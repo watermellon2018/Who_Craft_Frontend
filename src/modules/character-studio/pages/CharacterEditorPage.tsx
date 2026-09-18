@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {Button, Collapse, message} from 'antd';
 import {ArrowLeftOutlined, DeleteOutlined, EditOutlined, ReloadOutlined, SaveOutlined} from '@ant-design/icons';
 import {useTranslation} from 'react-i18next';
+import type {TFunction} from 'i18next';
 import {useLocation, useNavigate, useParams} from 'react-router-dom';
 import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
 import {craftModal} from '../../../theme/CraftModalHost';
@@ -106,12 +107,12 @@ function regionForImageType(imageType: CharacterImageType, activeTab: string): C
   return 'style';
 }
 
-function confirmDeleteCharacter(name: string) {
+function confirmDeleteCharacter(name: string, t: TFunction) {
   return new Promise<boolean>((resolve) => {
     craftModal.confirm({
-      title: `Вы точно уверены в удалении персонажа «${name}»?`,
-      okText: 'Удалить',
-      cancelText: 'Отмена',
+      title: t('characterStudio.editor.deleteConfirm', {name}),
+      okText: t('characterStudio.editor.deleteButton'),
+      cancelText: t('characterStudio.editor.cancelButton'),
       okButtonProps: {danger: true},
       className: 'character-delete-confirm-modal',
       centered: true,
@@ -121,7 +122,6 @@ function confirmDeleteCharacter(name: string) {
   });
 }
 
-const CANCELLATION_REQUESTED_LABEL = '\u041e\u0442\u043c\u0435\u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u0430';
 const POLL_DELAY_MS = 3000;
 
 async function pollUntilDone(jobId: string): Promise<GenerationJob> {
@@ -354,7 +354,7 @@ function CharacterEditorPageContent() {
     if (job.status === 'cancelled' || job.status === 'cancellation_requested') {
       setGeneratingImageType(null);
     }
-  }, [job, notifiedFailedJobId, previewedJobId]);
+  }, [job, notifiedFailedJobId, previewedJobId, t]);
 
   const generate = async () => {
     if (!character || generatingImageType) return;
@@ -486,7 +486,7 @@ function CharacterEditorPageContent() {
         projectId,
         character.character_id,
         variant.variant_id,
-        `Применен вариант ${variant.region}`,
+        t('characterStudio.editor.applyVariantNote', {region: variant.region}),
         imageType,
         imageType === 'portrait' ? 'current_reference' : null,
       );
@@ -516,7 +516,7 @@ function CharacterEditorPageContent() {
 
   const deleteCurrentCharacter = async () => {
     if (!character) return;
-    const confirmed = await confirmDeleteCharacter(character.name);
+    const confirmed = await confirmDeleteCharacter(character.name, t);
     if (!confirmed) return;
 
     await characterApi.delete(projectId, character.character_id);
@@ -601,9 +601,9 @@ function CharacterEditorPageContent() {
     setSequentialRunning(true);
 
     const STEPS: Array<{type: CharacterImageType; region: CharacterRegion; label: string}> = [
-      {type: 'portrait',  region: 'face',  label: 'Генерация портрета…'},
-      {type: 'full_body', region: 'body',  label: 'Генерация full body…'},
-      {type: 'scene',     region: 'style', label: 'Генерация сцены…'},
+      {type: 'portrait',  region: 'face',  label: t('characterStudio.editor.portaitGen')},
+      {type: 'full_body', region: 'body',  label: t('characterStudio.editor.fullBodyGen')},
+      {type: 'scene',     region: 'style', label: t('characterStudio.editor.sceneGen')},
     ];
 
     const msgKey = 'seq-gen';
@@ -651,7 +651,7 @@ function CharacterEditorPageContent() {
         }, idempotencyKey);
 
         if (response.data?.status === 'failed') {
-          throw new Error(response.data?.error_message || 'Генерация не удалась');
+          throw new Error(response.data?.error_message || t('characterStudio.editor.saveGeneric'));
         }
 
         let variants: GenerationJob['variants'] = response.data?.variants ?? [];
@@ -660,9 +660,9 @@ function CharacterEditorPageContent() {
           const finalJob = await pollUntilDone(response.data.job_id);
           if (finalJob.status !== 'completed') {
             if (finalJob.status === 'cancellation_requested') {
-              throw new Error(CANCELLATION_REQUESTED_LABEL);
+              throw new Error(t('characterStudio.history.status.cancellationRequested'));
             }
-            throw new Error(finalJob.error_message || 'Генерация не удалась');
+            throw new Error(finalJob.error_message || t('characterStudio.editor.saveGeneric'));
           }
           variants = finalJob.variants ?? [];
         }
@@ -672,7 +672,7 @@ function CharacterEditorPageContent() {
         }
         const appliedRevision = await characterApi.applyVariant(
           projectId, characterId, variants[0].variant_id,
-          `Обновить: ${step.type}`, step.type,
+          t('characterStudio.editor.genUpdate', {type: step.type}), step.type,
           step.type === 'portrait' ? 'current_reference' : null,
         );
         appliedRevisionId = appliedRevision.data?.revision_id;
@@ -686,7 +686,10 @@ function CharacterEditorPageContent() {
       } catch (e) {
         message.destroy(msgKey);
         message.error(
-          `Ошибка "${step.label}": ${e instanceof Error ? e.message : 'Попробуйте ещё раз'}`,
+          t('characterStudio.editor.sequentialError', {
+            label: step.label,
+            reason: e instanceof Error ? e.message : t('characterStudio.editor.tryAgain'),
+          }),
         );
         setGeneratingImageType(null);
         setSequentialRunning(false);
@@ -805,7 +808,7 @@ function CharacterEditorPageContent() {
         {jobPollingError && <div className="character-editor-polling-error" role="alert">
           <span>{jobPollingError}</span>
           <button type="button" onClick={retryJobPolling}>
-            {'\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c'}
+            {t('characterStudio.history.retry')}
           </button>
         </div>}
         {right}
@@ -815,14 +818,19 @@ function CharacterEditorPageContent() {
 }
 
 function EditorTopBar({characterName, onBack, onRename, onRefresh, sequentialRunning, generatingImageType, onSave, onDelete, saving, hasUnsavedChanges, onGoToReferences}: {characterName: string; onBack: () => void; onRename: () => void; onRefresh: () => void; sequentialRunning: boolean; generatingImageType: CharacterImageType | null; onSave: () => void; onDelete: () => void; saving: boolean; hasUnsavedChanges: boolean; onGoToReferences: () => void}) {
-  const saveLabel = saving ? 'Сохраняем' : hasUnsavedChanges ? 'Есть изменения' : 'Сохранено';
+  const {t} = useTranslation();
+  const saveLabel = saving
+    ? t('characterStudio.editor.saving')
+    : hasUnsavedChanges
+      ? t('characterStudio.editor.edited')
+      : t('characterStudio.editor.saved');
 
   return (
     <>
       <div className="character-editor-title">
         <button type="button" className="character-editor-back-button" onClick={onBack}>
           <ArrowLeftOutlined />
-          <span>Назад</span>
+          <span>{t('characterStudio.editor.back')}</span>
         </button>
         <div>
           <h1>{characterName}</h1>
@@ -831,48 +839,34 @@ function EditorTopBar({characterName, onBack, onRename, onRefresh, sequentialRun
             <strong>{saveLabel}</strong>
           </div>
         </div>
-        <button type="button" className="character-editor-icon-button" onClick={onRename} aria-label="Редактировать имя">
+        <button type="button" className="character-editor-icon-button" onClick={onRename} aria-label={t('characterStudio.editor.rename')}>
           <EditOutlined />
         </button>
       </div>
       <div className="character-editor-actions">
-        <Button className="character-editor-button character-editor-button--outline" icon={<ReloadOutlined />} loading={sequentialRunning} disabled={!!generatingImageType && !sequentialRunning} onClick={onRefresh}>Обновить</Button>
-        <Button className="character-editor-button character-editor-button--danger" icon={<DeleteOutlined />} onClick={onDelete}>Удалить</Button>
-        <Button className="character-editor-button character-editor-button--primary" icon={<SaveOutlined />} loading={saving} onClick={onSave}>Сохранить</Button>
-        <Button className="character-editor-button character-editor-button--outline" onClick={onGoToReferences}>Перейти к референсам</Button>
+        <Button className="character-editor-button character-editor-button--outline" icon={<ReloadOutlined />} loading={sequentialRunning} disabled={!!generatingImageType && !sequentialRunning} onClick={onRefresh}>{t('characterStudio.editor.refresh')}</Button>
+        <Button className="character-editor-button character-editor-button--danger" icon={<DeleteOutlined />} onClick={onDelete}>{t('characterStudio.editor.deleteButton')}</Button>
+        <Button className="character-editor-button character-editor-button--primary" icon={<SaveOutlined />} loading={saving} onClick={onSave}>{t('characterStudio.editor.saveButton')}</Button>
+        <Button className="character-editor-button character-editor-button--outline" onClick={onGoToReferences}>{t('characterStudio.editor.references')}</Button>
       </div>
     </>
   );
 }
 
 function FullBodySettingsPanel() {
+  const {t} = useTranslation();
   return (
-    <ModeSettingsPanel eyebrow="Контекстная панель" title="Настройки: Тело">
-      <SettingsSection title="Поза" primary>
-        <PresetGrid items={['Нейтральная', 'Уверенная', 'Расслабленная', 'Динамичная']} activeIndex={0} />
+    <ModeSettingsPanel eyebrow={t('characterStudio.editor.scenePanel.eyebrow')} title={t('characterStudio.editor.bodyPanel.title')}>
+      <SettingsSection title={t('characterStudio.editor.bodyPanel.pose')} primary>
+        <PresetGrid items={['neutral', 'confident', 'relaxed', 'dynamic'].map((pose) => t(`characterStudio.poses.${pose}`))} activeIndex={0} />
       </SettingsSection>
     </ModeSettingsPanel>
   );
 }
 
-const SCENE_LOCATIONS = [
-  {value: 'studio', label: 'Студия'},
-  {value: 'city', label: 'Город'},
-  {value: 'room', label: 'Комната'},
-  {value: 'street', label: 'Улица'},
-];
-const SCENE_TIMES = [
-  {value: 'day', label: 'День'},
-  {value: 'night', label: 'Ночь'},
-  {value: 'sunset', label: 'Закат'},
-  {value: 'dawn', label: 'Рассвет'},
-];
-const SCENE_WEATHERS = [
-  {value: 'clear', label: 'Ясно'},
-  {value: 'rain', label: 'Дождь'},
-  {value: 'snow', label: 'Снег'},
-  {value: 'fog', label: 'Туман'},
-];
+const SCENE_LOCATIONS = ['studio', 'city', 'room', 'street'] as const;
+const SCENE_TIMES = ['day', 'night', 'sunset', 'dawn'] as const;
+const SCENE_WEATHERS = ['clear', 'rain', 'snow', 'fog'] as const;
 
 function SettingsPanel({
   activeViewMode,
@@ -906,12 +900,13 @@ function SettingsPanel({
 }
 
 function SceneSettingsPanel({settings, onChange}: {settings: {location: string; time: string; weather: string}; onChange: (s: {location: string; time: string; weather: string}) => void}) {
+  const {t} = useTranslation();
   return (
-    <ModeSettingsPanel eyebrow="Контекстная панель" title="Настройки: Сцена">
-      <SettingsSection title="Окружение" primary>
+    <ModeSettingsPanel eyebrow={t('characterStudio.editor.scenePanel.eyebrow')} title={t('characterStudio.editor.scenePanel.title')}>
+      <SettingsSection title={t('characterStudio.editor.scenePanel.environment')} primary>
         <div className="mode-preset-grid">
-          {SCENE_LOCATIONS.map(({value, label}) => (
-            <button key={value} type="button" className={settings.location === value ? 'is-active' : ''} onClick={() => onChange({...settings, location: value})}>{label}</button>
+          {SCENE_LOCATIONS.map((value) => (
+            <button key={value} type="button" className={settings.location === value ? 'is-active' : ''} onClick={() => onChange({...settings, location: value})}>{t(`characterStudio.sceneLabels.${value}`)}</button>
           ))}
         </div>
       </SettingsSection>
@@ -921,22 +916,22 @@ function SceneSettingsPanel({settings, onChange}: {settings: {location: string; 
         items={[
           {
             key: 'time',
-            label: 'Время суток',
+            label: t('characterStudio.editor.scenePanel.timeOfDay'),
             children: (
               <div className="mode-preset-grid">
-                {SCENE_TIMES.map(({value, label}) => (
-                  <button key={value} type="button" className={settings.time === value ? 'is-active' : ''} onClick={() => onChange({...settings, time: value})}>{label}</button>
+                {SCENE_TIMES.map((value) => (
+                  <button key={value} type="button" className={settings.time === value ? 'is-active' : ''} onClick={() => onChange({...settings, time: value})}>{t(`characterStudio.timeLabels.${value}`)}</button>
                 ))}
               </div>
             ),
           },
           {
             key: 'weather',
-            label: 'Погода / атмосфера',
+            label: t('characterStudio.editor.scenePanel.weather'),
             children: (
               <div className="mode-preset-grid">
-                {SCENE_WEATHERS.map(({value, label}) => (
-                  <button key={value} type="button" className={settings.weather === value ? 'is-active' : ''} onClick={() => onChange({...settings, weather: value})}>{label}</button>
+                {SCENE_WEATHERS.map((value) => (
+                  <button key={value} type="button" className={settings.weather === value ? 'is-active' : ''} onClick={() => onChange({...settings, weather: value})}>{t(`characterStudio.weatherLabels.${value}`)}</button>
                 ))}
               </div>
             ),

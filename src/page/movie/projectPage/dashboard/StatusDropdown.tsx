@@ -1,14 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {useTranslation} from 'react-i18next';
 import { CaretDownOutlined, CheckOutlined, LoadingOutlined } from '@ant-design/icons';
 import { ProjectStatusKey } from './mocks';
 import {CRAFT_ACCENT} from '../../../../constants/theme';
 
-const STATUS_OPTIONS: Array<{ key: ProjectStatusKey; label: string }> = [
-  { key: 'draft', label: 'Черновик' },
-  { key: 'in_progress', label: 'В работе' },
-  { key: 'completed', label: 'Завершён' },
-  { key: 'archived', label: 'В архиве' },
-];
+const STATUS_OPTIONS: ProjectStatusKey[] = ['draft', 'in_progress', 'completed', 'archived'];
 
 const STATUS_ACCENT: Record<ProjectStatusKey, { bg: string; border: string; color: string; dot: string }> = {
   draft: {
@@ -46,6 +42,7 @@ interface Props {
 }
 
 const StatusDropdown: React.FC<Props> = ({ status, statusLabel, disabled, loading, onChange }) => {
+  const {t} = useTranslation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -121,16 +118,16 @@ const StatusDropdown: React.FC<Props> = ({ status, statusLabel, disabled, loadin
             overflow: 'hidden',
           }}
         >
-          {STATUS_OPTIONS.map((opt) => {
-            const isActive = opt.key === status;
-            const optAccent = STATUS_ACCENT[opt.key];
+          {STATUS_OPTIONS.map((option) => {
+            const isActive = option === status;
+            const optAccent = STATUS_ACCENT[option];
             return (
               <button
-                key={opt.key}
+                key={option}
                 type="button"
                 role="option"
                 aria-selected={isActive}
-                onClick={() => handleSelect(opt.key)}
+                onClick={() => handleSelect(option)}
                 style={{
                   display: 'flex',
                   width: '100%',
@@ -165,7 +162,7 @@ const StatusDropdown: React.FC<Props> = ({ status, statusLabel, disabled, loadin
                     flexShrink: 0,
                   }}
                 />
-                <span style={{ flex: 1 }}>{opt.label}</span>
+                <span style={{ flex: 1 }}>{t(`project.status.${option}`)}</span>
                 {isActive && <CheckOutlined style={{ fontSize: 11, color: 'var(--craft-accent)' }} />}
               </button>
             );

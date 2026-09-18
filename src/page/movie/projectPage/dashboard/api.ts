@@ -344,18 +344,18 @@ export function adaptProject(api: DashboardProject): ProjectMock {
   return {
     id: String(api.id),
     title: api.title,
-    subtitle: api.subtitle || 'Страница проекта',
+    subtitle: 'project.dashboard.subtitle',
     status: api.status === 'completed' ? 'done' : api.status === 'archived' ? 'paused' : 'work',
     statusKey: api.status,
-    statusLabel: api.statusLabel,
+    statusLabel: `project.status.${api.status}`,
     currentUserRole: role,
-    roleLabel: api.currentUserRoleLabel,
+    roleLabel: `project.team.accessRoles.${role}`,
     isFavorite: !!api.isFavorite,
     coverImageUrl: api.coverImageUrl,
     coverGradient: PROJECT_COVER_GRADIENT,
     genres: api.tags || [],
     description: api.description || '',
-    updatedAtLabel: api.updatedAtLabel || '',
+    updatedAtLabel: api.updatedAt || '',
     team,
     teamExtraCount: teamExtra,
     memberCount,
@@ -392,28 +392,28 @@ const STAT_DEFS: Array<{
 }> = [
   {
     key: 'characters',
-    label: 'Персонажи',
+    label: 'project.dashboard.stats.characters',
     iconKey: 'characters',
     accent: 'purple',
     total: 'charactersTotal',
   },
   {
     key: 'scenes',
-    label: 'Сцены',
+    label: 'project.dashboard.stats.scenes',
     iconKey: 'scenes',
     accent: 'blue',
     total: 'scenesTotal',
   },
   {
     key: 'music',
-    label: 'Музыка',
+    label: 'project.dashboard.stats.music',
     iconKey: 'music',
     accent: 'green',
     total: 'musicTotal',
   },
   {
     key: 'locations',
-    label: 'Визуальная библиотека',
+    label: 'project.dashboard.stats.references',
     iconKey: 'locations',
     accent: 'yellow',
     total: 'locationsTotal',
@@ -436,8 +436,8 @@ export function adaptCharacters(list: DashboardCharacter[]): CharacterMock[] {
     return {
       id: c.id,
       name: c.name,
-      role: c.shortDescription || c.roleLabel || '',
-      tag: c.roleLabel || '',
+      role: c.shortDescription || `project.dashboard.characterRoles.${c.role}`,
+      tag: `project.dashboard.characterRoles.${c.role}`,
       initial,
       gradient: pick(CHARACTER_GRADIENTS, i),
       imageUrl: c.mainImageUrl || c.avatarImageUrl || null,
@@ -464,9 +464,9 @@ export function adaptPipeline(api: DashboardPipeline): PipelineStepMock[] {
     const step = api[d.apiKey];
     return {
       key: d.key,
-      label: step.label,
+      label: `project.dashboard.pipeline.${d.key}.title`,
       progress: Math.max(0, Math.min(100, Number(step.progress || 0))),
-      subtitle: step.subtitle,
+      subtitle: `project.dashboard.pipeline.${d.key}.subtitle`,
       iconKey: d.iconKey,
       accent: d.accent,
     };
@@ -515,10 +515,10 @@ export function adaptProgress(api: DashboardProgress): ProgressView {
     return {
       overall: toLegacyPercent(api.overall),
       legend: [
-        {label: 'Сценарий', value: toLegacyPercent(api.script), accent: 'yellow'},
-        {label: 'Персонажи', value: null, accent: 'purple'},
-        {label: 'Раскадровка', value: toLegacyPercent(api.visual), accent: 'green'},
-        {label: 'Видео', value: toLegacyPercent(api.postproduction), accent: 'blue'},
+        {label: 'project.dashboard.progress.script', value: toLegacyPercent(api.script), accent: 'yellow'},
+        {label: 'project.dashboard.progress.characters', value: null, accent: 'purple'},
+        {label: 'project.dashboard.progress.storyboard', value: toLegacyPercent(api.visual), accent: 'green'},
+        {label: 'project.dashboard.progress.video', value: toLegacyPercent(api.postproduction), accent: 'blue'},
       ],
       storyboardNeedsReview: 0,
       storyboardReviewScenes: [],
@@ -527,18 +527,18 @@ export function adaptProgress(api: DashboardProgress): ProgressView {
   return {
     overall: toProgressPercent(readiness.overall),
     legend: [
-      { label: 'Сценарий', value: toProgressPercent(readiness.script), accent: 'yellow' },
+      { label: 'project.dashboard.progress.script', value: toProgressPercent(readiness.script), accent: 'yellow' },
       {
-        label: 'Персонажи',
+        label: 'project.dashboard.progress.characters',
         value: readiness.characters === null ? null : toProgressPercent(readiness.characters),
         accent: 'purple',
       },
       {
-        label: 'Раскадровка',
+        label: 'project.dashboard.progress.storyboard',
         value: toProgressPercent(readiness.storyboard),
         accent: 'green',
       },
-      { label: 'Видео', value: toProgressPercent(readiness.video), accent: 'blue' },
+      { label: 'project.dashboard.progress.video', value: toProgressPercent(readiness.video), accent: 'blue' },
     ],
     storyboardNeedsReview: Math.max(0, Math.floor(readiness.storyboardNeedsReview)),
     storyboardReviewScenes: (readiness.storyboardReviewScenes || []).map((scene) => ({...scene})),
@@ -559,7 +559,7 @@ export function adaptQuickActions(list: DashboardQuickAction[]): QuickActionMock
     const v = QUICK_ACTION_VISUALS[a.key] || { iconKey: 'newScene' as const, accent: 'blue' as const };
     return {
       key: a.key,
-      label: a.label,
+      label: `project.dashboard.quickActions.${a.key}`,
       iconKey: v.iconKey,
       accent: v.accent,
     };
@@ -577,14 +577,39 @@ const ACTIVITY_VISUALS: Record<string, { iconKey: ActivityItemMock['iconKey']; a
   project_updated: { iconKey: 'created', accent: 'yellow', thumb: false },
 };
 
+const LOCALIZED_ACTIVITY_TYPES = new Set([
+  'character_created',
+  'character_updated',
+  'scene_created',
+  'scene_render_completed',
+  'music_added',
+  'location_created',
+  'asset_uploaded',
+  'project_updated',
+  'project_status_changed',
+  'project_archived',
+  'member_invited',
+  'invitation_accepted',
+  'invitation_declined',
+  'invitation_cancelled',
+  'member_role_changed',
+  'member_removed',
+  'member_left',
+  'ownership_transferred',
+]);
+
 export function adaptActivity(list: DashboardActivity[]): ActivityItemMock[] {
   return (list || []).map((a) => {
     const v = ACTIVITY_VISUALS[a.type] || { iconKey: 'created' as const, accent: 'purple' as const, thumb: false };
     return {
       id: String(a.id),
-      title: a.title,
-      description: a.description,
-      time: a.createdAtLabel,
+      title: a.type === 'member_invited' && a.metadata?.invitation_type === 'link'
+        ? 'project.dashboard.activity.titles.inviteLink'
+        : a.title,
+      description: LOCALIZED_ACTIVITY_TYPES.has(a.type)
+        ? `project.dashboard.activity.descriptions.${a.type}`
+        : a.description,
+      time: a.createdAt || '',
       iconKey: v.iconKey,
       accent: v.accent,
       thumbnailGradient: a.thumbnailUrl ? undefined : v.thumb ? ACTIVITY_THUMB_GRADIENT : undefined,

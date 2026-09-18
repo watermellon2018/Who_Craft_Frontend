@@ -153,7 +153,7 @@ describe('CharactersView', () => {
 
   it('zooms with the mouse wheel and pans an enlarged graph by dragging', () => {
     render(<CharactersView characters={characters} scenes={scenes} />);
-    const graph = screen.getByRole('group', {name: /Граф связей: 3 персонажей/});
+    const graph = screen.getByRole('group', {name: /Граф связей: 3 персонажа/});
     const viewport = screen.getByRole('region', {name: 'Навигация по графу'});
     jest.spyOn(graph, 'getBoundingClientRect').mockReturnValue({
       bottom: 500,

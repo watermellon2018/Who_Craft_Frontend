@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {useTranslation} from 'react-i18next';
 
 const MAX_INTERESTS = 10;
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange }) => {
+  const {t} = useTranslation();
   const [input, setInput] = useState('');
 
   const atLimit = interests.length >= MAX_INTERESTS;
@@ -40,7 +42,7 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
     <section className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-white font-semibold text-base" style={{ color: '#ffffff' }}>
-          Интересы
+          {t('profile.edit.interests.title')}
         </h3>
         <span
           className="text-xs tabular-nums"
@@ -53,7 +55,7 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
         className="text-sm mt-1 mb-4"
         style={{ color: 'rgba(255,255,255,0.6)' }}
       >
-        Выберите темы, которые вам интересны.
+        {t('profile.edit.interests.description')}
       </p>
 
       <div className="flex flex-wrap gap-2 mb-3">
@@ -66,7 +68,7 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
             <button
               type="button"
               onClick={() => removeInterest(tag)}
-              aria-label={`Удалить ${tag}`}
+              aria-label={t('profile.edit.interests.remove', {interest: tag})}
               className="text-accent/70 hover:text-accent transition-colors"
             >
               ×
@@ -75,7 +77,7 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
         ))}
         {interests.length === 0 && (
           <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
-            Пока нет интересов — добавьте первый.
+            {t('profile.edit.interests.empty')}
           </span>
         )}
       </div>
@@ -86,14 +88,16 @@ const InterestsCard: React.FC<Props> = ({ interests, interestsError, onChange })
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={atLimit}
-        placeholder={atLimit ? 'Достигнут лимит интересов' : 'Добавить интерес и нажмите Enter'}
+        placeholder={atLimit
+          ? t('profile.edit.interests.limitPlaceholder')
+          : t('profile.edit.interests.addPlaceholder')}
         className="w-full bg-[#1b1f27] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm placeholder-white/30 focus:outline-none focus:border-accent/60 focus:ring-2 focus:ring-accent/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ color: 'rgba(255,255,255,0.92)' }}
       />
 
       {(atLimit || interestsError) && (
         <p className="text-xs mt-2" style={{ color: 'var(--craft-accent)' }}>
-          {interestsError || 'Можно добавить максимум 10 интересов'}
+          {interestsError || t('profile.edit.interests.limit', {count: MAX_INTERESTS})}
         </p>
       )}
     </section>

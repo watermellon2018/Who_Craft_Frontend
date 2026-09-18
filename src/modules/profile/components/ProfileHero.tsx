@@ -50,7 +50,7 @@ const ProfileHero: React.FC<Props> = ({ user }) => {
           <div className="flex items-end gap-4">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] flex items-center justify-center text-accent font-bold text-2xl flex-shrink-0 shadow-lg">
               {safeAvatar ? (
-                <img src={safeAvatar} alt="avatar" className="w-full h-full rounded-xl object-cover" />
+                <img src={safeAvatar} alt={t('profile.hero.avatarAlt')} className="w-full h-full rounded-xl object-cover" />
               ) : (
                 initials
               )}
@@ -86,7 +86,7 @@ const ProfileHero: React.FC<Props> = ({ user }) => {
               onClick={() => navigate(PathConstants.PROFILE_EDIT)}
               className="bg-accent text-[#13151a] text-sm font-semibold px-4 py-2 rounded-xl hover:bg-[#fcc419] transition-colors"
             >
-              Редактировать профиль
+              {t('profile.hero.edit')}
             </button>
           </div>
         </div>

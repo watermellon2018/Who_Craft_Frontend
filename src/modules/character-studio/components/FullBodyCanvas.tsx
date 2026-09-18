@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import {useTranslation} from 'react-i18next';
 
 export interface FullBodyCanvasProps {
   imageUrl: string | null;
@@ -25,6 +26,7 @@ export default function FullBodyCanvas({
   onPointerUp,
   interactive = false,
 }: FullBodyCanvasProps) {
+  const {t} = useTranslation();
   const [imageBroken, setImageBroken] = useState(false);
 
   const setRefs = (el: HTMLDivElement | null) => {
@@ -64,7 +66,7 @@ export default function FullBodyCanvas({
       {showImage && (
         <img
           src={imageUrl}
-          alt="Полный рост персонажа"
+          alt={t('characterStudio.preview.fullBodyAlt')}
           onError={() => {
             setImageBroken(true);
             onImageError?.();

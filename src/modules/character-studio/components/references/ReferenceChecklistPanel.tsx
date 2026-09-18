@@ -10,8 +10,9 @@ import {
   ReloadOutlined,
   StarOutlined,
 } from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {CharacterReference, ReferencesChecklist} from '../../types/character.types';
-import {REFERENCE_LABELS, describeBlockers} from './referenceLabels';
+import {REFERENCE_LABEL_KEYS, STATUS_LABEL_KEYS, describeBlockers} from './referenceLabels';
 import {REQUIRED_REFERENCE_TYPES_FOR_3D} from './referenceReadiness';
 
 interface Props {
@@ -53,12 +54,13 @@ const ReferenceRightPanel: React.FC<Props> = ({
   onMakePrimary,
   onBackToEditor,
 }) => {
-  const blockerText = describeBlockers(blockers);
+  const {t} = useTranslation();
+  const blockerText = describeBlockers(blockers, t);
   const hasReadyAsset = selected.status === 'ready' && Boolean(selected.asset_id);
 
   const requiredRows: {label: string; row: CharacterReference}[] = REQUIRED_REFERENCE_TYPES_FOR_3D.map((type) => {
     return {
-      label: REFERENCE_LABELS[type].title,
+      label: t(REFERENCE_LABEL_KEYS[type].title),
       row:
         references.find((r) => r.reference_type === type) || {
           reference_type: type,
@@ -73,10 +75,10 @@ const ReferenceRightPanel: React.FC<Props> = ({
   });
 
   const userItems: {key: keyof ReferencesChecklist; label: string}[] = [
-    {key: 'appearance_stable', label: 'Внешность стабильна'},
-    {key: 'face_matches_base', label: 'Лицо совпадает с базовым портретом'},
-    {key: 'outfit_readable', label: 'Одежда читается'},
-    {key: 'suitable_for_3d', label: 'Референсы подходят для 3D-модели'},
+    {key: 'appearance_stable', label: t('characterStudio.references.appearance')},
+    {key: 'face_matches_base', label: t('characterStudio.references.faceMatch')},
+    {key: 'outfit_readable', label: t('characterStudio.references.outfitReadable')},
+    {key: 'suitable_for_3d', label: t('characterStudio.references.suitable3d')},
   ];
 
   const readyCount = requiredRows.filter(({row}) => row.status === 'ready').length;
@@ -88,13 +90,13 @@ const ReferenceRightPanel: React.FC<Props> = ({
   return (
     <section className="character-settings-panel references-side">
       <div className="character-settings-panel__header">
-        <p>КОНТЕКСТНАЯ ПАНЕЛЬ</p>
-        <h2>Проверка перед 3D</h2>
+        <p>{t('characterStudio.references.contextPanelLabel')}</p>
+        <h2>{t('characterStudio.references.checklistTitle')}</h2>
       </div>
 
       <div className="character-settings-panel__body">
         <div className="character-settings-section">
-          <h3>Проверка качества</h3>
+          <h3>{t('characterStudio.references.qualityCheck')}</h3>
           <div className="references-quality-checklist">
             {userItems.map((item) => (
               <Checkbox
@@ -112,19 +114,19 @@ const ReferenceRightPanel: React.FC<Props> = ({
 
         <div className="character-settings-section character-settings-section--primary">
           <div className="references-required__header">
-            <h3>Обязательные ракурсы</h3>
+            <h3>{t('characterStudio.references.requiredAngles')}</h3>
             <span className="references-required__progress">
-              {readyCount} / {totalRequired} готово
+              {t('characterStudio.references.progress', {ready: readyCount, total: totalRequired})}
             </span>
           </div>
           {(autoGenerationActive || generatingCount > 0) && !allRequiredReady && (
             <p className="references-auto-banner">
-              Референсы готовятся автоматически. Это нужно для подготовки персонажа к 3D модели.
+              {t('characterStudio.references.autoBanner')}
             </p>
           )}
           {failedCount > 0 && (
             <p className="references-failed-banner">
-              Некоторые референсы не удалось создать. Их можно повторить вручную.
+              {t('characterStudio.references.failedBanner')}
             </p>
           )}
           <ul className="references-required">
@@ -133,10 +135,7 @@ const ReferenceRightPanel: React.FC<Props> = ({
                 {statusIcon(row.status)}
                 <span className="references-required__label">{label}</span>
                 <span className={`references-required__status references-required__status--${row.status}`}>
-                  {row.status === 'ready' && 'Готово'}
-                  {row.status === 'generating' && 'Генерируется'}
-                  {row.status === 'failed' && 'Ошибка'}
-                  {row.status === 'missing' && 'Не создано'}
+                  {t(STATUS_LABEL_KEYS[row.status])}
                 </span>
               </li>
             ))}
@@ -144,7 +143,7 @@ const ReferenceRightPanel: React.FC<Props> = ({
         </div>
 
         <div className="character-settings-section">
-          <h3>Действия</h3>
+          <h3>{t('characterStudio.references.actions')}</h3>
           <div className="references-actions">
             <Button
               className="character-editor-button character-editor-button--outline"
@@ -153,7 +152,7 @@ const ReferenceRightPanel: React.FC<Props> = ({
               onClick={onRegenerate}
               disabled={isGenerating}
             >
-              Перегенерировать выбранный ракурс
+              {t('characterStudio.references.regenerateAction')}
             </Button>
             <Button
               className="character-editor-button character-editor-button--outline"
@@ -162,7 +161,7 @@ const ReferenceRightPanel: React.FC<Props> = ({
               onClick={onCorrect}
               disabled={!hasReadyAsset || isGenerating}
             >
-              Исправить через текст
+              {t('characterStudio.references.correctAction')}
             </Button>
             <Button
               className="character-editor-button character-editor-button--outline"
@@ -171,9 +170,9 @@ const ReferenceRightPanel: React.FC<Props> = ({
               onClick={onUpload}
               disabled={isGenerating}
             >
-              Заменить изображение
+              {t('characterStudio.references.uploadAction')}
             </Button>
-            <Tooltip title={selected.is_primary ? 'Этот ракурс уже основной.' : ''}>
+            <Tooltip title={selected.is_primary ? t('characterStudio.references.alreadyPrimaryTooltip') : ''}>
               <Button
                 className="character-editor-button character-editor-button--outline"
                 icon={<StarOutlined />}
@@ -181,7 +180,9 @@ const ReferenceRightPanel: React.FC<Props> = ({
                 onClick={onMakePrimary}
                 disabled={!hasReadyAsset || selected.is_primary}
               >
-                {selected.is_primary ? 'Уже основной референс' : 'Пометить как основной референс'}
+                {selected.is_primary
+                  ? t('characterStudio.references.alreadyPrimary')
+                  : t('characterStudio.references.makePrimaryAction')}
               </Button>
             </Tooltip>
           </div>
@@ -190,7 +191,7 @@ const ReferenceRightPanel: React.FC<Props> = ({
         {!canProceed && (
           <div className="references-blockers">
             {generatingCount > 0 && readyCount + generatingCount === totalRequired && failedCount === 0 ? (
-              'Референсы готовятся автоматически. Переход к 3D станет доступен после завершения генерации.'
+              t('characterStudio.references.blockersAutoGen')
             ) : blockerText}
           </div>
         )}
@@ -201,7 +202,7 @@ const ReferenceRightPanel: React.FC<Props> = ({
             block
             onClick={onBackToEditor}
           >
-            Вернуться к редактору
+            {t('characterStudio.references.backToEditor')}
           </Button>
         </div>
       </div>

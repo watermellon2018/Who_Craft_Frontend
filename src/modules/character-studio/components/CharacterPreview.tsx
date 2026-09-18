@@ -226,7 +226,7 @@ export default function CharacterPreview({
 
   return (
     <section className={`character-preview character-preview--${activeViewMode}`}>
-      <div className="character-preview-tabs" role="tablist" aria-label="Режим просмотра">
+      <div className="character-preview-tabs" role="tablist" aria-label={t('characterStudio.preview.viewModeLabel')}>
         {viewTabs.map((tab) => {
           const tabImageType = viewModeToImageType(tab.value);
           const tabStatus = getTabStatus(tabImageType, character, secondaryJobs, generatingImageType);
@@ -249,13 +249,15 @@ export default function CharacterPreview({
             className={`character-preview-tabs__zone-edit${zoneEditOpen ? ' character-preview-tabs__zone-edit--active' : ''}`}
             onClick={() => onZoneEditToggle(!zoneEditOpen)}
             aria-pressed={zoneEditOpen}
-            title="Выделите прямоугольную область и опишите изменение"
+            title={t('characterStudio.preview.zoneEditTitle')}
             style={{position: 'relative'}}
           >
-            {zoneEditOpen ? 'Закрыть зону' : 'Редактировать по зоне'}
+            {zoneEditOpen
+              ? t('characterStudio.preview.zoneEditClose')
+              : t('characterStudio.preview.zoneEditToggle')}
             {pendingZoneCount > 0 && (
               <span
-                aria-label={`${pendingZoneCount} активных зон`}
+                aria-label={t('characterStudio.preview.zoneEditAriaLabel', {count: pendingZoneCount})}
                 style={{
                   position: 'absolute',
                   top: -6,
@@ -319,11 +321,11 @@ export default function CharacterPreview({
           ) : (
             <div className={`character-preview-empty character-preview-empty--${activeViewMode}`}>
               <div className="character-preview-empty__silhouette" />
-              <h3>{emptyCopyByMode[activeViewMode].title}</h3>
-              <p>{emptyCopyByMode[activeViewMode].text}</p>
+              <h3>{t(EMPTY_COPY_KEYS[activeViewMode].title)}</h3>
+              <p>{t(EMPTY_COPY_KEYS[activeViewMode].text)}</p>
               <div className="character-preview-empty__actions">
                 <button type="button" onClick={onGenerateImage} disabled={!!generatingImageType}>
-                  Сгенерировать этот режим
+                  {t('characterStudio.preview.generateMode')}
                 </button>
               </div>
             </div>
@@ -386,7 +388,7 @@ export default function CharacterPreview({
                 pointerEvents: 'none',
               }}
             >
-              Нарисуйте область мышью, затем введите инструкцию
+              {t('characterStudio.preview.drawZoneHint')}
             </div>
           )}
         </div>
@@ -451,7 +453,9 @@ export default function CharacterPreview({
                 }}
               />
             )}
-            {zoneEditSubmitting ? 'Применяем…' : 'Применить'}
+            {zoneEditSubmitting
+              ? t('characterStudio.preview.applying')
+              : t('characterStudio.variant.apply')}
           </button>
           <button
             type="button"
@@ -470,7 +474,7 @@ export default function CharacterPreview({
               transition: 'color 0.15s, border-color 0.15s',
             }}
           >
-            Отмена
+            {t('characterStudio.editor.cancelButton')}
           </button>
         </div>
       )}
@@ -482,9 +486,10 @@ export default function CharacterPreview({
 // ZoneEditLoadingOverlay — translucent overlay with spinner + progress bar
 
 function ZoneEditLoadingOverlay() {
+  const {t} = useTranslation();
   return (
     <div
-      aria-label="Применяем изменения…"
+      aria-label={t('characterStudio.preview.applyingChanges')}
       style={{
         position: 'absolute',
         inset: 0,
@@ -509,7 +514,7 @@ function ZoneEditLoadingOverlay() {
         }}
       />
       <span style={{color: 'var(--craft-accent)', fontSize: 14, fontWeight: 600, letterSpacing: 0.3}}>
-        Применяем изменения…
+        {t('characterStudio.preview.applyingChanges')}
       </span>
       <div
         style={{
@@ -537,6 +542,7 @@ function ZoneEditLoadingOverlay() {
 // ZoneMarker — small icon at center of saved zone
 
 function ZoneMarker({zone, onClick}: {zone: ZoneEditState; onClick: (e: React.MouseEvent) => void}) {
+  const {t} = useTranslation();
   const cx = zone.selection.x + zone.selection.width / 2;
   const cy = zone.selection.y + zone.selection.height / 2;
   return (
@@ -565,7 +571,7 @@ function ZoneMarker({zone, onClick}: {zone: ZoneEditState; onClick: (e: React.Mo
         zIndex: 10,
         padding: 0,
       }}
-      aria-label="Редактировать инструкцию зоны"
+      aria-label={t('characterStudio.preview.editZoneInstruction')}
     >
       ✏️
     </button>
@@ -704,7 +710,7 @@ function ZonePopover({
             cursor: 'pointer',
           }}
         >
-          Отмена
+          {t('characterStudio.editor.cancelButton')}
         </button>
         <button
           type="button"
@@ -712,11 +718,11 @@ function ZonePopover({
           disabled={!instruction.trim()}
           style={{padding: '4px 10px', fontSize: 12, background: 'var(--craft-accent)', border: 'none', borderRadius: 4, cursor: 'pointer', color: '#000', fontWeight: 600}}
         >
-          ОК
+          {t('characterStudio.preview.ok')}
         </button>
       </div>
       <div style={{marginTop: 6, fontSize: 10, color: 'var(--craft-text-muted)'}}>
-        Ctrl+Enter — сохранить
+        {t('characterStudio.preview.saveShortcut')}
       </div>
     </div>
   );
@@ -774,10 +780,10 @@ function getPreviewImage(
   );
 }
 
-const generatingCopyByMode: Record<CharacterViewMode, {title: string; text: string}> = {
-  portrait: {title: 'Генерируем портрет…', text: 'Создаём изображение лица и плеч персонажа.'},
-  fullBody: {title: 'Генерируем полный рост…', text: 'Создаём изображение персонажа в полный рост.'},
-  scene: {title: 'Генерируем сцену…', text: 'Создаём персонажа в сцене с фоном и окружением.'},
+const GENERATING_COPY_KEYS: Record<CharacterViewMode, {title: string; text: string}> = {
+  portrait: {title: 'characterStudio.preview.generating.portraitTitle', text: 'characterStudio.preview.generating.portraitText'},
+  fullBody: {title: 'characterStudio.preview.generating.fullBodyTitle', text: 'characterStudio.preview.generating.fullBodyText'},
+  scene: {title: 'characterStudio.preview.generating.sceneTitle', text: 'characterStudio.preview.generating.sceneText'},
 };
 
 type TabStatus = 'ready' | 'generating' | 'failed' | 'idle';
@@ -818,30 +824,32 @@ function FailedState({
   errorMessage?: string;
   onRetry: () => void;
 }) {
-  const copy = generatingCopyByMode[viewMode];
+  const {t} = useTranslation();
+  const copy = GENERATING_COPY_KEYS[viewMode];
   return (
     <div className="character-preview-failed">
       <div className="character-preview-failed__icon">!</div>
-      <h3>Ошибка генерации</h3>
+      <h3>{t('characterStudio.preview.generationError')}</h3>
       <p>
         {errorMessage ||
-          `Не удалось сгенерировать «${copy.title.replace('Генерируем ', '').replace('…', '')}». Попробуйте ещё раз.`}
+          t('characterStudio.preview.generationFailedForMode', {mode: t(copy.title)})}
       </p>
       <button type="button" onClick={onRetry} className="character-preview-failed__retry">
-        Повторить генерацию
+        {t('characterStudio.preview.retryGeneration')}
       </button>
     </div>
   );
 }
 
 function GeneratingState({viewMode, progress}: {viewMode: CharacterViewMode; progress?: number}) {
-  const copy = generatingCopyByMode[viewMode];
+  const {t} = useTranslation();
+  const copy = GENERATING_COPY_KEYS[viewMode];
   const hasProgress = typeof progress === 'number' && progress > 0;
   return (
     <div className="character-preview-generating">
       <div className="character-preview-generating__spinner" />
-      <h3>{copy.title}</h3>
-      <p>{copy.text}</p>
+      <h3>{t(copy.title)}</h3>
+      <p>{t(copy.text)}</p>
       {hasProgress ? (
         <div className="character-preview-generating__progress">
           <div className="character-preview-generating__progress-bar" style={{width: `${progress}%`}} />
@@ -853,16 +861,16 @@ function GeneratingState({viewMode, progress}: {viewMode: CharacterViewMode; pro
         </div>
       )}
       <button type="button" className="character-preview-generating__btn" disabled>
-        Генерируется…
+        {t('characterStudio.preview.generatingButton')}
       </button>
     </div>
   );
 }
 
-const emptyCopyByMode: Record<CharacterViewMode, {title: string; text: string}> = {
-  portrait: {title: 'Портрет пока не создан', text: 'Сгенерируйте первый вариант портрета'},
-  fullBody: {title: 'Модель полного роста пока не создана', text: 'Сгенерируйте полный рост на основе портрета'},
-  scene: {title: 'Сцена пока не создана', text: 'Выберите фон, свет и камеру для первого кадра'},
+const EMPTY_COPY_KEYS: Record<CharacterViewMode, {title: string; text: string}> = {
+  portrait: {title: 'characterStudio.preview.empty.portraitTitle', text: 'characterStudio.preview.empty.portraitText'},
+  fullBody: {title: 'characterStudio.preview.empty.fullBodyTitle', text: 'characterStudio.preview.empty.fullBodyText'},
+  scene: {title: 'characterStudio.preview.empty.sceneTitle', text: 'characterStudio.preview.empty.sceneText'},
 };
 
 function SceneBackdrop() {

@@ -45,8 +45,6 @@ type SecondaryGenerationDecision =
     | {kind: 'save-only'}
     | {imageTypes: CharacterSecondaryAssetType[]; kind: 'generate'; quote: CharacterSecondaryAssetsQuote};
 const VARIANT_GENERATION_JOB_TYPES = ['initial_variants', 'reference_variants'] as const;
-const CANCELLATION_REQUESTED_LABEL = '\u041e\u0442\u043c\u0435\u043d\u0430 \u0437\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u0430';
-const CANCELLATION_REQUESTED_NOTICE = '\u0423\u0436\u0435 \u043d\u0430\u0447\u0430\u0442\u0430\u044f \u0433\u0435\u043d\u0435\u0440\u0430\u0446\u0438\u044f \u043c\u043e\u0436\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c\u0441\u044f, \u043d\u043e \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442 \u043d\u0435 \u0431\u0443\u0434\u0435\u0442 \u043f\u0440\u0438\u043c\u0435\u043d\u0451\u043d.';
 
 interface SecondaryGenerationConfirmationProps {
     characterId: string;
@@ -380,16 +378,16 @@ function CharacterVariantsPageContent() {
                 const recoveredName = recoveredCharacter.name ?? '';
                 setCharacterData(recoveredCharacter);
                 setCharacterName(recoveredName);
-                if (!recoveredName) setCharacterError('Не удалось восстановить имя персонажа');
+                if (!recoveredName) setCharacterError(t('characterStudio.variants.restoreNameError'));
             })
             .catch((error: unknown) => {
                 if (cancelled) return;
                 const status = getApiStatus(error);
                 setCharacterError(status === 403
-                    ? 'Нет доступа к персонажу'
+                    ? t('characterStudio.variants.characterForbidden')
                     : status === 404
-                        ? 'Персонаж не найден'
-                        : 'Не удалось загрузить персонажа');
+                        ? t('characterStudio.variants.characterNotFound')
+                        : t('characterStudio.variants.characterLoadError'));
             })
             .finally(() => {
                 if (!cancelled) setCharacterLoading(false);
@@ -397,7 +395,7 @@ function CharacterVariantsPageContent() {
         return () => {
             cancelled = true;
         };
-    }, [characterId, characterName, currentJobId, projectId]);
+    }, [characterId, characterName, currentJobId, projectId, t]);
 
     // Persist the last successfully loaded variants so the grid stays visible
     // while a new regeneration job is in flight.
@@ -417,7 +415,7 @@ function CharacterVariantsPageContent() {
         }
         if (job?.status === 'cancellation_requested') {
             setRegenerating(false);
-            setRegenError(CANCELLATION_REQUESTED_LABEL);
+            setRegenError(t('characterStudio.history.status.cancellationRequested'));
         }
     }, [job, jobFailureMessage, t]);
 
@@ -642,21 +640,21 @@ function CharacterVariantsPageContent() {
 
     if (errorMessage || characterError || contextMismatch) {
         const title = errorStatus === 403
-            ? 'Нет доступа к генерации'
+            ? t('characterStudio.variants.generationForbidden')
             : errorStatus === 404
-                ? 'Генерация не найдена'
+                ? t('characterStudio.variants.generationNotFound')
                 : characterError
                     ? characterError
                     : contextMismatch
-                        ? 'Задание не относится к этому персонажу'
-                        : 'Не удалось загрузить генерацию';
+                        ? t('characterStudio.variants.jobOwnerMismatch')
+                        : t('characterStudio.variants.generationLoadError');
         return (
             <div className="cvp-page">
                 <div className="cvp-error">
                     <p className="cvp-error__title">{title}</p>
-                    <p className="cvp-error__text">{errorMessage || characterError || 'Проверьте адрес страницы и попробуйте снова.'}</p>
+                    <p className="cvp-error__text">{errorMessage || characterError || t('characterStudio.variants.checkUrl')}</p>
                     {errorMessage && <button className="cvp-btn-accent" onClick={retryJobPolling}>
-                        {'\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c'}
+                        {t('characterStudio.history.retry')}
                     </button>}
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
                         {t('characterStudio.variants.backToForm')}
@@ -672,11 +670,13 @@ function CharacterVariantsPageContent() {
                 <div className="cvp-loading">
                     <div className="cvp-loading__spinner" />
                     <p className="cvp-loading__title">
-                        {isCancellationRequested ? 'Отмена запрошена' : t('characterStudio.variants.generatingPortraits')}
+                        {isCancellationRequested
+                          ? t('characterStudio.history.status.cancellationRequested')
+                          : t('characterStudio.variants.generatingPortraits')}
                     </p>
                     <p className="cvp-loading__sub">
                         {isCancellationRequested
-                            ? 'Уже начатая генерация может завершиться, но результат не будет применён.'
+                            ? t('characterStudio.history.cancellationNotice')
                             : t('characterStudio.variants.typicalTime')}
                     </p>
                     {job && typeof job.progress === 'number' && job.progress > 0 && (
@@ -702,9 +702,9 @@ function CharacterVariantsPageContent() {
         return (
             <div className="cvp-page">
                 <div className="cvp-error">
-                    <p className="cvp-error__title">{CANCELLATION_REQUESTED_LABEL}</p>
+                    <p className="cvp-error__title">{t('characterStudio.history.status.cancellationRequested')}</p>
                     <p className="cvp-error__text">
-                        {CANCELLATION_REQUESTED_NOTICE}
+                        {t('characterStudio.history.cancellationNotice')}
                     </p>
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
                         {t('characterStudio.variants.backToForm')}
@@ -775,8 +775,8 @@ function CharacterVariantsPageContent() {
         return (
             <div className="cvp-page">
                 <div className="cvp-error">
-                    <p className="cvp-error__title">Генерация отменена</p>
-                    <p className="cvp-error__text">Можно повторить генерацию из истории.</p>
+                    <p className="cvp-error__title">{t('characterStudio.variants.cancelledTitle')}</p>
+                    <p className="cvp-error__text">{t('characterStudio.variants.cancelledHint')}</p>
                     <button className="cvp-btn-accent" onClick={handleEditParams}>
                         {t('characterStudio.variants.backToForm')}
                     </button>
