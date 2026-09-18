@@ -2,6 +2,7 @@ import api from './http';
 import {
     generatePoster,
     listPosterJobs,
+    POSTER_CLIENT_ERROR_CODES,
     requestPosterJobCancellation,
     retryPosterJob,
 } from './posters';
@@ -30,7 +31,9 @@ test('stops hidden waiting when cancellation has been requested', async () => {
         },
     } as never);
 
-    await expect(generatePoster(42, 'poster prompt')).rejects.toThrow('Отмена запрошена');
+    await expect(generatePoster(42, 'poster prompt')).rejects.toMatchObject({
+        code: POSTER_CLIENT_ERROR_CODES.cancellationRequested,
+    });
     expect(mockedApi.get).not.toHaveBeenCalled();
 });
 

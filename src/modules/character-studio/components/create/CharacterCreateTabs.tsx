@@ -1,6 +1,7 @@
 import React from 'react';
 import {FileTextOutlined, PictureOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
+import {useTranslation} from 'react-i18next';
 import {useProjectIdFromRoute} from '../../hooks/useProjectIdFromRoute';
 
 export type CharacterCreateMode = 'description' | 'reference';
@@ -11,12 +12,13 @@ interface CharacterCreateTabsProps {
 
 export default function CharacterCreateTabs({activeMode = 'description'}: CharacterCreateTabsProps) {
   const navigate = useNavigate();
+  const {t} = useTranslation();
   const projectId = useProjectIdFromRoute();
   const descriptionActive = activeMode === 'description';
   const referenceActive = activeMode === 'reference';
 
   return (
-    <div className="character-create-tabs" role="tablist" aria-label="Режим создания персонажа">
+    <div className="character-create-tabs" role="tablist" aria-label={t('characterStudio.create.modeLabel')}>
       <button
         className={`character-create-tabs__item ${descriptionActive ? 'character-create-tabs__item--active' : ''}`}
         type="button"
@@ -28,7 +30,7 @@ export default function CharacterCreateTabs({activeMode = 'description'}: Charac
         }}
       >
         <FileTextOutlined />
-        Создать по описанию
+        {t('characterStudio.create.byDescription')}
       </button>
       <button
         className={`character-create-tabs__item ${referenceActive ? 'character-create-tabs__item--active' : ''}`}
@@ -41,7 +43,7 @@ export default function CharacterCreateTabs({activeMode = 'description'}: Charac
         }}
       >
         <PictureOutlined />
-        Создать по референсу
+        {t('characterStudio.create.byReference')}
       </button>
     </div>
   );

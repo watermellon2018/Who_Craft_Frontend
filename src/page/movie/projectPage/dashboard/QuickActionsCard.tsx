@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import {
   EnvironmentOutlined,
   PictureOutlined,
@@ -40,13 +41,18 @@ const QuickActionsCard: React.FC<Props> = ({
   videoPreparation,
   videoPreparationLabel,
 }) => {
+  const {t} = useTranslation();
   return (
     <div className="proj-card p-5">
-      <h4 className="text-white text-sm font-semibold mb-3">Быстрые действия</h4>
+      <h4 className="text-white text-sm font-semibold mb-3">{t('project.dashboard.quickActions.title')}</h4>
       <div className="flex flex-col">
         {actions.map((action) => {
           const accent = ACCENT_HEX[action.accent];
           const enabled = Boolean(onAction && isActionEnabled?.(action.key));
+          const label = t(action.label);
+          const accessibleLabel = enabled
+            ? label
+            : t('project.dashboard.quickActions.unavailable', {action: label});
           return (
             <React.Fragment key={action.key}>
               <button
@@ -54,8 +60,8 @@ const QuickActionsCard: React.FC<Props> = ({
                 className="proj-action-row"
                 onClick={enabled ? () => onAction?.(action.key) : undefined}
                 disabled={!enabled}
-                title={enabled ? action.label : `${action.label}: функция пока недоступна`}
-                aria-label={enabled ? action.label : `${action.label}: функция пока недоступна`}
+                title={accessibleLabel}
+                aria-label={accessibleLabel}
               >
                 <span
                   className="proj-action-icon"
@@ -67,7 +73,7 @@ const QuickActionsCard: React.FC<Props> = ({
                   {ICONS[action.iconKey]}
                 </span>
                 <span className="text-white/90 text-sm font-medium flex-1 truncate">
-                  {action.label}
+                  {label}
                 </span>
                 <RightOutlined style={{fontSize: 11, color: 'rgba(255,255,255,0.5)'}} />
               </button>

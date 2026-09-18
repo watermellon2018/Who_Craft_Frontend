@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {useTranslation} from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PathConstants from '../../routes/pathConstant';
@@ -109,6 +110,7 @@ function isDirty(
 }
 
 const ProfileEditPage: React.FC = () => {
+  const {t} = useTranslation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -162,14 +164,14 @@ const ProfileEditPage: React.FC = () => {
         setMedia(mediaState);
         setSavedMedia(mediaState);
       })
-      .catch(() => setErrors({ global: 'Не удалось загрузить профиль. Попробуйте обновить страницу.' }))
+      .catch(() => setErrors({global: t('profile.edit.errors.load')}))
       .finally(() => setIsLoading(false));
 
     return () => {
       // revoke all created object URLs on unmount
       ownedObjectUrls.current.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, []);
+  }, [t]);
 
   const updateDraft = useCallback(<K extends keyof ProfileEditFormState>(
     key: K,
@@ -294,29 +296,29 @@ const ProfileEditPage: React.FC = () => {
       setSaved(committedFormState);
       setMedia(committedMedia);
       setSavedMedia(committedMedia);
-      setSuccessMsg('Изменения сохранены');
+      setSuccessMsg(t('profile.edit.success'));
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         const data = err.response?.data as Record<string, unknown> | undefined;
         if (err.response?.status === 409) {
-          setErrors({ username: 'Это имя пользователя уже занято' });
+          setErrors({username: t('profile.edit.errors.usernameTaken')});
         } else if (err.response?.status === 400 && typeof data?.errors === 'object' && data.errors !== null) {
           const errs = data.errors as Record<string, unknown>;
           if ('interests' in errs) {
-            setErrors({ interests: 'Можно добавить максимум 10 интересов' });
+            setErrors({interests: t('profile.edit.errors.interestsLimit')});
           } else if ('socials' in errs) {
-            setErrors({ socials: 'Одна или несколько ссылок некорректны. Проверьте формат URL (например: https://t.me/username).' });
+            setErrors({socials: t('profile.edit.errors.invalidSocials')});
           } else if ('public_username' in errs) {
-            setErrors({ username: 'Имя пользователя может содержать только строчные латинские буквы, цифры, «-» и «_» (3–32 символа).' });
+            setErrors({username: t('profile.edit.errors.invalidUsername')});
           } else {
-            setErrors({ global: 'Не удалось сохранить. Проверьте введённые данные.' });
+            setErrors({global: t('profile.edit.errors.validation')});
           }
         } else {
-          setErrors({ global: 'Не удалось сохранить. Проверьте данные и попробуйте снова.' });
+          setErrors({global: t('profile.edit.errors.save')});
         }
       } else {
-        setErrors({ global: 'Произошла ошибка. Попробуйте снова.' });
+        setErrors({global: t('profile.edit.errors.generic')});
       }
     } finally {
       setIsSaving(false);
@@ -364,7 +366,7 @@ const ProfileEditPage: React.FC = () => {
                 onClick={() => setSidebarOpen((o) => !o)}
                 className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg text-white/70 hover:text-white hover:bg-white/5 transition-colors"
                 style={{ background: 'transparent', border: 'none' }}
-                aria-label="Открыть меню"
+                aria-label={t('profile.settings.menuAria')}
               >
                 <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none">
                   <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -373,17 +375,17 @@ const ProfileEditPage: React.FC = () => {
               <span className="ml-auto"><NotificationBell /></span>
             </div>
             <div className="mb-6">
-              <h2 className="text-white font-bold text-2xl">Редактирование профиля</h2>
+              <h2 className="text-white font-bold text-2xl">{t('profile.edit.title')}</h2>
               <nav className="text-sm mt-1.5 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => navigate(PathConstants.PROFILE)}
                   className="text-white/60 hover:text-white transition-colors"
                 >
-                  Личный кабинет
+                  {t('common.myProfile')}
                 </button>
                 <span className="text-white/30">›</span>
-                <span className="text-accent">Редактирование профиля</span>
+                <span className="text-accent">{t('profile.edit.title')}</span>
               </nav>
             </div>
 
@@ -401,7 +403,7 @@ const ProfileEditPage: React.FC = () => {
 
             {isLoading ? (
               <div className="flex items-center justify-center py-24">
-                <span className="text-white/50 text-sm">Загрузка профиля…</span>
+                <span className="text-white/50 text-sm">{t('profile.edit.loading')}</span>
               </div>
             ) : viewState ? (
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-5 items-start">
@@ -460,7 +462,9 @@ const ProfileEditPage: React.FC = () => {
               disabled={isSaving || isLoading || !draft}
               className="inline-flex items-center gap-2 bg-accent text-[#13151a] text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-[#fcc419] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSaving ? '⏳ Сохранение…' : '💾 Сохранить изменения'}
+              {isSaving
+                ? `⏳ ${t('profile.edit.actions.saving')}`
+                : `💾 ${t('profile.edit.actions.save')}`}
             </button>
             <button
               type="button"
@@ -469,7 +473,8 @@ const ProfileEditPage: React.FC = () => {
               className="inline-flex items-center gap-2 bg-[#262a32] hover:bg-[#2f343d] text-sm font-medium px-4 py-2.5 rounded-xl border border-white/15 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-colors disabled:opacity-50"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             >
-              <span style={{ color: 'rgba(255,255,255,0.92)' }}>✕</span> Отмена
+              <span style={{ color: 'rgba(255,255,255,0.92)' }}>✕</span>{' '}
+              {t('profile.edit.actions.cancel')}
             </button>
             <button
               type="button"
@@ -478,11 +483,11 @@ const ProfileEditPage: React.FC = () => {
               className="inline-flex items-center gap-2 bg-[#262a32] hover:bg-[#2f343d] text-sm font-medium px-4 py-2.5 rounded-xl border border-white/15 hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent/50 transition-colors disabled:opacity-50"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             >
-              ← В кабинет
+              ← {t('profile.edit.actions.back')}
             </button>
             {dirty && (
               <span className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                Есть несохранённые изменения
+                {t('profile.edit.unsaved')}
               </span>
             )}
           </div>

@@ -1,7 +1,8 @@
 import React from 'react';
-import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 
 import * as postersApi from '../../../api/posters';
+import i18n from '../../../i18n';
 import PosterJobHistory from './PosterJobHistory';
 
 jest.mock('../../../api/posters');
@@ -53,4 +54,25 @@ test('does not offer cancellation after poster processing starts', async () => {
 
     expect(await screen.findByText('Генерация уже запущена, отменить её нельзя.')).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Отменить генерацию'})).not.toBeInTheDocument();
+});
+
+test('updates status copy when the interface language changes', async () => {
+    mockedApi.listPosterJobs.mockResolvedValue({
+        data: {jobs: [{id: 10, status: 'processing'}]},
+    } as never);
+
+    render(<PosterJobHistory projectId="42" onVariantReady={jest.fn()} />);
+
+    expect(await screen.findByText('В работе')).toBeInTheDocument();
+
+    await act(async () => {
+        await i18n.changeLanguage('en');
+    });
+
+    expect(screen.getByText('In progress')).toBeInTheDocument();
+    expect(screen.getByText('Generation has already started and cannot be cancelled.')).toBeInTheDocument();
+
+    await act(async () => {
+        await i18n.changeLanguage('ru');
+    });
 });

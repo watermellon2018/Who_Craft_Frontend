@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import { Channel } from '../types';
 import { CRAFT_ACCENT, CRAFT_ACCENT_SECONDARY } from '../../../constants/theme';
 
@@ -32,6 +33,7 @@ const StarIcon = () => (
 );
 
 const ChannelRow: React.FC<Props> = ({ channel, isDropdownOpen, onToggleDropdown, onSubscribe, onUnsubscribe }) => {
+  const {t} = useTranslation();
   const avatarGradient = AVATAR_GRADIENTS[channel.avatarFallback] ?? 'linear-gradient(135deg, #374151, #1F2937)';
 
   return (
@@ -78,7 +80,9 @@ const ChannelRow: React.FC<Props> = ({ channel, isDropdownOpen, onToggleDropdown
       {/* Subscribers */}
       <div className="hidden md:block flex-shrink-0 text-xs text-right" style={{ color: 'rgba(255,255,255,0.40)', minWidth: '80px' }}>
         {channel.subscribers}
-        <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '10px', marginTop: '2px' }}>подписчиков</div>
+        <div style={{ color: 'rgba(255,255,255,0.22)', fontSize: '10px', marginTop: '2px' }}>
+          {t('subscriptions.channel.subscribers')}
+        </div>
       </div>
 
       {/* Action */}
@@ -103,7 +107,7 @@ const ChannelRow: React.FC<Props> = ({ channel, isDropdownOpen, onToggleDropdown
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-              Подписан
+              {t('subscriptions.channel.subscribed')}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="m6 9 6 6 6-6" />
               </svg>
@@ -136,7 +140,7 @@ const ChannelRow: React.FC<Props> = ({ channel, isDropdownOpen, onToggleDropdown
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(239,68,68,0.85)'; }}
                   onClick={() => onUnsubscribe(channel.id)}
                 >
-                  Отписаться
+                  {t('subscriptions.channel.unsubscribe')}
                 </button>
               </div>
             )}
@@ -156,7 +160,7 @@ const ChannelRow: React.FC<Props> = ({ channel, isDropdownOpen, onToggleDropdown
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#fcc419'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = CRAFT_ACCENT; }}
           >
-            Подписаться
+            {t('subscriptions.channel.subscribe')}
           </button>
         )}
       </div>

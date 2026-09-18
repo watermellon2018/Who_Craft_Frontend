@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {message} from 'antd';
+import {useTranslation} from 'react-i18next';
 import {backendAssetUrl} from '../../../api/http';
 import {useNavigate, useParams} from 'react-router-dom';
 import {useUnsavedChangesGuard} from '../../../utils/useUnsavedChangesGuard';
@@ -20,7 +21,6 @@ import {
 } from '../components/character3d/zones';
 import type {EditableZone, ZoneGroup} from '../components/character3d/zones';
 
-const MOCK_CHARACTER_NAME = 'Персонаж';
 import {characterApi} from '../api/characterApi';
 import type {GenerationJob, Model3DReconstruction} from '../types/character.types';
 import {collapseSideOverrides, mergeSavedParams} from '../components/character3d/engine/paramMerge';
@@ -61,6 +61,7 @@ const Character3DEditorPage: React.FC = () => {
 };
 
 const Character3DEditorPageContent: React.FC = () => {
+  const {t} = useTranslation();
   const navigate = useNavigate();
   const params = useParams();
   const projectId = useProjectIdFromRoute();
@@ -199,7 +200,7 @@ const Character3DEditorPageContent: React.FC = () => {
             job_id: null,
             asset_id: null,
             model_url: null,
-            error_message: 'Не удалось получить статус 3D-реконструкции.',
+            error_message: '',
           });
         }
       });
@@ -336,8 +337,8 @@ const Character3DEditorPageContent: React.FC = () => {
 
   const handleApply = useCallback(() => {
     setCancelBaseline(zoneParams);
-    message.success('Изменения применены');
-  }, [zoneParams]);
+    message.success(t('characterStudio3d.messages.changesApplied'));
+  }, [t, zoneParams]);
 
   // ─── Snapshot / export ───
   const exportName = useCallback(
@@ -348,8 +349,8 @@ const Character3DEditorPageContent: React.FC = () => {
   const handleSnapshot = useCallback(() => {
     if (!viewportApi) return;
     downloadUrl(viewportApi.snapshotPng(), exportName('png'));
-    message.success('Снимок сохранён');
-  }, [viewportApi, exportName]);
+    message.success(t('characterStudio3d.messages.snapshotSaved'));
+  }, [exportName, t, viewportApi]);
 
   const handleExportGlb = useCallback(() => {
     if (!viewportApi) return;
@@ -359,10 +360,10 @@ const Character3DEditorPageContent: React.FC = () => {
         const url = URL.createObjectURL(blob);
         downloadUrl(url, exportName('glb'));
         URL.revokeObjectURL(url);
-        message.success('Модель экспортирована в GLB');
+        message.success(t('characterStudio3d.messages.glbExported'));
       })
-      .catch(() => message.error('Не удалось экспортировать модель'));
-  }, [viewportApi, exportName]);
+      .catch(() => message.error(t('characterStudio3d.messages.glbExportFailed')));
+  }, [exportName, t, viewportApi]);
 
   // ─── Camera presets / turntable ───
   // Snapping to a reference angle stops the turntable, mirroring the viewport:
@@ -414,7 +415,7 @@ const Character3DEditorPageContent: React.FC = () => {
 
   const handleSave = useCallback(() => {
     if (!projectId || !characterId || modelLoadState !== 'ready') {
-      message.error('Сохранение недоступно, пока модель текущего персонажа не загружена');
+      message.error(t('characterStudio3d.messages.saveUnavailable'));
       return;
     }
     const savedParams = zoneParams;
@@ -424,14 +425,14 @@ const Character3DEditorPageContent: React.FC = () => {
         if (!pageActiveRef.current) return;
         setCancelBaseline(savedParams);
         setSavedBaseline(savedParams);
-        message.success('Модель сохранена');
+        message.success(t('characterStudio3d.messages.modelSaved'));
       })
       .catch(() => {
         if (pageActiveRef.current) {
-          message.error('Не удалось сохранить модель — попробуйте ещё раз');
+          message.error(t('characterStudio3d.messages.modelSaveFailed'));
         }
       });
-  }, [projectId, characterId, modelLoadState, zoneParams]);
+  }, [characterId, modelLoadState, projectId, t, zoneParams]);
 
   // ─── Esc clears selection ───
   useEffect(() => {
@@ -458,12 +459,14 @@ const Character3DEditorPageContent: React.FC = () => {
         if (pageActiveRef.current) setReconstruction(response.data.reconstruction);
       })
       .catch(() => {
-        if (pageActiveRef.current) message.error('Не удалось перезапустить 3D-реконструкцию');
+        if (pageActiveRef.current) {
+          message.error(t('characterStudio3d.messages.reconstructionRetryFailed'));
+        }
       })
       .finally(() => {
         if (pageActiveRef.current) setReconstructionRetryBusy(false);
       });
-  }, [projectId, characterId, reconstructionRetryBusy]);
+  }, [characterId, projectId, reconstructionRetryBusy, t]);
 
 
   const reconstructionGenerationJob = useMemo<GenerationJob | null>(() => {
@@ -500,7 +503,7 @@ const Character3DEditorPageContent: React.FC = () => {
       error_message: '',
     }));
   }, [reconstruction?.job_id]);
-  const characterName = character?.name || MOCK_CHARACTER_NAME;
+  const characterName = character?.name || t('characterStudio3d.defaultCharacterName');
   const reconstructedHeadUrl =
     reconstruction?.status === 'ready' && reconstruction.model_url
       ? versionedAssetUrl(reconstruction.model_url, reconstruction.asset_id)
@@ -560,7 +563,6 @@ const Character3DEditorPageContent: React.FC = () => {
             reconstructedHairUrl={reconstructedHairUrl}
             reconstructionStatus={reconstruction?.status}
             reconstructionProgress={reconstruction?.progress ?? 0}
-            reconstructionError={reconstruction?.error_message}
             reconstructionRetryBusy={reconstructionRetryBusy}
             onRetryReconstruction={handleRetryReconstruction}
           />

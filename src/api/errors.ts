@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+import i18n from '../i18n';
 import type {ApiErrorEnvelope} from './generated/contracts';
 
 const FALLBACK_CODE = 'API_ERROR';
@@ -63,8 +64,16 @@ export function getApiErrorCode(error: unknown): string | null {
 }
 
 export function getApiErrorMessage(error: unknown, fallback: string): string {
-  return getApiErrorEnvelope(error)?.error.message
-    ?? (error instanceof Error ? error.message : fallback);
+  const message = getApiErrorEnvelope(error)?.error.message
+    ?? (error instanceof Error ? error.message : null);
+  if (!message) return fallback;
+
+  const language = (i18n.resolvedLanguage || i18n.language || '').split('-')[0];
+  const hasCyrillic = /[А-Яа-яЁё]/.test(message);
+  const hasLatin = /[A-Za-z]/.test(message);
+  if (language === 'en' && hasCyrillic) return fallback;
+  if (language === 'ru' && hasLatin && !hasCyrillic) return fallback;
+  return message;
 }
 
 export function getApiStatus(error: unknown): number | null {

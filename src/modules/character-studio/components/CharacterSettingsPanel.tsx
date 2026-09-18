@@ -1,5 +1,6 @@
 import React from 'react';
 import {ColorPicker} from 'antd';
+import {useTranslation} from 'react-i18next';
 import {CharacterRegion} from '../types/character.types';
 import BodyControls from './BodyControls';
 import HairControls from './HairControls';
@@ -17,6 +18,7 @@ const SKIN_PRESETS = [
 ];
 
 export default function CharacterSettingsPanel({region, controls, onControlsChange, textRefinement, onTextRefinementChange}: {region: CharacterRegion; controls: Record<string, unknown>; onControlsChange: (value: Record<string, unknown>) => void; textRefinement: string; onTextRefinementChange: (value: string) => void}) {
+  const {t} = useTranslation();
   const control = region === 'face'
     ? <FaceEditorControls value={controls} onChange={onControlsChange} />
     : region === 'hair'
@@ -30,8 +32,8 @@ export default function CharacterSettingsPanel({region, controls, onControlsChan
   return (
     <div className="character-settings-panel">
       <div className="character-settings-panel__header">
-        <p>Контекстная панель</p>
-        <h2>Настройки: {regionLabel(region)}</h2>
+        <p>{t('characterStudio.editor.scenePanel.eyebrow')}</p>
+        <h2>{t('characterStudio.controls.settingsTitle', {region: t(`characterStudio.revisions.${region === 'full_character' ? 'fullCharacter' : region}`)})}</h2>
       </div>
       <div className="character-settings-panel__body">
         {control}
@@ -43,19 +45,8 @@ export default function CharacterSettingsPanel({region, controls, onControlsChan
   );
 }
 
-function regionLabel(region: CharacterRegion) {
-  const labels: Record<CharacterRegion, string> = {
-    face: 'Лицо',
-    hair: 'Волосы',
-    body: 'Тело',
-    outfit: 'Одежда',
-    style: 'Визуальный стиль',
-    full_character: 'Характер',
-  };
-  return labels[region];
-}
-
 function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void}) {
+  const {t} = useTranslation();
   const update = (key: string, nextValue: unknown) => onChange({...value, [key]: nextValue});
   const age = typeof value.age === 'number' ? value.age : undefined;
   const rawGender = value.gender as string | undefined;
@@ -68,13 +59,15 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
   return (
     <div className="face-editor-controls">
       <section className="character-settings-section character-settings-section--primary">
-        <h3>Основное</h3>
+        <h3>{t('characterStudio.editor.bodyPanel.mainSection')}</h3>
         <div className="character-control-row">
           <div>
-            <span className="character-control-label">Возраст</span>
-            <small>Базовый возраст персонажа</small>
+            <span className="character-control-label">{t('characterStudio.create.basicInfo.age')}</span>
+            <small>{t('characterStudio.controls.baseAge')}</small>
           </div>
-          <strong>{typeof age === 'number' ? `${age} лет` : 'Не задан'}</strong>
+          <strong>{typeof age === 'number'
+            ? t('characterStudio.controls.ageYears', {count: age})
+            : t('characterStudio.controls.notSet')}</strong>
         </div>
         <input
           type="range"
@@ -87,11 +80,11 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
 
         {showGenderField && (
           <div className="character-control-block">
-            <span className="character-control-label">Пол</span>
+            <span className="character-control-label">{t('characterStudio.create.basicInfo.gender')}</span>
             <div className="character-segmented">
               {[
-                ['male', 'Мужской'],
-                ['female', 'Женский'],
+                ['male', t('characterStudio.options.gender.male')],
+                ['female', t('characterStudio.options.gender.female')],
               ].map(([key, label]) => (
                 <button
                   key={key}
@@ -107,7 +100,7 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
         )}
 
         <div className="character-control-block">
-          <span className="character-control-label">Цвет кожи</span>
+          <span className="character-control-label">{t('characterStudio.controls.skinTone')}</span>
           <div className="skin-tone-palette">
             {SKIN_PRESETS.map(({key, color}) => (
               <button
@@ -116,7 +109,7 @@ function FaceEditorControls({value, onChange}: {value: Record<string, unknown>; 
                 className={skinTone === key ? 'is-active' : ''}
                 style={{backgroundColor: color}}
                 onClick={() => update('skin_tone', key)}
-                aria-label={`Цвет кожи ${key}`}
+                aria-label={t('characterStudio.controls.skinToneOption', {key})}
               />
             ))}
             <ColorPicker

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRightOutlined, PlusOutlined } from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 
 import type { CharacterMock } from './mocks';
 
@@ -9,8 +10,11 @@ interface CharacterCardProps {
 }
 
 const CharacterCard: React.FC<CharacterCardProps> = ({ character, onClick }) => {
+  const {t} = useTranslation();
   const interactive = Boolean(onClick);
   const handleActivate = () => onClick?.(character.id);
+  const role = character.role.startsWith('project.') ? t(character.role) : character.role;
+  const tag = character.tag.startsWith('project.') ? t(character.tag) : character.tag;
   return (
     <div
       className={`proj-card overflow-hidden flex flex-col character-card${interactive ? ' character-card--interactive' : ''}`}
@@ -27,7 +31,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onClick }) => 
       }
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
-      aria-label={interactive ? `Открыть персонажа: ${character.name}` : undefined}
+      aria-label={interactive ? t('project.dashboard.characters.open', {name: character.name}) : undefined}
     >
       <div
         className="relative w-full aspect-[3/4] flex items-center justify-center overflow-hidden"
@@ -55,7 +59,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onClick }) => 
               border: '1px solid rgba(250, 176, 5, 0.35)',
             }}
           >
-            Главная
+            {t('project.dashboard.characters.main')}
           </span>
         )}
       </div>
@@ -63,8 +67,8 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ character, onClick }) => 
         <div className="text-white text-sm font-semibold leading-tight truncate">
           {character.name}
         </div>
-        <div className="text-white/70 text-xs mt-1 truncate">{character.role}</div>
-        <div className="text-white/50 text-[11px] mt-2">{character.tag}</div>
+        <div className="text-white/70 text-xs mt-1 truncate">{role}</div>
+        <div className="text-white/50 text-[11px] mt-2">{tag}</div>
       </div>
     </div>
   );
@@ -78,17 +82,18 @@ interface Props {
 }
 
 const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterClick, onViewAll }) => {
+  const {t} = useTranslation();
   return (
     <section className="proj-card p-5 sm:p-6">
       <div className="proj-section-header">
-        <h3 className="proj-section-title">Персонажи</h3>
+        <h3 className="proj-section-title">{t('project.dashboard.characters.title')}</h3>
         <button
           type="button"
           className="proj-btn proj-btn-secondary"
           onClick={onViewAll}
-          aria-label="Смотреть все"
+          aria-label={t('project.common.viewAll')}
         >
-          Смотреть все
+          {t('project.common.viewAll')}
           <ArrowRightOutlined />
         </button>
       </div>
@@ -97,7 +102,7 @@ const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterC
           type="button"
           className="proj-create-card"
           onClick={onCreate}
-          aria-label="Создать персонажа"
+          aria-label={t('project.dashboard.characters.create')}
         >
           <span
             className="w-10 h-10 rounded-full flex items-center justify-center"
@@ -108,7 +113,7 @@ const CharactersSection: React.FC<Props> = ({ characters, onCreate, onCharacterC
           >
             <PlusOutlined style={{ fontSize: 18 }} />
           </span>
-          <span className="text-sm font-medium">Создать персонажа</span>
+          <span className="text-sm font-medium">{t('project.dashboard.characters.create')}</span>
         </button>
         {characters.map((c) => (
           <CharacterCard key={c.id} character={c} onClick={onCharacterClick} />

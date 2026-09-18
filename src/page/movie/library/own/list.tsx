@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Card, message } from 'antd';
+import {useTranslation} from 'react-i18next';
 import withAuth from '../../../../utils/auth/check_auth';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -17,6 +18,7 @@ import ProjectCardBadges from './ProjectCardBadges';
 import InvitationsBlock from './InvitationsBlock';
 
 export const ProjectListPage = () => {
+  const {t} = useTranslation();
   const [projectsList, setProjectList] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -44,12 +46,12 @@ export const ProjectListPage = () => {
     try {
       await deleteProjectById(id);
       setProjectList((prev) => prev.filter((p) => p.id !== id));
-      message.success('Проект удалён');
+      message.success(t('project.list.notifications.deleted'));
     } catch (requestError: unknown) {
       if (getApiStatus(requestError) === 403) {
-        message.error('Удалить проект может только владелец');
+        message.error(t('project.list.errors.ownerDeleteOnly'));
       } else {
-        message.error('Не удалось удалить проект');
+        message.error(t('project.list.errors.delete'));
       }
     }
   };
@@ -93,11 +95,11 @@ export const ProjectListPage = () => {
                   <button
                     type="button"
                     className="project-card-placeholder"
-                    aria-label={`Открыть проект «${project.title}»`}
+                    aria-label={t('project.list.openProject', {title: project.title})}
                     onClick={() => handleClickCard(project.id)}
                   >
                     <span className="project-card-placeholder-icon" aria-hidden="true">+</span>
-                    <span>Обложка проекта</span>
+                    <span>{t('project.list.cover')}</span>
                   </button>
                 )}
                 {/* Owner-only quick actions. Non-owners can't edit/delete the
@@ -139,17 +141,17 @@ export const ProjectListPage = () => {
         {loading && (
           <div className="projects-state" role="status">
             <span className="projects-state-spinner" aria-hidden="true" />
-            <h2>Загружаем проекты…</h2>
-            <p>Это займёт всего несколько секунд.</p>
+            <h2>{t('project.list.loading.title')}</h2>
+            <p>{t('project.list.loading.description')}</p>
           </div>
         )}
 
         {!loading && loadError && (
           <div className="projects-state projects-state-error" role="alert">
-            <h2>Не удалось загрузить проекты</h2>
-            <p>Проверьте подключение и попробуйте ещё раз.</p>
+            <h2>{t('project.list.errors.loadTitle')}</h2>
+            <p>{t('project.list.errors.loadDescription')}</p>
             <button type="button" className="projects-retry-button" onClick={loadProjects}>
-              Повторить
+              {t('project.common.retry')}
             </button>
           </div>
         )}
@@ -157,18 +159,18 @@ export const ProjectListPage = () => {
         {!loading && !loadError && projectsList.length === 0 && (
           <div className="projects-state projects-state-empty">
             <span className="projects-empty-icon" aria-hidden="true">+</span>
-            <h2>У вас пока нет проектов</h2>
-            <p>Создайте первый проект, и он появится в этой библиотеке.</p>
+            <h2>{t('project.list.empty.title')}</h2>
+            <p>{t('project.list.empty.description')}</p>
           </div>
         )}
 
         {!loading && !loadError && projectsList.length > 0 && (
           <>
-            <section className="projects-active-section" aria-label="Активные проекты">
+            <section className="projects-active-section" aria-label={t('project.list.active.ariaLabel')}>
               {activeProjects.length > 0 ? renderProjectCards(activeProjects) : (
                 <div className="projects-state projects-state-empty">
-                  <h2>Активных проектов пока нет</h2>
-                  <p>Архивные проекты доступны в разделе ниже.</p>
+                  <h2>{t('project.list.active.emptyTitle')}</h2>
+                  <p>{t('project.list.active.emptyDescription')}</p>
                 </div>
               )}
             </section>
@@ -176,10 +178,10 @@ export const ProjectListPage = () => {
             {archivedProjects.length > 0 && (
               <details className="archived-projects">
                 <summary className="archived-projects-summary">
-                  <span>Архивные проекты</span>
+                  <span>{t('project.list.archived.title')}</span>
                   <span
                     className="archived-projects-count"
-                    aria-label={`Архивных проектов: ${archivedProjects.length}`}
+                    aria-label={t('project.list.archived.count', {count: archivedProjects.length})}
                   >
                     {archivedProjects.length}
                   </span>

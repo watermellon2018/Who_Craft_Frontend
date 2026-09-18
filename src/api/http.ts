@@ -1,6 +1,8 @@
 import type { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import axios from 'axios';
 
+import i18n from '../i18n';
+
 /** Shared API client with X-User-Token access-token authentication. */
 
 const rawBackend = process.env.REACT_APP_BACKEND_URL || '';
@@ -214,6 +216,10 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     }
     if (token) {
         config.headers.set('X-User-Token', token);
+    }
+    const language = i18n.resolvedLanguage || i18n.language;
+    if (language) {
+        config.headers.set('Accept-Language', language);
     }
     return config;
 });

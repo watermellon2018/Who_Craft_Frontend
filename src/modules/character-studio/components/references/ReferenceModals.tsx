@@ -2,7 +2,7 @@ import React, {useRef, useState} from 'react';
 import {Button, Input, Modal, message} from 'antd';
 import {useTranslation} from 'react-i18next';
 import {CharacterReference, ReferenceType} from '../../types/character.types';
-import {REFERENCE_LABELS} from './referenceLabels';
+import {REFERENCE_LABEL_KEYS} from './referenceLabels';
 
 const ACCEPTED_MIME = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
@@ -42,9 +42,9 @@ export const ReferenceCorrectionModal: React.FC<{
       open={open}
       title={(
         <div>
-          <div style={{fontWeight: 800}}>Исправить выбранный ракурс</div>
+          <div style={{fontWeight: 800}}>{t('characterStudio.references.correctionTitle')}</div>
           <div style={{marginTop: 4, fontSize: 12, color: '#8f98a7', fontWeight: 600}}>
-            {REFERENCE_LABELS[reference.reference_type].title}
+            {t(REFERENCE_LABEL_KEYS[reference.reference_type].title)}
           </div>
         </div>
       )}
@@ -58,7 +58,7 @@ export const ReferenceCorrectionModal: React.FC<{
           onClick={onCancel}
           disabled={submitting}
         >
-          Отмена
+          {t('characterStudio.editor.cancelButton')}
         </Button>,
         <Button
           key="submit"
@@ -66,12 +66,12 @@ export const ReferenceCorrectionModal: React.FC<{
           loading={submitting}
           onClick={handleSubmit}
         >
-          Сгенерировать исправление
+          {t('characterStudio.references.generateCorrection')}
         </Button>,
       ]}
     >
       <p style={{marginTop: 0, color: '#8f98a7'}}>
-        Описание сохранит идентичность персонажа и будет применено только к этому ракурсу.
+        {t('characterStudio.references.correctionHint')}
       </p>
       <Input.TextArea
         autoFocus
@@ -79,7 +79,7 @@ export const ReferenceCorrectionModal: React.FC<{
         value={value}
         maxLength={500}
         onChange={(event) => setValue(event.target.value)}
-        placeholder="Например: на виде сбоку лицо стало другим, сохрани идентичность и исправь профиль"
+        placeholder={t('characterStudio.references.correctionPlaceholder')}
       />
     </Modal>
   );
@@ -143,7 +143,7 @@ export const ReferenceUploadModal: React.FC<{
   return (
     <Modal
       open={open}
-      title={`Заменить «${REFERENCE_LABELS[referenceType].title}»`}
+      title={t('characterStudio.references.uploadTitle', {label: t(REFERENCE_LABEL_KEYS[referenceType].title)})}
       onCancel={onCancel}
       destroyOnClose
       centered
@@ -154,7 +154,7 @@ export const ReferenceUploadModal: React.FC<{
           onClick={onCancel}
           disabled={submitting}
         >
-          Отмена
+          {t('characterStudio.editor.cancelButton')}
         </Button>,
         <Button
           key="submit"
@@ -163,7 +163,7 @@ export const ReferenceUploadModal: React.FC<{
           disabled={!file}
           onClick={handleSubmit}
         >
-          Заменить
+          {t('characterStudio.references.replaceButton')}
         </Button>,
       ]}
     >
@@ -193,11 +193,11 @@ export const ReferenceUploadModal: React.FC<{
         }}
       >
         {previewUrl ? (
-          <img src={previewUrl} alt="Превью" className="references-drop__preview" />
+          <img src={previewUrl} alt={t('characterStudio.references.previewAlt')} className="references-drop__preview" />
         ) : (
           <div className="references-drop__hint">
-            Перетащите изображение сюда или нажмите, чтобы выбрать.<br />
-            Поддерживаются PNG, JPG и WebP до 10 МБ.
+            {t('characterStudio.references.uploadHint')}<br />
+            {t('characterStudio.references.uploadFormats')}
           </div>
         )}
       </div>
@@ -213,10 +213,11 @@ export const CompareReferenceModal: React.FC<{
   selected: CharacterReference;
   onCancel: () => void;
 }> = ({open, primary, selected, onCancel}) => {
+  const {t} = useTranslation();
   return (
     <Modal
       open={open}
-      title="Сравнение референсов"
+      title={t('characterStudio.references.compareTitle')}
       onCancel={onCancel}
       destroyOnClose
       centered
@@ -227,27 +228,27 @@ export const CompareReferenceModal: React.FC<{
           className="character-editor-button character-editor-button--primary"
           onClick={onCancel}
         >
-          Закрыть
+          {t('characterStudio.references.fullscreenClose')}
         </Button>,
       ]}
     >
       <div className="references-compare">
         <div className="references-compare__pane">
-          <div className="references-compare__caption">Основной референс</div>
+          <div className="references-compare__caption">{t('characterStudio.references.primaryLabel')}</div>
           {primary?.image_url ? (
-            <img src={primary.image_url} alt="Основной" />
+            <img src={primary.image_url} alt={t('characterStudio.references.primaryLabel')} />
           ) : (
-            <div className="references-compare__empty">Основной референс не выбран.</div>
+            <div className="references-compare__empty">{t('characterStudio.references.primaryEmpty')}</div>
           )}
         </div>
         <div className="references-compare__pane">
           <div className="references-compare__caption">
-            Выбранный ракурс — {REFERENCE_LABELS[selected.reference_type].title}
+            {t('characterStudio.references.selectedLabel', {label: t(REFERENCE_LABEL_KEYS[selected.reference_type].title)})}
           </div>
           {selected.image_url ? (
-            <img src={selected.image_url} alt="Выбранный" />
+            <img src={selected.image_url} alt={t('characterStudio.references.selectedAlt')} />
           ) : (
-            <div className="references-compare__empty">Изображение ещё не готово.</div>
+            <div className="references-compare__empty">{t('characterStudio.references.imageNotReady')}</div>
           )}
         </div>
       </div>
@@ -262,6 +263,7 @@ export const FullscreenReferenceModal: React.FC<{
   reference: CharacterReference;
   onCancel: () => void;
 }> = ({open, reference, onCancel}) => {
+  const {t} = useTranslation();
   // Cap by the viewport so the image always fits without page scrolling:
   //   - 100vw minus modal horizontal padding for width
   //   - 100vh minus header / footer / padding for height
@@ -274,7 +276,7 @@ export const FullscreenReferenceModal: React.FC<{
       centered
       width="auto"
       footer={null}
-      title={REFERENCE_LABELS[reference.reference_type].title}
+      title={t(REFERENCE_LABEL_KEYS[reference.reference_type].title)}
       styles={{
         body: {
           padding: 0,
@@ -290,7 +292,7 @@ export const FullscreenReferenceModal: React.FC<{
       {reference.image_url ? (
         <img
           src={reference.image_url}
-          alt={REFERENCE_LABELS[reference.reference_type].title}
+          alt={t(REFERENCE_LABEL_KEYS[reference.reference_type].title)}
           style={{
             display: 'block',
             maxWidth: 'calc(100vw - 80px)',
@@ -303,7 +305,7 @@ export const FullscreenReferenceModal: React.FC<{
         />
       ) : (
         <div style={{padding: 40, textAlign: 'center', color: '#8f98a7'}}>
-          Изображение ещё не готово.
+          {t('characterStudio.references.imageNotReady')}
         </div>
       )}
     </Modal>

@@ -38,6 +38,16 @@ requires the current password and is unavailable while the user owns projects;
 owned projects must first be transferred or deleted. Successful deletion is
 irreversible and signs the user out after the backend removes profile data and
 anonymizes the core account; project activity history is retained.
+
+The interface supports Russian and English. Public pages use the browser or the
+last locally selected language. On every protected app session the client loads
+the authenticated profile setting and applies it across all routes, updates the
+document language for assistive technology, and sends the active locale in the
+`Accept-Language` request header. Changing the interface language in profile
+settings persists it on the server and in the current browser; if profile
+settings are temporarily unavailable, the locally selected language remains in
+effect. User-authored project content is never translated automatically.
+
 Blue is the default. The selected theme value is stored as
 `craft.theme` in the current browser and is applied before React renders, so it
 survives reloads without requiring backend configuration. Theme choice is not

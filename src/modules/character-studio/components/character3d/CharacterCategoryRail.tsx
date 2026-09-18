@@ -1,23 +1,26 @@
 import React from 'react';
-import {ZoneGroup} from './zones';
+import {useTranslation} from 'react-i18next';
+import type {ZoneGroup} from './zones';
 
 interface Props {
   active: ZoneGroup | null;
   onSelect: (group: ZoneGroup) => void;
 }
 
-const CATEGORIES: Array<{key: ZoneGroup; label: string; icon: React.ReactNode}> = [
-  {key: 'body', label: 'Тело', icon: <BodyIcon />},
-  {key: 'face', label: 'Лицо', icon: <FaceIcon />},
-  {key: 'hair', label: 'Волосы', icon: <HairIcon />},
-  {key: 'skin', label: 'Кожа', icon: <SkinIcon />},
-  {key: 'clothing', label: 'Одежда', icon: <ClothingIcon />},
-  {key: 'pose', label: 'Поза', icon: <PoseIcon />},
+const CATEGORIES: Array<{key: ZoneGroup; translationKey: string; icon: React.ReactNode}> = [
+  {key: 'body', translationKey: 'characterStudio3d.zones.body', icon: <BodyIcon />},
+  {key: 'face', translationKey: 'characterStudio3d.zones.face', icon: <FaceIcon />},
+  {key: 'hair', translationKey: 'characterStudio3d.zones.hair', icon: <HairIcon />},
+  {key: 'skin', translationKey: 'characterStudio3d.zones.skin', icon: <SkinIcon />},
+  {key: 'clothing', translationKey: 'characterStudio3d.zones.clothing', icon: <ClothingIcon />},
+  {key: 'pose', translationKey: 'characterStudio3d.zones.pose', icon: <PoseIcon />},
 ];
 
 const CharacterCategoryRail: React.FC<Props> = ({active, onSelect}) => {
+  const {t} = useTranslation();
+
   return (
-    <nav className="c3d-rail" aria-label="Категории редактора">
+    <nav className="c3d-rail" aria-label={t('characterStudio3d.categoryRail.label')}>
       <div className="c3d-rail__inner">
         {CATEGORIES.map((category) => {
           const isActive = active === category.key;
@@ -30,7 +33,7 @@ const CharacterCategoryRail: React.FC<Props> = ({active, onSelect}) => {
               aria-pressed={isActive}
             >
               <span className="c3d-rail__icon">{category.icon}</span>
-              <span className="c3d-rail__label">{category.label}</span>
+              <span className="c3d-rail__label">{t(category.translationKey)}</span>
               {isActive ? <span className="c3d-rail__bar" /> : null}
             </button>
           );

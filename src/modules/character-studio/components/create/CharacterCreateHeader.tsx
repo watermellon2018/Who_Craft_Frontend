@@ -2,6 +2,7 @@ import React from 'react';
 import {Button} from 'antd';
 import {ArrowLeftOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
+import {useTranslation} from 'react-i18next';
 import CharacterCreateTabs, {CharacterCreateMode} from './CharacterCreateTabs';
 import {useProjectIdFromRoute} from '../../hooks/useProjectIdFromRoute';
 
@@ -12,6 +13,7 @@ interface CharacterCreateHeaderProps {
 
 export default function CharacterCreateHeader({activeMode, subtitle}: CharacterCreateHeaderProps) {
   const navigate = useNavigate();
+  const {t} = useTranslation();
   const projectId = useProjectIdFromRoute();
 
   return (
@@ -23,10 +25,10 @@ export default function CharacterCreateHeader({activeMode, subtitle}: CharacterC
           icon={<ArrowLeftOutlined />}
           onClick={() => navigate(`/project/${projectId}/characters`)}
         >
-          Назад
+          {t('characterStudio.editor.back')}
         </Button>
-        <p className="character-create-eyebrow">Студия персонажей</p>
-        <h1>Создание персонажа</h1>
+        <p className="character-create-eyebrow">{t('characterStudio.create.studio')}</p>
+        <h1>{t('characterStudio.create.title')}</h1>
         <p className="character-create-hero__subtitle">{subtitle}</p>
       </div>
       <CharacterCreateTabs activeMode={activeMode} />

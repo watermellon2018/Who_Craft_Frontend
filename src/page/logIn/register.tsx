@@ -17,7 +17,6 @@ import {
 import './login.css';
 import './registration.css';
 import {register} from '../../api/auth/register';
-import {getApiErrorMessage} from '../../api/errors';
 import PathConstants from '../../routes/pathConstant';
 
 interface RegistrationValues {
@@ -40,27 +39,29 @@ const FeatureItem: React.FC<FeatureItemProps> = ({ icon, title }) => (
     </li>
 );
 
-const PromoPanel: React.FC = () => (
-    <aside className="wc-login__promo">
-        <div className="wc-login__promo-glow" aria-hidden />
-        <div className="wc-login__promo-content">
-            <span className="wc-login__promo-tag">AI Studio</span>
-            <h2 className="wc-login__promo-title">
-                Начните создавать
-                <br />
-                <span className="wc-login__promo-accent">фильмы будущего</span>
-            </h2>
-            <p className="wc-login__promo-desc">
-                Создавайте сцены, персонажей и истории в единой AI-студии.
-            </p>
-            <ul className="wc-login__features">
-                <FeatureItem icon={<ThunderboltOutlined />} title="AI-генерация сцен" />
-                <FeatureItem icon={<UserOutlined />} title="Уникальные персонажи" />
-                <FeatureItem icon={<PlayCircleOutlined />} title="Полный творческий контроль" />
-            </ul>
-        </div>
-    </aside>
-);
+const PromoPanel: React.FC = () => {
+    const {t} = useTranslation();
+
+    return (
+        <aside className="wc-login__promo">
+            <div className="wc-login__promo-glow" aria-hidden />
+            <div className="wc-login__promo-content">
+                <span className="wc-login__promo-tag">AI Studio</span>
+                <h2 className="wc-login__promo-title">
+                    {t('auth.register.promo.title')}
+                    <br />
+                    <span className="wc-login__promo-accent">{t('auth.register.promo.accent')}</span>
+                </h2>
+                <p className="wc-login__promo-desc">{t('auth.register.promo.description')}</p>
+                <ul className="wc-login__features">
+                    <FeatureItem icon={<ThunderboltOutlined />} title={t('auth.register.promo.featureScenes')} />
+                    <FeatureItem icon={<UserOutlined />} title={t('auth.register.promo.featureCharacters')} />
+                    <FeatureItem icon={<PlayCircleOutlined />} title={t('auth.register.promo.featureControl')} />
+                </ul>
+            </div>
+        </aside>
+    );
+};
 
 const RegistrationPage: React.FC = () => {
     const navigate = useNavigate();
@@ -87,8 +88,8 @@ const RegistrationPage: React.FC = () => {
             // ``register`` already persists the token via api/http.ts.
             const response = await register(payload);
             navigate(response.token ? PathConstants.HOME : PathConstants.LOGIN);
-        } catch (error: unknown) {
-            setErrorMessage(getApiErrorMessage(error, t('auth.register.createError')));
+        } catch {
+            setErrorMessage(t('auth.register.createError'));
         } finally {
             setLoading(false);
         }
@@ -99,7 +100,7 @@ const RegistrationPage: React.FC = () => {
             <div className="wc-login__bg" aria-hidden />
 
             <div className="wc-login__shell">
-                <Link to={PathConstants.HOME} className="wc-login__logo" aria-label="WCraft home">
+                <Link to={PathConstants.HOME} className="wc-login__logo" aria-label={t('common.openHome')}>
                     <span className="wc-login__logo-icon" aria-hidden>
                         <CaretRightOutlined />
                     </span>

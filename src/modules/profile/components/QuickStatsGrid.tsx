@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import { ProfileStats } from '../types';
 
 interface StatCard {
@@ -18,12 +19,13 @@ function formatNum(n: number): string {
 }
 
 const QuickStatsGrid: React.FC<Props> = ({ stats }) => {
+  const {t} = useTranslation();
   const cards: StatCard[] = [
-    { label: 'Сообщения', value: stats.new_messages, icon: '💬' },
-    { label: 'Подписки', value: stats.subscriptions_count, icon: '👥' },
-    { label: 'История просмотров', value: stats.watch_history_count, icon: '📺' },
-    { label: 'Просмотры', value: stats.total_views, icon: '👁️' },
-    { label: 'Рекомендации', value: stats.recommendations_count, icon: '✨' },
+    { label: t('profile.stats.messages'), value: stats.new_messages, icon: '💬' },
+    { label: t('profile.stats.subscriptions'), value: stats.subscriptions_count, icon: '👥' },
+    { label: t('profile.stats.history'), value: stats.watch_history_count, icon: '📺' },
+    { label: t('profile.stats.views'), value: stats.total_views, icon: '👁️' },
+    { label: t('profile.stats.recommendations'), value: stats.recommendations_count, icon: '✨' },
   ];
 
   return (

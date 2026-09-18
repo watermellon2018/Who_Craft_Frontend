@@ -1,38 +1,39 @@
-import {ReferenceType} from '../../types/character.types';
+import type {TFunction} from 'i18next';
+import type {ReferenceType} from '../../types/character.types';
 
-export const REFERENCE_LABELS: Record<ReferenceType, {title: string; subtitle: string}> = {
-  portrait: {title: 'Портрет', subtitle: 'Основной вид лица'},
-  full_body: {title: 'Полный рост', subtitle: 'Фигура и пропорции'},
-  three_quarter: {title: '3/4 ракурс', subtitle: 'Объём лица и силуэт'},
-  profile: {title: 'Профиль', subtitle: 'Вид сбоку'},
-  back_view: {title: 'Вид со спины', subtitle: 'Одежда и силуэт сзади'},
-  emotions: {title: 'Эмоции', subtitle: 'Мимика персонажа'},
-  poses: {title: 'Позы', subtitle: 'Пластика и движение'},
-  outfit_details: {title: 'Детали одежды', subtitle: 'Материалы и аксессуары'},
-  character_sheet: {title: 'Character sheet', subtitle: 'Полный лист персонажа'},
+export const REFERENCE_LABEL_KEYS: Record<ReferenceType, {title: string; subtitle: string}> = {
+  portrait: {title: 'characterStudio.references.portrait', subtitle: 'characterStudio.references.portraitDesc'},
+  full_body: {title: 'characterStudio.references.fullBody', subtitle: 'characterStudio.references.fullBodyDesc'},
+  three_quarter: {title: 'characterStudio.references.threequarter', subtitle: 'characterStudio.references.threequarterDesc'},
+  profile: {title: 'characterStudio.references.profile', subtitle: 'characterStudio.references.profileDesc'},
+  back_view: {title: 'characterStudio.references.backView', subtitle: 'characterStudio.references.backViewDesc'},
+  emotions: {title: 'characterStudio.references.emotions', subtitle: 'characterStudio.references.emotionsDesc'},
+  poses: {title: 'characterStudio.references.poses', subtitle: 'characterStudio.references.posesDesc'},
+  outfit_details: {title: 'characterStudio.references.outfitDetails', subtitle: 'characterStudio.references.outfitDetailsDesc'},
+  character_sheet: {title: 'characterStudio.references.characterSheet', subtitle: 'characterStudio.references.characterSheetDesc'},
 };
 
-export const STATUS_LABELS = {
-  ready: 'Готово',
-  generating: 'Генерируется',
-  failed: 'Ошибка',
-  missing: 'Не создано',
+export const STATUS_LABEL_KEYS = {
+  ready: 'characterStudio.references.statusReady',
+  generating: 'characterStudio.references.statusGenerating',
+  failed: 'characterStudio.references.statusFailed',
+  missing: 'characterStudio.references.statusMissing',
 } as const;
 
 const BLOCKER_MESSAGES: Record<string, string> = {
-  missing_portrait: 'не готов портрет',
-  missing_full_body: 'не готов полный рост',
-  missing_profile_or_three_quarter: 'нет профиля или 3/4 ракурса',
-  missing_back_view: 'не готов вид со спины',
-  generation_in_progress: 'идёт активная генерация',
-  appearance_not_confirmed: 'подтвердите стабильность внешности',
-  face_not_confirmed: 'подтвердите совпадение лица',
-  outfit_not_confirmed: 'подтвердите читаемость одежды',
-  suitability_for_3d_not_confirmed: 'подтвердите готовность референсов для 3D',
+  missing_portrait: 'characterStudio.references.blockers.portrait',
+  missing_full_body: 'characterStudio.references.blockers.fullBody',
+  missing_profile_or_three_quarter: 'characterStudio.references.blockers.profile',
+  missing_back_view: 'characterStudio.references.blockers.backView',
+  generation_in_progress: 'characterStudio.references.blockers.generating',
+  appearance_not_confirmed: 'characterStudio.references.blockers.appearance',
+  face_not_confirmed: 'characterStudio.references.blockers.face',
+  outfit_not_confirmed: 'characterStudio.references.blockers.outfit',
+  suitability_for_3d_not_confirmed: 'characterStudio.references.blockers.suitable3d',
 };
 
-export function describeBlockers(blockers: string[]): string {
+export function describeBlockers(blockers: string[], t: TFunction): string {
   if (!blockers || blockers.length === 0) return '';
-  const parts = blockers.map((key) => BLOCKER_MESSAGES[key] || key);
-  return `Для перехода к 3D модели требуется: ${parts.join(', ')}.`;
+  const parts = blockers.map((key) => BLOCKER_MESSAGES[key] ? t(BLOCKER_MESSAGES[key]) : key);
+  return t('characterStudio.references.blockersSummary', {items: parts.join(', ')});
 }

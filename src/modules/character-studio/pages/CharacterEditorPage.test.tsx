@@ -40,9 +40,19 @@ const mockGenerationJob = {
   }],
 };
 
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({t: (key: string) => key}),
-}));
+jest.mock('react-i18next', () => {
+  const t = (key: string) => ({
+      'characterStudio.editor.edited': 'Есть изменения',
+      'characterStudio.editor.refresh': 'Обновить',
+      'characterStudio.editor.saved': 'Сохранено',
+      'characterStudio.history.retry': 'Повторить',
+    }[key] ?? key);
+
+  return {
+    initReactI18next: {type: '3rdParty', init: jest.fn()},
+    useTranslation: () => ({t}),
+  };
+});
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),

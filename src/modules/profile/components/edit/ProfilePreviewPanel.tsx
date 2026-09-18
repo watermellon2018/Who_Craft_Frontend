@@ -1,4 +1,6 @@
 import React from 'react';
+import type {TFunction} from 'i18next';
+import {useTranslation} from 'react-i18next';
 import { ProfileEditFormState } from '../../types';
 import { cssUrl, safeImageUrl } from '../../../../utils/safeUrl';
 import { CRAFT_ACCENT } from '../../../../constants/theme';
@@ -15,7 +17,7 @@ interface ChecklistItem {
 const initial = (name: string) =>
   name ? name.trim().charAt(0).toUpperCase() : '?';
 
-function buildChecklist(state: ProfileEditFormState): ChecklistItem[] {
+function buildChecklist(state: ProfileEditFormState, t: TFunction): ChecklistItem[] {
   const hasBasic = !!state.username.trim() && !!state.display_name.trim();
   const hasAvatarOrCover = !!state.avatar_url || !!state.cover_url;
   const hasInterests = state.interests.length >= 3;
@@ -24,12 +26,12 @@ function buildChecklist(state: ProfileEditFormState): ChecklistItem[] {
   const hasBio = state.bio.trim().length >= 10;
 
   return [
-    { label: 'Основная информация', done: hasBasic },
-    { label: 'Аватар и обложка', done: hasAvatarOrCover },
-    { label: 'Интересы (мин. 3)', done: hasInterests },
-    { label: 'Соцсети и ссылки (мин. 1)', done: hasSocial },
-    { label: 'Настройки профиля', done: hasSettings },
-    { label: 'О себе (мин. 10 символов)', done: hasBio },
+    { label: t('profile.edit.preview.checklist.basic'), done: hasBasic },
+    { label: t('profile.edit.preview.checklist.media'), done: hasAvatarOrCover },
+    { label: t('profile.edit.preview.checklist.interests'), done: hasInterests },
+    { label: t('profile.edit.preview.checklist.socials'), done: hasSocial },
+    { label: t('profile.edit.preview.checklist.settings'), done: hasSettings },
+    { label: t('profile.edit.preview.checklist.about'), done: hasBio },
   ];
 }
 
@@ -78,7 +80,9 @@ const ProgressRing: React.FC<{ percent: number }> = ({ percent }) => {
 };
 
 const ProfilePreviewPanel: React.FC<Props> = ({ state }) => {
-  const checklist = buildChecklist(state);
+  const {t} = useTranslation();
+  const avatarUrl = safeImageUrl(state.avatar_url);
+  const checklist = buildChecklist(state, t);
   const done = checklist.filter((i) => i.done).length;
   const percent = Math.round((done / checklist.length) * 100);
 
@@ -89,13 +93,13 @@ const ProfilePreviewPanel: React.FC<Props> = ({ state }) => {
           className="text-white font-semibold text-base"
           style={{ color: '#ffffff' }}
         >
-          Предпросмотр профиля
+          {t('profile.edit.preview.title')}
         </h3>
         <p
           className="text-sm mt-1 mb-4"
           style={{ color: 'rgba(255,255,255,0.65)' }}
         >
-          Так ваш профиль увидят другие пользователи.
+          {t('profile.edit.preview.description')}
         </p>
 
         <div className="rounded-2xl overflow-hidden border border-white/5 bg-[#0f1117]">
@@ -109,8 +113,8 @@ const ProfilePreviewPanel: React.FC<Props> = ({ state }) => {
           />
           <div className="px-4 pb-4">
             <div className="w-16 h-16 rounded-2xl border-4 border-[#16191f] bg-[#1e2330] -mt-8 flex items-center justify-center text-accent font-bold text-2xl overflow-hidden">
-              {safeImageUrl(state.avatar_url) ? (
-                <img src={safeImageUrl(state.avatar_url)!} alt="avatar" className="w-full h-full object-cover" />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={t('profile.hero.avatarAlt')} className="w-full h-full object-cover" />
               ) : (
                 initial(state.display_name || state.username)
               )}
@@ -119,7 +123,7 @@ const ProfilePreviewPanel: React.FC<Props> = ({ state }) => {
               className="font-semibold text-base mt-2"
               style={{ color: '#ffffff' }}
             >
-              {state.display_name || state.username || 'admin'}
+              {state.display_name || state.username || t('common.user')}
             </p>
             <p
               className="text-xs"
@@ -159,13 +163,13 @@ const ProfilePreviewPanel: React.FC<Props> = ({ state }) => {
               className="font-semibold text-sm"
               style={{ color: '#ffffff' }}
             >
-              Профиль заполнен на {percent}%
+              {t('profile.edit.preview.completion', {percent})}
             </p>
             <p
               className="text-xs mt-0.5"
               style={{ color: 'rgba(255,255,255,0.65)' }}
             >
-              Заполните все разделы, чтобы ваш профиль выглядел ещё лучше.
+              {t('profile.edit.preview.completionHint')}
             </p>
           </div>
         </div>

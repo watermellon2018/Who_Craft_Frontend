@@ -1,17 +1,8 @@
 import React from 'react';
 import {Form, Select} from 'antd';
+import {useTranslation} from 'react-i18next';
 
-const labels: Record<string, string> = {
-  relaxed: 'Расслабленная',
-  confident: 'Уверенная',
-  tense: 'Напряженная',
-  closed: 'Закрытая',
-  elegant: 'Элегантная',
-  slouched: 'Сутулая',
-};
-
-const options = (items: string[]) =>
-  items.map((value) => ({value, label: labels[value] || value.replaceAll('_', ' ')}));
+const POSTURES = ['relaxed', 'confident', 'tense', 'closed', 'elegant', 'slouched'] as const;
 
 export default function BodyControls({
   value,
@@ -20,12 +11,13 @@ export default function BodyControls({
   value: Record<string, unknown>;
   onChange: (value: Record<string, unknown>) => void;
 }) {
+  const {t} = useTranslation();
   return (
     <Form layout="vertical">
-      <Form.Item label="Поза">
+      <Form.Item label={t('characterStudio.editor.bodyPanel.pose')}>
         <Select
           value={value.posture as string}
-          options={options(['relaxed', 'confident', 'tense', 'closed', 'elegant', 'slouched'])}
+          options={POSTURES.map((item) => ({value: item, label: t(`characterStudio.controls.postures.${item}`)}))}
           onChange={(v) => onChange({...value, posture: v})}
         />
       </Form.Item>

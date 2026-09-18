@@ -48,19 +48,21 @@ export const toScenePlacements = (scenes: Scene[]): ScenePlacement[] => (
     .map(({id, order, act}) => ({id, order, act}))
 );
 
-export function getSceneHeading(scene: Scene): string {
+export function getSceneHeading(scene: Scene, fallback: string): string {
   return scene.scriptBlocks.find((block) => block.type === 'scene_heading')?.text.trim()
-    || 'Заголовок сцены не указан';
+    || fallback;
 }
 
-export function getSceneLocation(scene: Scene): string {
-  const heading = getSceneHeading(scene);
-  if (heading === 'Заголовок сцены не указан') return 'Место не указано';
+export function getSceneLocation(scene: Scene, fallback: string): string {
+  const heading = scene.scriptBlocks
+    .find((block) => block.type === 'scene_heading')
+    ?.text.trim();
+  if (!heading) return fallback;
   const withoutPrefix = heading
     .replace(/^(?:ИНТ\.?\s*\/\s*НАТ\.?|НАТ\.?\s*\/\s*ИНТ\.?|ИНТ\.?|НАТ\.?|INT\.?|EXT\.?)\s*/i, '')
     .trim();
   const location = withoutPrefix.split(/\s+[—–-]\s+/)[0]?.trim();
-  if (!location || /^ЛОКАЦИЯ$/i.test(location)) return 'Место не указано';
+  if (!location || /^(?:ЛОКАЦИЯ|LOCATION)$/i.test(location)) return fallback;
   return location;
 }
 
@@ -83,11 +85,19 @@ export function estimateSceneDurationSeconds(scene: Scene): number {
   return Math.max(15, Math.round(rawSeconds / 15) * 15);
 }
 
-export function formatEstimatedDuration(scene: Scene): string {
+interface DurationLabels {
+  lessThanMinute: string;
+  minute: string;
+  second: string;
+}
+
+export function formatEstimatedDuration(scene: Scene, labels: DurationLabels): string {
   const seconds = estimateSceneDurationSeconds(scene);
-  if (seconds === 0) return '≈ 0 мин';
-  if (seconds < 60) return '≈ < 1 мин';
+  if (seconds === 0) return `≈ 0 ${labels.minute}`;
+  if (seconds < 60) return `≈ ${labels.lessThanMinute}`;
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
-  return remainder ? `≈ ${minutes} мин ${remainder} сек` : `≈ ${minutes} мин`;
+  return remainder
+    ? `≈ ${minutes} ${labels.minute} ${remainder} ${labels.second}`
+    : `≈ ${minutes} ${labels.minute}`;
 }

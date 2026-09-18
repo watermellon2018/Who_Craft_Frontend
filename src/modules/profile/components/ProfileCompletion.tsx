@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import { ProfileCompletion as ProfileCompletionType } from '../types';
 import { CRAFT_ACCENT } from '../../../constants/theme';
 
@@ -6,15 +7,15 @@ interface Props {
   completion: ProfileCompletionType;
 }
 
-const LABELS: Record<string, string> = {
-  avatar: 'Аватар',
-  about: 'О себе',
-  interests: 'Интересы',
-  socials: 'Соцсети',
-};
-
 const ProfileCompletion: React.FC<Props> = ({ completion }) => {
+  const {t} = useTranslation();
   const { percent, items } = completion;
+  const labels: Record<string, string> = {
+    avatar: t('profile.completion.fields.avatar'),
+    about: t('profile.completion.fields.about'),
+    interests: t('profile.completion.fields.interests'),
+    socials: t('profile.completion.fields.socials'),
+  };
 
   return (
     <div className="bg-[#16191f] border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center gap-4 shadow-md">
@@ -36,8 +37,8 @@ const ProfileCompletion: React.FC<Props> = ({ completion }) => {
           </span>
         </div>
         <div>
-          <p className="text-white font-semibold text-sm">Профиль заполнен</p>
-          <p className="text-white/40 text-xs">Заполните все поля</p>
+          <p className="text-white font-semibold text-sm">{t('profile.completion.title')}</p>
+          <p className="text-white/40 text-xs">{t('profile.completion.description')}</p>
         </div>
       </div>
 
@@ -51,7 +52,7 @@ const ProfileCompletion: React.FC<Props> = ({ completion }) => {
                 : 'bg-white/3 border-white/10 text-white/30'
             }`}
           >
-            {done ? '✓' : '○'} {LABELS[key] || key}
+            {done ? '✓' : '○'} {labels[key] || key}
           </span>
         ))}
       </div>

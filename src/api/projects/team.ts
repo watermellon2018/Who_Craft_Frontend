@@ -61,6 +61,7 @@ export interface PendingInvitation {
   accessRoleLabel: string;
   teamRole: string;
   teamRoleLabel: string;
+  customTeamRole?: string;
   status: InvitationStatus;
   invitedUsername: string | null;
   invitedByUsername: string | null;
@@ -80,6 +81,7 @@ export interface IncomingInvitation {
   accessRoleLabel: string;
   teamRole: string;
   teamRoleLabel: string;
+  customTeamRole?: string;
   invitedByUsername: string | null;
   createdAt: string | null;
   expiresAt: string | null;
@@ -207,21 +209,21 @@ export function teamErrorCode(error: unknown): string | null {
   return getApiErrorCode(error);
 }
 
-// Russian pluralization for "участник".
-export function pluralMembers(n: number): string {
-  const a = Math.abs(n) % 100;
-  const a1 = a % 10;
-  let word: string;
-  if (a > 10 && a < 20) word = 'участников';
-  else if (a1 === 1) word = 'участник';
-  else if (a1 >= 2 && a1 <= 4) word = 'участника';
-  else word = 'участников';
-  return `${n} ${word}`;
-}
+export const ACCESS_ROLE_TRANSLATION_KEYS: Record<AccessRole, string> = {
+  owner: 'project.team.accessRoles.owner',
+  admin: 'project.team.accessRoles.admin',
+  editor: 'project.team.accessRoles.editor',
+  viewer: 'project.team.accessRoles.viewer',
+};
 
-export const ACCESS_ROLE_LABELS: Record<AccessRole, string> = {
-  owner: 'Владелец',
-  admin: 'Администратор',
-  editor: 'Редактор',
-  viewer: 'Наблюдатель',
+export const TEAM_ROLE_TRANSLATION_KEYS: Record<string, string> = {
+  producer: 'project.team.professionalRoles.producer',
+  director: 'project.team.professionalRoles.director',
+  screenwriter: 'project.team.professionalRoles.screenwriter',
+  character_artist: 'project.team.professionalRoles.character_artist',
+  environment_artist: 'project.team.professionalRoles.environment_artist',
+  cinematographer: 'project.team.professionalRoles.cinematographer',
+  editor: 'project.team.professionalRoles.editor',
+  sound_designer: 'project.team.professionalRoles.sound_designer',
+  other: 'project.team.professionalRoles.other',
 };

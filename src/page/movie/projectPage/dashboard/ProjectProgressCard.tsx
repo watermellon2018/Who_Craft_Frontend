@@ -1,5 +1,6 @@
 import {WarningOutlined} from '@ant-design/icons';
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 
 import {CRAFT_ACCENT} from '../../../../constants/theme';
 import type {ProgressLegendItem, StoryboardReviewSceneMock} from './mocks';
@@ -19,25 +20,13 @@ function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function reviewWarningText(count: number): string {
-  const lastTwoDigits = count % 100;
-  const lastDigit = count % 10;
-  if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
-    return `${count} раскадровок требуют проверки`;
-  }
-  if (lastDigit === 1) return `${count} раскадровка требует проверки`;
-  if (lastDigit >= 2 && lastDigit <= 4) {
-    return `${count} раскадровки требуют проверки`;
-  }
-  return `${count} раскадровок требуют проверки`;
-}
-
 const ProjectProgressCard: React.FC<Props> = ({
   overall,
   legend,
   storyboardNeedsReview,
   storyboardReviewScenes,
 }) => {
+  const {t} = useTranslation();
   const clamped = clampPercent(overall);
   const angle = Math.round((clamped / 100) * 360);
   const visibleReviewScenes = storyboardReviewScenes.slice(0, 3);
@@ -45,13 +34,13 @@ const ProjectProgressCard: React.FC<Props> = ({
 
   return (
     <div className="proj-card p-5">
-      <h4 className="text-white text-sm font-semibold mb-4">Готовность проекта</h4>
+      <h4 className="text-white text-sm font-semibold mb-4">{t('project.dashboard.progress.title')}</h4>
 
       <div className="flex flex-col items-center mb-5">
         <div
           className="proj-ring"
           role="progressbar"
-          aria-label="Общая готовность проекта"
+          aria-label={t('project.dashboard.progress.overallAriaLabel')}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={clamped}
@@ -63,7 +52,7 @@ const ProjectProgressCard: React.FC<Props> = ({
             <div className="text-white text-3xl font-bold leading-none tabular-nums">
               {clamped}%
             </div>
-            <div className="text-white/65 text-[11px] mt-1.5">Общая готовность</div>
+            <div className="text-white/65 text-[11px] mt-1.5">{t('project.dashboard.progress.overall')}</div>
           </div>
         </div>
       </div>
@@ -72,6 +61,7 @@ const ProjectProgressCard: React.FC<Props> = ({
         {legend.map((item) => {
           const accent = ACCENT_HEX[item.accent];
           const value = item.value === null ? null : clampPercent(item.value);
+          const label = t(item.label);
           return (
             <div key={item.label}>
               <div className="flex items-center justify-between mb-1.5">
@@ -81,7 +71,7 @@ const ProjectProgressCard: React.FC<Props> = ({
                     aria-hidden="true"
                     style={{ background: accent }}
                   />
-                  <span className="text-white/85 text-xs">{item.label}</span>
+                  <span className="text-white/85 text-xs">{label}</span>
                 </div>
                 <span className="text-white/70 text-xs font-medium tabular-nums">
                   {value === null ? 'N/A' : `${value}%`}
@@ -92,7 +82,7 @@ const ProjectProgressCard: React.FC<Props> = ({
                 {...(value === null
                   ? {'aria-hidden': true}
                   : {
-                      'aria-label': item.label,
+                      'aria-label': label,
                       'aria-valuemax': 100,
                       'aria-valuemin': 0,
                       'aria-valuenow': value,
@@ -121,22 +111,30 @@ const ProjectProgressCard: React.FC<Props> = ({
         >
           <div className="flex items-start gap-2 font-medium" style={{color: 'var(--craft-accent)'}}>
             <WarningOutlined aria-hidden="true" className="mt-0.5 shrink-0" />
-            <span>{reviewWarningText(storyboardNeedsReview)}</span>
+            <span>{t('project.dashboard.progress.storyboardsNeedReview', {count: storyboardNeedsReview})}</span>
           </div>
           {visibleReviewScenes.length > 0 && (
-            <ul className="mt-2 mb-0 pl-5 space-y-1" aria-label="Сцены с устаревшей раскадровкой">
+            <ul className="mt-2 mb-0 pl-5 space-y-1" aria-label={t('project.dashboard.progress.staleScenes')}>
               {visibleReviewScenes.map((scene) => (
                 <li
                   key={scene.sceneId}
-                  title={`Подтверждена версия ${scene.acceptedRevision}, текущая версия ${scene.currentRevision}`}
+                  title={t('project.dashboard.progress.revisionDetails', {
+                    accepted: scene.acceptedRevision,
+                    current: scene.currentRevision,
+                  })}
                 >
-                  {scene.title || `Сцена ${scene.sceneId}`}
+                  {scene.title || t('project.dashboard.progress.sceneFallback', {id: scene.sceneId})}
                   <span className="sr-only">
-                    {`, подтверждена версия ${scene.acceptedRevision}, текущая версия ${scene.currentRevision}`}
+                    {`, ${t('project.dashboard.progress.revisionDetails', {
+                      accepted: scene.acceptedRevision,
+                      current: scene.currentRevision,
+                    })}`}
                   </span>
                 </li>
               ))}
-              {hiddenReviewSceneCount > 0 && <li>И ещё {hiddenReviewSceneCount}</li>}
+              {hiddenReviewSceneCount > 0 && (
+                <li>{t('project.common.moreCount', {count: hiddenReviewSceneCount})}</li>
+              )}
             </ul>
           )}
         </div>

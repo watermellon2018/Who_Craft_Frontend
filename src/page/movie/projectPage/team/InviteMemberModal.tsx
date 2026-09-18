@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import {Button, Input, message, Modal, Select, Tooltip} from 'antd';
 import React, {useState} from 'react';
+import {useTranslation} from 'react-i18next';
 
 import {
   createInvitation,
@@ -40,36 +41,36 @@ interface FormErrors {
 
 const ACCESS_ROLE_OPTIONS: Array<{
   value: AssignableRole;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   icon: React.ReactNode;
 }> = [
   {
     value: 'admin',
-    label: 'Администратор',
-    description: 'Настройки и команда',
+    labelKey: 'project.team.accessRoles.admin',
+    descriptionKey: 'project.team.invite.roleDescriptions.admin',
     icon: <SafetyCertificateOutlined />,
   },
   {
     value: 'editor',
-    label: 'Редактор',
-    description: 'Создание материалов',
+    labelKey: 'project.team.accessRoles.editor',
+    descriptionKey: 'project.team.invite.roleDescriptions.editor',
     icon: <EditOutlined />,
   },
   {
     value: 'viewer',
-    label: 'Наблюдатель',
-    description: 'Только просмотр',
+    labelKey: 'project.team.accessRoles.viewer',
+    descriptionKey: 'project.team.invite.roleDescriptions.viewer',
     icon: <EyeOutlined />,
   },
 ];
 
-const ERROR_MESSAGES: Record<string, string> = {
-  USER_NOT_FOUND: 'Пользователь с таким именем не найден',
-  ALREADY_MEMBER: 'Пользователь уже состоит в команде',
-  INVITATION_ALREADY_EXISTS: 'Для этого пользователя уже есть активное приглашение',
-  INSUFFICIENT_PERMISSIONS: 'Недостаточно прав для приглашения',
-  CANNOT_INVITE_SELF: 'Нельзя пригласить самого себя',
+const ERROR_KEYS: Record<string, string> = {
+  USER_NOT_FOUND: 'project.team.invite.errors.userNotFound',
+  ALREADY_MEMBER: 'project.team.invite.errors.alreadyMember',
+  INVITATION_ALREADY_EXISTS: 'project.team.invite.errors.alreadyInvited',
+  INSUFFICIENT_PERMISSIONS: 'project.team.invite.errors.forbidden',
+  CANNOT_INVITE_SELF: 'project.team.invite.errors.self',
 };
 
 const InviteMemberModal: React.FC<Props> = ({
@@ -79,6 +80,7 @@ const InviteMemberModal: React.FC<Props> = ({
   onClose,
   onInvited,
 }) => {
+  const {t} = useTranslation();
   const [method, setMethod] = useState<InviteMethod>('username');
   const [username, setUsername] = useState('');
   const [accessRole, setAccessRole] = useState<AssignableRole>('editor');
@@ -120,7 +122,7 @@ const InviteMemberModal: React.FC<Props> = ({
     if (teamRole === 'other' && !customTeamRole.trim()) {
       setErrors((current) => ({
         ...current,
-        customTeamRole: 'Укажите название профессиональной роли',
+        customTeamRole: t('project.team.invite.validation.professionalRole'),
       }));
       return false;
     }
@@ -132,7 +134,7 @@ const InviteMemberModal: React.FC<Props> = ({
     if (!normalizedUsername) {
       setErrors((current) => ({
         ...current,
-        username: 'Введите имя пользователя',
+        username: t('project.team.invite.validation.username'),
       }));
       return;
     }
@@ -146,12 +148,12 @@ const InviteMemberModal: React.FC<Props> = ({
         access_role: accessRole,
         ...teamRolePayload(),
       });
-      message.success(`Приглашение для @${normalizedUsername} отправлено`);
+      message.success(t('project.team.invite.notifications.sent', {username: normalizedUsername}));
       onInvited();
       handleClose();
     } catch (error) {
       const code = teamErrorCode(error);
-      message.error((code && ERROR_MESSAGES[code]) || 'Не удалось отправить приглашение');
+      message.error(t((code && ERROR_KEYS[code]) || 'project.team.invite.errors.send'));
     } finally {
       setSubmitting(false);
     }
@@ -170,7 +172,7 @@ const InviteMemberModal: React.FC<Props> = ({
       setCreatedLink(invitation);
     } catch (error) {
       const code = teamErrorCode(error);
-      message.error((code && ERROR_MESSAGES[code]) || 'Не удалось создать ссылку');
+      message.error(t((code && ERROR_KEYS[code]) || 'project.team.invite.errors.createLink'));
     } finally {
       setSubmitting(false);
     }
@@ -183,7 +185,7 @@ const InviteMemberModal: React.FC<Props> = ({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      message.error('Не удалось скопировать ссылку');
+      message.error(t('project.team.invite.errors.copyLink'));
     }
   };
 
@@ -191,8 +193,8 @@ const InviteMemberModal: React.FC<Props> = ({
     <>
       <fieldset className="invite-fieldset">
         <legend className="invite-field-heading">
-          <span>Права в проекте</span>
-          <span className="invite-required-badge">Обязательно</span>
+          <span>{t('project.team.invite.accessHeading')}</span>
+          <span className="invite-required-badge">{t('project.common.required')}</span>
         </legend>
         <div className="invite-access-roles">
           {ACCESS_ROLE_OPTIONS.map((role) => (
@@ -206,8 +208,8 @@ const InviteMemberModal: React.FC<Props> = ({
             >
               <span className="invite-role-icon" aria-hidden="true">{role.icon}</span>
               <span className="invite-role-copy">
-                <span className="invite-role-name">{role.label}</span>
-                <span className="invite-role-description">{role.description}</span>
+                <span className="invite-role-name">{t(role.labelKey)}</span>
+                <span className="invite-role-description">{t(role.descriptionKey)}</span>
               </span>
               <span className="invite-role-check" aria-hidden="true">
                 <CheckOutlined />
@@ -219,8 +221,8 @@ const InviteMemberModal: React.FC<Props> = ({
 
       <div className="invite-field-group">
         <label className="invite-field-heading" htmlFor="invite-team-role">
-          <span>Роль в команде</span>
-          <span className="invite-optional-badge">Необязательно</span>
+          <span>{t('project.team.invite.professionalRole')}</span>
+          <span className="invite-optional-badge">{t('project.common.optional')}</span>
         </label>
         <Select
           id="invite-team-role"
@@ -229,15 +231,18 @@ const InviteMemberModal: React.FC<Props> = ({
             setTeamRole(value || '');
             setErrors((current) => ({...current, customTeamRole: undefined}));
           }}
-          placeholder="Например, режиссёр или сценарист"
+          placeholder={t('project.team.invite.professionalRolePlaceholder')}
           allowClear
-          options={teamRoleOptions}
+          options={teamRoleOptions.map((option) => ({
+            value: option.value,
+            label: t(`project.team.professionalRoles.${option.value || 'other'}`),
+          }))}
           size="large"
           className="invite-select"
           disabled={submitting}
         />
         <span className="invite-field-help">
-          Поможет команде сразу понимать, за что отвечает участник.
+          {t('project.team.invite.professionalRoleHelp')}
         </span>
         {teamRole === 'other' && (
           <div className="invite-custom-role">
@@ -247,11 +252,11 @@ const InviteMemberModal: React.FC<Props> = ({
                 setCustomTeamRole(event.target.value);
                 setErrors((current) => ({...current, customTeamRole: undefined}));
               }}
-              placeholder="Введите название роли"
+              placeholder={t('project.team.invite.customRolePlaceholder')}
               maxLength={64}
               size="large"
               status={errors.customTeamRole ? 'error' : undefined}
-              aria-label="Название профессиональной роли"
+              aria-label={t('project.team.invite.customRoleAriaLabel')}
               aria-invalid={!!errors.customTeamRole}
               aria-describedby="invite-custom-role-error"
               disabled={submitting}
@@ -275,7 +280,7 @@ const InviteMemberModal: React.FC<Props> = ({
       width={720}
       centered
       destroyOnClose
-      title="Пригласить участника"
+      title={t('project.team.invite.title')}
       closable={!submitting}
       maskClosable={!submitting}
       keyboard={!submitting}
@@ -287,17 +292,17 @@ const InviteMemberModal: React.FC<Props> = ({
           <TeamOutlined />
         </span>
         <div>
-          <div className="invite-modal-eyebrow">Команда проекта</div>
-          <h2 className="invite-modal-title">Пригласить участника</h2>
+          <div className="invite-modal-eyebrow">{t('project.team.title')}</div>
+          <h2 className="invite-modal-title">{t('project.team.invite.title')}</h2>
           <p className="invite-modal-subtitle">
-            Выберите способ приглашения и уровень доступа к проекту.
+            {t('project.team.invite.subtitle')}
           </p>
         </div>
       </header>
 
       <div className="invite-modal-body">
         {!createdLink && (
-          <div className="invite-methods" role="radiogroup" aria-label="Способ приглашения">
+          <div className="invite-methods" role="radiogroup" aria-label={t('project.team.invite.methodLabel')}>
             <label className={`invite-method${method === 'username' ? ' is-active' : ''}`}>
               <input
                 type="radio"
@@ -310,8 +315,8 @@ const InviteMemberModal: React.FC<Props> = ({
               />
               <span className="invite-method-icon" aria-hidden="true"><UserOutlined /></span>
               <span>
-                <span className="invite-method-title">По имени</span>
-                <span className="invite-method-description">Найдём пользователя Craft</span>
+                <span className="invite-method-title">{t('project.team.invite.byUsername')}</span>
+                <span className="invite-method-description">{t('project.team.invite.byUsernameDescription')}</span>
               </span>
             </label>
             <label className={`invite-method${method === 'link' ? ' is-active' : ''}`}>
@@ -326,8 +331,8 @@ const InviteMemberModal: React.FC<Props> = ({
               />
               <span className="invite-method-icon" aria-hidden="true"><LinkOutlined /></span>
               <span>
-                <span className="invite-method-title">По ссылке</span>
-                <span className="invite-method-description">Отправьте её в любом мессенджере</span>
+                <span className="invite-method-title">{t('project.team.invite.byLink')}</span>
+                <span className="invite-method-description">{t('project.team.invite.byLinkDescription')}</span>
               </span>
             </label>
           </div>
@@ -336,34 +341,34 @@ const InviteMemberModal: React.FC<Props> = ({
         {createdLink ? (
           <div className="invite-link-result" role="status">
             <span className="invite-success-icon" aria-hidden="true"><CheckOutlined /></span>
-            <h3>Ссылка готова</h3>
-            <p>Скопируйте её и отправьте будущему участнику команды.</p>
+            <h3>{t('project.team.invite.linkReady')}</h3>
+            <p>{t('project.team.invite.linkReadyDescription')}</p>
             <div className="invite-link-row">
               <Input
                 value={createdLink.inviteUrl}
                 readOnly
                 size="large"
-                aria-label="Ссылка-приглашение"
+                aria-label={t('project.team.invite.linkAriaLabel')}
               />
-              <Tooltip title={copied ? 'Скопировано' : 'Скопировать'}>
+              <Tooltip title={copied ? t('project.common.copied') : t('project.common.copy')}>
                 <Button
                   type="primary"
                   size="large"
                   icon={copied ? <CheckOutlined /> : <CopyOutlined />}
                   onClick={copyLink}
-                  aria-label={copied ? 'Ссылка скопирована' : 'Скопировать ссылку'}
+                  aria-label={copied ? t('project.team.invite.linkCopied') : t('project.team.invite.copyLink')}
                   className="invite-copy-button"
                 >
-                  {copied ? 'Скопировано' : 'Копировать'}
+                  {copied ? t('project.common.copied') : t('project.common.copy')}
                 </Button>
               </Tooltip>
             </div>
             <div className="invite-security-note">
               <LockOutlined aria-hidden="true" />
-              <span>Ссылка одноразовая и перестанет действовать через 5 дней.</span>
+              <span>{t('project.team.invite.linkSecurityNote')}</span>
             </div>
             <div className="invite-actions invite-result-actions">
-              <Button size="large" onClick={handleClose}>Готово</Button>
+              <Button size="large" onClick={handleClose}>{t('project.common.done')}</Button>
             </div>
           </div>
         ) : (
@@ -371,7 +376,7 @@ const InviteMemberModal: React.FC<Props> = ({
             {method === 'username' && (
               <div className="invite-field-group invite-username-field">
                 <label className="invite-field-heading" htmlFor="invite-username">
-                  Имя пользователя
+                  {t('project.team.invite.username')}
                 </label>
                 <Input
                   id="invite-username"
@@ -391,7 +396,7 @@ const InviteMemberModal: React.FC<Props> = ({
                   disabled={submitting}
                 />
                 <span id="invite-username-help" className="invite-field-help">
-                  Используйте имя из профиля — без пробелов.
+                  {t('project.team.invite.usernameHelp')}
                 </span>
                 {errors.username && (
                   <span id="invite-username-error" className="invite-field-error" role="alert">
@@ -404,7 +409,7 @@ const InviteMemberModal: React.FC<Props> = ({
             {method === 'link' && (
               <div className="invite-link-intro">
                 <ClockCircleOutlined aria-hidden="true" />
-                <span>Создадим защищённую одноразовую ссылку сроком на 5 дней.</span>
+                <span>{t('project.team.invite.linkIntro')}</span>
               </div>
             )}
 
@@ -412,7 +417,7 @@ const InviteMemberModal: React.FC<Props> = ({
 
             <footer className="invite-actions">
               <Button size="large" onClick={handleClose} disabled={submitting}>
-                Отмена
+                {t('project.common.cancel')}
               </Button>
               <Button
                 type="primary"
@@ -422,7 +427,9 @@ const InviteMemberModal: React.FC<Props> = ({
                 className="craft-action-button invite-submit-button"
                 icon={method === 'username' ? <UserOutlined /> : <LinkOutlined />}
               >
-                {method === 'username' ? 'Отправить приглашение' : 'Создать ссылку'}
+                {method === 'username'
+                  ? t('project.team.invite.send')
+                  : t('project.team.invite.createLink')}
               </Button>
             </footer>
           </div>

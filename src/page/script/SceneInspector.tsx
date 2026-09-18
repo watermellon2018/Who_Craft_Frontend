@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons';
 import {Select} from 'antd';
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 
 import type {Scene} from './types';
 
@@ -40,11 +41,13 @@ export default function SceneInspector({
   showStructureFields = true,
   showTitleField = true,
 }: SceneInspectorProps) {
+  const {t} = useTranslation();
+
   if (!scene) {
     return <aside className="script-inspector script-inspector--empty">
       <span className="script-empty-icon">✦</span>
-      <h2>Выберите сцену</h2>
-      <p>Здесь можно выбрать акт и оставить заметки.</p>
+      <h2>{t('script.inspector.selectScene')}</h2>
+      <p>{t('script.inspector.selectSceneDescription')}</p>
     </aside>;
   }
 
@@ -52,15 +55,15 @@ export default function SceneInspector({
   return <aside className="script-inspector">
     <div className="script-inspector__title">
       <div>
-        <span className="script-eyebrow">СЦЕНА {scene.order}</span>
-        <h2>{scene.title || 'Без названия'}</h2>
+        <span className="script-eyebrow">{t('script.common.sceneNumber', {number: scene.order})}</span>
+        <h2>{scene.title || t('script.common.untitled')}</h2>
       </div>
       <div className="script-inspector__title-actions">
         <span className="script-save-state" aria-live="polite">
-          {saving ? 'Сохраняем…' : dirty ? 'Есть изменения' : 'Сохранено'}
+          {saving ? t('script.status.savingEllipsis') : dirty ? t('script.status.changed') : t('script.status.saved')}
         </span>
         {onClose && <button
-          aria-label="Закрыть заметки сцены"
+          aria-label={t('script.inspector.closeNotes')}
           autoFocus
           onClick={onClose}
         >
@@ -70,7 +73,7 @@ export default function SceneInspector({
     </div>
 
     {showTitleField && <label className="script-field">
-      <span>Заголовок</span>
+      <span>{t('script.inspector.title')}</span>
       <input
         disabled={!canEdit}
         value={scene.title}
@@ -78,17 +81,17 @@ export default function SceneInspector({
       />
     </label>}
     {showStructureFields && <section className="script-inspector__section">
-      <h3>Структура</h3>
+      <h3>{t('script.inspector.structure')}</h3>
       <div className="script-field">
-        <label htmlFor={`scene-act-${scene.id}`}>Акт</label>
+        <label htmlFor={`scene-act-${scene.id}`}>{t('script.common.act')}</label>
         <Select<number>
-          aria-label="Акт"
+          aria-label={t('script.common.act')}
           disabled={!canEdit}
           id={`scene-act-${scene.id}`}
           options={[
-            {label: 'Акт 1', value: 1},
-            {label: 'Акт 2', value: 2},
-            {label: 'Акт 3', value: 3},
+            {label: t('script.common.actNumber', {number: 1}), value: 1},
+            {label: t('script.common.actNumber', {number: 2}), value: 2},
+            {label: t('script.common.actNumber', {number: 3}), value: 3},
           ]}
           value={scene.act}
           onChange={(act) => {
@@ -100,9 +103,9 @@ export default function SceneInspector({
     </section>}
 
     <section className="script-inspector__section">
-      <h3>Заметки</h3>
+      <h3>{t('script.common.notes')}</h3>
     <label className="script-field">
-      <span>Служебные заметки, которые не попадут в текст сценария</span>
+      <span>{t('script.inspector.notesDescription')}</span>
       <textarea
         disabled={!canEdit}
         rows={4}
@@ -114,13 +117,13 @@ export default function SceneInspector({
 
     <div className="script-inspector__actions">
       {showSaveAction && <button className="script-button script-button--primary" disabled={!canEdit || saving || !dirty} onClick={onSave}>
-        <SaveOutlined /> {saving ? 'Сохраняем…' : 'Сохранить'}
+        <SaveOutlined /> {saving ? t('script.status.savingEllipsis') : t('script.actions.save')}
       </button>}
       {onOpenScreenplay && <button className="script-button" onClick={onOpenScreenplay}>
-        <PlusOutlined /> Открыть в сценарии
+        <PlusOutlined /> {t('script.actions.openInScreenplay')}
       </button>}
       {canEdit && <button className="script-button script-button--danger" onClick={() => onDelete(scene.id)}>
-        <DeleteOutlined /> Удалить сцену
+        <DeleteOutlined /> {t('script.actions.deleteScene')}
       </button>}
     </div>
   </aside>;

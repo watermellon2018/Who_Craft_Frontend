@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import type {ReactNode} from 'react';
+import {useTranslation} from 'react-i18next';
 import DashboardHeader from "../../../modules/profile/components/DashboardHeader";
 import {Link, useLocation, useNavigate, useParams} from 'react-router-dom';
 
@@ -28,7 +29,7 @@ import {
     patch_project,
 } from "../../../api/projects/properties/project";
 import type {ProjectEditPayload} from "../../../api/projects/properties/project";
-import {getApiErrorMessage, getApiStatus} from '../../../api/errors';
+import {getApiStatus} from '../../../api/errors';
 import withAuth from "../../../utils/auth/check_auth";
 import PathConstants, {projectEditPath, projectPosterPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
@@ -204,6 +205,7 @@ const SecondaryButton: React.FC<BtnProps> = ({ onClick, children, icon, disabled
 
 // ============== Page ==============
 export const ProjectCreatePage = () => {
+    const {t} = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const {projectId} = useParams<{projectId: string}>();
@@ -232,7 +234,7 @@ export const ProjectCreatePage = () => {
 
     const loadProject = useCallback(async () => {
         if (!projectId) {
-            setLoadError('Не найден идентификатор проекта.');
+            setLoadError('project.editor.errors.missingId');
             setLoading(false);
             return;
         }
@@ -255,17 +257,17 @@ export const ProjectCreatePage = () => {
             setGenre(incomingGenre);
         } catch (error: unknown) {
             const status = getApiStatus(error);
-            const errorMessage = status === 403
-                ? 'Нет доступа к проекту'
+            const errorKey = status === 403
+                ? 'project.editor.errors.forbidden'
                 : status === 404
-                    ? 'Проект не найден'
-                    : getApiErrorMessage(error, 'Не удалось загрузить проект');
-            setLoadError(errorMessage);
-            openNotificationWithIcon(errorMessage, 'Не удалось загрузить проект', 'error');
+                    ? 'project.editor.errors.notFound'
+                    : 'project.editor.errors.load';
+            setLoadError(errorKey);
+            openNotificationWithIcon(t(errorKey), t('project.editor.errors.load'), 'error');
         } finally {
             setLoading(false);
         }
-    }, [projectId]);
+    }, [projectId, t]);
 
     useEffect(() => {
         if (is_edit && projectId) {
@@ -288,7 +290,7 @@ export const ProjectCreatePage = () => {
             // Edit mode but no projectId — exit the loader and surface an
             // error instead of leaving the page stuck on "Загружаем проект...".
             setLoading(false);
-            setLoadError('Не найден идентификатор проекта.');
+            setLoadError('project.editor.errors.missingId');
         } else {
             const url = location.state?.imgUrl || '';
             setImageUrl(url);
@@ -302,37 +304,37 @@ export const ProjectCreatePage = () => {
     const checkRecordFields = () => {
         if (!title) {
             setErrorTitle(true);
-            openNotificationWithIcon('Поле "Название" обязательно для заполнения');
+            openNotificationWithIcon(t('project.editor.validation.titleRequired'));
             return false;
         }
 
         if (!genre) {
-            openNotificationWithIcon('Выберите жанр');
+            openNotificationWithIcon(t('project.editor.validation.genreRequired'));
             return false;
         }
 
         if (!annotation || annotation.length < BOTTOM_LEN_ANNOT) {
             setErrorAnnot(true);
-            openNotificationWithIcon('Поле "Аннотации" должно содержать не менее ' + BOTTOM_LEN_ANNOT + ' символов');
+            openNotificationWithIcon(t('project.editor.validation.annotationMin', {count: BOTTOM_LEN_ANNOT}));
             return false;
         }
         if (!annotation || annotation.length > UP_LEN_ANNOT) {
             setErrorAnnot(true);
-            openNotificationWithIcon('Поле "Аннотации" должно содержать не более ' + UP_LEN_ANNOT + ' символов');
+            openNotificationWithIcon(t('project.editor.validation.annotationMax', {count: UP_LEN_ANNOT}));
             return false;
         }
         if (!description || description.length < BOTTOM_LEN_DESC) {
             setErrorDesc(true);
-            openNotificationWithIcon('Поле "Синопсис" должно содержать не менее ' + BOTTOM_LEN_DESC + ' символов');
+            openNotificationWithIcon(t('project.editor.validation.synopsisMin', {count: BOTTOM_LEN_DESC}));
             return false;
         }
         if (!description || description.length > UP_LEN_DESC) {
             setErrorDesc(true);
-            openNotificationWithIcon('Поле "Синопсис" должно содержать не более ' + UP_LEN_DESC + ' символов');
+            openNotificationWithIcon(t('project.editor.validation.synopsisMax', {count: UP_LEN_DESC}));
             return false;
         }
         if (selectedAudience.length === 0) {
-            openNotificationWithIcon('Выберите целевую аудиторию');
+            openNotificationWithIcon(t('project.editor.validation.audienceRequired'));
             return false;
         }
 
@@ -351,8 +353,8 @@ export const ProjectCreatePage = () => {
         return payload;
     };
 
-    const formatBackendError = (error: unknown): string =>
-        getApiErrorMessage(error, 'Не удалось сохранить проект');
+    const formatBackendError = (): string =>
+        t('project.editor.errors.save');
 
     const updateHandle = async () => {
         const payload = checkRecordFields();
@@ -361,11 +363,11 @@ export const ProjectCreatePage = () => {
         setSaving(true);
         try {
             if (!projectId) {
-                setLoadError('Не найден идентификатор проекта.');
+                setLoadError('project.editor.errors.missingId');
                 return;
             }
             const data = await patch_project(projectId, payload);
-            openNotificationWithIcon('Изменения сохранены', 'Готово', 'success');
+            openNotificationWithIcon(t('project.editor.notifications.updated'), t('project.common.done'), 'success');
             // Sync local state with the persisted version returned by the API.
             setTitle(data.title || title);
             setFormat(data.format || format);
@@ -377,8 +379,8 @@ export const ProjectCreatePage = () => {
             }
             if (data.posterUrl) setImageUrl(data.posterUrl);
             setPosterDataUrl('');
-        } catch (error: unknown) {
-            openNotificationWithIcon(formatBackendError(error), 'Ошибка', 'error');
+        } catch {
+            openNotificationWithIcon(formatBackendError(), t('project.common.error'), 'error');
         } finally {
             setSaving(false);
         }
@@ -391,10 +393,10 @@ export const ProjectCreatePage = () => {
         setSaving(true);
         try {
             const data = await create_project(payload);
-            openNotificationWithIcon('Проект успешно создан', 'Готово', 'success');
+            openNotificationWithIcon(t('project.editor.notifications.created'), t('project.common.done'), 'success');
             navigate(projectEditPath(data.id), {replace: true});
-        } catch (error: unknown) {
-            openNotificationWithIcon(formatBackendError(error), 'Ошибка', 'error');
+        } catch {
+            openNotificationWithIcon(formatBackendError(), t('project.common.error'), 'error');
         } finally {
             setSaving(false);
         }
@@ -442,11 +444,11 @@ export const ProjectCreatePage = () => {
     const beforeUpload: NonNullable<UploadProps['beforeUpload']> = (file) => {
         const validationError = validateProjectPosterFile(file);
         if (validationError === 'unsupported-type') {
-            message.error('Можно загрузить только JPG или PNG.');
+            message.error(t('project.editor.validation.posterType'));
             return Upload.LIST_IGNORE;
         }
         if (validationError === 'too-large') {
-            message.error(`Размер изображения не должен превышать ${PROJECT_POSTER_MAX_MEGABYTES} МБ.`);
+            message.error(t('project.editor.validation.posterSize', {size: PROJECT_POSTER_MAX_MEGABYTES}));
             return Upload.LIST_IGNORE;
         }
         getBase64(file, (url) => {
@@ -459,8 +461,8 @@ export const ProjectCreatePage = () => {
     const toGenPage = () => {
         if (!projectId) {
             openNotificationWithIcon(
-                'Сначала создайте проект. После сохранения генератор постера станет доступен.',
-                'Проект ещё не сохранён',
+                t('project.editor.poster.saveFirstDescription'),
+                t('project.editor.poster.saveFirstTitle'),
                 'info',
             );
             return;
@@ -482,8 +484,8 @@ export const ProjectCreatePage = () => {
 
     const errorBorder: React.CSSProperties = { borderColor: COLORS.danger };
 
-    const breadcrumbTitle = is_edit ? (title || 'Проект') : 'Новый проект';
-    const pageActionLabel = is_edit ? 'Сохранить изменения' : 'Создать проект';
+    const breadcrumbTitle = is_edit ? (title || t('project.common.project')) : t('project.editor.newProject');
+    const pageActionLabel = is_edit ? t('project.editor.actions.saveChanges') : t('project.editor.actions.createProject');
 
     return (
         <>
@@ -641,14 +643,14 @@ export const ProjectCreatePage = () => {
                             marginBottom: 20,
                             flexWrap: 'wrap',
                         }}
-                        aria-label="Breadcrumb"
+                        aria-label={t('project.editor.breadcrumb')}
                     >
                         <Link to={PathConstants.PROJECTS} className="craft-breadcrumb-link">
                             <HomeOutlined />
                         </Link>
                         <RightOutlined style={{ fontSize: 9, color: COLORS.textMuted }} />
                         <Link to={PathConstants.PROJECTS} className="craft-breadcrumb-link">
-                            Мои проекты
+                            {t('project.common.myProjects')}
                         </Link>
                         <RightOutlined style={{ fontSize: 9, color: COLORS.textMuted }} />
                         <span style={{ color: COLORS.accent, fontWeight: 500 }}>{breadcrumbTitle}</span>
@@ -667,10 +669,10 @@ export const ProjectCreatePage = () => {
                     >
                         <div style={{ minWidth: 0, flex: '1 1 320px' }}>
                             <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0, marginBottom: 8, color: COLORS.textPrimary }}>
-                                Настройки проекта
+                                {t('project.editor.title')}
                             </h1>
                             <p style={{ fontSize: 14, color: COLORS.textSecondary, margin: 0, lineHeight: 1.5, maxWidth: 640 }}>
-                                Настройте ключевые параметры проекта, чтобы AI-студия работала точнее и эффективнее.
+                                {t('project.editor.subtitle')}
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -679,14 +681,14 @@ export const ProjectCreatePage = () => {
                                 disabled={saving}
                                 icon={<ArrowLeftOutlined />}
                             >
-                                Назад
+                                {t('project.common.back')}
                             </SecondaryButton>
                             <PrimaryButton
                                 onClick={is_edit ? updateHandle : createHandle}
                                 disabled={saving}
                                 icon={saving ? <LoadingOutlined /> : <SaveOutlined />}
                             >
-                                {saving ? 'Сохранение…' : pageActionLabel}
+                                {saving ? t('project.common.saving') : pageActionLabel}
                             </PrimaryButton>
                         </div>
                     </div>
@@ -704,7 +706,7 @@ export const ProjectCreatePage = () => {
                             }}
                         >
                             <LoadingOutlined style={{ fontSize: 24, color: COLORS.accent }} />
-                            Загружаем проект…
+                            {t('project.editor.loading')}
                         </div>
                     ) : loadError ? (
                         <div
@@ -719,18 +721,18 @@ export const ProjectCreatePage = () => {
                             }}
                         >
                             <div style={{ fontSize: 17, fontWeight: 600, color: COLORS.textPrimary }}>
-                                Не удалось загрузить проект
+                                {t('project.editor.errors.load')}
                             </div>
                             <div style={{ fontSize: 14, color: COLORS.textSecondary, maxWidth: 480 }}>
-                                {loadError}
+                                {t(loadError)}
                             </div>
                             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
                                 <SecondaryButton onClick={() => navigate(PathConstants.PROJECTS)}>
-                                    Назад к проектам
+                                    {t('project.common.backToProjects')}
                                 </SecondaryButton>
                                 {projectId && (
                                     <PrimaryButton onClick={loadProject}>
-                                        Повторить
+                                        {t('project.common.retry')}
                                     </PrimaryButton>
                                 )}
                             </div>
@@ -769,7 +771,7 @@ export const ProjectCreatePage = () => {
                             `}</style>
 
                             {/* LEFT — Poster card */}
-                            <Card title="Постер проекта" icon={<PictureOutlined />}>
+                            <Card title={t('project.editor.poster.title')} icon={<PictureOutlined />}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                     {imageUrl ? (
                                         <div
@@ -783,7 +785,7 @@ export const ProjectCreatePage = () => {
                                         >
                                             <img
                                                 src={imageUrl}
-                                                alt="Постер проекта"
+                                                alt={t('project.editor.poster.alt')}
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                                             />
                                         </div>
@@ -806,7 +808,7 @@ export const ProjectCreatePage = () => {
                                         >
                                             <PictureOutlined style={{ fontSize: 48, color: 'rgba(251, 191, 36, 0.6)' }} />
                                             <p style={{ fontWeight: 600, color: COLORS.textPrimary, margin: 0, fontSize: 15 }}>
-                                                Постер пока не создан
+                                                {t('project.editor.poster.emptyTitle')}
                                             </p>
                                             <p
                                                 style={{
@@ -817,17 +819,17 @@ export const ProjectCreatePage = () => {
                                                     maxWidth: 280,
                                                 }}
                                             >
-                                                Сгенерируйте уникальный постер для вашего проекта с помощью AI или загрузите своё изображение.
+                                                {t('project.editor.poster.emptyDescription')}
                                             </p>
                                         </div>
                                     )}
 
                                     <PrimaryButton onClick={toGenPage} icon={<ThunderboltOutlined />} block disabled={!projectId}>
-                                        Сгенерировать постер
+                                        {t('project.editor.poster.generate')}
                                     </PrimaryButton>
                                     {!projectId && (
                                         <p style={{fontSize: 12, color: COLORS.textMuted, margin: 0, textAlign: 'center'}}>
-                                            Сначала создайте проект, чтобы открыть генератор постера.
+                                            {t('project.editor.poster.createFirst')}
                                         </p>
                                     )}
 
@@ -838,7 +840,7 @@ export const ProjectCreatePage = () => {
                                         className="craft-poster-upload"
                                     >
                                         <SecondaryButton icon={<UploadOutlined />} block>
-                                            Загрузить изображение
+                                            {t('project.editor.poster.upload')}
                                         </SecondaryButton>
                                     </Upload>
 
@@ -850,7 +852,7 @@ export const ProjectCreatePage = () => {
                                             textAlign: 'center',
                                         }}
                                     >
-                                        Рекомендуемое соотношение: 2:3 (портрет)
+                                        {t('project.editor.poster.ratio')}
                                     </p>
                                 </div>
                             </Card>
@@ -858,15 +860,15 @@ export const ProjectCreatePage = () => {
                             {/* RIGHT — stack of cards */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
                                 {/* Основная информация */}
-                                <Card title="Основная информация" icon={<InfoCircleOutlined />}>
+                                <Card title={t('project.editor.basic.title')} icon={<InfoCircleOutlined />}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                                         <Field
-                                            label="Название"
-                                            helper="Название будет отображаться в списке проектов и в рабочем пространстве фильма."
+                                            label={t('project.editor.basic.name')}
+                                            helper={t('project.editor.basic.nameHelp')}
                                         >
                                             <div className={`craft-field ${errorTitle ? 'craft-error' : ''}`}>
                                                 <Input
-                                                    placeholder="Введите название"
+                                                    placeholder={t('project.editor.basic.namePlaceholder')}
                                                     value={title}
                                                     onChange={handleTitle}
                                                     style={{ ...fieldStyle, ...(errorTitle ? errorBorder : {}) }}
@@ -882,27 +884,27 @@ export const ProjectCreatePage = () => {
                                                 gap: 16,
                                             }}
                                         >
-                                            <Field label="Формат">
+                                            <Field label={t('project.editor.basic.format')}>
                                                 <div className="craft-field">
                                                     <Select
-                                                        placeholder="Выберите формат"
+                                                        placeholder={t('project.editor.basic.formatPlaceholder')}
                                                         value={format || undefined}
                                                         onChange={(value) => setFormat(value)}
                                                         style={{ width: '100%' }}
                                                     >
                                                         {PROJECT_FORMAT_OPTIONS.map((opt) => (
                                                             <Option key={opt.value} value={opt.value}>
-                                                                {opt.label}
+                                                                {t(opt.labelKey)}
                                                             </Option>
                                                         ))}
                                                     </Select>
                                                 </div>
                                             </Field>
 
-                                            <Field label="Жанр">
+                                            <Field label={t('project.editor.basic.genre')}>
                                                 <div className="craft-field">
                                                     <Select
-                                                        placeholder="Выберите жанр"
+                                                        placeholder={t('project.editor.basic.genrePlaceholder')}
                                                         value={genre || undefined}
                                                         onChange={(value) => setGenre((value || '').trim())}
                                                         allowClear
@@ -910,7 +912,7 @@ export const ProjectCreatePage = () => {
                                                     >
                                                         {PROJECT_GENRE_OPTIONS.map((opt) => (
                                                             <Option key={opt.value} value={opt.value}>
-                                                                {opt.label}
+                                                                {t(opt.labelKey)}
                                                             </Option>
                                                         ))}
                                                         {/* Custom genre saved earlier — render as-is so the user sees the real value. */}
@@ -927,9 +929,9 @@ export const ProjectCreatePage = () => {
                                 </Card>
 
                                 {/* Целевая аудитория */}
-                                <Card title="Целевая аудитория" icon={<AimOutlined />}>
+                                <Card title={t('project.editor.audience.title')} icon={<AimOutlined />}>
                                     <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: '0 0 14px', lineHeight: 1.5 }}>
-                                        Выберите одну или несколько групп, для которых создаётся проект.
+                                        {t('project.editor.audience.description')}
                                     </p>
                                     <AudienceSelect
                                         selectedAudience={selectedAudience}
@@ -938,7 +940,7 @@ export const ProjectCreatePage = () => {
                                 </Card>
 
                                 {/* Описание проекта */}
-                                <Card title="Описание проекта" icon={<FileTextOutlined />}>
+                                <Card title={t('project.editor.description.title')} icon={<FileTextOutlined />}>
                                     <div
                                         className="craft-desc-grid"
                                         style={{
@@ -948,8 +950,8 @@ export const ProjectCreatePage = () => {
                                         }}
                                     >
                                         <Field
-                                            label="Аннотация"
-                                            helper="Краткое описание идеи проекта, его концепции и ключевой идеи."
+                                            label={t('project.editor.description.annotation')}
+                                            helper={t('project.editor.description.annotationHelp')}
                                             counter={{ current: annotation.length, max: UP_LEN_ANNOT }}
                                         >
                                             <textarea
@@ -957,12 +959,12 @@ export const ProjectCreatePage = () => {
                                                 value={annotation}
                                                 onChange={handleAnnotationsChange}
                                                 maxLength={UP_LEN_ANNOT}
-                                                placeholder="Опишите идею проекта…"
+                                                placeholder={t('project.editor.description.annotationPlaceholder')}
                                             />
                                         </Field>
                                         <Field
-                                            label="Синопсис"
-                                            helper="Подробное описание сюжета и ключевых событий проекта."
+                                            label={t('project.editor.description.synopsis')}
+                                            helper={t('project.editor.description.synopsisHelp')}
                                             counter={{ current: description.length, max: UP_LEN_DESC }}
                                         >
                                             <textarea
@@ -970,7 +972,7 @@ export const ProjectCreatePage = () => {
                                                 value={description}
                                                 onChange={handleDescriptionChange}
                                                 maxLength={UP_LEN_DESC}
-                                                placeholder="Опишите сюжет и ключевые события…"
+                                                placeholder={t('project.editor.description.synopsisPlaceholder')}
                                             />
                                         </Field>
                                     </div>

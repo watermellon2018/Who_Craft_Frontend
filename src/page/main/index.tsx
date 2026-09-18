@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {useTranslation} from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import withAuth from '../../utils/auth/check_auth';
@@ -65,6 +66,7 @@ interface HomeUserPillProps {
 }
 
 const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
+  const {t} = useTranslation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -79,7 +81,7 @@ const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const displayName = user?.display_name || user?.username || 'User';
+  const displayName = user?.display_name || user?.username || t('common.user');
   const initial = displayName.trim().charAt(0).toUpperCase();
 
   const handleGoProfile = () => {
@@ -141,7 +143,7 @@ const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
               className="app-header__dropdown-item"
               role="menuitem"
             >
-              Мой кабинет
+              {t('common.myProfile')}
             </button>
             <button
               type="button"
@@ -149,7 +151,7 @@ const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
               className="app-header__dropdown-item"
               role="menuitem"
             >
-              Выйти
+              {t('common.logout')}
             </button>
           </div>
         )}
@@ -158,25 +160,21 @@ const HomeUserPill: React.FC<HomeUserPillProps> = ({ user }) => {
   );
 };
 
-const HomeHero: React.FC = () => (
-  <div className="home-hero">
-    <div className="home-hero__logo" aria-hidden="true">
-      <span>W</span>
+const HomeHero: React.FC = () => {
+  const {t} = useTranslation();
+
+  return (
+    <div className="home-hero">
+      <div className="home-hero__logo" aria-hidden="true">
+        <span>W</span>
+      </div>
+      <div className="home-hero__brand">WCraft</div>
+      <div className="home-hero__tagline">AI FILM STUDIO</div>
+      <h1 className="home-hero__title">{t('home.hero.title')}</h1>
+      <p className="home-hero__subtitle">{t('home.hero.description')}</p>
     </div>
-    <div className="home-hero__brand">WCraft</div>
-    <div className="home-hero__tagline">AI FILM STUDIO</div>
-    <h1 className="home-hero__title">
-      Создавайте AI-фильмы
-      <br />
-      с полным контролем
-    </h1>
-    <p className="home-hero__subtitle">
-      Персонажи, сценарии, сцены, камера и генерация видео —
-      <br />
-      в одном творческом пространстве.
-    </p>
-  </div>
-);
+  );
+};
 
 interface ActionCardProps {
   to: string;
@@ -218,6 +216,7 @@ const DisabledCard: React.FC<DisabledCardProps> = ({ icon, title, description, b
 );
 
 export const MainPage: React.FC = () => {
+  const {t} = useTranslation();
   const [user, setUser] = useState<ProfileUser | null>(null);
 
   useEffect(() => {
@@ -245,39 +244,39 @@ export const MainPage: React.FC = () => {
           <ActionCard
             to={PathConstants.CREATE_PROJECT}
             icon={<IconPlus />}
-            title="Создать проект"
-            description="Начните новый фильм, сцену или генеративный ролик."
+            title={t('home.cards.createProject.title')}
+            description={t('home.cards.createProject.description')}
             primary
           />
           <ActionCard
             to={PathConstants.PROJECTS}
             icon={<IconFolder />}
-            title="Мои проекты"
-            description="Откройте существующие проекты и продолжите работу."
+            title={t('home.cards.projects.title')}
+            description={t('home.cards.projects.description')}
           />
           <ActionCard
             to={PathConstants.PROFILE}
             icon={<IconPlay />}
-            title="Мой канал"
-            description="Управляйте публикациями, профилем и витриной работ."
+            title={t('home.cards.channel.title')}
+            description={t('home.cards.channel.description')}
           />
           <DisabledCard
             icon={<IconSparkles />}
-            title="Кинотеатр"
-            description="Открывайте фильмы, сцены и ролики других авторов."
-            badge="В разработке"
+            title={t('home.cards.cinema.title')}
+            description={t('home.cards.cinema.description')}
+            badge={t('home.cards.cinema.badge')}
           />
           <DisabledCard
             icon={<IconSparkles />}
-            title="Подписки"
-            description="Следите за новыми работами любимых авторов."
-            badge="В разработке"
+            title={t('home.cards.subscriptions.title')}
+            description={t('home.cards.subscriptions.description')}
+            badge={t('home.cards.subscriptions.badge')}
           />
           <DisabledCard
             icon={<IconPackage />}
-            title="Челленджи"
-            description="Создавайте ролики и побеждайте врагов."
-            badge="Скоро"
+            title={t('home.cards.challenges.title')}
+            description={t('home.cards.challenges.description')}
+            badge={t('home.cards.challenges.badge')}
           />
         </div>
       </div>

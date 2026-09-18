@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {Button, Input, Select, message} from 'antd';
+import {useTranslation} from 'react-i18next';
 import {
   CheckCircleOutlined,
   DeleteOutlined,
@@ -15,7 +16,7 @@ import GenerationSettingsPanel, {defaultGenerationOptions} from '../components/c
 import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
 import VisualStyleSelector from '../components/create/VisualStyleSelector';
 import type {VisualStyleValue} from '../components/create/VisualStyleSelector';
-import {characterTypeOptions, genderApplicabilityOptions, roleOptions} from '../components/create/characterCreateOptions';
+import {getCharacterTypeOptions, getGenderApplicabilityOptions, getRoleOptions} from '../components/create/characterCreateOptions';
 import {characterApi} from '../api/characterApi';
 import {characterVariantsPath} from '../../../routes/pathConstant';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
@@ -25,13 +26,7 @@ import './CreateCharacterFromReferencePage.css';
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
 
-const tips = [
-  'Используйте фото с чётким лицом',
-  'Избегайте размытых изображений',
-  'Лучше работают портреты или фото в полный рост',
-  'Система сохранит черты лица при генерации',
-  'После генерации можно будет редактировать персонажа',
-];
+const tipKeys = ['clearFace', 'avoidBlur', 'portraitOrFullBody', 'preserveFace', 'editAfter'] as const;
 
 type CharacterTypeValue = 'human' | 'animal' | 'creature' | 'robot' | 'object' | 'other';
 type GenderValue = 'female' | 'male' | 'other';
@@ -104,12 +99,13 @@ interface ToggleOptionProps {
 }
 
 export default function CreateCharacterFromReferencePage() {
+  const {t} = useTranslation();
   return (
     <div className="character-create-page">
       <div className="character-create-page__inner">
         <CharacterCreateHeader
           activeMode="reference"
-          subtitle="Загрузите референс-изображение и настройте параметры будущего персонажа."
+          subtitle={t('characterStudio.referenceCreate.subtitle')}
         />
         <div className="character-create-content">
           <CreateCharacterFromReferenceContent />
@@ -120,6 +116,7 @@ export default function CreateCharacterFromReferencePage() {
 }
 
 export function CreateCharacterFromReferenceContent() {
+  const {t} = useTranslation();
   const projectId = useProjectIdFromRoute();
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
@@ -156,12 +153,12 @@ export function CreateCharacterFromReferenceContent() {
 
   const handleFileSelect = (nextFile: File) => {
     if (!ACCEPTED_IMAGE_TYPES.includes(nextFile.type)) {
-      message.warning('Поддерживаются только JPG и PNG изображения');
+      message.warning(t('characterStudio.referenceCreate.fileFormatError'));
       return;
     }
 
     if (nextFile.size > MAX_FILE_SIZE) {
-      message.warning('Максимальный размер файла — 10MB');
+      message.warning(t('characterStudio.referenceCreate.fileSizeError'));
       return;
     }
 
@@ -174,7 +171,7 @@ export function CreateCharacterFromReferenceContent() {
       return;
     }
     if (!projectId) {
-      message.error('Не удалось определить проект.');
+      message.error(t('characterStudio.referenceCreate.projectMissing'));
       return;
     }
     try {
@@ -194,14 +191,14 @@ export function CreateCharacterFromReferenceContent() {
       });
       const {character, generation_job: job} = response.data;
       if (job?.status === 'failed') {
-        message.error(job.error_message || 'Не удалось сгенерировать варианты. Попробуйте ещё раз позже.');
+        message.error(job.error_message || t('characterStudio.referenceCreate.variantsFailed'));
         return;
       }
       if (!job?.job_id) {
-        message.error('Сервер не вернул идентификатор задачи генерации.');
+        message.error(t('characterStudio.referenceCreate.jobIdMissing'));
         return;
       }
-      message.success('Персонаж создан, генерация запущена.');
+      message.success(t('characterStudio.referenceCreate.started'));
       navigate(characterVariantsPath(projectId, character.character_id, job.job_id), {
         state: {
           characterName: character.name,
@@ -210,7 +207,7 @@ export function CreateCharacterFromReferenceContent() {
       });
     } catch (error) {
       const data = (error as {response?: {data?: {message?: string}}})?.response?.data;
-      message.error(data?.message || 'Не удалось создать персонажа по референсу.');
+      message.error(data?.message || t('characterStudio.referenceCreate.createFailed'));
     } finally {
       setIsGenerating(false);
     }
@@ -255,10 +252,12 @@ export function CreateCharacterFromReferenceContent() {
               loading={isGenerating}
               onClick={handleGenerate}
             >
-              {isGenerating ? 'Создаём персонажа…' : 'Сгенерировать'}
+              {isGenerating
+                ? t('characterStudio.referenceCreate.creating')
+                : t('characterStudio.referenceCreate.generate')}
             </Button>
           </div>
-          <p>После генерации вы сможете доработать персонажа в редакторе.</p>
+          <p>{t('characterStudio.referenceCreate.afterGeneration')}</p>
         </div>
       </div>
 
@@ -277,6 +276,7 @@ export function CreateCharacterFromReferenceContent() {
 }
 
 function ReferenceUploadCard({file, previewUrl, onFileSelect, onRemove}: ReferenceUploadCardProps) {
+  const {t} = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -316,8 +316,8 @@ function ReferenceUploadCard({file, previewUrl, onFileSelect, onRemove}: Referen
           <UploadOutlined />
         </span>
         <div>
-          <h2>Референс-изображение</h2>
-          <p>Загрузите изображение, на основе которого будет создан персонаж</p>
+          <h2>{t('characterStudio.referenceCreate.upload.title')}</h2>
+          <p>{t('characterStudio.referenceCreate.upload.subtitle')}</p>
         </div>
       </div>
 
@@ -336,7 +336,7 @@ function ReferenceUploadCard({file, previewUrl, onFileSelect, onRemove}: Referen
           }`}
           role="button"
           tabIndex={0}
-          aria-label="Загрузить референс-изображение"
+          aria-label={t('characterStudio.referenceCreate.upload.ariaLabel')}
           onClick={openFileDialog}
           onKeyDown={handleKeyDown}
           onDragEnter={(event) => {
@@ -349,7 +349,7 @@ function ReferenceUploadCard({file, previewUrl, onFileSelect, onRemove}: Referen
         >
           {previewUrl ? (
             <>
-              <img className="reference-upload-dropzone__image" src={previewUrl} alt={file?.name || 'Референс'} />
+              <img className="reference-upload-dropzone__image" src={previewUrl} alt={file?.name || t('characterStudio.referenceCreate.upload.previewAlt')} />
               <div className="reference-upload-dropzone__actions">
                 <Button
                   className="reference-upload-action"
@@ -360,7 +360,7 @@ function ReferenceUploadCard({file, previewUrl, onFileSelect, onRemove}: Referen
                     openFileDialog();
                   }}
                 >
-                  Заменить
+                  {t('characterStudio.referenceCreate.upload.replace')}
                 </Button>
                 <Button
                   className="reference-upload-action"
@@ -371,7 +371,7 @@ function ReferenceUploadCard({file, previewUrl, onFileSelect, onRemove}: Referen
                     onRemove();
                   }}
                 >
-                  Удалить
+                  {t('characterStudio.referenceCreate.upload.remove')}
                 </Button>
               </div>
             </>
@@ -380,9 +380,9 @@ function ReferenceUploadCard({file, previewUrl, onFileSelect, onRemove}: Referen
               <span className="reference-upload-empty__icon">
                 <UploadOutlined />
               </span>
-              <strong>Перетащите изображение сюда</strong>
-              <span>или нажмите для выбора файла</span>
-              <small>JPG, PNG • Макс. размер 10MB</small>
+              <strong>{t('characterStudio.referenceCreate.upload.dropTitle')}</strong>
+              <span>{t('characterStudio.referenceCreate.upload.dropHint')}</span>
+              <small>{t('characterStudio.referenceCreate.upload.formats')}</small>
             </div>
           )}
         </div>
@@ -407,6 +407,7 @@ function ReferenceParametersCard({
   onRoleChange,
   onPreserveIdentityChange,
 }: ReferenceParametersCardProps) {
+  const {t} = useTranslation();
   return (
     <section className="reference-parameters-card">
       <div className="reference-parameters-card__header">
@@ -414,23 +415,23 @@ function ReferenceParametersCard({
           <IdcardOutlined />
         </span>
         <div>
-          <h2>Параметры персонажа</h2>
-          <p>Укажите базовые данные о персонаже</p>
+          <h2>{t('characterStudio.referenceCreate.parameters.title')}</h2>
+          <p>{t('characterStudio.referenceCreate.parameters.subtitle')}</p>
         </div>
       </div>
 
       <div className="reference-parameters-card__body">
         <FormField
           htmlFor="reference-character-name"
-          label="Имя персонажа"
+          label={t('characterStudio.create.basicInfo.name')}
           required
-          error={showNameError ? 'Укажите имя персонажа' : undefined}
+          error={showNameError ? t('characterStudio.create.basicInfo.nameRequired') : undefined}
         >
           <TextInputWithCounter
             id="reference-character-name"
             value={name}
             maxLength={80}
-            placeholder="Введите имя персонажа"
+            placeholder={t('characterStudio.create.basicInfo.namePlaceholder')}
             error={showNameError}
             onBlur={onNameBlur}
             onChange={onNameChange}
@@ -438,45 +439,45 @@ function ReferenceParametersCard({
         </FormField>
 
         <div className="reference-parameters-grid reference-parameters-grid--two">
-          <FormField htmlFor="reference-character-type" label="Тип сущности" required>
+          <FormField htmlFor="reference-character-type" label={t('characterStudio.create.basicInfo.type')} required>
             <SelectField
               id="reference-character-type"
               value={characterType}
-              placeholder="Выберите тип сущности"
-              options={characterTypeOptions}
+              placeholder={t('characterStudio.create.basicInfo.typePlaceholder')}
+              options={getCharacterTypeOptions(t)}
               onChange={(value) => onCharacterTypeChange((value || 'human') as CharacterTypeValue)}
             />
           </FormField>
 
-          <FormField htmlFor="reference-character-role" label="Роль">
+          <FormField htmlFor="reference-character-role" label={t('characterStudio.create.basicInfo.role')}>
             <SelectField
               id="reference-character-role"
               value={role}
-              placeholder="Выберите роль персонажа"
-              options={roleOptions}
+              placeholder={t('characterStudio.create.basicInfo.rolePlaceholder')}
+              options={getRoleOptions(t)}
               onChange={(value) => onRoleChange(value ?? 'main')}
             />
           </FormField>
         </div>
 
         <div className="reference-parameters-grid reference-parameters-grid--two">
-          <FormField htmlFor="reference-character-lifecycle-stage" label="Возраст / стадия жизни">
+          <FormField htmlFor="reference-character-lifecycle-stage" label={t('characterStudio.referenceCreate.parameters.lifecycle')}>
             <Input
               id="reference-character-lifecycle-stage"
               className="reference-form-control"
               value={lifecycleStage}
               maxLength={128}
-              placeholder="Например: 17, взрослый, древний, неизвестно"
+              placeholder={t('characterStudio.referenceCreate.parameters.lifecyclePlaceholder')}
               onChange={(event) => onLifecycleStageChange(event.target.value)}
             />
           </FormField>
 
-          <FormField htmlFor="reference-character-gender" label="Пол / применимость">
+          <FormField htmlFor="reference-character-gender" label={t('characterStudio.create.basicInfo.gender')}>
             <SelectField
               id="reference-character-gender"
               value={gender}
-              placeholder="Выберите пол или применимость"
-              options={genderApplicabilityOptions}
+              placeholder={t('characterStudio.create.basicInfo.genderPlaceholder')}
+              options={getGenderApplicabilityOptions(t)}
               onChange={(value) => onGenderChange(value as GenderValue | undefined)}
             />
           </FormField>
@@ -485,8 +486,8 @@ function ReferenceParametersCard({
         <div className="reference-toggle-options">
           <ToggleOption
             checked={preserveIdentity}
-            title="Использовать изображение как основу идентичности"
-            description="Лицо и ключевые черты будут сохранены при генерации и редактировании"
+            title={t('characterStudio.referenceCreate.parameters.identityTitle')}
+            description={t('characterStudio.referenceCreate.parameters.identityDescription')}
             onChange={onPreserveIdentityChange}
           />
         </div>
@@ -571,6 +572,7 @@ function ToggleOption({checked, title, description, onChange}: ToggleOptionProps
 }
 
 function OptionalRefinementBox({value, onChange}: OptionalRefinementBoxProps) {
+  const {t} = useTranslation();
   return (
     <section className="character-create-section reference-refinement-section">
       <div className="character-create-section__header">
@@ -578,7 +580,7 @@ function OptionalRefinementBox({value, onChange}: OptionalRefinementBoxProps) {
           <EditOutlined />
         </span>
         <div>
-          <h2>Дополнительные уточнения (необязательно)</h2>
+          <h2>{t('characterStudio.referenceCreate.refinement.title')}</h2>
         </div>
       </div>
 
@@ -588,9 +590,7 @@ function OptionalRefinementBox({value, onChange}: OptionalRefinementBoxProps) {
           value={value}
           rows={4}
           maxLength={300}
-          placeholder={`Например:
-Сохранить лицо, но изменить одежду на школьную форму
-Сделать стиль более тёмным и кинематографичным`}
+          placeholder={t('characterStudio.referenceCreate.refinement.placeholder')}
           onChange={(event) => onChange(event.target.value)}
         />
         <div className="reference-refinement-counter">
@@ -602,24 +602,24 @@ function OptionalRefinementBox({value, onChange}: OptionalRefinementBoxProps) {
 }
 
 function IdentityInfoPanel({preserveIdentity}: IdentityInfoPanelProps) {
+  const {t} = useTranslation();
   return (
     <section className="create-side-card">
       <div className="create-side-card__header">
-        <h2>Информация об идентичности</h2>
+        <h2>{t('characterStudio.referenceCreate.identity.title')}</h2>
       </div>
 
       <div className="identity-info-copy">
         <SafetyCertificateOutlined />
         <p>
-          Изображение будет использоваться как основа идентичности персонажа. Система сохранит ключевые
-          черты внешности, тип сущности и особые признаки при генерации и редактировании.
+          {t('characterStudio.referenceCreate.identity.description')}
         </p>
       </div>
 
       {!preserveIdentity && (
         <div className="identity-warning" role="alert">
           <ExclamationCircleOutlined />
-          <span>Идентичность может сохраняться хуже без использования референса.</span>
+          <span>{t('characterStudio.referenceCreate.identity.warning')}</span>
         </div>
       )}
     </section>
@@ -627,17 +627,18 @@ function IdentityInfoPanel({preserveIdentity}: IdentityInfoPanelProps) {
 }
 
 function TipsPanel() {
+  const {t} = useTranslation();
   return (
     <section className="create-side-card">
       <div className="create-side-card__header">
-        <h2>Советы</h2>
+        <h2>{t('characterStudio.referenceCreate.tips.title')}</h2>
       </div>
 
       <ul className="tips-list">
-        {tips.map((tip) => (
-          <li key={tip}>
+        {tipKeys.map((key) => (
+          <li key={key}>
             <CheckCircleOutlined />
-            <span>{tip}</span>
+            <span>{t(`characterStudio.referenceCreate.tips.${key}`)}</span>
           </li>
         ))}
       </ul>

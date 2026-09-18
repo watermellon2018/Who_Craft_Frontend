@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import { Award } from '../types';
 
 interface Props {
@@ -13,15 +14,17 @@ const AWARD_ICONS: Record<string, string> = {
 };
 
 const AwardsCard: React.FC<Props> = ({ awards }) => {
+  const {t} = useTranslation();
+
   return (
     <div className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-white font-semibold text-base">🏆 Награды</h3>
-        <button className="text-accent text-xs hover:underline">Смотреть все</button>
+        <h3 className="text-white font-semibold text-base">{t('profile.awards.title')}</h3>
+        <button className="text-accent text-xs hover:underline">{t('profile.awards.showAll')}</button>
       </div>
 
       {awards.length === 0 ? (
-        <p className="text-white/30 text-sm text-center py-4">Награды появятся после первых действий на Craft</p>
+        <p className="text-white/30 text-sm text-center py-4">{t('profile.awards.empty')}</p>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {awards.map((award) => (

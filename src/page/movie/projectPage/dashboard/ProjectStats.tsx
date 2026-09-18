@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import {
   UserOutlined,
   VideoCameraOutlined,
@@ -20,7 +21,9 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ stat, onOpen }) => {
+  const {t} = useTranslation();
   const accentHex = ACCENT_HEX[stat.accent];
+  const label = t(stat.label);
   const content = (
     <>
       <div className="flex items-start justify-between">
@@ -38,7 +41,7 @@ const StatCard: React.FC<StatCardProps> = ({ stat, onOpen }) => {
         <div className="text-white text-3xl font-bold leading-none tracking-tight">
           {stat.value}
         </div>
-        <div className="text-white/85 text-sm font-medium mt-2">{stat.label}</div>
+        <div className="text-white/85 text-sm font-medium mt-2">{label}</div>
       </div>
     </>
   );
@@ -47,7 +50,7 @@ const StatCard: React.FC<StatCardProps> = ({ stat, onOpen }) => {
       type="button"
       className="proj-card proj-stat-card p-5"
       onClick={onOpen}
-      aria-label={stat.label}
+      aria-label={label}
     >
       {content}
     </button>

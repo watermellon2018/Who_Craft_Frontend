@@ -1,6 +1,7 @@
 import React from 'react';
 import {CloseOutlined, ZoomInOutlined, ZoomOutOutlined} from '@ant-design/icons';
-import {EditableZone, EditableParameter} from './zones';
+import {useTranslation} from 'react-i18next';
+import type {EditableParameter, EditableZone} from './zones';
 
 interface Props {
   zone: EditableZone | null;
@@ -53,10 +54,12 @@ const ContextualZonePanel: React.FC<Props> = ({
   onSave,
   saveDisabled = false,
 }) => {
+  const {t} = useTranslation();
+
   if (!zone) return null;
 
   return (
-    <aside className="c3d-inspector" role="dialog" aria-label={zone.label}>
+    <aside className="c3d-inspector" role="dialog" aria-label={t(zone.translationKey)}>
       <div className="c3d-inspector__leader" aria-hidden="true">
         <svg viewBox="0 0 240 60" preserveAspectRatio="none">
           <defs>
@@ -78,10 +81,15 @@ const ContextualZonePanel: React.FC<Props> = ({
 
       <header className="c3d-inspector__header">
         <div>
-          <p className="c3d-inspector__eyebrow">Контекстная панель</p>
-          <h2 className="c3d-inspector__title">{zone.label}</h2>
+          <p className="c3d-inspector__eyebrow">{t('characterStudio3d.inspector.title')}</p>
+          <h2 className="c3d-inspector__title">{t(zone.translationKey)}</h2>
         </div>
-        <button type="button" className="c3d-inspector__close" onClick={onClose} aria-label="Закрыть">
+        <button
+          type="button"
+          className="c3d-inspector__close"
+          onClick={onClose}
+          aria-label={t('characterStudio3d.actions.close')}
+        >
           <CloseOutlined />
         </button>
       </header>
@@ -114,12 +122,16 @@ const ContextualZonePanel: React.FC<Props> = ({
           />
         ) : null}
 
-        <ZoomControl isZoomed={isZoomed} zoneLabel={zone.label} onToggle={onZoomToggle} />
+        <ZoomControl
+          isZoomed={isZoomed}
+          zoneLabel={t(zone.translationKey)}
+          onToggle={onZoomToggle}
+        />
       </div>
 
       <footer className="c3d-inspector__footer">
         <button type="button" className="c3d-inspector__btn c3d-inspector__btn--ghost" onClick={onCancel}>
-          Отмена
+          {t('characterStudio3d.actions.cancel')}
         </button>
         <button
           type="button"
@@ -127,10 +139,10 @@ const ContextualZonePanel: React.FC<Props> = ({
           onClick={onApply}
           disabled={!hasChanges}
         >
-          Применить
+          {t('characterStudio3d.actions.apply')}
         </button>
         <button type="button" className="c3d-inspector__btn c3d-inspector__btn--primary" onClick={onSave} disabled={saveDisabled}>
-          Сохранить
+          {t('characterStudio3d.actions.save')}
         </button>
       </footer>
     </aside>
@@ -142,21 +154,25 @@ const ZoneBreadcrumbs: React.FC<{ancestors: EditableZone[]; onSelectZone: (id: s
   ancestors,
   onSelectZone,
 }) => {
+  const {t} = useTranslation();
+
   return (
-    <nav className="c3d-breadcrumbs" aria-label="Иерархия зоны">
+    <nav className="c3d-breadcrumbs" aria-label={t('characterStudio3d.inspector.breadcrumbsLabel')}>
       {ancestors.map((zone, index) => {
         const isLast = index === ancestors.length - 1;
         return (
           <React.Fragment key={zone.id}>
             {isLast ? (
-              <span className="c3d-breadcrumbs__item c3d-breadcrumbs__item--current">{zone.label}</span>
+              <span className="c3d-breadcrumbs__item c3d-breadcrumbs__item--current">
+                {t(zone.translationKey)}
+              </span>
             ) : (
               <button
                 type="button"
                 className="c3d-breadcrumbs__item c3d-breadcrumbs__item--link"
                 onClick={() => onSelectZone(zone.id)}
               >
-                {zone.label}
+                {t(zone.translationKey)}
               </button>
             )}
             {!isLast ? <span className="c3d-breadcrumbs__sep" aria-hidden="true">›</span> : null}
@@ -172,9 +188,11 @@ const ZoneChildrenList: React.FC<{zone: EditableZone; onSelectZone: (id: string)
   zone,
   onSelectZone,
 }) => {
+  const {t} = useTranslation();
+
   return (
     <section className="c3d-panel-section">
-      <h3 className="c3d-panel-section__title">Подзоны</h3>
+      <h3 className="c3d-panel-section__title">{t('characterStudio3d.inspector.subzonesTitle')}</h3>
       <ul className="c3d-subzone-list">
         {zone.children!.map((child) => (
           <li key={child.id}>
@@ -183,11 +201,15 @@ const ZoneChildrenList: React.FC<{zone: EditableZone; onSelectZone: (id: string)
               className="c3d-subzone-item"
               onClick={() => onSelectZone(child.id)}
             >
-              <span className="c3d-subzone-item__label">{child.label}</span>
+              <span className="c3d-subzone-item__label">{t(child.translationKey)}</span>
               {child.children?.length ? (
-                <span className="c3d-subzone-item__hint">{child.children.length} подзон</span>
+                <span className="c3d-subzone-item__hint">
+                  {t('characterStudio3d.inspector.subzonesCount', {count: child.children.length})}
+                </span>
               ) : child.parameters?.length ? (
-                <span className="c3d-subzone-item__hint">{child.parameters.length} парам.</span>
+                <span className="c3d-subzone-item__hint">
+                  {t('characterStudio3d.inspector.parametersCount', {count: child.parameters.length})}
+                </span>
               ) : null}
               <span className="c3d-subzone-item__arrow" aria-hidden="true">›</span>
             </button>
@@ -206,19 +228,23 @@ const ZoneParameters: React.FC<{
   onChange: (paramId: string, value: number | string | boolean, side?: 'L' | 'R' | null) => void;
   onReset: () => void;
 }> = ({zone, zoneParams, editSide, onChange, onReset}) => {
+  const {t} = useTranslation();
+
   return (
     <section className="c3d-panel-section">
       <div className="c3d-panel-section__head">
         <h3 className="c3d-panel-section__title">
-          Параметры
+          {t('characterStudio3d.inspector.parametersTitle')}
           {editSide ? (
             <span className="c3d-panel-section__badge">
-              {editSide === 'L' ? 'левая сторона' : 'правая сторона'}
+              {editSide === 'L'
+                ? t('characterStudio3d.symmetry.leftSide')
+                : t('characterStudio3d.symmetry.rightSide')}
             </span>
           ) : null}
         </h3>
         <button type="button" className="c3d-section-link" onClick={onReset}>
-          Сбросить
+          {t('characterStudio3d.actions.reset')}
         </button>
       </div>
       <div className="c3d-param-list">
@@ -268,6 +294,7 @@ const SliderControl: React.FC<{
   value: number;
   onChange: (v: number) => void;
 }> = ({param, value, onChange}) => {
+  const {t} = useTranslation();
   const min = param.min ?? -1;
   const max = param.max ?? 1;
   const step = param.step ?? 0.05;
@@ -276,7 +303,7 @@ const SliderControl: React.FC<{
   return (
     <div className="c3d-param-row">
       <div className="c3d-param-row__label">
-        <span>{param.label}</span>
+        <span>{t(param.translationKey)}</span>
         <strong>{value > 0 && param.min === -1 ? `+${display}` : display}</strong>
       </div>
       <input
@@ -288,10 +315,10 @@ const SliderControl: React.FC<{
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
         style={{['--c3d-slider-fill' as never]: `${norm * 100}%`}}
-        aria-label={param.label}
+        aria-label={t(param.translationKey)}
       />
-      {param.ui === 'drag' && param.hint ? (
-        <small className="c3d-param-row__hint">{param.hint}</small>
+      {param.ui === 'drag' && param.hintTranslationKey ? (
+        <small className="c3d-param-row__hint">{t(param.hintTranslationKey)}</small>
       ) : null}
     </div>
   );
@@ -302,10 +329,12 @@ const SwatchControl: React.FC<{
   value: string;
   onChange: (v: string) => void;
 }> = ({param, value, onChange}) => {
+  const {t} = useTranslation();
+
   return (
     <div className="c3d-param-row">
       <div className="c3d-param-row__label">
-        <span>{param.label}</span>
+        <span>{t(param.translationKey)}</span>
       </div>
       <div className="c3d-swatch-grid">
         {param.options?.map((opt) => {
@@ -316,7 +345,7 @@ const SwatchControl: React.FC<{
               type="button"
               className={`c3d-swatch ${active ? 'c3d-swatch--active' : ''}`}
               onClick={() => onChange(opt.value)}
-              aria-label={opt.label}
+              aria-label={t(opt.translationKey)}
               aria-pressed={active}
             >
               <span className="c3d-swatch__dot" style={{background: opt.value}} />
@@ -333,10 +362,12 @@ const PresetControl: React.FC<{
   value: string;
   onChange: (v: string) => void;
 }> = ({param, value, onChange}) => {
+  const {t} = useTranslation();
+
   return (
     <div className="c3d-param-row">
       <div className="c3d-param-row__label">
-        <span>{param.label}</span>
+        <span>{t(param.translationKey)}</span>
       </div>
       <div className="c3d-segment">
         {param.options?.map((opt) => {
@@ -348,7 +379,7 @@ const PresetControl: React.FC<{
               className={`c3d-segment__item ${active ? 'c3d-segment__item--active' : ''}`}
               onClick={() => onChange(opt.value)}
             >
-              {opt.label}
+              {t(opt.translationKey)}
             </button>
           );
         })}
@@ -362,9 +393,11 @@ const ToggleControl: React.FC<{
   value: boolean;
   onChange: (v: boolean) => void;
 }> = ({param, value, onChange}) => {
+  const {t} = useTranslation();
+
   return (
     <label className="c3d-param-toggle">
-      <span>{param.label}</span>
+      <span>{t(param.translationKey)}</span>
       <button
         type="button"
         className={`c3d-toggle ${value ? 'c3d-toggle--on' : ''}`}
@@ -385,15 +418,22 @@ const SymmetryToggle: React.FC<{
   editSide: 'L' | 'R' | null;
   onSideChange: (side: 'L' | 'R') => void;
 }> = ({enabled, onToggle, editSide, onSideChange}) => {
+  const {t} = useTranslation();
+
+  const sides = [
+    {key: 'L' as const, translationKey: 'characterStudio3d.symmetry.left'},
+    {key: 'R' as const, translationKey: 'characterStudio3d.symmetry.right'},
+  ];
+
   return (
     <section className="c3d-panel-section c3d-symmetry">
       <div className="c3d-symmetry__row">
         <div className="c3d-symmetry__copy">
-          <strong>Применять симметрично</strong>
+          <strong>{t('characterStudio3d.symmetry.title')}</strong>
           <small>
             {enabled
-              ? 'Изменения применяются к обеим сторонам'
-              : 'Слайдеры формы меняют только выбранную сторону'}
+              ? t('characterStudio3d.symmetry.enabledHint')
+              : t('characterStudio3d.symmetry.disabledHint')}
           </small>
         </div>
         <button
@@ -408,22 +448,26 @@ const SymmetryToggle: React.FC<{
       </div>
       {!enabled ? (
         <div className="c3d-symmetry__sides">
-          <div className="c3d-segment" role="radiogroup" aria-label="Редактируемая сторона">
-            {([['L', 'Левая'], ['R', 'Правая']] as const).map(([side, label]) => (
+          <div
+            className="c3d-segment"
+            role="radiogroup"
+            aria-label={t('characterStudio3d.symmetry.sideLabel')}
+          >
+            {sides.map(({key, translationKey}) => (
               <button
-                key={side}
+                key={key}
                 type="button"
-                className={`c3d-segment__item ${editSide === side ? 'c3d-segment__item--active' : ''}`}
-                onClick={() => onSideChange(side)}
+                className={`c3d-segment__item ${editSide === key ? 'c3d-segment__item--active' : ''}`}
+                onClick={() => onSideChange(key)}
                 role="radio"
-                aria-checked={editSide === side}
+                aria-checked={editSide === key}
               >
-                {label}
+                {t(translationKey)}
               </button>
             ))}
           </div>
           <small className="c3d-symmetry__hint">
-            Сторону можно выбрать и на модели — просто потяните нужную часть
+            {t('characterStudio3d.symmetry.modelHint')}
           </small>
         </div>
       ) : null}
@@ -437,11 +481,17 @@ const ZoomControl: React.FC<{isZoomed: boolean; zoneLabel: string; onToggle: () 
   zoneLabel,
   onToggle,
 }) => {
+  const {t} = useTranslation();
+
   return (
     <section className="c3d-panel-section">
       <button type="button" className="c3d-zoom-button" onClick={onToggle}>
         {isZoomed ? <ZoomOutOutlined /> : <ZoomInOutlined />}
-        <span>{isZoomed ? 'Выйти из приближения' : 'Приблизить'}</span>
+        <span>
+          {isZoomed
+            ? t('characterStudio3d.zoom.exit')
+            : t('characterStudio3d.zoom.enter')}
+        </span>
         {!isZoomed ? <em>{zoneLabel}</em> : null}
       </button>
     </section>

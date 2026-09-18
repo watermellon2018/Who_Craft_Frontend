@@ -1,53 +1,54 @@
 import React, {useCallback, useState} from 'react';
 import {CheckOutlined, BgColorsOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import FormSectionCard from './FormSectionCard';
 
 export const visualStyleOptions = [
   {
     value: 'cinematic_realism',
-    label: 'Кинематографичный реализм',
+    labelKey: 'characterStudio.options.visualStyle.cinematic_realism',
     previewImage: '/assets/styles/cat_cinematic.png',
     tone: 'linear-gradient(135deg, #3d4857, #c08a3e)',
   },
   {
     value: 'anime',
-    label: 'Аниме',
+    labelKey: 'characterStudio.options.visualStyle.anime',
     previewImage: '/assets/styles/cat_anime.png',
     tone: 'linear-gradient(135deg, #251d38, #f26fa7)',
   },
   {
     value: 'pixar_like',
-    label: 'В стиле Pixar',
+    labelKey: 'characterStudio.options.visualStyle.pixar_like',
     previewImage: '/assets/styles/cat_pixar.png',
     tone: 'linear-gradient(135deg, #1e4258, #f6b84d)',
   },
   {
     value: 'stylized_3d',
-    label: 'Стилизованный 3D',
+    labelKey: 'characterStudio.options.visualStyle.stylized_3d',
     previewImage: '/assets/styles/cat_stylized3d.png',
     tone: 'linear-gradient(135deg, #253749, #8fd1c7)',
   },
   {
     value: 'dark_fantasy',
-    label: 'Темное фэнтези',
+    labelKey: 'characterStudio.options.visualStyle.dark_fantasy',
     previewImage: '/assets/styles/cat_darkfantasy.png',
     tone: 'linear-gradient(135deg, #15161d, #7d4a32)',
   },
   {
     value: 'cyberpunk',
-    label: 'Киберпанк',
+    labelKey: 'characterStudio.options.visualStyle.cyberpunk',
     previewImage: '/assets/styles/cat_cyberpunk.png',
     tone: 'linear-gradient(135deg, #15142c, #f7a600)',
   },
   {
     value: 'watercolor',
-    label: 'Акварель',
+    labelKey: 'characterStudio.options.visualStyle.watercolor',
     previewImage: '/assets/styles/cat_watercolor.png',
     tone: 'linear-gradient(135deg, #344b57, #d7b56d)',
   },
   {
     value: 'comic_book',
-    label: 'Комикс',
+    labelKey: 'characterStudio.options.visualStyle.comic_book',
     previewImage: '/assets/styles/cat_comic.png',
     tone: 'linear-gradient(135deg, #2d2b35, #e85f3d)',
   },
@@ -61,6 +62,7 @@ interface VisualStyleSelectorProps {
 }
 
 export default function VisualStyleSelector({value, onChange}: VisualStyleSelectorProps) {
+  const {t} = useTranslation();
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const handleImageError = useCallback((styleValue: string) => {
     setFailedImages((current) => ({...current, [styleValue]: true}));
@@ -69,8 +71,8 @@ export default function VisualStyleSelector({value, onChange}: VisualStyleSelect
   return (
     <FormSectionCard
       icon={<BgColorsOutlined />}
-      title="Визуальный стиль"
-      subtitle="Выберите визуальный стиль персонажа"
+      title={t('characterStudio.create.visualStyle.title')}
+      subtitle={t('characterStudio.create.visualStyle.subtitle')}
     >
       <div className="visual-style-grid">
         {visualStyleOptions.map((style) => {
@@ -87,7 +89,7 @@ export default function VisualStyleSelector({value, onChange}: VisualStyleSelect
                 {!showFallback && (
                   <img
                     src={style.previewImage}
-                    alt={style.label}
+                    alt={t(style.labelKey)}
                     className="style-preview-image"
                     loading="lazy"
                     onError={() => handleImageError(style.value)}
@@ -95,7 +97,7 @@ export default function VisualStyleSelector({value, onChange}: VisualStyleSelect
                 )}
                 {selected && <span className="visual-style-card__check"><CheckOutlined /></span>}
               </span>
-              <span className="visual-style-card__label">{style.label}</span>
+              <span className="visual-style-card__label">{t(style.labelKey)}</span>
             </button>
           );
         })}

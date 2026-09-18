@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import {
   ClockCircleOutlined,
   PlayCircleFilled,
@@ -35,10 +36,18 @@ const ProjectHero: React.FC<Props> = ({
   onDelete,
   onLeave,
 }) => {
+  const {t, i18n} = useTranslation();
   const role = project.currentUserRole || 'viewer';
   // Editing the status is part of content-editing — gate on backend permission.
   const canEditStatus = !!project.permissions?.canEdit;
   const statusKey: ProjectStatusKey = project.statusKey || 'in_progress';
+  const updatedAtDate = project.updatedAtLabel ? new Date(project.updatedAtLabel) : null;
+  const updatedAt = updatedAtDate && !Number.isNaN(updatedAtDate.getTime())
+    ? new Intl.DateTimeFormat(i18n.resolvedLanguage || i18n.language, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(updatedAtDate)
+    : '';
 
   return (
     <section className="proj-hero p-5 sm:p-6">
@@ -49,15 +58,15 @@ const ProjectHero: React.FC<Props> = ({
             <img
               className="proj-hero-cover-image"
               src={backendAssetUrl(project.coverImageUrl)}
-              alt={`Обложка проекта «${project.title}»`}
+              alt={t('project.dashboard.hero.coverAlt', {title: project.title})}
             />
           )}
           <button
             type="button"
             className="proj-hero-cover-play"
             disabled
-            title="Превью появится после сборки видео"
-            aria-label="Превью пока недоступно"
+            title={t('project.dashboard.hero.previewHint')}
+            aria-label={t('project.dashboard.hero.previewUnavailable')}
           >
             <PlayCircleFilled style={{ fontSize: 22 }} />
           </button>
@@ -68,20 +77,20 @@ const ProjectHero: React.FC<Props> = ({
           <div className="flex items-center gap-2 flex-wrap">
             <StatusDropdown
               status={statusKey}
-              statusLabel={project.statusLabel}
+              statusLabel={t(`project.status.${statusKey}`)}
               disabled={!canEditStatus}
               loading={!!statusUpdating}
               onChange={onStatusChange}
             />
-            {project.roleLabel && (
+            {project.currentUserRole && (
               <span className={`proj-role-pill proj-role-${role}`}>
-                {project.roleLabel}
+                {t(`project.team.accessRoles.${role}`)}
               </span>
             )}
             {project.isTeamProject && (
               <span className="proj-team-pill">
                 <TeamOutlined style={{ fontSize: 11 }} />
-                Командный проект
+                {t('project.team.teamProject')}
               </span>
             )}
           </div>
@@ -108,12 +117,12 @@ const ProjectHero: React.FC<Props> = ({
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 text-white/60 text-xs">
             <span className="inline-flex items-center gap-1.5">
               <ClockCircleOutlined />
-              {project.updatedAtLabel}
+              {updatedAt ? t('project.dashboard.hero.updatedAt', {date: updatedAt}) : ''}
             </span>
             {project.team.length > 0 && (
               <span className="inline-flex items-center gap-2">
                 <TeamOutlined />
-                <span>Команда проекта</span>
+                <span>{t('project.team.title')}</span>
                 <span className="proj-avatar-stack inline-flex">
                   {project.team.map((m) => (
                     <span
@@ -140,10 +149,10 @@ const ProjectHero: React.FC<Props> = ({
 
           <div className="flex flex-wrap items-center gap-2 mt-5">
             <button type="button" className="proj-btn proj-btn-primary" onClick={onContinue}>
-              Продолжить
+              {t('project.dashboard.hero.continue')}
             </button>
             <button type="button" className="proj-btn proj-btn-secondary" onClick={onOpenScript}>
-              Открыть сценарий
+              {t('project.dashboard.hero.openScript')}
             </button>
             <ProjectActionsMenu
               status={statusKey}

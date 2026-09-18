@@ -1,5 +1,6 @@
 import React, {useMemo} from 'react';
 import {ArrowLeftOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import type {StudioCharacter} from '../../types/character.types';
 import {computeStepStates, StepKey} from './stepProgress';
 
@@ -11,6 +12,7 @@ interface Props {
 }
 
 const StepperHeader: React.FC<Props> = ({characterName, character, onBack, onStepClick}) => {
+  const {t} = useTranslation();
   // Only stages the character has actually reached are clickable; the rest
   // are locked, so the user can't jump into an empty future stage.
   const steps = useMemo(() => computeStepStates(character, 'model3d'), [character]);
@@ -18,7 +20,12 @@ const StepperHeader: React.FC<Props> = ({characterName, character, onBack, onSte
   return (
     <header className="c3d-header">
       <div className="c3d-header__left">
-        <button type="button" className="c3d-header__back" onClick={onBack} aria-label="Назад">
+        <button
+          type="button"
+          className="c3d-header__back"
+          onClick={onBack}
+          aria-label={t('characterStudio3d.actions.back')}
+        >
           <ArrowLeftOutlined />
         </button>
         <div className="c3d-header__brand">
@@ -36,12 +43,12 @@ const StepperHeader: React.FC<Props> = ({characterName, character, onBack, onSte
           </span>
           <div className="c3d-header__title">
             <strong>WCraft</strong>
-            <span>{characterName} · 3D модель</span>
+            <span>{t('characterStudio3d.header.modelTitle', {characterName})}</span>
           </div>
         </div>
       </div>
 
-      <ol className="c3d-stepper" aria-label="Шаги создания персонажа">
+      <ol className="c3d-stepper" aria-label={t('characterStudio3d.steps.label')}>
         {steps.map((step, index) => {
           // 'active' is the current stage; 'locked' stages aren't reachable
           // yet — only 'done' stages navigate.
@@ -54,10 +61,10 @@ const StepperHeader: React.FC<Props> = ({characterName, character, onBack, onSte
                 onClick={() => clickable && onStepClick(step.key)}
                 disabled={!clickable}
                 aria-current={step.state === 'active' ? 'step' : undefined}
-                title={step.state === 'locked' ? 'Этап ещё не пройден' : undefined}
+                title={step.state === 'locked' ? t('characterStudio3d.steps.locked') : undefined}
               >
                 <span className="c3d-stepper__index">{index + 1}</span>
-                <span className="c3d-stepper__label">{step.label}</span>
+                <span className="c3d-stepper__label">{t(step.translationKey)}</span>
               </button>
               {index < steps.length - 1 ? <span className="c3d-stepper__line" /> : null}
             </li>

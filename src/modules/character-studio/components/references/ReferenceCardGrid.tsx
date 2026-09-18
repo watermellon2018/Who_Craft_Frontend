@@ -12,7 +12,8 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import {CharacterReference, REFERENCE_TYPE_ORDER, ReferenceType} from '../../types/character.types';
-import {REFERENCE_LABELS, STATUS_LABELS} from './referenceLabels';
+import {useTranslation} from 'react-i18next';
+import {REFERENCE_LABEL_KEYS, STATUS_LABEL_KEYS} from './referenceLabels';
 
 interface Props {
   references: CharacterReference[];
@@ -47,11 +48,12 @@ function findRow(refs: CharacterReference[], type: ReferenceType): CharacterRefe
 }
 
 const ReferenceCardGrid: React.FC<Props> = ({references, selectedType, onSelect}) => {
+  const {t} = useTranslation();
   return (
-    <nav className="character-category-menu" aria-label="Список референсов">
+    <nav className="character-category-menu" aria-label={t('characterStudio.references.listLabel')}>
       {REFERENCE_TYPE_ORDER.map((type) => {
         const row = findRow(references, type);
-        const labels = REFERENCE_LABELS[type];
+        const labelKeys = REFERENCE_LABEL_KEYS[type];
         const isSelected = selectedType === type;
         const className = `character-category-card${isSelected ? ' character-category-card--active' : ''}`;
         return (
@@ -63,17 +65,17 @@ const ReferenceCardGrid: React.FC<Props> = ({references, selectedType, onSelect}
           >
             <span className="character-category-card__icon">{ICONS[type]}</span>
             <span className="character-category-card__copy">
-              <span>{labels.title}</span>
-              <small>{labels.subtitle}</small>
+              <span>{t(labelKeys.title)}</span>
+              <small>{t(labelKeys.subtitle)}</small>
             </span>
             <span
               className={`references-card__badge references-card__badge--${row.status}`}
-              title={STATUS_LABELS[row.status]}
-              aria-label={STATUS_LABELS[row.status]}
+              title={t(STATUS_LABEL_KEYS[row.status])}
+              aria-label={t(STATUS_LABEL_KEYS[row.status])}
             >
               {row.status === 'generating' ? <LoadingOutlined spin /> : null}
               {row.is_primary && row.status === 'ready' && (
-                <em className="references-card__badge-primary" aria-label="Основной референс">★</em>
+                <em className="references-card__badge-primary" aria-label={t('characterStudio.references.primaryLabel')}>★</em>
               )}
             </span>
           </button>

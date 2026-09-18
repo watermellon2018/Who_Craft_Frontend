@@ -13,6 +13,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import React, {useEffect, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
 
 import SceneInspector from './SceneInspector';
 import {
@@ -52,14 +53,15 @@ interface DropTarget {
 }
 
 const ACT_META = [
-  {act: 1, title: 'АКТ 1 — Завязка', className: 'act-teal'},
-  {act: 2, title: 'АКТ 2 — Конфликт', className: 'act-violet'},
-  {act: 3, title: 'АКТ 3 — Финал', className: 'act-coral'},
+  {act: 1, titleKey: 'script.cards.actSetup', className: 'act-teal'},
+  {act: 2, titleKey: 'script.cards.actConflict', className: 'act-violet'},
+  {act: 3, titleKey: 'script.cards.actFinal', className: 'act-coral'},
 ];
 
-const sceneTitle = (scene: Scene | undefined) => scene?.title.trim() || 'Без названия';
+const sceneTitle = (scene: Scene | undefined, fallback: string) => scene?.title.trim() || fallback;
 
 export default function CardsView(props: CardsViewProps) {
+  const {t} = useTranslation();
   const [draggedSceneId, setDraggedSceneId] = useState<number | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [announcement, setAnnouncement] = useState('');
@@ -80,14 +82,17 @@ export default function CardsView(props: CardsViewProps) {
     const previous = toScenePlacements(props.scenes);
     const next = toScenePlacements(nextScenes);
     if (JSON.stringify(previous) === JSON.stringify(next)) return;
-    const title = sceneTitle(props.scenes.find((scene) => scene.id === sceneId));
-    setAnnouncement(`Сохраняем новый порядок для сцены «${title}».`);
+    const title = sceneTitle(
+      props.scenes.find((scene) => scene.id === sceneId),
+      t('script.common.untitled'),
+    );
+    setAnnouncement(t('script.cards.reorderSaving', {title}));
     void props.onReorder(next).then((reordered) => {
       setAnnouncement(reordered
-        ? `Сцена «${title}» перемещена в акт ${targetAct}.`
-        : `Не удалось переместить сцену «${title}». Порядок не изменён.`);
+        ? t('script.cards.reorderSuccess', {act: targetAct, title})
+        : t('script.cards.reorderError', {title}));
     }, () => {
-      setAnnouncement(`Не удалось переместить сцену «${title}». Порядок не изменён.`);
+      setAnnouncement(t('script.cards.reorderError', {title}));
     });
   };
 
@@ -159,23 +164,22 @@ export default function CardsView(props: CardsViewProps) {
   };
 
   return <div className="cards-layout">
-    <main ref={boardRef} className="cards-board" aria-label="Структура сценария">
+    <main ref={boardRef} className="cards-board" aria-label={t('script.cards.boardLabel')}>
       <p className="script-sr-only" id="scene-reorder-instructions">
-        Двойное нажатие открывает сцену в редакторе. Сцены можно перетаскивать мышью.
-        Для клавиатуры используйте кнопки перемещения на карточке.
+        {t('script.cards.reorderInstructions')}
       </p>
       <div className="script-sr-only" aria-live="polite">{announcement}</div>
       {props.characterFilter && <div className="script-filter-note">
-        <span>Показаны сцены выбранного персонажа. Для изменения порядка покажите все сцены.</span>
-        <button onClick={props.onClearFilter}>Показать все</button>
+        <span>{t('script.cards.characterFilterNote')}</span>
+        <button onClick={props.onClearFilter}>{t('script.cards.showAll')}</button>
       </div>}
       <div className="cards-columns">
-        {ACT_META.map(({act, title, className}) => {
+        {ACT_META.map(({act, titleKey, className}) => {
           const actScenes = filteredScenes.filter((scene) => scene.act === act);
           return <section key={act} className={`cards-column ${className}`}>
             <header>
-              <h2>{title}</h2>
-              <span>{actScenes.length} сцен</span>
+              <h2>{t(titleKey)}</h2>
+              <span>{t('script.common.sceneCount', {count: actScenes.length})}</span>
             </header>
             <div className="cards-column__body">
               {actScenes.map((scene) => {
@@ -238,11 +242,11 @@ export default function CardsView(props: CardsViewProps) {
                   }}
                 >
                   <div className="scene-card__meta">
-                    <strong>СЦЕНА {scene.order}</strong>
+                    <strong>{t('script.common.sceneNumber', {number: scene.order})}</strong>
                     <span id={statusesId} className="scene-card__statuses">
-                      {saving && <span className="scene-card__status is-saving"><LoadingOutlined /> Сохраняем</span>}
-                      {!saving && dirty && <span className="scene-card__status is-dirty"><i /> Не сохранено</span>}
-                      {empty && <span className="scene-card__status is-empty"><ExclamationCircleOutlined /> Пустая</span>}
+                      {saving && <span className="scene-card__status is-saving"><LoadingOutlined /> {t('script.status.saving')}</span>}
+                      {!saving && dirty && <span className="scene-card__status is-dirty"><i /> {t('script.status.unsaved')}</span>}
+                      {empty && <span className="scene-card__status is-empty"><ExclamationCircleOutlined /> {t('script.status.empty')}</span>}
                     </span>
                     {showReorderControls && <HolderOutlined className="scene-card__drag-handle" aria-hidden="true" />}
                   </div>
@@ -255,22 +259,26 @@ export default function CardsView(props: CardsViewProps) {
                     onClick={() => props.onSelect(scene.id)}
                     onDoubleClick={() => props.onOpenScreenplay(scene.id)}
                   >
-                    <span id={titleId} className="scene-card__title">{sceneTitle(scene)}</span>
-                    <span id={headingId} className="scene-card__heading">{getSceneHeading(scene)}</span>
+                    <span id={titleId} className="scene-card__title">{sceneTitle(scene, t('script.common.untitled'))}</span>
+                    <span id={headingId} className="scene-card__heading">{getSceneHeading(scene, t('script.cards.headingMissing'))}</span>
                     <span id={detailsId} className="scene-card__details">
-                      <span><EnvironmentOutlined aria-hidden="true" /><span className="scene-card__detail-value"><span className="script-sr-only">Место: </span>{getSceneLocation(scene)}</span></span>
-                      <span><TeamOutlined aria-hidden="true" /><span className="scene-card__detail-value"><span className="script-sr-only">Персонажи: </span>
-                        {people.join(' · ') || 'Персонажи не указаны'}{hiddenPeople > 0 ? ` · +${hiddenPeople}` : ''}
+                      <span><EnvironmentOutlined aria-hidden="true" /><span className="scene-card__detail-value"><span className="script-sr-only">{t('script.cards.locationLabel')} </span>{getSceneLocation(scene, t('script.cards.locationMissing'))}</span></span>
+                      <span><TeamOutlined aria-hidden="true" /><span className="scene-card__detail-value"><span className="script-sr-only">{t('script.cards.charactersLabel')} </span>
+                        {people.join(' · ') || t('script.cards.charactersMissing')}{hiddenPeople > 0 ? ` · +${hiddenPeople}` : ''}
                       </span></span>
-                      <span><ClockCircleOutlined aria-hidden="true" /><span className="scene-card__detail-value"><span className="script-sr-only">Примерный хронометраж: </span>{formatEstimatedDuration(scene)}</span></span>
+                      <span><ClockCircleOutlined aria-hidden="true" /><span className="scene-card__detail-value"><span className="script-sr-only">{t('script.cards.durationLabel')} </span>{formatEstimatedDuration(scene, {
+                        lessThanMinute: t('script.duration.lessThanMinute'),
+                        minute: t('script.duration.minuteShort'),
+                        second: t('script.duration.secondShort'),
+                      })}</span></span>
                     </span>
                   </button>
-                  {showReorderControls && <div className="scene-card__actions" role="group" aria-label={`Перемещение сцены ${scene.order}`}>
+                  {showReorderControls && <div className="scene-card__actions" role="group" aria-label={t('script.cards.moveGroup', {number: scene.order})}>
                     <button
                       type="button"
                       data-reorder-scene={scene.id}
                       data-reorder-action="previous-act"
-                      aria-label={`Переместить сцену ${scene.order} в предыдущий акт`}
+                      aria-label={t('script.cards.movePreviousAct', {number: scene.order})}
                       disabled={props.reordering || scene.act <= SCRIPT_ACTS[0]}
                       onClick={() => {
                         rememberKeyboardAction(scene.id, 'previous-act');
@@ -281,7 +289,7 @@ export default function CardsView(props: CardsViewProps) {
                       type="button"
                       data-reorder-scene={scene.id}
                       data-reorder-action="up"
-                      aria-label={`Переместить сцену ${scene.order} выше`}
+                      aria-label={t('script.cards.moveUp', {number: scene.order})}
                       disabled={props.reordering || actIndex <= 0}
                       onClick={() => {
                         rememberKeyboardAction(scene.id, 'up');
@@ -292,7 +300,7 @@ export default function CardsView(props: CardsViewProps) {
                       type="button"
                       data-reorder-scene={scene.id}
                       data-reorder-action="down"
-                      aria-label={`Переместить сцену ${scene.order} ниже`}
+                      aria-label={t('script.cards.moveDown', {number: scene.order})}
                       disabled={props.reordering || actIndex === allActScenes.length - 1}
                       onClick={() => {
                         rememberKeyboardAction(scene.id, 'down');
@@ -303,7 +311,7 @@ export default function CardsView(props: CardsViewProps) {
                       type="button"
                       data-reorder-scene={scene.id}
                       data-reorder-action="next-act"
-                      aria-label={`Переместить сцену ${scene.order} в следующий акт`}
+                      aria-label={t('script.cards.moveNextAct', {number: scene.order})}
                       disabled={props.reordering || scene.act >= SCRIPT_ACTS[SCRIPT_ACTS.length - 1]}
                       onClick={() => {
                         rememberKeyboardAction(scene.id, 'next-act');
@@ -313,13 +321,13 @@ export default function CardsView(props: CardsViewProps) {
                     <button
                       type="button"
                       className="scene-card__open"
-                      aria-label={`Открыть сцену ${scene.order} в редакторе`}
+                      aria-label={t('script.cards.openScene', {number: scene.order})}
                       onClick={() => props.onOpenScreenplay(scene.id)}
                     ><EditOutlined /></button>
                   </div>}
                 </article>;
               })}
-              {actScenes.length === 0 && <div className="cards-empty">В этом акте пока нет сцен</div>}
+              {actScenes.length === 0 && <div className="cards-empty">{t('script.cards.emptyAct')}</div>}
               <div
                 data-testid={`act-drop-${act}`}
                 className={`cards-drop-zone ${dropTarget?.act === act && dropTarget.position === 'end' ? 'is-active' : ''}`}
@@ -333,9 +341,9 @@ export default function CardsView(props: CardsViewProps) {
                   event.preventDefault();
                   dropAtActEnd(act);
                 }}
-              >{draggedSceneId !== null ? 'Переместить в конец акта' : ''}</div>
+              >{draggedSceneId !== null ? t('script.cards.moveToActEnd') : ''}</div>
               {props.canEdit && <button className="cards-add" disabled={props.reordering} onClick={props.onAdd}>
-                <PlusOutlined /> Добавить сцену
+                <PlusOutlined /> {t('script.actions.addScene')}
               </button>}
             </div>
           </section>;

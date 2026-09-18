@@ -4,6 +4,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 
 import type {Scene} from './types';
 
@@ -18,20 +19,23 @@ interface SceneListPanelProps {
 }
 
 export default function SceneListPanel(props: SceneListPanelProps) {
-  const toggleLabel = props.collapsed ? 'Открыть панель сцен' : 'Скрыть панель сцен';
+  const {t} = useTranslation();
+  const toggleLabel = props.collapsed
+    ? t('script.sceneList.openPanel')
+    : t('script.sceneList.hidePanel');
 
   return <aside
-    aria-label="Список сцен"
+    aria-label={t('script.sceneList.label')}
     className={`script-scenes-panel${props.collapsed ? ' is-collapsed' : ''}`}
   >
     <div className="script-scenes-panel__header">
       {!props.collapsed && <div>
-        <span className="script-eyebrow">СТРУКТУРА</span>
-        <h2>Сцены</h2>
+        <span className="script-eyebrow">{t('script.sceneList.structure')}</span>
+        <h2>{t('script.common.scenes')}</h2>
       </div>}
       <div className="script-scenes-panel__actions">
         {!props.collapsed && props.canEdit && <button
-          aria-label="Добавить сцену"
+          aria-label={t('script.actions.addScene')}
           type="button"
           onClick={props.onAdd}
         >
@@ -60,8 +64,8 @@ export default function SceneListPanel(props: SceneListPanelProps) {
       >
         <span>{scene.order}</span>
         <span>
-          <strong>{scene.title || 'Без названия'}</strong>
-          <small>Акт {scene.act}</small>
+          <strong>{scene.title || t('script.common.untitled')}</strong>
+          <small>{t('script.common.actNumber', {number: scene.act})}</small>
         </span>
       </button>)}
     </div>}

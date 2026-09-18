@@ -32,10 +32,10 @@ import './style.css';
 import type {MissingScriptCharacter, WorkspaceMode} from './types';
 import {useScriptWorkspace} from './useScriptWorkspace';
 
-const MODE_ITEMS: Array<{mode: WorkspaceMode; label: string; icon: React.ReactNode}> = [
-  {mode: 'screenplay', label: 'Сценарий', icon: <FileTextOutlined />},
-  {mode: 'cards', label: 'Структура', icon: <AppstoreOutlined />},
-  {mode: 'characters', label: 'Связи', icon: <ShareAltOutlined />},
+const MODE_ITEMS: Array<{mode: WorkspaceMode; labelKey: string; icon: React.ReactNode}> = [
+  {mode: 'screenplay', labelKey: 'script.modes.screenplay', icon: <FileTextOutlined />},
+  {mode: 'cards', labelKey: 'script.modes.cards', icon: <AppstoreOutlined />},
+  {mode: 'characters', labelKey: 'script.modes.characters', icon: <ShareAltOutlined />},
 ];
 
 export default function ScriptPage() {
@@ -103,7 +103,7 @@ export default function ScriptPage() {
   };
 
   const deleteScene = (sceneId: number) => {
-    if (window.confirm('Удалить эту сцену? Это действие нельзя отменить.')) {
+    if (window.confirm(t('script.confirm.deleteScene'))) {
       void workspace.removeScene(sceneId);
     }
   };
@@ -111,10 +111,10 @@ export default function ScriptPage() {
   if (!projectId) {
     return <div className="script-state-page">
       <FileTextOutlined />
-      <h1>Не выбран проект</h1>
-      <p>Откройте сценарий из панели нужного проекта.</p>
+      <h1>{t('script.page.noProjectTitle')}</h1>
+      <p>{t('script.page.noProjectDescription')}</p>
       <button className="script-button script-button--primary" onClick={() => navigate(PathConstants.PROJECTS)}>
-        Все проекты
+        {t('script.page.allProjects')}
       </button>
     </div>;
   }
@@ -122,18 +122,18 @@ export default function ScriptPage() {
   if (workspace.loading && !workspace.project) {
     return <div className="script-state-page">
       <span className="script-loader" />
-      <h1>Открываем сценарий</h1>
-      <p>Загружаем сцены и персонажей проекта.</p>
+      <h1>{t('script.page.loadingTitle')}</h1>
+      <p>{t('script.page.loadingDescription')}</p>
     </div>;
   }
 
   if (workspace.error || !workspace.project) {
     return <div className="script-state-page script-state-page--error">
       <FileTextOutlined />
-      <h1>Сценарий недоступен</h1>
-      <p>{workspace.error || 'Данные проекта не получены.'}</p>
+      <h1>{t('script.page.unavailableTitle')}</h1>
+      <p>{workspace.error || t('script.page.noProjectData')}</p>
       <button className="script-button script-button--primary" onClick={() => void workspace.reload()}>
-        <ReloadOutlined /> Повторить
+        <ReloadOutlined /> {t('script.actions.retry')}
       </button>
     </div>;
   }
@@ -149,46 +149,48 @@ export default function ScriptPage() {
     : 0;
   const saveStatus = workspace.canEdit
     ? workspace.reordering
-      ? 'Сохраняем порядок…'
-      : selectedSaving ? 'Сохраняем…' : selectedDirty ? 'Есть изменения' : 'Сохранено'
-    : 'Только просмотр';
+      ? t('script.status.savingOrder')
+      : selectedSaving
+        ? t('script.status.savingEllipsis')
+        : selectedDirty ? t('script.status.changed') : t('script.status.saved')
+    : t('script.status.readOnly');
   const saveStatusClass = workspace.reordering || selectedSaving
     ? 'is-saving'
     : selectedDirty
       ? 'is-dirty'
       : workspace.canEdit ? 'is-saved' : 'is-readonly';
-  const canRetrySave = workspace.saveError?.includes('сохранить') === true;
+  const canRetrySave = workspace.saveErrorRetryable;
 
   return <div className={`script-workspace${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
     <DashboardHeader hideSubnav />
 
-    <aside className="script-rail" aria-label="Навигация по сценарию">
+    <aside className="script-rail" aria-label={t('script.navigation.label')}>
       <div className="script-rail__header">
-        {!sidebarCollapsed && <strong>Рабочая область</strong>}
+        {!sidebarCollapsed && <strong>{t('script.navigation.workspace')}</strong>}
         <button
-          aria-label={sidebarCollapsed ? 'Развернуть боковую панель' : 'Свернуть боковую панель'}
+          aria-label={sidebarCollapsed ? t('script.navigation.expandSidebar') : t('script.navigation.collapseSidebar')}
           aria-expanded={!sidebarCollapsed}
-          title={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+          title={sidebarCollapsed ? t('script.navigation.expandPanel') : t('script.navigation.collapsePanel')}
           onClick={() => setSidebarCollapsed((current) => !current)}
         >{sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}</button>
       </div>
 
-      <nav className="script-rail__modes" aria-label="Разделы сценария">
+      <nav className="script-rail__modes" aria-label={t('script.navigation.sections')}>
         {MODE_ITEMS.map((item) => (
           <button
             key={item.mode}
             aria-current={workspace.mode === item.mode ? 'page' : undefined}
-            aria-label={item.label}
+            aria-label={t(item.labelKey)}
             className={workspace.mode === item.mode ? 'is-active' : ''}
-            title={item.label}
+            title={t(item.labelKey)}
             onClick={() => void workspace.changeMode(item.mode)}
           >
             {item.icon}
-            {!sidebarCollapsed && <span>{item.label}</span>}
+            {!sidebarCollapsed && <span>{t(item.labelKey)}</span>}
           </button>
         ))}
         <div
-          aria-label={`Статус сценария: ${saveStatus}`}
+          aria-label={t('script.navigation.statusLabel', {status: saveStatus})}
           className={`script-rail__save-status ${saveStatusClass}`}
           role="status"
           title={saveStatus}
@@ -197,23 +199,23 @@ export default function ScriptPage() {
           {!sidebarCollapsed && <span>{saveStatus}</span>}
         </div>
         <button
-          aria-label="Экспорт сценария"
+          aria-label={t('script.navigation.exportScript')}
           className="script-rail__action"
           disabled={workspace.scenes.length === 0}
-          title="Экспорт сценария"
+          title={t('script.navigation.exportScript')}
           onClick={exportScript}
         >
           <DownloadOutlined />
-          {!sidebarCollapsed && <span>Экспорт</span>}
+          {!sidebarCollapsed && <span>{t('script.navigation.export')}</span>}
         </button>
         <button
-          aria-label="Вернуться к проекту"
+          aria-label={t('script.navigation.backToProject')}
           className="script-rail__action"
-          title="Вернуться к проекту"
+          title={t('script.navigation.backToProject')}
           onClick={() => void finish()}
         >
           <ArrowLeftOutlined />
-          {!sidebarCollapsed && <span>К проекту</span>}
+          {!sidebarCollapsed && <span>{t('script.navigation.toProject')}</span>}
         </button>
       </nav>
 
@@ -221,15 +223,15 @@ export default function ScriptPage() {
 
     <div className="script-main">
       {workspace.mode === 'cards' && <section className="script-stats">
-        <div><strong>{workspace.stats.sceneCount}</strong><span>сцен</span></div>
+        <div><strong>{workspace.stats.sceneCount}</strong><span>{t('script.common.sceneLabel', {count: workspace.stats.sceneCount})}</span></div>
         {workspace.stats.acts.map((act) => {
           const percent = workspace.stats.sceneCount
             ? Math.round(act.sceneCount / workspace.stats.sceneCount * 100)
             : 0;
           return <div key={act.act} className={`script-act-stat script-act-stat--${act.act}`}>
-            <span>АКТ {act.act}</span>
+            <span>{t('script.common.actNumber', {number: act.act})}</span>
             <i><b style={{width: `${percent}%`}} /></i>
-            <small>{percent}% · {act.sceneCount} сцен</small>
+            <small>{percent}% · {t('script.common.sceneCount', {count: act.sceneCount})}</small>
           </div>;
         })}
         {workspace.canEdit && <button
@@ -237,7 +239,7 @@ export default function ScriptPage() {
           disabled={workspace.reordering}
           onClick={() => void workspace.addScene()}
         >
-          <PlusOutlined /> Добавить сцену
+          <PlusOutlined /> {t('script.actions.addScene')}
         </button>}
       </section>}
 
@@ -248,16 +250,16 @@ export default function ScriptPage() {
           else if (canRetrySave) void workspace.saveSelectedScene();
           else workspace.dismissSaveError();
         }}>{workspace.conflict || canRetrySave ? <ReloadOutlined /> : <CloseOutlined />} {
-          workspace.conflict ? 'Перезагрузить' : canRetrySave ? 'Повторить сохранение' : 'Закрыть'
+          workspace.conflict
+            ? t('script.actions.reload')
+            : canRetrySave ? t('script.actions.retrySave') : t('script.actions.close')
         }</button>
       </div>}
 
       {workspace.missingCharactersError && <div className="script-alert" role="alert">
         <span>{workspace.missingCharactersError}</span>
         <button onClick={() => void workspace.refreshMissingCharacters()}>
-          <ReloadOutlined /> {t('videoPreparation.scriptNotice.retry', {
-            defaultValue: 'Повторить проверку',
-          })}
+          <ReloadOutlined /> {t('script.actions.retryCheck')}
         </button>
       </div>}
 

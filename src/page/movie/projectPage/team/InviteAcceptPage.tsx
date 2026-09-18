@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button, Spin, message } from 'antd';
+import {useTranslation} from 'react-i18next';
 import withAuth from '../../../../utils/auth/check_auth';
 import DashboardHeader from '../../../../modules/profile/components/DashboardHeader';
 import PathConstants, {projectDashboardPath} from '../../../../routes/pathConstant';
 import api from '../../../../api/http';
 import {
+  AccessRole,
   acceptInvitationByToken,
   teamErrorCode,
 } from '../../../../api/projects/team';
@@ -13,17 +15,20 @@ import './team.css';
 
 interface PreviewState {
   projectTitle: string;
+  accessRole: AccessRole;
   accessRoleLabel: string;
+  teamRole: string;
   teamRoleLabel: string;
+  customTeamRole?: string;
   invitedByUsername: string | null;
 }
 
-const ERROR_LABELS: Record<string, string> = {
-  INVITATION_EXPIRED: 'Срок действия приглашения истёк.',
-  INVITATION_CANCELLED: 'Приглашение было отменено.',
-  INVITATION_ALREADY_USED: 'Это приглашение уже использовано.',
-  INVITATION_NOT_FOUND: 'Приглашение не найдено.',
-  ALREADY_MEMBER: 'Вы уже состоите в команде этого проекта.',
+const ERROR_KEYS: Record<string, string> = {
+  INVITATION_EXPIRED: 'project.inviteAccept.errors.expired',
+  INVITATION_CANCELLED: 'project.inviteAccept.errors.cancelled',
+  INVITATION_ALREADY_USED: 'project.inviteAccept.errors.used',
+  INVITATION_NOT_FOUND: 'project.inviteAccept.errors.notFound',
+  ALREADY_MEMBER: 'project.inviteAccept.errors.alreadyMember',
 };
 
 /**
@@ -31,6 +36,7 @@ const ERROR_LABELS: Record<string, string> = {
  * project + role, then lets the logged-in user accept (one-time).
  */
 const InviteAcceptPage: React.FC = () => {
+  const {t} = useTranslation();
   const { token } = useParams();
   const navigate = useNavigate();
   const [preview, setPreview] = useState<PreviewState | null>(null);
@@ -46,7 +52,7 @@ const InviteAcceptPage: React.FC = () => {
         if (!cancelled) setPreview(res.data);
       } catch (e: any) {
         const code = teamErrorCode(e);
-        if (!cancelled) setError((code && ERROR_LABELS[code]) || 'Приглашение недоступно.');
+        if (!cancelled) setError((code && ERROR_KEYS[code]) || 'project.inviteAccept.errors.unavailable');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,15 +67,15 @@ const InviteAcceptPage: React.FC = () => {
     setAccepting(true);
     try {
       const { projectId } = await acceptInvitationByToken(token!);
-      message.success('Вы присоединились к проекту');
+      message.success(t('project.inviteAccept.joined'));
       navigate(projectDashboardPath(projectId));
     } catch (e) {
       const code = teamErrorCode(e);
       if (code === 'ALREADY_MEMBER') {
-        message.info('Вы уже в команде этого проекта');
+        message.info(t('project.inviteAccept.errors.alreadyMember'));
         navigate(PathConstants.PROJECTS);
       } else {
-        setError((code && ERROR_LABELS[code]) || 'Не удалось принять приглашение.');
+        setError((code && ERROR_KEYS[code]) || 'project.inviteAccept.errors.accept');
       }
     } finally {
       setAccepting(false);
@@ -78,29 +84,33 @@ const InviteAcceptPage: React.FC = () => {
 
   return (
     <div className="proj-dash team-page">
-      <DashboardHeader sectionTitle="Приглашение в проект" />
+      <DashboardHeader sectionTitle={t('project.inviteAccept.pageTitle')} />
       <main className="app-main profile-scroll team-page-center">
         <div className="invite-accept-card">
           {loading ? (
             <Spin size="large" />
           ) : error ? (
             <>
-              <h2 className="invite-accept-title">Приглашение недоступно</h2>
-              <p className="invite-accept-text">{error}</p>
+              <h2 className="invite-accept-title">{t('project.inviteAccept.unavailableTitle')}</h2>
+              <p className="invite-accept-text">{t(error)}</p>
               <Button onClick={() => navigate(PathConstants.PROJECTS)}>
-                К моим проектам
+                {t('project.common.backToProjects')}
               </Button>
             </>
           ) : preview ? (
             <>
               <h2 className="invite-accept-title">
-                Вас пригласили в проект «{preview.projectTitle}»
+                {t('project.inviteAccept.invitedTo', {title: preview.projectTitle})}
               </h2>
               <p className="invite-accept-text">
-                Роль: <strong>{preview.accessRoleLabel}</strong>
-                {preview.teamRoleLabel ? ` · ${preview.teamRoleLabel}` : ''}
+                {t('project.inviteAccept.role')}: <strong>
+                  {t(`project.team.accessRoles.${preview.accessRole}`)}
+                </strong>
+                {preview.teamRole ? ` · ${preview.teamRole === 'other' && (preview.customTeamRole || preview.teamRoleLabel)
+                  ? (preview.customTeamRole || preview.teamRoleLabel)
+                  : t(`project.team.professionalRoles.${preview.teamRole || 'other'}`)}` : ''}
                 {preview.invitedByUsername
-                  ? ` · от @${preview.invitedByUsername}`
+                  ? ` · ${t('project.inviteAccept.from', {username: preview.invitedByUsername})}`
                   : ''}
               </p>
               <div className="invite-accept-actions">
@@ -109,10 +119,10 @@ const InviteAcceptPage: React.FC = () => {
                   loading={accepting}
                   onClick={accept}
                 >
-                  Присоединиться
+                  {t('project.inviteAccept.join')}
                 </Button>
                 <Button onClick={() => navigate(PathConstants.PROJECTS)}>
-                  Не сейчас
+                  {t('project.inviteAccept.notNow')}
                 </Button>
               </div>
             </>

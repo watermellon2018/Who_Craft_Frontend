@@ -32,11 +32,11 @@ const calculateStats = (scenes: Scene[]): ScriptStats => ({
 });
 
 const describeApiError = (error: unknown) => {
-  if (!axios.isAxiosError(error)) return 'Не удалось загрузить рабочее пространство. Повторите попытку.';
-  if (error.response?.status === 401) return 'Сессия завершена. Войдите снова.';
-  if (error.response?.status === 403) return 'У вас нет доступа к этому проекту.';
-  if (error.response?.status === 404) return 'Проект не найден или был удалён.';
-  return 'Не удалось загрузить рабочее пространство. Повторите попытку.';
+  if (!axios.isAxiosError(error)) return 'script.errors.loadWorkspace';
+  if (error.response?.status === 401) return 'script.errors.sessionExpired';
+  if (error.response?.status === 403) return 'script.errors.forbidden';
+  if (error.response?.status === 404) return 'script.errors.projectNotFound';
+  return 'script.errors.loadWorkspace';
 };
 
 export function useScriptWorkspace(projectId: string) {
@@ -145,11 +145,7 @@ export function useScriptWorkspace(projectId: string) {
           isCurrentRequest()
           && missingCharactersRequestRef.current === missingCharactersRequestToken
         ) {
-          setMissingCharactersError(
-            t('videoPreparation.scriptNotice.initialError', {
-              defaultValue: 'Не удалось проверить персонажей сценария. Повторите попытку.',
-            }),
-          );
+          setMissingCharactersError('script.errors.checkMissingCharacters');
         }
       });
 
@@ -173,7 +169,7 @@ export function useScriptWorkspace(projectId: string) {
     } finally {
       if (isCurrentRequest()) setLoading(false);
     }
-  }, [ownerKey, replaceScenes, t]);
+  }, [ownerKey, replaceScenes]);
 
   useEffect(() => {
     void loadWorkspace();
@@ -207,15 +203,11 @@ export function useScriptWorkspace(projectId: string) {
         ownsLoadedWorkspace(requestedOwnerKey)
         && missingCharactersRequestRef.current === requestToken
       ) {
-        setMissingCharactersError(
-          t('videoPreparation.scriptNotice.refreshError', {
-            defaultValue: 'Не удалось обновить список недостающих персонажей. Повторите попытку.',
-          }),
-        );
+        setMissingCharactersError('script.errors.refreshMissingCharacters');
       }
       return false;
     }
-  }, [ownerKey, ownsLoadedWorkspace, t]);
+  }, [ownerKey, ownsLoadedWorkspace]);
 
   const ownsVisibleData = stateOwnerKey === ownerKey && dataOwnerKey === ownerKey;
   const visibleProject = ownsVisibleData ? project : null;
@@ -296,10 +288,10 @@ export function useScriptWorkspace(projectId: string) {
       if (axios.isAxiosError(saveFailure) && saveFailure.response?.status === 409) {
         setConflict({
           sceneId,
-          message: 'Сцену изменили в другой вкладке. Перезагрузите данные и повторите правки.',
+          message: 'script.errors.sceneConflict',
         });
       } else {
-        setSaveError('Сцену не удалось сохранить. Проверьте соединение и повторите попытку.');
+        setSaveError('script.errors.saveScene');
       }
       return false;
     } finally {
@@ -419,10 +411,10 @@ export function useScriptWorkspace(projectId: string) {
         if (axios.isAxiosError(reorderFailure) && reorderFailure.response?.status === 409) {
           setConflict({
             sceneId: changedIds[0],
-            message: 'Порядок сцен изменили в другой вкладке. Перезагрузите данные и повторите.',
+            message: 'script.errors.reorderConflict',
           });
         } else {
-          setSaveError('Не удалось изменить порядок сцен. Повторите перетаскивание.');
+          setSaveError('script.errors.reorderScenes');
         }
         return false;
       } finally {
@@ -504,7 +496,7 @@ export function useScriptWorkspace(projectId: string) {
     const order = Math.max(0, ...scenesRef.current.map((scene) => scene.order)) + 1;
     const draft: Scene = {
       id: -Date.now(),
-      title: `Новая сцена ${order}`,
+      title: t('script.workspace.newSceneTitle', {number: order}),
       description: '',
       scriptText: '',
       scriptBlocks: [],
@@ -531,7 +523,7 @@ export function useScriptWorkspace(projectId: string) {
       void refreshMissingCharacters();
     } catch {
       if (ownsLoadedWorkspace(requestedOwnerKey)) {
-        setSaveError('Сцену не удалось создать. Проверьте соединение и повторите попытку.');
+        setSaveError('script.errors.createScene');
       }
     } finally {
       if (ownsLoadedWorkspace(requestedOwnerKey)) {
@@ -545,6 +537,7 @@ export function useScriptWorkspace(projectId: string) {
     refreshMissingCharacters,
     replaceScenes,
     saveScene,
+    t,
     visibleSelectedSceneId,
   ]);
 
@@ -574,7 +567,7 @@ export function useScriptWorkspace(projectId: string) {
       void refreshMissingCharacters();
     } catch {
       if (ownsLoadedWorkspace(requestedOwnerKey)) {
-        setSaveError('Сцену не удалось удалить. Повторите попытку.');
+        setSaveError('script.errors.deleteScene');
       }
     } finally {
       deletingSceneIdsRef.current.delete(sceneId);
@@ -626,10 +619,15 @@ export function useScriptWorkspace(projectId: string) {
     canEdit,
     canRunGeneration,
     loading: visibleLoading,
-    error: visibleError,
-    saveError: ownsVisibleData ? saveError : null,
-    missingCharactersError: ownsVisibleData ? missingCharactersError : null,
-    conflict: ownsVisibleData ? conflict : null,
+    error: visibleError ? t(visibleError) : null,
+    saveError: ownsVisibleData && saveError ? t(saveError) : null,
+    saveErrorRetryable: ownsVisibleData && saveError === 'script.errors.saveScene',
+    missingCharactersError: ownsVisibleData && missingCharactersError
+      ? t(missingCharactersError)
+      : null,
+    conflict: ownsVisibleData && conflict
+      ? {...conflict, message: t(conflict.message)}
+      : null,
     dirtySceneIds: ownsVisibleData ? dirtySceneIds : [],
     savingSceneIds: ownsVisibleData ? savingSceneIds : [],
     reordering: ownsVisibleData && reordering,

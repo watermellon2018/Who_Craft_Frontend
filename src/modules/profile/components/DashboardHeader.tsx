@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type {TFunction} from 'i18next';
+import {useTranslation} from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import WCraftBrand from '../../../components/WCraftBrand';
 import { ProfileUser } from '../types';
@@ -6,7 +8,6 @@ import { fetchProfileMe } from '../api/profileApi';
 import PathConstants, {isProjectEditPath, isScriptWorkspacePath} from '../../../routes/pathConstant';
 import { logout } from '../../../api/http';
 import { safeImageUrl } from '../../../utils/safeUrl';
-import i18n from '../../../i18n';
 import CreditBalanceBadge from '../../credits/components/CreditBalanceBadge';
 import NotificationBell from '../../notifications/NotificationBell';
 import './dashboardHeader.css';
@@ -27,8 +28,7 @@ interface Props {
   breadcrumbItems?: BreadcrumbItem[];
 }
 
-function resolveSectionTitle(pathname: string): string {
-  const t = (key: string) => i18n.t(key) as string;
+function resolveSectionTitle(pathname: string, t: TFunction): string {
   if (pathname.startsWith(PathConstants.PROFILE_SUBSCRIPTIONS)) return t('navigation.sections.subscriptions');
   if (pathname.startsWith(PathConstants.PROFILE_EDIT)) return t('navigation.sections.profileEdit');
   if (pathname.startsWith(PathConstants.PROFILE)) return t('navigation.sections.profile');
@@ -51,6 +51,7 @@ const DashboardHeader: React.FC<Props> = ({
   hideSubnav = false,
   breadcrumbItems,
 }) => {
+  const {t} = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [fetchedUser, setFetchedUser] = useState<ProfileUser | null>(null);
@@ -61,7 +62,7 @@ const DashboardHeader: React.FC<Props> = ({
     if (user === undefined || user === null) {
       fetchProfileMe()
         .then((data) => setFetchedUser(data.user as unknown as ProfileUser))
-        .catch((_err) => void 0);
+        .catch(() => void 0);
     }
   }, [user]);
 
@@ -76,14 +77,15 @@ const DashboardHeader: React.FC<Props> = ({
   }, []);
 
   const resolvedUser = user ?? fetchedUser;
-  const displayName = resolvedUser?.display_name || resolvedUser?.username || 'User';
+  const avatarUrl = safeImageUrl(resolvedUser?.avatar_url);
+  const displayName = resolvedUser?.display_name || resolvedUser?.username || t('common.user');
   const initial = displayName.trim().charAt(0).toUpperCase();
 
   const resolvedSection = useMemo(() => {
     if (sectionTitle !== undefined) return sectionTitle;
     if (title) return title;
-    return resolveSectionTitle(location.pathname);
-  }, [sectionTitle, title, location.pathname]);
+    return resolveSectionTitle(location.pathname, t);
+  }, [sectionTitle, title, location.pathname, t]);
 
   const handleLogout = async () => {
     await logout();
@@ -96,7 +98,8 @@ const DashboardHeader: React.FC<Props> = ({
     navigate(PathConstants.PROFILE);
   };
 
-  const hasCustomCrumbs = Array.isArray(breadcrumbItems) && breadcrumbItems.length > 0;
+  const resolvedBreadcrumbItems = breadcrumbItems ?? [];
+  const hasCustomCrumbs = resolvedBreadcrumbItems.length > 0;
   const showSubnav = !hideSubnav && (hasCustomCrumbs || Boolean(resolvedSection));
 
   return (
@@ -108,7 +111,7 @@ const DashboardHeader: React.FC<Props> = ({
               type="button"
               onClick={onMenuToggle}
               className="app-header__menu-btn"
-              aria-label="Меню"
+              aria-label={t('common.menu')}
             >
               ☰
             </button>
@@ -131,8 +134,8 @@ const DashboardHeader: React.FC<Props> = ({
               aria-expanded={dropdownOpen}
             >
               <span className="app-header__avatar">
-                {safeImageUrl(resolvedUser?.avatar_url) ? (
-                  <img src={safeImageUrl(resolvedUser?.avatar_url)!} alt={displayName} />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={displayName} />
                 ) : (
                   <span className="app-header__avatar-fallback">{initial}</span>
                 )}
@@ -164,7 +167,7 @@ const DashboardHeader: React.FC<Props> = ({
                   className="app-header__dropdown-item"
                   role="menuitem"
                 >
-                  Мой кабинет
+                  {t('common.myProfile')}
                 </button>
                 <button
                   type="button"
@@ -172,7 +175,7 @@ const DashboardHeader: React.FC<Props> = ({
                   className="app-header__dropdown-item"
                   role="menuitem"
                 >
-                  Выйти
+                  {t('common.logout')}
                 </button>
               </div>
             )}
@@ -183,8 +186,8 @@ const DashboardHeader: React.FC<Props> = ({
       {showSubnav && (
         <div className="app-header__subnav">
           {hasCustomCrumbs ? (
-            breadcrumbItems!.map((item, idx) => {
-              const isLast = idx === breadcrumbItems!.length - 1;
+            resolvedBreadcrumbItems.map((item, idx) => {
+              const isLast = idx === resolvedBreadcrumbItems.length - 1;
               return (
                 <React.Fragment key={`${idx}-${item.label}`}>
                   {idx > 0 && (
@@ -217,7 +220,7 @@ const DashboardHeader: React.FC<Props> = ({
           ) : (
             <>
               <Link to={PathConstants.PROJECTS} className="app-header__crumb-link">
-                Все проекты
+                {t('common.allProjects')}
               </Link>
               <span className="app-header__crumb-separator" aria-hidden="true">/</span>
               <span className="app-header__section-title">{resolvedSection}</span>

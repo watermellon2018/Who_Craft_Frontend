@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {useTranslation} from 'react-i18next';
 
 import {Input, Button} from 'antd';
 
@@ -8,12 +9,12 @@ interface EditGenComponentI {
 }
 
 /**
- * Компонент для редактирования сгенерированного изображения.
- * Просит внести правки в сгенерированное изображение
+ * Collects the user's requested corrections for a generated image.
  **/
 export const EditGenComponent: React.FC<EditGenComponentI> = ({editHandle}) => {
+    const {t} = useTranslation();
     const [correction, setCorrection] = useState<string>('');
-    const handleArea = (newVal: any) => {
+    const handleArea = (newVal: React.ChangeEvent<HTMLTextAreaElement>) => {
         setCorrection(newVal.target.value);
     }
 
@@ -25,7 +26,7 @@ export const EditGenComponent: React.FC<EditGenComponentI> = ({editHandle}) => {
                 rows={5}
                 value={correction}
                 onChange={handleArea}
-                placeholder='Что хотите исправить в сгенерированном изображении?' />
+                placeholder={t('generationEdit.placeholder')} />
             <div className="mt-2 flex justify-end">
             <Button
                 onClick={() => editHandle(correction)}
@@ -33,7 +34,7 @@ export const EditGenComponent: React.FC<EditGenComponentI> = ({editHandle}) => {
                 className="border border-black"
                 type="primary"
                 htmlType="submit">
-                Править
+                {t('generationEdit.action')}
             </Button>
         </div>
         </>

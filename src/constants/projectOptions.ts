@@ -1,64 +1,58 @@
 // Shared dictionaries for project editor selects.
 //
 // Backend stores `format`, `genre`, `audience` as plain strings; frontend
-// renders human-readable Russian labels. Values must stay snake_case so they
+// translates stable label keys at render time. Values must stay snake_case so they
 // pass backend serializer validation in
 // backend/w_craft_back/movie/project/serializers.py.
 
 export interface Option {
     value: string;
-    label: string;
+    labelKey: string;
 }
 
 export const PROJECT_FORMAT_OPTIONS: Option[] = [
-    { value: 'feature_film', label: 'Полнометражный фильм' },
-    { value: 'short_film', label: 'Короткометражный фильм' },
-    { value: 'series', label: 'Сериал' },
-    { value: 'clip', label: 'Клип' },
-    { value: 'commercial', label: 'Реклама' },
-    { value: 'other', label: 'Другое' },
+    { value: 'feature_film', labelKey: 'project.options.format.featureFilm' },
+    { value: 'short_film', labelKey: 'project.options.format.shortFilm' },
+    { value: 'series', labelKey: 'project.options.format.series' },
+    { value: 'clip', labelKey: 'project.options.format.clip' },
+    { value: 'commercial', labelKey: 'project.options.format.commercial' },
+    { value: 'other', labelKey: 'project.options.format.other' },
 ];
 
 export const PROJECT_GENRE_OPTIONS: Option[] = [
-    { value: 'drama', label: 'Драма' },
-    { value: 'comedy', label: 'Комедия' },
-    { value: 'action', label: 'Экшен' },
-    { value: 'thriller', label: 'Триллер' },
-    { value: 'horror', label: 'Хоррор' },
-    { value: 'sci_fi', label: 'Научная фантастика' },
-    { value: 'fantasy', label: 'Фэнтези' },
-    { value: 'adventure', label: 'Приключения' },
-    { value: 'romance', label: 'Романтика' },
-    { value: 'detective', label: 'Детектив' },
-    { value: 'mystery', label: 'Мистика' },
-    { value: 'crime', label: 'Криминал' },
-    { value: 'historical', label: 'Исторический' },
-    { value: 'documentary', label: 'Документальный' },
-    { value: 'animation', label: 'Анимация' },
-    { value: 'family', label: 'Семейный' },
-    { value: 'musical', label: 'Мюзикл' },
-    { value: 'war', label: 'Военный' },
-    { value: 'western', label: 'Вестерн' },
-    { value: 'cyberpunk', label: 'Киберпанк' },
-    { value: 'post_apocalyptic', label: 'Постапокалипсис' },
-    { value: 'slice_of_life', label: 'Повседневность' },
-    { value: 'superhero', label: 'Супергерои' },
-    { value: 'other', label: 'Другое' },
+    { value: 'drama', labelKey: 'project.options.genre.drama' },
+    { value: 'comedy', labelKey: 'project.options.genre.comedy' },
+    { value: 'action', labelKey: 'project.options.genre.action' },
+    { value: 'thriller', labelKey: 'project.options.genre.thriller' },
+    { value: 'horror', labelKey: 'project.options.genre.horror' },
+    { value: 'sci_fi', labelKey: 'project.options.genre.sciFi' },
+    { value: 'fantasy', labelKey: 'project.options.genre.fantasy' },
+    { value: 'adventure', labelKey: 'project.options.genre.adventure' },
+    { value: 'romance', labelKey: 'project.options.genre.romance' },
+    { value: 'detective', labelKey: 'project.options.genre.detective' },
+    { value: 'mystery', labelKey: 'project.options.genre.mystery' },
+    { value: 'crime', labelKey: 'project.options.genre.crime' },
+    { value: 'historical', labelKey: 'project.options.genre.historical' },
+    { value: 'documentary', labelKey: 'project.options.genre.documentary' },
+    { value: 'animation', labelKey: 'project.options.genre.animation' },
+    { value: 'family', labelKey: 'project.options.genre.family' },
+    { value: 'musical', labelKey: 'project.options.genre.musical' },
+    { value: 'war', labelKey: 'project.options.genre.war' },
+    { value: 'western', labelKey: 'project.options.genre.western' },
+    { value: 'cyberpunk', labelKey: 'project.options.genre.cyberpunk' },
+    { value: 'post_apocalyptic', labelKey: 'project.options.genre.postApocalyptic' },
+    { value: 'slice_of_life', labelKey: 'project.options.genre.sliceOfLife' },
+    { value: 'superhero', labelKey: 'project.options.genre.superhero' },
+    { value: 'other', labelKey: 'project.options.genre.other' },
 ];
 
 export const PROJECT_TARGET_AUDIENCE_OPTIONS: Option[] = [
-    { value: 'all', label: 'Все' },
-    { value: 'kids', label: 'Дети' },
-    { value: 'teens', label: 'Подростки' },
-    { value: 'young_adults', label: 'Молодёжь' },
-    { value: 'adults', label: 'Взрослые' },
-    { value: 'elderly', label: 'Пожилые люди' },
+    { value: 'all', labelKey: 'project.options.audience.all' },
+    { value: 'kids', labelKey: 'project.options.audience.kids' },
+    { value: 'teens', labelKey: 'project.options.audience.teens' },
+    { value: 'young_adults', labelKey: 'project.options.audience.youngAdults' },
+    { value: 'adults', labelKey: 'project.options.audience.adults' },
+    { value: 'elderly', labelKey: 'project.options.audience.elderly' },
 ];
 
 export const GENRE_VALUES = new Set(PROJECT_GENRE_OPTIONS.map((o) => o.value));
-
-export function genreLabel(value: string | null | undefined): string {
-    if (!value) return '';
-    const found = PROJECT_GENRE_OPTIONS.find((o) => o.value === value);
-    return found ? found.label : value;
-}

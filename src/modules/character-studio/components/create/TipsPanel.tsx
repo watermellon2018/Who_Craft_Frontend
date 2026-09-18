@@ -1,25 +1,21 @@
 import React from 'react';
 import {CheckCircleOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 
-const tips = [
-  'Уточняйте форму, материал и ключевые черты',
-  'Опишите одежду, покров, цвета или фактуру',
-  'Укажите уникальные детали или аксессуары',
-  'Задайте общее настроение и впечатление',
-  'Добавьте тип сущности и стадию жизни',
-];
+const tipKeys = ['shape', 'outfit', 'details', 'mood', 'entity'] as const;
 
 export default function TipsPanel() {
+  const {t} = useTranslation();
   return (
     <section className="create-side-card">
       <div className="create-side-card__header">
-        <h2>Советы для лучшего результата</h2>
+        <h2>{t('characterStudio.create.tips.title')}</h2>
       </div>
       <ul className="tips-list">
-        {tips.map((tip) => (
-          <li key={tip}>
+        {tipKeys.map((key) => (
+          <li key={key}>
             <CheckCircleOutlined />
-            <span>{tip}</span>
+            <span>{t(`characterStudio.create.tips.${key}`)}</span>
           </li>
         ))}
       </ul>

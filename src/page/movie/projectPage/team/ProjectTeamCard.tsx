@@ -1,9 +1,8 @@
 import React from 'react';
 import { TeamOutlined, UserAddOutlined, RightOutlined } from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import {
-  ACCESS_ROLE_LABELS,
   AccessRole,
-  pluralMembers,
 } from '../../../../api/projects/team';
 
 export interface TeamCardMember {
@@ -45,27 +44,28 @@ const ProjectTeamCard: React.FC<Props> = ({
   onOpenTeam,
   onInvite,
 }) => {
+  const {t} = useTranslation();
   const shown = members.slice(0, 4);
   const extra = Math.max(0, memberCount - shown.length);
-  const roleLabel = currentUserRole ? ACCESS_ROLE_LABELS[currentUserRole] : '';
+  const roleLabel = currentUserRole ? t(`project.team.accessRoles.${currentUserRole}`) : '';
 
   return (
     <section className="team-card">
       <div className="team-card-head">
         <div className="team-card-title">
           <TeamOutlined />
-          <span>Команда проекта</span>
+          <span>{t('project.team.title')}</span>
         </div>
         {canManageTeam && onInvite && (
           <button
             type="button"
             className="team-card-invite-btn"
             onClick={onInvite}
-            aria-label="Пригласить участника"
-            title="Пригласить участника"
+            aria-label={t('project.team.invite.title')}
+            title={t('project.team.invite.title')}
           >
             <UserAddOutlined />
-            <span>Пригласить</span>
+            <span>{t('project.team.invite.action')}</span>
           </button>
         )}
       </div>
@@ -87,31 +87,31 @@ const ProjectTeamCard: React.FC<Props> = ({
             </span>
           ))}
           {extra > 0 && (
-            <span className="team-card-avatar team-card-avatar-extra" title={`Ещё ${extra}`}>
+            <span className="team-card-avatar team-card-avatar-extra" title={t('project.common.moreCount', {count: extra})}>
               +{extra}
             </span>
           )}
         </span>
-        <span className="team-card-count">{pluralMembers(memberCount)}</span>
+        <span className="team-card-count">{t('project.team.memberCount', {count: memberCount})}</span>
       </div>
 
       <div className="team-card-meta">
         {roleLabel && (
           <div className="team-card-meta-row">
-            <span className="team-card-meta-label">Ваша роль</span>
+            <span className="team-card-meta-label">{t('project.team.yourRole')}</span>
             <span className="team-card-meta-value">{roleLabel}</span>
           </div>
         )}
         {ownerName && (
           <div className="team-card-meta-row">
-            <span className="team-card-meta-label">Владелец</span>
+            <span className="team-card-meta-label">{t('project.team.owner')}</span>
             <span className="team-card-meta-value">{ownerName}</span>
           </div>
         )}
       </div>
 
       <button type="button" className="team-card-open" onClick={onOpenTeam}>
-        <span>Все участники</span>
+        <span>{t('project.team.allMembers')}</span>
         <RightOutlined style={{ fontSize: 11 }} />
       </button>
     </section>

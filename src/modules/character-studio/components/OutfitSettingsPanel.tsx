@@ -84,14 +84,14 @@ export default function OutfitSettingsPanel({
   return (
     <div className="character-settings-panel">
       <div className="character-settings-panel__header">
-        <p>Контекстная панель</p>
-        <h2>Настройки: Одежда</h2>
+        <p>{t('characterStudio.editor.scenePanel.eyebrow')}</p>
+        <h2>{t('characterStudio.outfit.settingsTitle')}</h2>
       </div>
       <div className="character-settings-panel__body">
 
         {/* Блок: Источник */}
         <section className="character-settings-section character-settings-section--primary">
-          <h3>Источник</h3>
+          <h3>{t('characterStudio.outfit.source')}</h3>
           <div className="character-segmented">
             {(['reference', 'text'] as const).map((src) => (
               <button
@@ -100,32 +100,34 @@ export default function OutfitSettingsPanel({
                 className={outfitSource === src ? 'is-active' : ''}
                 onClick={() => onSourceChange(src)}
               >
-                {src === 'reference' ? 'Референс' : 'Текст'}
+                {src === 'reference'
+                  ? t('characterStudio.outfit.referenceSource')
+                  : t('characterStudio.outfit.textSource')}
               </button>
             ))}
           </div>
           <p className="outfit-source-hint">
-            Одежда применяется при обновлении портрета, полного роста и ракурсов.
+            {t('characterStudio.outfit.sourceHint')}
           </p>
         </section>
 
         {/* Блок: Референсы одежды */}
         <section className="character-settings-section">
-          <h3>Референсы одежды</h3>
+          <h3>{t('characterStudio.outfit.referencesTitle')}</h3>
           <p className="character-section-description">
-            Загрузите примеры одежды, которую должен носить персонаж.
+            {t('characterStudio.outfit.referencesHint')}
           </p>
 
           {clothingReferences.length > 0 && (
             <div className="outfit-reference-preview">
               {clothingReferences.map((ref) => (
                 <div key={ref.asset_id} className="outfit-reference-preview__item">
-                  <img src={ref.image_url} alt="Референс одежды" />
+                  <img src={ref.image_url} alt={t('characterStudio.outfit.referenceAlt')} />
                   <button
                     type="button"
                     className="outfit-reference-preview__remove"
                     onClick={() => handleRemoveReference(ref.asset_id)}
-                    aria-label="Удалить референс"
+                    aria-label={t('characterStudio.outfit.removeReference')}
                   >
                     <CloseOutlined />
                   </button>
@@ -143,14 +145,14 @@ export default function OutfitSettingsPanel({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && !uploading && fileInputRef.current?.click()}
-            aria-label="Загрузить референс одежды"
+            aria-label={t('characterStudio.outfit.uploadReference')}
           >
             <PlusOutlined className="outfit-upload-area__icon" />
             <span className="outfit-upload-area__primary">
-              {uploading ? 'Загружаем...' : 'Перетащите изображение сюда'}
+              {uploading ? t('characterStudio.outfit.uploading') : t('characterStudio.outfit.dropTitle')}
             </span>
             <span className="outfit-upload-area__secondary">
-              {uploading ? '' : 'или нажмите для загрузки'}
+              {uploading ? '' : t('characterStudio.outfit.dropHint')}
             </span>
             {!uploading && (
               <button
@@ -158,14 +160,14 @@ export default function OutfitSettingsPanel({
                 className="outfit-upload-area__button"
                 onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
               >
-                Загрузить
+                {t('characterStudio.references.upload')}
               </button>
             )}
           </div>
 
           {showReferenceWarning && (
             <p className="outfit-reference-warning">
-              <WarningOutlined /> Добавьте референс одежды или переключитесь на «Текст»
+              <WarningOutlined /> {t('characterStudio.outfit.referenceWarning')}
             </p>
           )}
 
@@ -180,11 +182,11 @@ export default function OutfitSettingsPanel({
 
         {/* Блок: Сгенерировать по описанию */}
         <section className="character-settings-section">
-          <h3>Сгенерировать по описанию</h3>
+          <h3>{t('characterStudio.outfit.generateByDescription')}</h3>
           <Input.TextArea
             value={outfitDescription}
             onChange={(e) => onDescriptionChange(e.target.value)}
-            placeholder="Например: чёрная кожаная куртка в стиле киберпанк с неоновыми вставками"
+            placeholder={t('characterStudio.outfit.descriptionPlaceholder')}
             rows={4}
             maxLength={500}
             showCount

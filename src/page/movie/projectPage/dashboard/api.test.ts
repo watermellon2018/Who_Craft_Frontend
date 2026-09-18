@@ -1,4 +1,4 @@
-import {adaptProgress} from './api';
+import {adaptActivity, adaptProgress} from './api';
 
 describe('adaptProgress', () => {
   it('converts progress ratios to rounded UI percentages', () => {
@@ -27,10 +27,10 @@ describe('adaptProgress', () => {
     })).toEqual({
       overall: 67,
       legend: [
-        {label: 'Сценарий', value: 80, accent: 'yellow'},
-        {label: 'Персонажи', value: 81, accent: 'purple'},
-        {label: 'Раскадровка', value: 75, accent: 'green'},
-        {label: 'Видео', value: 63, accent: 'blue'},
+        {label: 'project.dashboard.progress.script', value: 80, accent: 'yellow'},
+        {label: 'project.dashboard.progress.characters', value: 81, accent: 'purple'},
+        {label: 'project.dashboard.progress.storyboard', value: 75, accent: 'green'},
+        {label: 'project.dashboard.progress.video', value: 63, accent: 'blue'},
       ],
       storyboardNeedsReview: 1,
       storyboardReviewScenes: [reviewScene],
@@ -72,5 +72,20 @@ describe('adaptProgress', () => {
     expect(progress.overall).toBe(58);
     expect(progress.legend.map(({value}) => value)).toEqual([80, null, 42, 30]);
     expect(progress.storyboardNeedsReview).toBe(0);
+  });
+});
+
+describe('adaptActivity', () => {
+  it('uses a translation key for music activity instead of backend copy', () => {
+    expect(adaptActivity([{
+      id: 12,
+      type: 'music_added',
+      title: 'Theme',
+      description: 'Музыкальный трек обновлён',
+      createdAt: '2026-09-18T10:00:00Z',
+      createdAtLabel: 'только что',
+      thumbnailUrl: null,
+      metadata: {},
+    }])[0].description).toBe('project.dashboard.activity.descriptions.music_added');
   });
 });

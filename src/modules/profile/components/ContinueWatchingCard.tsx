@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import { ContinueWatchingItem } from '../types';
 
 interface Props {
@@ -6,12 +7,14 @@ interface Props {
 }
 
 const ContinueWatchingCard: React.FC<Props> = ({ items }) => {
+  const {t} = useTranslation();
+
   return (
     <div className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
-      <h3 className="text-white font-semibold text-base mb-4">▶️ Продолжить просмотр</h3>
+      <h3 className="text-white font-semibold text-base mb-4">{t('profile.continueWatching.title')}</h3>
 
       {items.length === 0 ? (
-        <p className="text-white/30 text-sm text-center py-4">Вы ещё не смотрели видео</p>
+        <p className="text-white/30 text-sm text-center py-4">{t('profile.continueWatching.empty')}</p>
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
           {items.map((item) => (
@@ -37,7 +40,9 @@ const ContinueWatchingCard: React.FC<Props> = ({ items }) => {
                     style={{ width: `${item.progress_percent}%` }}
                   />
                 </div>
-                <p className="text-white/30 text-xs">с {item.continue_from}</p>
+                <p className="text-white/30 text-xs">
+                  {t('profile.continueWatching.continueFrom', {time: item.continue_from})}
+                </p>
               </div>
             </div>
           ))}

@@ -1,13 +1,16 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 
 interface Props {
   genres: string[];
 }
 
 const FavoriteGenresCard: React.FC<Props> = ({ genres }) => {
+  const {t} = useTranslation();
+
   return (
     <div className="bg-[#16191f] border border-white/5 rounded-2xl p-5 shadow-md">
-      <h3 className="text-white font-semibold text-base mb-4">🎬 Любимые жанры</h3>
+      <h3 className="text-white font-semibold text-base mb-4">{t('profile.favoriteGenres.title')}</h3>
       <div className="flex flex-wrap gap-2">
         {genres.map((genre) => (
           <span

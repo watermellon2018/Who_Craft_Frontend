@@ -1,4 +1,5 @@
 import React from 'react';
+import {useTranslation} from 'react-i18next';
 import { SocialLinks } from '../../types';
 
 interface Props {
@@ -22,6 +23,7 @@ const ROWS: Row[] = [
 ];
 
 const SocialLinksCard: React.FC<Props> = ({ socials, error, onChange }) => {
+  const {t} = useTranslation();
   const update = (key: keyof SocialLinks, value: string) => {
     onChange({ ...socials, [key]: value });
   };
@@ -32,7 +34,7 @@ const SocialLinksCard: React.FC<Props> = ({ socials, error, onChange }) => {
         className="text-white font-semibold text-base mb-4"
         style={{ color: '#ffffff' }}
       >
-        Соцсети и ссылки
+        {t('profile.edit.socials.title')}
       </h3>
       {error && (
         <p className="text-xs mb-3" style={{ color: '#f87171' }}>
@@ -54,7 +56,7 @@ const SocialLinksCard: React.FC<Props> = ({ socials, error, onChange }) => {
                 className="text-sm font-medium"
                 style={{ color: 'rgba(255,255,255,0.85)' }}
               >
-                {row.label}
+                {row.key === 'website' ? t('profile.edit.socials.website') : row.label}
               </span>
             </div>
             <input
