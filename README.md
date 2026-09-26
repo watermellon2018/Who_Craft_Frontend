@@ -5,6 +5,18 @@ App 5. It consumes the sibling Django backend and contains project/team, poster,
 script, Character Studio, Music Studio, Reference Library, profile, and social
 subscription experiences.
 
+Authenticated users can open **Messages** at `/profile/messages` to find any
+active user by name or username and start a private text conversation. Messages
+support author-only editing and deletion for both participants; deleting a chat
+hides only the acting user's old history. New messages bring the chat back
+without restoring that history. The page shows unread counts and read receipts,
+refreshes visible conversations every three seconds, and refreshes unread counts
+every five seconds. Messages are limited to 4,000 Unicode characters. Drafts are
+kept in memory while switching conversations and after failed sends; reloading
+or signing out clears them. The feature requires the authenticated backend
+messaging API and its migrations, with no additional frontend configuration.
+Groups, attachments, presence, and typing indicators are not included.
+
 The protected `/credits` route is the Craft wallet. It shows available and
 reserved credits, 30-day movement statistics, and the append-only operation
 history. In demo environments it can add test credits; staff can transfer

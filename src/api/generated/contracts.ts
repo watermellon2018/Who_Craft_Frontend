@@ -6,8 +6,102 @@ export const API_CONSTRAINTS = {
   "posterPromptMaxLength": 1000,
   "projectAnnotationMaxLength": 800,
   "projectSynopsisMaxLength": 2000,
-  "projectPosterMaxBytes": 5242880
+  "projectPosterMaxBytes": 5242880,
+  "messagingTextMaxLength": 4000
 } as const;
+
+export interface MessagingUser {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  is_active: boolean;
+}
+
+export interface MessagingMessage {
+  id: number;
+  conversation_id: string;
+  sequence: number;
+  sender_id: number;
+  is_own: boolean;
+  text: string;
+  created_at: string;
+  edited_at: string | null;
+  deleted_at: string | null;
+  version: number;
+  client_id: string;
+}
+
+export interface MessagingConversation {
+  id: string;
+  peer: MessagingUser;
+  last_message: MessagingMessage | null;
+  unread_count: number;
+  last_sequence: number;
+  revision: number;
+  read_through: number;
+  peer_read_through: number;
+  cleared_through: number;
+  is_hidden: boolean;
+  can_send: boolean;
+  updated_at: string;
+}
+
+export interface MessagingUserList {
+  items: Array<MessagingUser>;
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface MessagingUnread {
+  unread_count: number;
+}
+
+export interface MessagingConversationList {
+  items: Array<MessagingConversation>;
+  total: number;
+  limit: number;
+  offset: number;
+  unread_count: number;
+}
+
+export interface MessagingHistory {
+  items: Array<MessagingMessage>;
+  next_before: number | null;
+  sync_revision: number;
+  conversation: MessagingConversation;
+}
+
+export interface MessagingChanges {
+  items: Array<MessagingMessage>;
+  next_revision: number;
+  has_more: boolean;
+  conversation: MessagingConversation;
+}
+
+export interface MessagingMutation {
+  message: MessagingMessage;
+  conversation: MessagingConversation;
+}
+
+export interface MessagingConversationCreate {
+  recipient_id: number;
+}
+
+export interface MessagingMessageCreate {
+  text: string;
+  client_id: string;
+}
+
+export interface MessagingMessageUpdate {
+  text: string;
+  expected_version: number;
+}
+
+export interface MessagingReadRequest {
+  through_sequence: number;
+}
 
 export interface StoryboardShotListJob {
   jobId: string;

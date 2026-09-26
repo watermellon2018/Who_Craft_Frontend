@@ -9,6 +9,7 @@ import AccountDeletionCard from './components/AccountDeletionCard';
 import ProfileSettingsPage from './ProfileSettingsPage';
 
 jest.mock('../../api/http', () => ({
+  ...jest.requireActual('../../api/http'),
   __esModule: true,
   clearStoredUserToken: jest.fn(),
   default: {delete: jest.fn(), get: jest.fn(), patch: jest.fn()},
