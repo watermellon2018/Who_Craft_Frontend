@@ -1,4 +1,4 @@
-import {ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, KeyOutlined, PlusOutlined} from '@ant-design/icons';
+import {ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, KeyOutlined, PlusOutlined, ReloadOutlined} from '@ant-design/icons';
 import {Alert, Button, Input, Radio, Select, Spin, Switch, Tag} from 'antd';
 import type {InputRef} from 'antd';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
@@ -8,6 +8,7 @@ import {
   createPersonalApiConnection,
   deletePersonalApiConnection,
   fetchPersonalApiSettings,
+  refreshPersonalVideoModels,
   saveGenerationPreference,
   updatePersonalApiConnection,
 } from '../api/personalApi';
@@ -21,7 +22,7 @@ import type {
 } from '../api/personalApi';
 import '../personal-api.css';
 
-const MODALITIES: GenerationModality[] = ['text', 'image', 'music', 'sound_effect'];
+const MODALITIES: GenerationModality[] = ['text', 'image', 'video', 'music', 'sound_effect'];
 type Route = PersonalApiPreference['routes'][number];
 
 interface ConnectionEditorProps {
@@ -117,9 +118,10 @@ interface ModalityPreferencesProps {
   modality: GenerationModality;
   settings: Settings;
   onSaved: (preference: PersonalApiPreference) => void;
+  onModelsRefreshed: (settings: Settings) => void;
 }
 
-function ModalityPreferences({modality, settings, onSaved}: ModalityPreferencesProps) {
+function ModalityPreferences({modality, settings, onSaved, onModelsRefreshed}: ModalityPreferencesProps) {
   const {t} = useTranslation();
   const initial = settings.preferences.find((item) => item.modality === modality);
   const [source, setSource] = useState<GenerationSource>(initial?.source ?? 'platform');
@@ -127,6 +129,9 @@ function ModalityPreferences({modality, settings, onSaved}: ModalityPreferencesP
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [refreshingModels, setRefreshingModels] = useState(false);
+  const [modelsError, setModelsError] = useState(false);
+  const [modelsRefreshed, setModelsRefreshed] = useState(false);
   useEffect(() => {
     setSource(initial?.source ?? 'platform');
     setRoutes(initial?.routes ?? []);
@@ -176,6 +181,20 @@ function ModalityPreferences({modality, settings, onSaved}: ModalityPreferencesP
       setSaving(false);
     }
   };
+  const refreshModels = async () => {
+    if (refreshingModels) return;
+    setRefreshingModels(true);
+    setModelsError(false);
+    setModelsRefreshed(false);
+    try {
+      onModelsRefreshed(await refreshPersonalVideoModels());
+      setModelsRefreshed(true);
+    } catch {
+      setModelsError(true);
+    } finally {
+      setRefreshingModels(false);
+    }
+  };
 
   return (
     <section className="personal-api-modality" aria-labelledby={`personal-api-${modality}-title`}>
@@ -188,6 +207,17 @@ function ModalityPreferences({modality, settings, onSaved}: ModalityPreferencesP
       {source === 'platform' ? <p className="personal-api-hint">{t('personalApi.platformHint')}</p> : (
         <>
           <p className="personal-api-hint">{t('personalApi.priorityHint')}</p>
+          {modality === 'video' && settings.connections.some((connection) => connection.isActive && connection.provider === 'openrouter') && (
+            <div className="personal-api-video-models">
+              <Button icon={<ReloadOutlined aria-hidden="true" />} loading={refreshingModels}
+                disabled={!settings.storageAvailable || saving} onClick={() => void refreshModels()}>
+                {t('personalApi.refreshVideoModels')}
+              </Button>
+              <p className="personal-api-hint">{t('personalApi.refreshVideoModelsHint')}</p>
+              {modelsError && <p role="alert" className="personal-api-error">{t('personalApi.errors.refreshVideoModels')}</p>}
+              <span role="status" className="personal-api-hint">{modelsRefreshed ? t('personalApi.videoModelsRefreshed') : ''}</span>
+            </div>
+          )}
           {!routes.some(routeAvailable) && <Alert type="warning" showIcon message={t('personalApi.noRoutes')} />}
           {routes.length > 0 && routes.some((route) => !routeAvailable(route)) && (
             <Alert type="warning" showIcon message={t('personalApi.unavailableRoute')} />
@@ -391,6 +421,8 @@ export default function PersonalApiSettings() {
             <p className="personal-api-hint">{t('personalApi.preferencesHint')}</p>
             <div className="personal-api-modalities">
               {MODALITIES.map((modality) => <ModalityPreferences key={modality} modality={modality} settings={settings}
+                onModelsRefreshed={(refreshed) => setSettings((current) => current && ({...current,
+                  models: refreshed.models, providers: refreshed.providers}))}
                 onSaved={(preference) => setSettings((current) => current && ({...current,
                   preferences: [...current.preferences.filter((item) => item.modality !== modality), preference]}))} />)}
             </div>

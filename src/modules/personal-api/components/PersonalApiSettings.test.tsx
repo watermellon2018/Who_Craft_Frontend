@@ -5,6 +5,7 @@ import {
   createPersonalApiConnection,
   deletePersonalApiConnection,
   fetchPersonalApiSettings,
+  refreshPersonalVideoModels,
   saveGenerationPreference,
   updatePersonalApiConnection,
 } from '../api/personalApi';
@@ -15,11 +16,13 @@ jest.mock('../api/personalApi', () => ({
   createPersonalApiConnection: jest.fn(),
   deletePersonalApiConnection: jest.fn(),
   fetchPersonalApiSettings: jest.fn(),
+  refreshPersonalVideoModels: jest.fn(),
   saveGenerationPreference: jest.fn(),
   updatePersonalApiConnection: jest.fn(),
 }));
 
 const fetchSettings = fetchPersonalApiSettings as jest.MockedFunction<typeof fetchPersonalApiSettings>;
+const refreshVideoModels = refreshPersonalVideoModels as jest.MockedFunction<typeof refreshPersonalVideoModels>;
 const createConnection = createPersonalApiConnection as jest.MockedFunction<typeof createPersonalApiConnection>;
 const updateConnection = updatePersonalApiConnection as jest.MockedFunction<typeof updatePersonalApiConnection>;
 const deleteConnection = deletePersonalApiConnection as jest.MockedFunction<typeof deletePersonalApiConnection>;
@@ -32,19 +35,22 @@ const settings: Settings = {
   ],
   preferences: [
     {modality: 'text', source: 'platform', routes: []},
+    {modality: 'video', source: 'platform', routes: []},
     {modality: 'image', source: 'personal', routes: [
       {connectionId: 'gemini-1', modelKey: 'gemini-image'},
       {connectionId: 'openrouter-1', modelKey: 'router-image'},
     ]},
   ],
   providers: [
-    {id: 'gemini', label: 'Google Gemini', modalities: ['text', 'image']},
+    {id: 'gemini', label: 'Google Gemini', modalities: ['text', 'image', 'video']},
     {id: 'openrouter', label: 'OpenRouter', modalities: ['text', 'image']},
   ],
   models: [
     {key: 'gemini-image', label: 'Gemini Image', modality: 'image', providers: ['gemini'], operations: ['generate', 'edit'], isFree: false},
     {key: 'router-image', label: 'Router Image', modality: 'image', providers: ['openrouter'], operations: ['generate'], isFree: false},
     {key: 'router-free', label: 'Free text', modality: 'text', providers: ['openrouter'], operations: ['generate'], isFree: true},
+    {key: 'veo-fast', label: 'Veo Fast', modality: 'video', providers: ['gemini'], operations: ['generate'], isFree: false},
+    {key: 'veo-quality', label: 'Veo Quality', modality: 'video', providers: ['gemini'], operations: ['generate'], isFree: false},
   ],
   hasPaidSubscription: false,
   storageAvailable: true,
@@ -121,6 +127,115 @@ it('offers only models compatible with the selected connection and modality', as
   expect(await screen.findByRole('option', {name: 'Gemini Image'})).toBeInTheDocument();
   expect(screen.queryByRole('option', {name: 'Router Image'})).not.toBeInTheDocument();
   expect(screen.queryByRole('option', {name: /Free text/})).not.toBeInTheDocument();
+});
+
+it('configures video priorities separately from image and text preferences', async () => {
+  await renderSettings();
+  const video = within(screen.getByRole('region', {name: 'Видео'}));
+  fireEvent.click(video.getByRole('radio', {name: 'Мой API'}));
+  fireEvent.click(video.getByRole('button', {name: 'Добавить в очередь'}));
+  fireEvent.click(video.getByRole('button', {name: 'Добавить в очередь'}));
+  fireEvent.click(video.getByRole('button', {name: 'Переместить вариант 2 выше'}));
+  fireEvent.click(video.getByRole('button', {name: 'Сохранить настройки: Видео'}));
+
+  expect(await video.findByText('Настройки сохранены.')).toBeInTheDocument();
+  expect(savePreference).toHaveBeenCalledTimes(1);
+  expect(savePreference).toHaveBeenCalledWith('video', {source: 'personal', routes: [
+    {connectionId: 'gemini-1', modelKey: 'veo-quality'},
+    {connectionId: 'gemini-1', modelKey: 'veo-fast'},
+  ]});
+  expect(within(screen.getByRole('region', {name: 'Текст'})).getByRole('radio', {name: 'API Craft'})).toBeChecked();
+  const images = within(screen.getByRole('region', {name: 'Изображения'}));
+  expect(images.getByRole('radio', {name: 'Мой API'})).toBeChecked();
+  expect(images.getAllByRole('listitem')).toHaveLength(2);
+});
+
+it('offers video models only and excludes a connection without video support', async () => {
+  await renderSettings();
+  const video = within(screen.getByRole('region', {name: 'Видео'}));
+  fireEvent.click(video.getByRole('radio', {name: 'Мой API'}));
+  fireEvent.click(video.getByRole('button', {name: 'Добавить в очередь'}));
+  fireEvent.mouseDown(video.getByRole('combobox', {name: 'Модель 1'}));
+
+  expect(await screen.findByRole('option', {name: 'Veo Fast'})).toBeInTheDocument();
+  expect(screen.getByRole('option', {name: 'Veo Quality'})).toBeInTheDocument();
+  expect(screen.queryByRole('option', {name: 'Gemini Image'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('option', {name: /Free text/})).not.toBeInTheDocument();
+  fireEvent.keyDown(video.getByRole('combobox', {name: 'Модель 1'}), {key: 'Escape', code: 'Escape'});
+  fireEvent.mouseDown(video.getByRole('combobox', {name: 'Подключение 1'}));
+  expect(await screen.findByRole('option', {name: 'Gemini основной'})).toBeInTheDocument();
+  expect(screen.queryByRole('option', {name: 'OpenRouter запасной'})).not.toBeInTheDocument();
+});
+
+it('warns when a personal video preference has no supported connection', async () => {
+  fetchSettings.mockResolvedValueOnce({...settings, connections: settings.connections.filter((connection) => connection.provider === 'openrouter')});
+  await renderSettings();
+  const video = within(screen.getByRole('region', {name: 'Видео'}));
+  fireEvent.click(video.getByRole('radio', {name: 'Мой API'}));
+
+  expect(video.getByText('Личная генерация этой модальности недоступна: добавьте подходящее подключение и модель.')).toBeInTheDocument();
+  expect(video.getByRole('button', {name: 'Добавить в очередь'})).toBeDisabled();
+});
+
+it('refreshes the video catalogue only on request and preserves unsaved modality preferences', async () => {
+  const refreshed = JSON.parse(JSON.stringify(settings)) as Settings;
+  refreshed.models.push({key: 'router-video', label: 'OpenRouter Video', modality: 'video', providers: ['openrouter'], operations: ['generate'], isFree: false});
+  refreshVideoModels.mockResolvedValueOnce(refreshed);
+  await renderSettings();
+  expect(refreshVideoModels).not.toHaveBeenCalled();
+  const images = within(screen.getByRole('region', {name: 'Изображения'}));
+  fireEvent.click(images.getByRole('button', {name: 'Переместить вариант 2 выше'}));
+  const video = within(screen.getByRole('region', {name: 'Видео'}));
+  fireEvent.click(video.getByRole('radio', {name: 'Мой API'}));
+  fireEvent.click(video.getByRole('button', {name: 'Добавить в очередь'}));
+  fireEvent.click(video.getByRole('button', {name: 'Обновить видеомодели'}));
+
+  expect(await video.findByText('Каталог видеомоделей обновлён.')).toBeInTheDocument();
+  expect(refreshVideoModels).toHaveBeenCalledTimes(1);
+  expect(fetchSettings).toHaveBeenCalledTimes(1);
+  expect(video.getByRole('radio', {name: 'Мой API'})).toBeChecked();
+  expect(video.getAllByRole('listitem')).toHaveLength(1);
+  expect(savePreference).not.toHaveBeenCalled();
+  fireEvent.click(video.getByRole('button', {name: 'Сохранить настройки: Видео'}));
+  await video.findByText('Настройки сохранены.');
+  expect(savePreference).toHaveBeenLastCalledWith('video', {source: 'personal', routes: [{connectionId: 'gemini-1', modelKey: 'veo-fast'}]});
+  fireEvent.click(images.getByRole('button', {name: 'Сохранить настройки: Изображения'}));
+  await images.findByText('Настройки сохранены.');
+  expect(savePreference).toHaveBeenLastCalledWith('image', {source: 'personal', routes: [
+    {connectionId: 'openrouter-1', modelKey: 'router-image'}, {connectionId: 'gemini-1', modelKey: 'gemini-image'},
+  ]});
+  const connectionSelect = video.getByRole('combobox', {name: 'Подключение 1'});
+  fireEvent.mouseDown(connectionSelect);
+  expect(await screen.findByRole('option', {name: 'OpenRouter запасной'})).toBeInTheDocument();
+  fireEvent.keyDown(connectionSelect, {key: 'ArrowDown', code: 'ArrowDown', keyCode: 40});
+  fireEvent.keyDown(connectionSelect, {key: 'Enter', code: 'Enter', keyCode: 13});
+  expect(video.getByText('OpenRouter Video')).toBeInTheDocument();
+});
+
+it('keeps video settings after a refresh error and allows retry without exposing the provider error', async () => {
+  refreshVideoModels.mockRejectedValueOnce(new Error('secret-key-from-provider')).mockResolvedValueOnce(settings);
+  await renderSettings();
+  const video = within(screen.getByRole('region', {name: 'Видео'}));
+  fireEvent.click(video.getByRole('radio', {name: 'Мой API'}));
+  fireEvent.click(video.getByRole('button', {name: 'Обновить видеомодели'}));
+
+  expect(await video.findByText('Не удалось обновить видеомодели. Проверьте подключение OpenRouter и повторите обновление.')).toBeInTheDocument();
+  expect(screen.queryByText('secret-key-from-provider')).not.toBeInTheDocument();
+  expect(video.getByRole('radio', {name: 'Мой API'})).toBeChecked();
+  fireEvent.click(await video.findByRole('button', {name: 'Обновить видеомодели'}));
+  expect(await video.findByText('Каталог видеомоделей обновлён.')).toBeInTheDocument();
+  expect(video.queryByRole('alert')).not.toHaveTextContent('Не удалось обновить видеомодели');
+  expect(refreshVideoModels).toHaveBeenCalledTimes(2);
+});
+
+it('does not offer catalogue refresh for an inactive OpenRouter connection', async () => {
+  fetchSettings.mockResolvedValueOnce({...settings,
+    connections: settings.connections.map((connection) => ({...connection, isActive: connection.provider !== 'openrouter'})),
+  });
+  await renderSettings();
+  const video = within(screen.getByRole('region', {name: 'Видео'}));
+  fireEvent.click(video.getByRole('radio', {name: 'Мой API'}));
+  expect(video.queryByRole('button', {name: 'Обновить видеомодели'})).not.toBeInTheDocument();
 });
 
 it('retains a failed edit for retry and never displays raw server errors', async () => {

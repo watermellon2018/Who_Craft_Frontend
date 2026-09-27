@@ -455,6 +455,29 @@ charge. A queued job waits for a worker to become available.
   `POST /api/projects/{projectId}/storyboard/{storyboardId}/shots/`, replace the
   working draft with the server response and update production-readiness metrics.
 
+## Video generation
+
+Open `/project/:projectId/video` to generate individual clips from storyboard
+plans. The page uses the shared header/theme and links back to characters,
+visual references, script and storyboard. All plans of the selected scene must
+be ready; other scenes can remain incomplete. The initial and optional final
+image condition one clip. Intermediate images and final-film assembly are not
+part of this release. Effective supported duration is shown before submission;
+storyboard duration is preserved.
+
+Configure the **Video** modality and ordered personal connection/model pairs in
+profile settings. Source selection lives there. Craft mode shows its model
+catalog; personal mode uses the configured priorities. Paid Craft access remains
+unavailable until subscription entitlement is implemented. Personal generation
+is paid directly at the external provider. A key may lack video access or quota.
+
+Accepted jobs survive navigation/reload and are polled automatically. History
+shows changes to source conditions; viewing a version does not choose it as the
+final result. Selecting a final version is explicit and permission/version
+checked. Initial motion drafts are temporary until the first accepted job;
+existing video shots have an explicit save action. See the backend
+[video reference](../backend/docs/video.md) for worker and key configuration.
+
 ## Contract changes
 
 The backend contract is canonical. When it changes, synchronize

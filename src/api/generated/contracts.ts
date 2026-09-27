@@ -510,7 +510,7 @@ export interface CreditAdminAudit {
 
 export type GenerationSource = "platform" | "personal";
 
-export type GenerationModality = "text" | "image" | "music" | "sound_effect";
+export type GenerationModality = "text" | "image" | "music" | "sound_effect" | "video";
 
 export interface PersonalApiConnection {
   id: string;
@@ -1969,4 +1969,155 @@ export interface StoryboardEditorFrameJob {
 
 export interface StoryboardEditorFrameJobList {
   jobs: Array<StoryboardEditorFrameJob>;
+}
+
+export interface VideoBlocker {
+  code: string;
+  detail: string;
+}
+
+export interface VideoFrame {
+  assetId: number;
+  imageUrl: string;
+  label: string;
+}
+
+export interface VideoJob {
+  id: string;
+  videoShotId: number;
+  sceneId: number;
+  sourceKind: "editor_draft" | "structured";
+  sourceShotId: string;
+  status: "queued" | "processing" | "completed" | "failed" | "outcome_unknown";
+  stage: "queued" | "submitting" | "polling" | "downloading" | "completed" | "failed" | "outcome_unknown";
+  modelId: string;
+  modelLabel: string;
+  generationSource: GenerationSource;
+  requestedDurationSeconds: number;
+  effectiveDurationSeconds: number;
+  motionPrompt: string;
+  aspectRatio: string;
+  resolution: string;
+  sourceFingerprint: string;
+  stale: boolean;
+  staleReasons: Array<string>;
+  assetId: number | null;
+  videoUrl: string | null;
+  error: { code: string; detail: string; retryable: boolean; } | null;
+  createdAt: string;
+  completedAt: string | null;
+  pollAfterMs: number;
+}
+
+export interface VideoSourceShot {
+  sourceKind: "editor_draft" | "structured";
+  sourceShotId: string;
+  sceneId: number;
+  title: string;
+  order: number;
+  description: string;
+  durationSeconds: number;
+  aspectRatio: string;
+  startFrame: VideoFrame | null;
+  endFrame: VideoFrame | null;
+  fingerprint: string;
+  ready: boolean;
+  blockers: Array<VideoBlocker>;
+  videoShotId: number | null;
+  videoShotVersion: number | null;
+  motionPrompt: string;
+  selectedJobId: string | null;
+  jobs: Array<VideoJob>;
+  sourceRemoved?: boolean;
+  intermediateFrameCount?: number;
+  inheritedCamera?: Record<string, unknown>;
+  references?: Array<{ id: string; title: string; kind: string; imageUrl?: string | null; usage: "context_only" | "sent"; }>;
+}
+
+export interface VideoScene {
+  id: number;
+  title: string;
+  order: number;
+  ready: boolean;
+  blockers: Array<VideoBlocker>;
+  shots: Array<VideoSourceShot>;
+}
+
+export interface VideoWorkspace {
+  projectId: number;
+  projectTitle: string;
+  permissions: { canView: boolean; canEdit: boolean; canRunGeneration: boolean; };
+  generationSource: GenerationSource;
+  scenes: Array<VideoScene>;
+  archivedShots: Array<VideoSourceShot>;
+}
+
+export interface VideoModelOption {
+  id: string;
+  label: string;
+  provider: string;
+  compatible: boolean;
+  unavailableReason: string;
+  durations: Array<number>;
+  aspectRatios: Array<string>;
+  resolutions: Array<string>;
+}
+
+export interface VideoOptionsRequest {
+  sceneId: number;
+  sourceKind: "editor_draft" | "structured";
+  sourceShotId: string;
+  modelId?: string;
+  motionPrompt?: string;
+  aspectRatio?: string;
+  resolution?: string;
+}
+
+export interface VideoOptions {
+  generationSource: GenerationSource;
+  models: Array<VideoModelOption>;
+  selectedModelId: string | null;
+  requestedDurationSeconds: number;
+  effectiveDurationSeconds: number | null;
+  durationAdjusted: boolean;
+  canGenerate: boolean;
+  blockers: Array<VideoBlocker>;
+  preflightToken: string | null;
+  expiresInSeconds: number;
+}
+
+export interface VideoJobCreateRequest {
+  preflightToken: string;
+  clientRequestId: string;
+}
+
+export interface VideoJobAccepted {
+  job: VideoJob;
+  idempotentReplay: boolean;
+}
+
+export interface VideoJobList {
+  items: Array<VideoJob>;
+}
+
+export interface VideoShotSelectRequest {
+  jobId: string;
+  expectedVideoShotVersion: number;
+}
+
+export interface VideoShotSelectResponse {
+  videoShotId: number;
+  videoShotVersion: number;
+  selectedJobId: string;
+}
+
+export interface VideoShotMotionRequest {
+  motionPrompt: string;
+  expectedVideoShotVersion: number;
+}
+
+export interface VideoShotMotionResponse {
+  videoShotId: number;
+  videoShotVersion: number;
+  motionPrompt: string;
 }

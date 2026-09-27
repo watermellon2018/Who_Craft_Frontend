@@ -244,10 +244,10 @@ export default function VideoPreparationPage() {
 
         <PreparationChecklist data={data} />
 
-        {data.ready && data.project.permissions.canRunGeneration && (
+        {data.project.permissions.canView && (
           <div className="video-preparation-actions">
             <Link className="video-preparation-action" to={videoGenerationPath(projectId)}>
-              {t('videoPreparation.createVideo', {defaultValue: 'Создать видео'})}
+              {t('videoWorkspace.title')}
               <RightOutlined aria-hidden="true" />
             </Link>
           </div>

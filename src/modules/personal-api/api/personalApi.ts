@@ -1,4 +1,4 @@
-import api from '../../../api/http';
+import api, {getAuthGeneration} from '../../../api/http';
 import {createGeneratedApiClient} from '../../../api/generated/client';
 import type {
   GenerationModality,
@@ -29,6 +29,14 @@ function notifySettingsChanged() {
 
 export const fetchPersonalApiSettings = () => client.getPersonalApiSettings();
 
+export async function refreshPersonalVideoModels(): Promise<PersonalApiSettings> {
+  const response = await api.post<PersonalApiSettings>('api/personal-api/video-models/refresh/', {}, {
+    expectedAuthGeneration: getAuthGeneration(),
+  });
+  notifySettingsChanged();
+  return response.data;
+}
+
 export async function createPersonalApiConnection(payload: PersonalApiConnectionCreate) {
   const connection = await client.createPersonalApiConnection(payload);
   notifySettingsChanged();
@@ -54,6 +62,7 @@ export async function saveGenerationPreference(modality: GenerationModality, pay
 
 export function generationModality(domain: string): GenerationModality {
   if (domain === 'text') return 'text';
+  if (domain === 'video') return 'video';
   if (domain === 'music') return 'music';
   if (domain === 'sound_effect') return 'sound_effect';
   return 'image';

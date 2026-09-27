@@ -17,7 +17,6 @@ jest.mock('../api');
 import {fetchVideoPreparation} from '../api';
 import type {VideoPreparationResponse} from '../api';
 import VideoEntryGatePage from './VideoEntryGatePage';
-import VideoGenerationPage from './VideoGenerationPage';
 import VideoPreparationPage from './VideoPreparationPage';
 
 const mockedFetchVideoPreparation = fetchVideoPreparation as jest.MockedFunction<
@@ -70,8 +69,7 @@ function LocationProbe() {
 
 beforeEach(() => jest.clearAllMocks());
 
-it('routes a ready entry request to the guarded generation page', async () => {
-  mockedFetchVideoPreparation.mockResolvedValue(preparationResponse());
+it('opens the workspace without requiring whole-project readiness', async () => {
 
   render(
     <MemoryRouter initialEntries={['/project/42/video']}>
@@ -83,36 +81,36 @@ it('routes a ready entry request to the guarded generation page', async () => {
   );
 
   expect(await screen.findByText('Generation route')).toBeInTheDocument();
+  expect(mockedFetchVideoPreparation).not.toHaveBeenCalled();
 });
 
-it('routes a blocked entry request to preparation', async () => {
-  mockedFetchVideoPreparation.mockResolvedValue(preparationResponse({ready: false, taskCount: 2}));
-
+it('preserves the requested scene and shot when opening the workspace', async () => {
   render(
-    <MemoryRouter initialEntries={['/project/42/video']}>
+    <MemoryRouter initialEntries={['/project/42/video?sceneId=17&shotId=local-shot']}>
       <Routes>
         <Route path="/project/:projectId/video" element={<VideoEntryGatePage />} />
-        <Route path="/project/:projectId/video/preparation" element={<div>Preparation route</div>} />
+        <Route path="/project/:projectId/video/generate" element={<LocationProbe />} />
       </Routes>
     </MemoryRouter>,
   );
 
-  expect(await screen.findByText('Preparation route')).toBeInTheDocument();
+  expect(await screen.findByText('/project/42/video/generate?sceneId=17&shotId=local-shot|')).toBeInTheDocument();
 });
 
-it('revalidates a direct generation URL and redirects when prerequisites are blocked', async () => {
+it('lets users open video history from preparation while prerequisites are blocked', async () => {
   mockedFetchVideoPreparation.mockResolvedValue(preparationResponse({ready: false, taskCount: 1}));
 
   render(
-    <MemoryRouter initialEntries={['/project/42/video/generate']}>
+    <MemoryRouter initialEntries={['/project/42/video/preparation']}>
       <Routes>
-        <Route path="/project/:projectId/video/generate" element={<VideoGenerationPage />} />
-        <Route path="/project/:projectId/video/preparation" element={<div>Preparation route</div>} />
+        <Route path="/project/:projectId/video/preparation" element={<VideoPreparationPage />} />
+        <Route path="/project/:projectId/video/generate" element={<div>Video history</div>} />
       </Routes>
     </MemoryRouter>,
   );
 
-  expect(await screen.findByText('Preparation route')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('link', {name: 'Создание видео'}));
+  expect(await screen.findByText('Video history')).toBeInTheDocument();
   expect(mockedFetchVideoPreparation).toHaveBeenCalledWith('42', expect.any(AbortSignal));
 });
 
