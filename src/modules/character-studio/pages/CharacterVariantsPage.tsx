@@ -1,4 +1,4 @@
-import {Button, Checkbox, message} from 'antd';
+import {Alert, Button, Checkbox, Radio, message} from 'antd';
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import { useTranslation } from 'react-i18next';
 import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
@@ -6,12 +6,15 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
     CharacterSecondaryAssetsQuote,
     CharacterSecondaryAssetType,
+    GenerationSource,
+    PersonalApiSettings,
 } from '../../../api/generated/contracts';
 import {getApiStatus} from '../../../api/errors';
 import i18n from '../../../i18n';
 import {characterCreatePath} from '../../../routes/pathConstant';
 import {craftModal} from '../../../theme/CraftModalHost';
 import {getGenerationRoutingMode} from '../../credits/api/creditApi';
+import {fetchPersonalApiSettings, personalGenerationRoutes, preferredGenerationSource, saveGenerationPreference} from '../../personal-api/api/personalApi';
 import {
     formatGenerationCost,
     GENERATION_COST_MODAL_THEME,
@@ -64,6 +67,18 @@ function SecondaryGenerationConfirmation({
     variantId,
 }: SecondaryGenerationConfirmationProps) {
     const {t} = useTranslation();
+    const [apiSettings, setApiSettings] = useState<PersonalApiSettings | null>(null);
+    const [generationSource, setGenerationSource] = useState<GenerationSource>('platform');
+    const [savingPreference, setSavingPreference] = useState(false);
+    useEffect(() => {
+        let active = true;
+        void fetchPersonalApiSettings().then((settings) => {
+            if (!active) return;
+            setGenerationSource(preferredGenerationSource(settings, 'image'));
+            setApiSettings(settings);
+        }).catch(() => {if (active) setQuoteState((current) => ({...current, loading: false, failed: true}));});
+        return () => {active = false;};
+    }, []);
     const [selectedTypes, setSelectedTypes] = useState<CharacterSecondaryAssetType[]>(
         [...INITIAL_SECONDARY_ASSETS],
     );
@@ -71,7 +86,7 @@ function SecondaryGenerationConfirmation({
         () => INITIAL_SECONDARY_ASSETS.filter((imageType) => selectedTypes.includes(imageType)),
         [selectedTypes],
     );
-    const selectionKey = selectedImageTypes.join(',');
+    const selectionKey = `${generationSource}:${selectedImageTypes.join(',')}`;
     const [quoteState, setQuoteState] = useState<{
         failed: boolean;
         loading: boolean;
@@ -85,6 +100,7 @@ function SecondaryGenerationConfirmation({
     );
     const quoteFailed = quoteStateIsCurrent && quoteState.failed;
     useEffect(() => {
+        if (!apiSettings) return;
         let active = true;
         setQuoteState({failed: false, loading: true, quote: null, selectionKey});
         if (selectedImageTypes.length === 0) {
@@ -96,7 +112,8 @@ function SecondaryGenerationConfirmation({
         void characterApi.quoteSecondaryAssets(projectId, characterId, {
             variant_id: variantId,
             image_types: [...selectedImageTypes],
-            ...(imageModel ? {image_model: imageModel} : {}),
+            ...(imageModel && generationSource !== 'personal' ? {image_model: imageModel} : {}),
+            generationSource,
             routing_mode: routingMode,
         })
             .then((response) => {
@@ -111,12 +128,11 @@ function SecondaryGenerationConfirmation({
         return () => {
             active = false;
         };
-    }, [characterId, imageModel, projectId, routingMode, selectedImageTypes, selectionKey, variantId]);
+    }, [apiSettings, generationSource, characterId, imageModel, projectId, routingMode, selectedImageTypes, selectionKey, variantId]);
     const canGenerate = Boolean(
         selectedImageTypes.length > 0
         && quote?.quote_token
-        && quote.account_frozen !== true
-        && quote.sufficient_balance !== false,
+        && (generationSource === 'personal' || (quote.account_frozen !== true && quote.sufficient_balance !== false)),
     );
     const unavailableReason = selectedImageTypes.length === 0
         ? null
@@ -124,9 +140,9 @@ function SecondaryGenerationConfirmation({
             ? t('characterStudio.variants.secondaryGeneration.estimating')
             : quoteFailed || !quote
             ? t('characterStudio.variants.secondaryGeneration.estimateUnavailable')
-            : quote.account_frozen
+            : generationSource !== 'personal' && quote.account_frozen
                 ? t('credits.frozen.generation')
-                : quote.sufficient_balance === false
+                : generationSource !== 'personal' && quote.sufficient_balance === false
                     ? t('credits.generation.insufficientDescription', {
                         required: formatGenerationCost(quote.totals.reservation_amount),
                         available: formatGenerationCost(quote.available_balance ?? '0'),
@@ -142,6 +158,16 @@ function SecondaryGenerationConfirmation({
     return (
         <div className="generation-cost-confirmation">
             <p>{t('characterStudio.variants.secondaryGeneration.description')}</p>
+            <Radio.Group aria-label={t('personalApi.guard.source')} value={generationSource} disabled={!apiSettings || savingPreference}
+                onChange={(event) => setGenerationSource(event.target.value)}>
+                <Radio.Button value="platform">{t('personalApi.guard.platform')}</Radio.Button>
+                <Radio.Button value="personal">{t('personalApi.guard.personal')}</Radio.Button>
+            </Radio.Group>
+            {generationSource === 'personal' ? <Alert type="info" message={t('personalApi.guard.external')} />
+                : apiSettings && !apiSettings.hasPaidSubscription && <Alert type="info" message={t('personalApi.guard.subscription')} />}
+            {apiSettings && generationSource === 'personal' && !personalGenerationRoutes(apiSettings, 'image', 'reference').length
+                && <Alert type="warning" message={t('personalApi.guard.noRoutes')} />}
+            <a href="/profile/settings#personal-api">{t('personalApi.guard.settings')}</a>
             <fieldset style={{border: 0, margin: '16px 0', padding: 0}}>
                 <legend style={{color: 'var(--craft-text)', fontWeight: 700, marginBottom: 10}}>
                     {t('characterStudio.variants.secondaryGeneration.chooseAssets')}
@@ -159,7 +185,7 @@ function SecondaryGenerationConfirmation({
                                 {t(`characterStudio.variants.secondaryGeneration.assets.${imageType}`)}
                             </span>
                             <strong style={{color: 'var(--craft-accent)', marginLeft: 8}}>
-                                {quoteItem
+                                {generationSource === 'personal' ? t('personalApi.guard.personal') : quoteItem
                                     ? `≈ ${formatGenerationCost(quoteItem.estimated_cost)} C`
                                     : t('characterStudio.variants.secondaryGeneration.costUnavailable')}
                             </strong>
@@ -177,7 +203,7 @@ function SecondaryGenerationConfirmation({
                 <div>
                     <dt>{t('characterStudio.variants.secondaryGeneration.total')}</dt>
                     <dd>
-                        {selectedImageTypes.length === 0
+                        {generationSource === 'personal' ? t('personalApi.guard.personal') : selectedImageTypes.length === 0
                             ? '0 C'
                             : quote
                                 ? `≈ ${formatGenerationCost(quote.totals.estimated_cost)} C`
@@ -191,7 +217,7 @@ function SecondaryGenerationConfirmation({
                     </div>
                 )}
             </dl>
-            <small>{t('characterStudio.variants.secondaryGeneration.costHint')}</small>
+            <small>{t(generationSource === 'personal' ? 'personalApi.guard.timeoutHint' : 'characterStudio.variants.secondaryGeneration.costHint')}</small>
             {unavailableReason && (
                 <p role="status" style={{color: 'var(--craft-warning)', marginBottom: 0}}>
                     {unavailableReason}
@@ -205,11 +231,19 @@ function SecondaryGenerationConfirmation({
                     {t('characterStudio.variants.secondaryGeneration.saveOnly')}
                 </Button>
                 <Button
-                    disabled={!canGenerate}
+                    disabled={!canGenerate || savingPreference}
+                    loading={savingPreference}
                     type="primary"
-                    onClick={() => {
+                    onClick={async () => {
                         if (quote) {
-                            onDecision({imageTypes: selectedImageTypes, kind: 'generate', quote});
+                            setSavingPreference(true);
+                            try {
+                                const preference = apiSettings?.preferences.find((item) => item.modality === 'image');
+                                if (preference?.source !== generationSource) await saveGenerationPreference('image', {
+                                    source: generationSource, routes: preference?.routes ?? [],
+                                });
+                                onDecision({imageTypes: selectedImageTypes, kind: 'generate', quote});
+                            } catch {message.error(t('personalApi.guard.accessError')); setSavingPreference(false);}
                         }
                     }}
                 >
@@ -510,6 +544,10 @@ function CharacterVariantsPageContent() {
                     {
                         ...payload,
                         image_model: estimate.modelKey,
+                        generationAccessToken: estimate.generationAccessToken,
+
+                        generationSource: estimate.generationSource,
+
                         routing_mode: estimate.routingMode,
                     },
                     `character:${characterId}:portrait:${uuidv4()}`,

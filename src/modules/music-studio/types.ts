@@ -189,6 +189,8 @@ export interface MusicBrief {
 }
 
 export interface MusicEnqueueRequest {
+  generationSource?: import('../../api/generated/contracts').GenerationSource;
+  generationAccessToken?: string;
   brief: MusicBrief;
   modelKey?: string;
   referenceAssetId: string | null;

@@ -2,12 +2,19 @@ import React from 'react';
 import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
 import {Modal} from 'antd';
 import {MemoryRouter, Route, Routes, useLocation} from 'react-router-dom';
+import type {PersonalApiSettings} from '../../../api/generated/contracts';
 import {getGenerationRoutingMode} from '../../credits/api/creditApi';
 import {runGenerationWithCredits} from '../../credits/components/GenerationCostGuard';
+import {fetchPersonalApiSettings, saveGenerationPreference} from '../../personal-api/api/personalApi';
 import {characterApi} from '../api/characterApi';
 import CharacterVariantsPage from './CharacterVariantsPage';
 
 jest.mock('../api/characterApi');
+jest.mock('../../personal-api/api/personalApi', () => ({
+  ...jest.requireActual('../../personal-api/api/personalApi'),
+  fetchPersonalApiSettings: jest.fn(),
+  saveGenerationPreference: jest.fn(),
+}));
 jest.mock('../../credits/api/creditApi', () => ({
   getGenerationRoutingMode: jest.fn(() => 'manual'),
   notifyCreditBalanceUpdated: jest.fn(),
@@ -45,9 +52,29 @@ const mockedCreateTreeNode = characterTreeApi.create as jest.MockedFunction<type
 const mockedUseGenerationJob = useGenerationJob as jest.MockedFunction<typeof useGenerationJob>;
 const mockedUseImageModelCatalog = useImageModelCatalog as jest.MockedFunction<typeof useImageModelCatalog>;
 const mockedRunGenerationWithCredits = runGenerationWithCredits as jest.MockedFunction<typeof runGenerationWithCredits>;
+const mockedFetchPersonalApiSettings = fetchPersonalApiSettings as jest.MockedFunction<typeof fetchPersonalApiSettings>;
+const mockedSaveGenerationPreference = saveGenerationPreference as jest.MockedFunction<typeof saveGenerationPreference>;
 
 const PROJECT_ID = 'proj-1';
 const CHARACTER_ID = 'char-1';
+
+const PERSONAL_API_SETTINGS: PersonalApiSettings = {
+  connections: [{
+    id: 'personal-image-key', name: 'My image key', provider: 'openrouter', keyHint: '••••1234',
+    isActive: true, version: 1, createdAt: '2026-09-26', updatedAt: '2026-09-26',
+  }],
+  preferences: [{
+    modality: 'image', source: 'platform',
+    routes: [{connectionId: 'personal-image-key', modelKey: 'openrouter-images:openai/gpt-image-1'}],
+  }],
+  providers: [{id: 'openrouter', label: 'OpenRouter', modalities: ['image']}],
+  models: [{
+    key: 'openrouter-images:openai/gpt-image-1', label: 'GPT Image 1', modality: 'image',
+    providers: ['openrouter'], operations: ['generate', 'reference'], isFree: false,
+  }],
+  hasPaidSubscription: true,
+  storageAvailable: true,
+};
 
 const VARIANTS = [
   {variant_id: 'v1', image_url: 'http://img/1.png', variant_index: 0, region: 'face', status: 'generated' as const},
@@ -80,6 +107,7 @@ const PAGE_STATE = {
 };
 
 const COST_ESTIMATE = {
+  generationSource: 'platform' as const,
   domain: 'character',
   operation: 'generate',
   provider: 'openrouter',
@@ -99,6 +127,7 @@ const COST_ESTIMATE = {
 };
 
 const SECONDARY_QUOTE = {
+  generationSource: 'platform' as const,
   quote_token: 'quote-full_body-scene',
   expires_in_seconds: 300,
   items: [
@@ -183,6 +212,8 @@ function renderPage(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockedFetchPersonalApiSettings.mockResolvedValue(PERSONAL_API_SETTINGS);
+  mockedSaveGenerationPreference.mockImplementation(async (modality, preference) => ({modality, ...preference}));
   mockedGetGenerationRoutingMode.mockReturnValue('manual');
   mockedUseImageModelCatalog.mockReturnValue({catalog: null, error: false, loading: false});
   mockedRunGenerationWithCredits.mockImplementation(async (intent, operation) => operation({
@@ -724,9 +755,54 @@ describe('CharacterVariantsPage – Continue button', () => {
       variant_id: 'v1',
       image_types: ['full_body', 'scene'],
       image_model: 'openrouter-images:openai/gpt-image-1',
+      generationSource: 'platform',
       routing_mode: 'manual',
     });
     fireEvent.click(within(dialog).getByRole('button', {name: 'Отмена'}));
+  });
+
+  it('uses explicitly selected personal credentials without Craft charges or wallet restrictions', async () => {
+    mockedFetchPersonalApiSettings.mockResolvedValue({...PERSONAL_API_SETTINGS, hasPaidSubscription: false});
+    mockedApi.quoteSecondaryAssets.mockImplementation(async (_projectId, _characterId, payload) => {
+      const quote = secondaryQuoteFor(payload.image_types);
+      return {data: payload.generationSource === 'personal' ? {
+        ...quote,
+        quote_token: 'personal-quote-full_body-scene',
+        generationSource: 'personal',
+        items: quote.items.map((item) => ({...item, estimated_cost: '0', reservation_amount: '0'})),
+        totals: {estimated_cost: '0', reservation_amount: '0'},
+        available_balance: '0', sufficient_balance: false, account_frozen: true,
+      } : quote} as never;
+    });
+    mockedApi.generateSecondaryAssets.mockResolvedValue({data: {
+      jobs: [{job_id: 'personal-full-body-job', status: 'queued', image_type: 'full_body'}],
+      total_reservation_amount: '0',
+    }} as never);
+    renderPage();
+    const dialog = await openSecondaryGenerationDialog();
+    const personalSource = within(dialog).getByRole('radio', {name: 'Мой API'});
+    await waitFor(() => expect(personalSource).not.toBeDisabled());
+    fireEvent.click(personalSource);
+
+    const generateButton = within(dialog).getByRole('button', {name: 'Сохранить и сгенерировать'});
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    expect(personalSource).toBeChecked();
+    expect(within(dialog).getByText('Расход оплачивается на вашем аккаунте провайдера. Баланс Craft не списывается.')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/≈ .* C/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/администратор не разморозит кошелёк/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/Для запуска нужно примерно/)).not.toBeInTheDocument();
+    expect(mockedApi.quoteSecondaryAssets).toHaveBeenLastCalledWith(PROJECT_ID, CHARACTER_ID, {
+      variant_id: 'v1', image_types: ['full_body', 'scene'], generationSource: 'personal', routing_mode: 'manual',
+    });
+    fireEvent.click(generateButton);
+
+    await waitFor(() => expect(mockedApi.generateSecondaryAssets).toHaveBeenCalledWith(
+      PROJECT_ID, CHARACTER_ID, 'personal-quote-full_body-scene',
+    ));
+    expect(mockedSaveGenerationPreference).toHaveBeenCalledWith('image', {
+      source: 'personal', routes: PERSONAL_API_SETTINGS.preferences[0].routes,
+    });
+    expect(await screen.findByText('Edit page')).toBeInTheDocument();
   });
 
   it('saves only the portrait without launching secondary jobs', async () => {

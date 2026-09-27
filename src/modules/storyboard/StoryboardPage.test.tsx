@@ -2,20 +2,54 @@ import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/
 import {randomFillSync} from 'crypto';
 import React from 'react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
+import type {GenerationCostEstimate, GenerationCostEstimateRequest, PersonalApiSettings} from '../../api/generated/contracts';
+import {estimateGenerationCost} from '../credits/api/creditApi';
+import * as generationCostGuard from '../credits/components/GenerationCostGuard';
+import {fetchPersonalApiSettings, saveGenerationPreference} from '../personal-api/api/personalApi';
 
 jest.mock('../profile/components/DashboardHeader', () => function MockDashboardHeader() {
   return <header>WCraft</header>;
 });
+
+jest.mock('../personal-api/api/personalApi', () => ({
+  ...jest.requireActual('../personal-api/api/personalApi'),
+  fetchPersonalApiSettings: jest.fn(),
+  saveGenerationPreference: jest.fn(),
+}));
+
+jest.mock('../credits/api/creditApi', () => ({
+  ...jest.requireActual('../credits/api/creditApi'),
+  estimateGenerationCost: jest.fn(),
+  getGenerationRoutingMode: jest.fn(() => 'manual'),
+}));
 
 import StoryboardPage from './StoryboardPage';
 import type {StoryboardShot, StoryboardShotListOptions} from './model';
 import {storyboardMockService} from './storyboardService';
 import type {StoryboardFrontendService} from './storyboardService';
 import type {EditorFrameJob, EditorFrameService} from './editorFrameJobs';
+import * as editorDrafts from './editorDrafts';
 import type {ShotListJob} from './shotListJobs';
 import {createMockShotList} from './useStoryboardWorkspace';
 import {setStoredUserTokens} from '../../api/http';
 import i18n from '../../i18n';
+
+const mockedFetchPersonalApiSettings = fetchPersonalApiSettings as jest.MockedFunction<typeof fetchPersonalApiSettings>;
+const mockedSaveGenerationPreference = saveGenerationPreference as jest.MockedFunction<typeof saveGenerationPreference>;
+const mockedEstimateGenerationCost = estimateGenerationCost as jest.MockedFunction<typeof estimateGenerationCost>;
+
+const personalApiSettings: PersonalApiSettings = {
+  connections: [],
+  preferences: [{modality: 'text', source: 'platform', routes: []}],
+  providers: [], models: [], hasPaidSubscription: true, storageAvailable: true,
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockedFetchPersonalApiSettings.mockResolvedValue(personalApiSettings);
+  mockedSaveGenerationPreference.mockImplementation(async (modality, preference) => ({modality, ...preference}));
+  mockedEstimateGenerationCost.mockImplementation(async (intent) => generationEstimate(intent));
+});
 
 // These page flows mount multiple real Ant Design dialogs and the complete directing editor.
 jest.setTimeout(15000);
@@ -46,6 +80,12 @@ function renderStoryboard(service: StoryboardFrontendService = storyboardMockSer
 
 async function waitForStoryboard() {
   await screen.findByText('Готово кадров: 2 / 5');
+}
+
+async function submitShotListConfiguration(dialog: HTMLElement) {
+  const generateButton = within(dialog).getByRole('button', {name: 'Сгенерировать shot list'});
+  await waitFor(() => expect(generateButton).toBeEnabled());
+  fireEvent.click(generateButton);
 }
 
 function clickButtonWithText(text: string) {
@@ -104,6 +144,19 @@ const routedShotListOptions: StoryboardShotListOptions = {
     unavailableReason: null,
   }],
 };
+
+function generationEstimate(intent: GenerationCostEstimateRequest): GenerationCostEstimate {
+  const selectedModel = routedShotListOptions.models.find((model) => model.id === intent.modelKey);
+  const estimatedCost = selectedModel?.estimatedCostUsd ?? '0.003000';
+  return {
+    domain: intent.domain, operation: intent.operation ?? 'structured',
+    provider: selectedModel?.provider ?? 'Mock', modelKey: intent.modelKey ?? 'mock/storyboard-director',
+    modelName: selectedModel?.label ?? 'Storyboard Director · Mock', generationSource: intent.generationSource ?? 'platform',
+    currency: 'USD', estimatedCost, reservationAmount: estimatedCost, pricingSource: 'catalog', costIsEstimate: true,
+    availableBalance: '10', sufficientBalance: true, accountFrozen: false,
+    routingMode: intent.routingMode ?? 'manual', routingReason: 'manual-selection', routeCandidates: [],
+  };
+}
 
 test('keeps camera controls hidden until a scene and shot list are selected', async () => {
   renderStoryboard();
@@ -178,13 +231,61 @@ test('shows active image generation progress inside the image canvas', async () 
   expect(progress).toHaveTextContent('Осталось примерно');
 });
 
+test('reapproves a failed frame request with the latest connection token and the same request id', async () => {
+  const modelKey = 'gemini-image';
+  const savedRevision = jest.spyOn(editorDrafts, 'savedEditorSceneRevision').mockResolvedValue(4);
+  const start: jest.MockedFunction<EditorFrameService['start']> = jest.fn().mockRejectedValue(new Error('Connection changed'));
+  let approvalToken = 'approval-for-key-A';
+  const approveGeneration = jest.spyOn(generationCostGuard, 'confirmGenerationCost').mockImplementation(async (intent) => ({
+    ...generationEstimate(intent), modelKey, modelName: 'Gemini Image', connectionName: 'My Gemini',
+    generationSource: 'personal', generationAccessToken: approvalToken, estimatedCost: '0', reservationAmount: '0',
+  }));
+  const editorFrames: EditorFrameService = {
+    options: async () => ({canGenerate: true, defaultModel: modelKey, models: [{id: modelKey, label: 'Gemini Image',
+      available: true, supportsReferences: true, maxReferenceImages: 20, estimatedCost: null, currency: 'USD'}]}),
+    list: async () => [], start,
+  };
+  try {
+    renderStoryboard({...storyboardMockService, editorFrames});
+    await waitForStoryboard();
+    openKitchenEditor();
+    fireEvent.click(screen.getByRole('button', {name: 'Создать изображение'}));
+    for (const attempt of [1, 2]) {
+      const drawer = await screen.findByRole('dialog');
+      expect(within(drawer).getByText('Создать изображение', {selector: '.ant-drawer-title'})).toBeInTheDocument();
+      const submit = await within(drawer).findByRole('button', {name: 'Создать изображение'});
+      await waitFor(() => {
+        expect(submit).toBeInTheDocument();
+        expect(submit).toBeEnabled();
+        expect(submit).not.toHaveClass('ant-btn-loading');
+      });
+      await act(async () => {fireEvent.click(submit);});
+      await waitFor(() => expect(start).toHaveBeenCalledTimes(attempt));
+      await screen.findByText(/Не удалось запустить генерацию/);
+      approvalToken = 'approval-for-key-B';
+    }
+
+    const first = start.mock.calls[0][2];
+    const second = start.mock.calls[1][2];
+    expect(first.generationAccessToken).toBe('approval-for-key-A');
+    expect(second.generationAccessToken).toBe('approval-for-key-B');
+    expect(second.requestId).toBe(first.requestId);
+    expect(second.generationSource).toBe('personal');
+    expect(second.imageModel).toBe(modelKey);
+    expect(approveGeneration).toHaveBeenCalledTimes(2);
+  } finally {
+    approveGeneration.mockRestore();
+    savedRevision.mockRestore();
+  }
+});
+
 test('starts a newly generated shot with only the primary state and adds the ending on demand', async () => {
   renderStoryboard();
   await waitForStoryboard();
   selectScene(1);
   clickButtonWithText('Предложить shot list с ИИ');
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   fireEvent.click(await screen.findByRole('button', {name: 'Перейти к постановке'}));
 
@@ -242,7 +343,7 @@ test('shows an actionable error when the mock shot-list service rejects', async 
   clickButtonWithText('Предложить shot list с ИИ');
 
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
 
   await waitFor(() => expect(service.suggestShotList).toHaveBeenCalled(), {timeout: 2500});
   await waitFor(() => expect(document.querySelector('.ant-alert-error')).toHaveTextContent(
@@ -265,7 +366,7 @@ test('opens AI configuration before requesting a shot list', async () => {
   const dialog = await screen.findByRole('dialog');
   expect(within(dialog).queryByText('Контекст сцены')).not.toBeInTheDocument();
   expect(within(dialog).getByRole('combobox', {name: 'Текстовая модель'})).toBeInTheDocument();
-  expect(within(dialog).getByText(/0[,.]0012/)).toBeInTheDocument();
+  expect(await within(dialog).findByText(/0[,.]0012/)).toBeInTheDocument();
   expect(service.suggestShotList).not.toHaveBeenCalled();
 
   const cancelButton = within(dialog).getByRole('button', {name: 'Отмена'});
@@ -277,7 +378,7 @@ test('opens AI configuration before requesting a shot list', async () => {
   await waitFor(() => expect(service.suggestShotList).toHaveBeenCalledWith(
     expect.any(Object),
     '42',
-    {maxShots: 16, model: 'mock/storyboard-director', language: 'ru'},
+    {maxShots: 16, model: 'mock/storyboard-director', language: 'ru', generationSource: 'platform', generationAccessToken: undefined},
   ));
 });
 
@@ -418,14 +519,14 @@ test('updates the provider and estimate when selecting a model and submits its e
   clickButtonWithText('Предложить shot list с ИИ');
 
   const dialog = await screen.findByRole('dialog');
-  expect(within(dialog).getByText('Провайдер: Google')).toBeInTheDocument();
+  expect(await within(dialog).findByText('Провайдер: Google')).toBeInTheDocument();
   expect(within(dialog).getByText(/0[,.]0012/)).toBeInTheDocument();
   expect(within(dialog).getByText('Около 800 входных и до 2880 выходных токенов')).toBeInTheDocument();
 
   fireEvent.mouseDown(within(dialog).getByRole('combobox', {name: 'Текстовая модель'}));
   fireEvent.click(await screen.findByText('Qwen3 235B A22B 2507'));
 
-  expect(within(dialog).getByText('Провайдер: OpenRouter')).toBeInTheDocument();
+  expect(await within(dialog).findByText('Провайдер: OpenRouter')).toBeInTheDocument();
   expect(within(dialog).queryByText('Провайдер: Google')).not.toBeInTheDocument();
   expect(within(dialog).getByText(/0[,.]0024/)).toBeInTheDocument();
   expect(within(dialog).queryByText(/0[,.]0012/)).not.toBeInTheDocument();
@@ -433,11 +534,11 @@ test('updates the provider and estimate when selecting a model and submits its e
   expect(service.suggestShotList).not.toHaveBeenCalled();
   expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
 
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
   await waitFor(() => expect(service.suggestShotList).toHaveBeenCalledWith(
     expect.any(Object),
     '42',
-    {maxShots: 16, model: 'openrouter/qwen/qwen3-235b-a22b-2507', language: 'ru'},
+    {maxShots: 16, model: 'openrouter/qwen/qwen3-235b-a22b-2507', language: 'ru', generationSource: 'platform', generationAccessToken: undefined},
   ));
   await waitFor(() => expect(dialog).not.toBeInTheDocument());
 });
@@ -470,7 +571,7 @@ test('shows screenplay progress while loading models and generating, but not dur
   const dialog = await screen.findByRole('dialog');
   expect(document.querySelector('.storyboard-script__loading--active')).not.toBeInTheDocument();
 
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
   const progress = await within(screenplay).findByRole('status', {name: i18n.t('storyboard.ai.loading')});
   expect(progress).toHaveClass('storyboard-script__loading--active');
   expect(progress.querySelector('.ant-spin')).toBeInTheDocument();
@@ -530,7 +631,7 @@ test('does not apply a completed AI request after authentication changes', async
   selectScene(1);
   clickButtonWithText('Предложить shot list с ИИ');
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
   await screen.findByRole('status', {name: i18n.t('storyboard.ai.loading')});
   setStoredUserTokens('another-access', 'another-refresh');
   const scenes = await storyboardMockService.loadScenes('42');
@@ -571,7 +672,7 @@ test('clears screenplay progress on a malformed model response and enables retry
   selectScene(1);
   clickButtonWithText('Предложить shot list с ИИ');
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
   await screen.findByRole('status', {name: i18n.t('storyboard.ai.loading')});
 
   await act(async () => pendingShots.reject({
@@ -607,7 +708,7 @@ test('keeps pending progress and generated shots attached to the originating sce
   expect(screen.getByRole('status', {name: 'Загружаем модели…'})).toBeInTheDocument();
   await act(async () => pendingOptions.resolve(routedShotListOptions));
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
   await screen.findByRole('status', {name: i18n.t('storyboard.ai.loading')});
 
   selectScene(0);
@@ -635,7 +736,7 @@ test('removes screenplay progress when unmounted during generation', async () =>
   selectScene(1);
   clickButtonWithText('Предложить shot list с ИИ');
   const dialog = await screen.findByRole('dialog');
-  fireEvent.click(within(dialog).getByRole('button', {name: 'Сгенерировать shot list'}));
+  await submitShotListConfiguration(dialog);
   await screen.findByRole('status', {name: i18n.t('storyboard.ai.loading')});
 
   unmount();
@@ -659,7 +760,7 @@ test('clears the previous estimate when the selected model has no price', async 
   fireEvent.mouseDown(within(dialog).getByRole('combobox', {name: 'Текстовая модель'}));
   fireEvent.click(await screen.findByText('GPT-5.4 mini'));
 
-  expect(within(dialog).getByText('Оценка недоступна')).toBeInTheDocument();
+  expect(await within(dialog).findByText('Оценка недоступна')).toBeInTheDocument();
   expect(within(dialog).queryByText(/0[,.]0012/)).not.toBeInTheDocument();
   expect(within(dialog).getByText('Провайдер: OpenRouter')).toBeInTheDocument();
   expect(within(dialog).getByText('Около 1000 входных и до 3200 выходных токенов')).toBeInTheDocument();

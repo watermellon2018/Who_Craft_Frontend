@@ -145,6 +145,10 @@ function CreateCharacterFromDescriptionContent() {
         {
           ...context.generationPayload,
           image_model: estimate.modelKey,
+          generationAccessToken: estimate.generationAccessToken,
+
+          generationSource: estimate.generationSource,
+
           routing_mode: estimate.routingMode,
         },
         `character:${characterId}:portrait:attempt:${uuidv4()}`,

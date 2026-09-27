@@ -11,6 +11,7 @@ import {profileShellResources} from './resources/profileShell';
 import {projectResources} from './resources/project';
 import {scriptResources} from './resources/script';
 import {messagingResources} from './resources/messaging';
+import {personalApiResources} from './resources/personalApi';
 
 export const SUPPORTED_LANGUAGES = ['ru', 'en'] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -53,6 +54,7 @@ export const translationResources = {
     profileShellResources.ru,
     posterResources.ru,
     messagingResources.ru,
+    personalApiResources.ru,
   ),
   en: mergeTranslations(
     en,
@@ -63,6 +65,7 @@ export const translationResources = {
     profileShellResources.en,
     posterResources.en,
     messagingResources.en,
+    personalApiResources.en,
   ),
 };
 

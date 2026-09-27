@@ -399,6 +399,10 @@ export default function ReferenceWorkspacePage() {
           {
             ...payload,
             imageModel: estimate.modelKey,
+            generationAccessToken: estimate.generationAccessToken,
+
+            generationSource: estimate.generationSource,
+
             routingMode: estimate.routingMode,
           },
           intent.key,

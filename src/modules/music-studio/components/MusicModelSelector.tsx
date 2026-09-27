@@ -60,7 +60,7 @@ export default function MusicModelSelector({
         {price: formatUnitPrice(price), providers},
       );
     return {
-      disabled: !model.configured,
+      disabled: false,
       label: (
         <span className="music-model-option">
           <span className="music-model-option__title">

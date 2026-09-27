@@ -60,7 +60,7 @@ const models: MusicModelSpec[] = [
   },
 ];
 
-test('renders one option per model with preview, provider price, and disabled state', async () => {
+test('renders model previews and permits source approval even without a platform credential', async () => {
   render(
     <MusicModelSelector models={models} value="lyria-3-pro" onChange={jest.fn()} />,
   );
@@ -75,7 +75,7 @@ test('renders one option per model with preview, provider price, and disabled st
     price: '0.0844',
     providers: 'OpenRouter',
   })).length).toBeGreaterThan(0);
-  expect(screen.getByText('Stable Audio').closest('.ant-select-item-option')).toHaveClass(
+  expect(screen.getByText('Stable Audio').closest('.ant-select-item-option')).not.toHaveClass(
     'ant-select-item-option-disabled',
   );
 });

@@ -110,6 +110,11 @@ function buildClient() {
     listProjectCreditBudgets: operationPath('listProjectCreditBudgets'),
     updateProjectCreditBudget: operationPath('updateProjectCreditBudget'),
     estimateGenerationCost: operationPath('estimateGenerationCost'),
+    personalApiSettings: operationPath('getPersonalApiSettings'),
+    personalApiConnectionCreate: operationPath('createPersonalApiConnection'),
+    personalApiConnectionUpdate: operationPath('updatePersonalApiConnection'),
+    personalApiConnectionDelete: operationPath('deletePersonalApiConnection'),
+    personalApiPreference: operationPath('updatePersonalApiPreference'),
   };
   return `// Generated from openapi/w_craft.openapi.json. Do not edit manually.
 
@@ -131,6 +136,13 @@ import type {
   CreditTransferResponse,
   GenerationCostEstimate,
   GenerationCostEstimateRequest,
+  GenerationModality,
+  PersonalApiConnection,
+  PersonalApiConnectionCreate,
+  PersonalApiConnectionUpdate,
+  PersonalApiPreference,
+  PersonalApiPreferenceUpdate,
+  PersonalApiSettings,
   ProjectCreditBudget,
   ProjectCreditBudgetList,
   ProjectCreditBudgetUpdateRequest,
@@ -149,6 +161,24 @@ const treeNodePath = (template: string, projectId: ProjectId, nodeId: string) =>
 
 export function createGeneratedApiClient(http: AxiosInstance) {
   return {
+    async getPersonalApiSettings(): Promise<PersonalApiSettings> {
+      return (await http.get<PersonalApiSettings>('${paths.personalApiSettings}')).data;
+    },
+    async createPersonalApiConnection(payload: PersonalApiConnectionCreate): Promise<PersonalApiConnection> {
+      return (await http.post<PersonalApiConnection>('${paths.personalApiConnectionCreate}', payload)).data;
+    },
+    async updatePersonalApiConnection(connectionId: string, payload: PersonalApiConnectionUpdate): Promise<PersonalApiConnection> {
+      const path = '${paths.personalApiConnectionUpdate}'.replace('{connectionId}', encodeURIComponent(connectionId));
+      return (await http.patch<PersonalApiConnection>(path, payload)).data;
+    },
+    async deletePersonalApiConnection(connectionId: string): Promise<void> {
+      const path = '${paths.personalApiConnectionDelete}'.replace('{connectionId}', encodeURIComponent(connectionId));
+      await http.delete(path);
+    },
+    async updatePersonalApiPreference(modality: GenerationModality, payload: PersonalApiPreferenceUpdate): Promise<PersonalApiPreference> {
+      const path = '${paths.personalApiPreference}'.replace('{modality}', encodeURIComponent(modality));
+      return (await http.put<PersonalApiPreference>(path, payload)).data;
+    },
     async getCreditSummary(): Promise<CreditSummary> {
       const response = await http.get<CreditSummary>('${paths.getCreditSummary}');
       return response.data;

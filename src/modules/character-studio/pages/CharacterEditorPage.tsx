@@ -396,6 +396,10 @@ function CharacterEditorPageContent() {
         current_asset_id: activeImage?.asset_id || null,
         activate_image: false,
         image_model: costEstimate.modelKey,
+        generationAccessToken: costEstimate.generationAccessToken,
+
+        generationSource: costEstimate.generationSource,
+
         routing_mode: costEstimate.routingMode,
       });
       setSelectedVariant(null);
@@ -442,6 +446,10 @@ function CharacterEditorPageContent() {
         instruction: zone.instruction,
         selection: zone.selection,
         image_model: costEstimate.modelKey,
+        generationAccessToken: costEstimate.generationAccessToken,
+
+        generationSource: costEstimate.generationSource,
+
         routing_mode: costEstimate.routingMode,
         variant_count: 1,
       });
@@ -647,6 +655,10 @@ function CharacterEditorPageContent() {
           current_asset_id: activeImage?.asset_id || null,
           activate_image: false,
           image_model: costEstimate.modelKey,
+          generationAccessToken: costEstimate.generationAccessToken,
+
+          generationSource: costEstimate.generationSource,
+
           routing_mode: costEstimate.routingMode,
         }, idempotencyKey);
 

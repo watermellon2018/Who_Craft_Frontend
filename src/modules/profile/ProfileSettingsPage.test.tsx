@@ -27,6 +27,11 @@ jest.mock('./api/profileApi', () => ({
   updateSettings: jest.fn(),
 }));
 
+jest.mock('../personal-api/components/PersonalApiSettings', () => ({
+  __esModule: true,
+  default: () => <section aria-label="Личные API" />,
+}));
+
 const mockedDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
 const mockedFetchSettings = fetchSettings as jest.MockedFunction<typeof fetchSettings>;
 const mockedClearStoredUserToken = clearStoredUserToken as jest.MockedFunction<typeof clearStoredUserToken>;
@@ -82,6 +87,7 @@ describe('ProfileSettingsPage', () => {
     expect(screen.getByRole('switch', {name: 'В интерфейсе'})).toBeInTheDocument();
     expect(screen.getByRole('switch', {name: 'По email'})).toBeInTheDocument();
     expect(screen.getByRole('heading', {name: 'Безопасность'})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'Личные API'})).toBeInTheDocument();
     expect(screen.getByRole('button', {name: /Настройки/})).toHaveAttribute('aria-current', 'page');
   });
 

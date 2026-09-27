@@ -207,7 +207,6 @@ export default function MusicStudioPage() {
     ?? models.find((model) => model.configured)
     ?? models[0]
     ?? null;
-  const selectedModelConfigured = Boolean(selectedModel?.configured);
   const effectiveCapabilities = selectedModel?.capabilities ?? null;
 
   useEffect(() => {
@@ -542,7 +541,7 @@ export default function MusicStudioPage() {
   };
 
   const validateBrief = (): string | null => {
-    if (!brief || !effectiveCapabilities || !selectedModel?.configured) {
+    if (!brief || !effectiveCapabilities || !selectedModel) {
       return t('musicStudio.validation.notReady');
     }
     if (!brief.title.trim()) return t('musicStudio.validation.title');
@@ -623,7 +622,7 @@ export default function MusicStudioPage() {
         (approvedEstimate) => {
           const approvedPayload = {
             ...payload,
-            modelKey: approvedEstimate.modelKey,
+            generationAccessToken: approvedEstimate.generationAccessToken, generationSource: approvedEstimate.generationSource, modelKey: approvedEstimate.modelKey,
           };
           const fingerprint = musicEnqueueIntentFingerprint(
             approvedPayload,
@@ -883,7 +882,7 @@ export default function MusicStudioPage() {
     <MusicCreationSummary
       brief={brief}
       canEdit={permissions.canEdit}
-      canGenerate={permissions.canRunGeneration && selectedModelConfigured}
+      canGenerate={permissions.canRunGeneration && Boolean(selectedModel)}
       generateDisabled={Boolean(validateBrief()) || Boolean(
         targetTrackIdParam && (!targetTrack || targetTrackLoading),
       )}

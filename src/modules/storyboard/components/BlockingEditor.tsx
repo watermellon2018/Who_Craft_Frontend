@@ -1,3 +1,4 @@
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import {CommentOutlined, DeleteOutlined, DownloadOutlined, EyeOutlined, FullscreenOutlined, PlusOutlined, RedoOutlined, ReloadOutlined, UndoOutlined} from '@ant-design/icons';
 import {Alert, Button, Drawer, Empty, InputNumber, message, Progress, Segmented, Select, Spin, Tooltip} from 'antd';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -214,19 +215,24 @@ export default function BlockingEditor({workspace, projectId, service, onAddShot
     finally {if (mounted.current) setOptionsLoading(false);}
   };
   const startGeneration = async () => {
-    if (!service.editorFrames || !scene || !shot || !frame || !model || disabled || starting) return;
+    if (!service.editorFrames || !scene || !shot || !frame || disabled || starting) return;
     setStarting(true); setGenerationError(null);
     const auth = getAuthGeneration(); const requestedFrame = frame.id;
     try {
+      const estimate = await confirmGenerationCost({domain: 'reference', operation: 'reference', modelKey: model});
+      if (!estimate || !mounted.current || activeFrame.current !== requestedFrame || auth !== getAuthGeneration()) return;
       // Materialize an inherited legacy composition before snapshotting it on the server.
       if (!frame.canvas) workspace.updateSelectedShot((current) => ({...current, keyframes: current.keyframes.map((item) =>
         item.id === frame.id ? {...item, canvas: cloneCanvas(document)} : item)}));
       const expectedRevision = await savedEditorSceneRevision(projectId, scene);
       if (!mounted.current || activeFrame.current !== requestedFrame || auth !== getAuthGeneration()) return;
-      const signature = JSON.stringify([scene.id, shot.id, frame.id, expectedRevision, model]);
+      const signature = JSON.stringify([scene.id, shot.id, frame.id, expectedRevision, estimate.modelKey, estimate.generationSource]);
       if (generationRequest.current?.signature !== signature) generationRequest.current = {signature,
-        request: {shotId: shot.id, keyframeId: frame.id, expectedRevision, imageModel: model, requestId: uuidv4(), routingMode: 'manual'}};
-      const createdJob = await service.editorFrames.start(projectId, scene.id, generationRequest.current.request);
+        request: {shotId: shot.id, keyframeId: frame.id, expectedRevision, imageModel: estimate.modelKey, generationSource: estimate.generationSource, requestId: uuidv4(), routingMode: 'manual'}};
+      // Keep retry idempotency while honoring the connection approved for this attempt.
+      const createdJob = await service.editorFrames.start(projectId, scene.id, {
+        ...generationRequest.current.request, generationAccessToken: estimate.generationAccessToken,
+      });
       if (!mounted.current || auth !== getAuthGeneration()) return;
       setJobs((current) => [createdJob, ...current.filter((item) => item.jobId !== createdJob.jobId)]);
       generationRequest.current = null; setGenerationOpen(false); setView('image'); setJobsReload((n) => n + 1);
@@ -394,12 +400,12 @@ export default function BlockingEditor({workspace, projectId, service, onAddShot
           {options && <>
             <label htmlFor="blocking-image-model">{t('storyboard.canvas.model', {defaultValue: 'Модель изображения'})}</label>
             <Select id="blocking-image-model" value={model} onChange={setModel} showSearch optionFilterProp="label"
-              options={options.models.map((item) => ({value: item.id, label: item.label, disabled: !item.available}))} />
+              options={options.models.map((item) => ({value: item.id, label: item.label, disabled: !item.supportsReferences}))} />
             <p>{t('storyboard.canvas.price', {defaultValue: 'Примерная стоимость: {{cost}}', cost: selectedModel?.estimatedCost ? `$${selectedModel.estimatedCost}` : '—'})}</p>
             <p>{t('storyboard.canvas.referenceCount', {defaultValue: 'Изображений на входе: {{count}} · лимит модели: {{limit}}', count: referenceCount, limit: selectedModel?.maxReferenceImages ?? 0})}</p>
             {tooManyReferences && <Alert type="warning" message={t('storyboard.canvas.referenceLimit', {defaultValue: 'Выберите модель с поддержкой большего числа референсов или уменьшите их количество.'})} />}
             {!options.canGenerate && <Alert type="warning" message={t('storyboard.canvas.notAllowed', {defaultValue: 'Генерация недоступна для этой учётной записи или проекта.'})} />}
-            <Button className="craft-action-button" type="primary" loading={starting} disabled={disabled || !options.canGenerate || !selectedModel?.available || tooManyReferences || Boolean(activeJob)}
+            <Button className="craft-action-button" type="primary" loading={starting} disabled={disabled || !options.canGenerate || Boolean(activeJob)}
               onClick={() => void startGeneration()}>{t('storyboard.canvas.generate', {defaultValue: 'Создать изображение'})}</Button>
           </>}
         </div>

@@ -25,11 +25,33 @@ owners can set a lifetime generation budget and see spent, reserved, and
 remaining credits. The client never connects to a bank or provider balance
 directly.
 
-Paid generation screens request a backend estimate before enqueue. They block
-when the available balance is insufficient and otherwise show a confirmation
-with the provider-native estimated cost. The backend remains authoritative: it
-reserves at enqueue, settles after provider completion, and refreshes the
-visible balance when the request starts.
+**Personal API** in `/profile/settings#personal-api` manages named connections
+to Gemini, OpenRouter, Stability, ElevenLabs and MiniMax. Several keys from one
+service can be saved. Text, image, music and sound-effect preferences each store
+their own Craft/personal source and an ordered list of connection/model pairs.
+The catalog contains models and operations supported by Craft; an API key does
+not grant access to every model. Keys are submitted to the authenticated backend,
+then cleared from the form. The client only receives masked metadata and never
+stores provider keys in browser storage. Backend encrypted storage must be
+configured before adding keys; creating a connection does not make a paid test
+request or guarantee provider quota.
+
+Before generation, the source dialog shows the actual model and connection and
+remembers the choice for that modality. Personal generation requires explicit
+confirmation even when its Craft estimate is zero: the external provider charges
+the user's account, and the Craft wallet is neither checked nor debited. Missing
+or incompatible routes block the operation and link to settings. Automatic
+fallback stays within the configured personal routes and never switches to a
+paid Craft account; an uncertain provider result is not automatically repeated
+against another key.
+
+Paid models through API Craft require a paid Craft subscription, which is not
+implemented yet. A positive wallet balance is not a subscription. Explicitly
+free Craft functions, including storyboard title/description suggestions, remain
+available without a subscription or personal text key. A text prompt passed to
+an image model does not itself require a separate text-model connection. These
+rules are enforced by the backend as well as the interface. This feature does
+not add video generation or arbitrary API base URLs.
 
 The wallet also stores the user's generation-routing preference (manual,
 lower-cost, faster, balanced, or quality), shows low-balance/frozen warnings,

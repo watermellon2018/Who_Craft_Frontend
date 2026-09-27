@@ -1,6 +1,7 @@
 import api from './http';
 import {
     generatePoster,
+    editPoster,
     listPosterJobs,
     POSTER_CLIENT_ERROR_CODES,
     requestPosterJobCancellation,
@@ -20,6 +21,22 @@ const mockedApi = api as jest.Mocked<typeof api>;
 
 beforeEach(() => {
     jest.clearAllMocks();
+});
+
+test('forwards the approved personal source, actual model and signed route for JSON and multipart requests', async () => {
+    mockedApi.post.mockResolvedValue({data: {status: 'completed', variants: [{id: 1, imageUrl: '/poster.png'}]}} as never);
+    const approved = {imageModel: 'fallback-image-model', generationSource: 'personal' as const, generationAccessToken: 'signed-approved-route'};
+    await generatePoster(42, 'poster', approved);
+    expect(mockedApi.post.mock.calls[0][1]).toEqual(expect.objectContaining({image_model: approved.imageModel,
+        generationSource: 'personal', generationAccessToken: approved.generationAccessToken}));
+    await generatePoster(42, 'poster with reference', {...approved, referenceFile: new File(['image'], 'ref.png', {type: 'image/png'})});
+    const multipart = mockedApi.post.mock.calls[1][1] as FormData;
+    expect(multipart.get('generationSource')).toBe('personal');
+    expect(multipart.get('generationAccessToken')).toBe(approved.generationAccessToken);
+    expect(multipart.get('image_model')).toBe(approved.imageModel);
+    await editPoster(42, {...approved, sourceVariantId: 1, instruction: 'Edit'});
+    expect(mockedApi.post.mock.calls[2][1]).toEqual(expect.objectContaining({image_model: approved.imageModel,
+        generationSource: 'personal', generationAccessToken: approved.generationAccessToken}));
 });
 
 test('stops hidden waiting when cancellation has been requested', async () => {

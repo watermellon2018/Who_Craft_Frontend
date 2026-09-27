@@ -222,7 +222,7 @@ export default function SoundEffectsPage() {
   }, [effectiveCapabilities]);
 
   const validate = (): string | null => {
-    if (!model?.configured) return t('soundEffects.validation.model');
+    if (!model) return t('soundEffects.validation.model');
     if (!prompt.trim()) return t('soundEffects.validation.prompt');
     if (prompt.trim().length > (capabilities?.prompt?.maxChars ?? PROMPT_MAX_CHARS)) {
       return t('soundEffects.validation.promptLength');
@@ -257,7 +257,7 @@ export default function SoundEffectsPage() {
         modelKey: basePayload.modelKey,
         promptLength: basePayload.prompt.length,
       }), (approvedEstimate) => {
-        const payload = {...basePayload, modelKey: approvedEstimate.modelKey};
+        const payload = {...basePayload, generationAccessToken: approvedEstimate.generationAccessToken, generationSource: approvedEstimate.generationSource, modelKey: approvedEstimate.modelKey};
         const fingerprint = soundEffectIntentFingerprint(payload);
         const intent = enqueueIntentRef.current?.fingerprint === fingerprint
           ? enqueueIntentRef.current
@@ -396,7 +396,7 @@ export default function SoundEffectsPage() {
               disabled={!permissions.canRunGeneration}
               value={modelKey}
               options={models.map((item) => ({
-                disabled: !item.configured,
+                disabled: false,
                 label: `${item.label}${routeDetail(item) ? ` · ${routeDetail(item)}` : ''}`,
                 value: item.key,
               }))}

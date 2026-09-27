@@ -130,6 +130,8 @@ export interface StoryboardShotListJobCreate {
   maxShots?: number;
   requestId: string;
   estimatedSeconds?: number;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardShotListJobApply {
@@ -275,6 +277,7 @@ export interface CharacterSecondaryAssetsQuoteRequest {
   image_types: Array<CharacterSecondaryAssetType>;
   image_model?: string | null;
   routing_mode?: "manual" | "economy" | "fast" | "balanced" | "quality";
+  generationSource?: GenerationSource;
 }
 
 export interface CharacterSecondaryAssetQuoteItem {
@@ -295,6 +298,7 @@ export interface CharacterSecondaryAssetsQuote {
   available_balance: CreditAmount;
   sufficient_balance: boolean;
   account_frozen: boolean;
+  generationSource?: GenerationSource;
 }
 
 export interface CharacterSecondaryAssetsGenerateRequest {
@@ -504,6 +508,73 @@ export interface CreditAdminAudit {
   items: Array<CreditAdminAuditEvent>;
 }
 
+export type GenerationSource = "platform" | "personal";
+
+export type GenerationModality = "text" | "image" | "music" | "sound_effect";
+
+export interface PersonalApiConnection {
+  id: string;
+  name: string;
+  provider: string;
+  keyHint: string;
+  isActive: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersonalApiRoute {
+  connectionId: string;
+  modelKey: string;
+}
+
+export interface PersonalApiPreference {
+  modality: GenerationModality;
+  source: GenerationSource;
+  routes: Array<PersonalApiRoute>;
+}
+
+export interface PersonalApiProvider {
+  id: string;
+  label: string;
+  modalities: Array<GenerationModality>;
+}
+
+export interface PersonalApiModel {
+  key: string;
+  label: string;
+  modality: GenerationModality;
+  providers: Array<string>;
+  operations: Array<string>;
+  isFree: boolean;
+}
+
+export interface PersonalApiSettings {
+  connections: Array<PersonalApiConnection>;
+  preferences: Array<PersonalApiPreference>;
+  providers: Array<PersonalApiProvider>;
+  models: Array<PersonalApiModel>;
+  hasPaidSubscription: boolean;
+  storageAvailable: boolean;
+}
+
+export interface PersonalApiConnectionCreate {
+  name: string;
+  provider: string;
+  apiKey: string;
+}
+
+export interface PersonalApiConnectionUpdate {
+  name?: string;
+  apiKey?: string;
+  isActive?: boolean;
+}
+
+export interface PersonalApiPreferenceUpdate {
+  source: GenerationSource;
+  routes: Array<PersonalApiRoute>;
+}
+
 export type GenerationRoutingMode = "manual" | "economy" | "fast" | "balanced" | "quality";
 
 export interface GenerationRouteCandidate {
@@ -514,14 +585,15 @@ export interface GenerationRouteCandidate {
 }
 
 export interface GenerationCostEstimateRequest {
-  domain: "character" | "poster" | "reference" | "music" | "sound_effect" | "model3d";
-  operation?: "generate" | "edit" | "reference";
+  domain: "character" | "poster" | "reference" | "music" | "sound_effect" | "model3d" | "text";
+  operation?: "generate" | "edit" | "reference" | "structured";
   modelKey?: string;
   variantCount?: number;
   promptLength?: number;
   durationSeconds?: number | null;
   resolution?: "512" | "1K" | "2K" | "4K";
   routingMode?: GenerationRoutingMode;
+  generationSource?: GenerationSource;
 }
 
 export interface GenerationCostEstimate {
@@ -541,6 +613,11 @@ export interface GenerationCostEstimate {
   routingMode: GenerationRoutingMode;
   routingReason: string;
   routeCandidates: Array<GenerationRouteCandidate>;
+  generationSource?: GenerationSource;
+  modality?: GenerationModality;
+  connectionName?: string;
+  isFree?: boolean;
+  generationAccessToken?: string;
 }
 
 export interface GenerationBilling {
@@ -588,6 +665,8 @@ export interface PosterGenerateRequest {
   reference_image_asset_id?: number;
   image_model?: string;
   routing_mode?: GenerationRoutingMode;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export type PosterGenerateMultipartRequest = PosterGenerateRequest & { reference_image?: File; };
@@ -907,6 +986,8 @@ export interface StoryboardSuggestShotsRequest {
   language?: "ru" | "en";
   model?: string;
   maxShots?: number;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardShotMetadataRequest {
@@ -1052,6 +1133,8 @@ export interface StoryboardGenerationReferencesReplace {
 export interface StoryboardGenerateRequest {
   imageModel?: string;
   routingMode?: "manual" | "economy" | "fast" | "balanced" | "quality";
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardGeneration {
@@ -1338,6 +1421,8 @@ export interface MusicGenerationCreateRequest {
   referenceAssetId?: string | null;
   variantCount?: 1 | 2;
   brief: MusicBrief;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface MusicGenerationAccepted {
@@ -1530,6 +1615,8 @@ export interface SoundEffectGenerationCreateRequest {
   promptInfluence?: number;
   targetEffectId?: number | null;
   sceneId?: number | null;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface SoundEffectGenerationAccepted {
@@ -1747,6 +1834,8 @@ export interface ReferenceGenerationCreateRequest {
   routingMode?: GenerationRoutingMode;
   brief?: ReferenceBrief;
   editInstruction?: string;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface ReferenceGenerationError {
@@ -1838,6 +1927,8 @@ export interface StoryboardEditorFrameCreate {
   imageModel: string;
   routingMode?: "manual";
   requestId: string;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardEditorFrameModelOption {

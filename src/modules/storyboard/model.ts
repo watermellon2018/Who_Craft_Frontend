@@ -213,6 +213,8 @@ export interface StoryboardShotListOptions {
 }
 
 export interface StoryboardShotListConfiguration {
+  generationSource?: import('../../api/generated/contracts').GenerationSource;
+  generationAccessToken?: string;
   language?: 'ru' | 'en';
   maxShots: number;
   model: string;

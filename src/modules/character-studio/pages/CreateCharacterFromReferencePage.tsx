@@ -18,6 +18,7 @@ import VisualStyleSelector from '../components/create/VisualStyleSelector';
 import type {VisualStyleValue} from '../components/create/VisualStyleSelector';
 import {getCharacterTypeOptions, getGenderApplicabilityOptions, getRoleOptions} from '../components/create/characterCreateOptions';
 import {characterApi} from '../api/characterApi';
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import {characterVariantsPath} from '../../../routes/pathConstant';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './CharacterCreatePage.css';
@@ -176,6 +177,10 @@ export function CreateCharacterFromReferenceContent() {
     }
     try {
       setIsGenerating(true);
+      const estimate = await confirmGenerationCost({domain: 'character', operation: 'reference',
+        modelKey: generationOptions.imageModel, variantCount: generationOptions.count,
+        promptLength: refinement.length});
+      if (!estimate) return;
       const response = await characterApi.createFromReference(projectId, {
         name: name.trim(),
         entityType: characterType,
@@ -186,7 +191,9 @@ export function CreateCharacterFromReferenceContent() {
         refinement,
         variantsCount: generationOptions.count,
         preserveIdentity,
-        imageModel: generationOptions.imageModel,
+        imageModel: estimate.modelKey,
+        generationAccessToken: estimate.generationAccessToken,
+        generationSource: estimate.generationSource,
         referenceImage: file,
       });
       const {character, generation_job: job} = response.data;

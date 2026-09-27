@@ -2,8 +2,10 @@ import {act, cleanup, renderHook} from '@testing-library/react';
 import {characterApi} from '../api/characterApi';
 import type {StudioCharacter} from '../types/character.types';
 import {useCharacterAssetJobs} from './useCharacterAssetJobs';
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 
 jest.mock('../api/characterApi');
+jest.mock('../../credits/components/GenerationCostGuard', () => ({confirmGenerationCost: jest.fn(async () => ({generationSource: 'personal', generationAccessToken: 'approved-route', modelKey: 'gemini-image', routingMode: 'manual'}))}));
 
 const mockedApi = characterApi as jest.Mocked<typeof characterApi>;
 const PROJECT_ID = 'project-1';
@@ -64,6 +66,8 @@ function makeCompletedJobResponse(jobId = 'job-1', variantId = 'var-1') {
 
 beforeEach(() => {
   jest.useFakeTimers();
+  (confirmGenerationCost as jest.Mock).mockResolvedValue({generationSource: 'personal',
+    generationAccessToken: 'approved-route', modelKey: 'gemini-image', routingMode: 'manual'});
   mockedApi.generateEdit.mockResolvedValue(makeJobResponse('queued') as never);
   mockedApi.getJob.mockResolvedValue(makeJobResponse('queued') as never);
   mockedApi.applyVariant.mockResolvedValue({data: {}} as never);
@@ -108,7 +112,7 @@ describe('useCharacterAssetJobs - explicit launch only', () => {
       PROJECT_ID,
       CHARACTER_ID,
       expect.objectContaining({image_type: 'full_body'}),
-      `${CHARACTER_ID}:full_body:${REVISION_ID}`,
+      `${CHARACTER_ID}:full_body:${REVISION_ID}:personal:gemini-image`,
     );
   });
 
@@ -198,7 +202,7 @@ describe('useCharacterAssetJobs - explicit launch only', () => {
       PROJECT_ID,
       CHARACTER_ID,
       expect.objectContaining({image_type: 'full_body'}),
-      `${CHARACTER_ID}:full_body:${REVISION_ID}`,
+      `${CHARACTER_ID}:full_body:${REVISION_ID}:personal:gemini-image`,
     );
   });
 
@@ -266,8 +270,9 @@ describe('useCharacterAssetJobs - route ownership', () => {
     );
 
     let launchPromise!: Promise<string | undefined>;
-    act(() => {
+    await act(async () => {
       launchPromise = result.current.launchJob('full_body', REVISION_ID);
+      await Promise.resolve();
     });
     expect(result.current.jobs.full_body?.status).toBe('queued');
 
