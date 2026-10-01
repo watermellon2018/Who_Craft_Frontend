@@ -28,10 +28,10 @@ function shirt(): {geometry: THREE.BufferGeometry; neckline: number[]} {
   }
   for (const side of [-1, 1]) {
     const start = positions.length / 3;
-    for (let ring = 0; ring < 3; ring++) {
+    for (let ring = 0; ring < 11; ring++) {
       for (let segment = 0; segment < 16; segment++) {
         const angle = segment / 16 * Math.PI * 2;
-        positions.push(side * (0.23 + ring * 0.05), 1.31 + Math.sin(angle) * 0.05, Math.cos(angle) * 0.05);
+        positions.push(side * (0.23 + ring * 0.02), 1.31 + Math.sin(angle) * 0.05, Math.cos(angle) * 0.05);
         if (ring) {
           const a = start + (ring - 1) * 16 + segment;
           const b = start + (ring - 1) * 16 + (segment + 1) % 16;
@@ -126,6 +126,69 @@ test('the smooth opening facing covers triangle teeth and the front collar sits 
       const hit = ray.intersectObject(scene, true)[0];
       expect(hit?.point.z).toBeGreaterThan(0);
     }
+  }
+  polo.dispose(); geometry.dispose(); material.dispose();
+});
+
+test('polo sleeves stop on the upper arm, with cuffs following the new cut', () => {
+  const {geometry, material, polo} = build();
+  const position = geometry.getAttribute('position');
+  const sourceIndex = required(geometry.index);
+  const reach = (index: THREE.BufferAttribute) => {
+    let maximum = 0;
+    for (let i = 0; i < index.count; i++) maximum = Math.max(maximum, Math.abs(position.getX(index.getX(i))));
+    return maximum;
+  };
+  expect(reach(polo.index)).toBeLessThan(reach(sourceIndex) * 0.75);
+  expect(reach(polo.index)).toBeGreaterThan(0.25);
+  const cuffs = polo.meshes.filter((mesh) => mesh.name.startsWith('polo_cuff_'));
+  expect(cuffs).toHaveLength(2);
+  for (const cuff of cuffs) {
+    const cuffPosition = cuff.geometry.getAttribute('position');
+    for (let i = 0; i < cuffPosition.count; i += 2) {
+      expect(Math.abs(cuffPosition.getX(i))).toBeCloseTo(reach(polo.index), 2);
+    }
+  }
+  polo.dispose(); geometry.dispose(); material.dispose();
+});
+
+test('hem facing overlaps a jagged waist boundary and closes the gap above the trousers', () => {
+  const {geometry, neckline} = shirt();
+  const position = geometry.getAttribute('position');
+  // Reproduce alternating all-in triangle cut heights around the waist.
+  for (let vertex = 24 * 64; vertex < 25 * 64; vertex++) {
+    position.setY(vertex, position.getY(vertex) + (vertex % 3) * 0.006);
+  }
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshStandardMaterial({side: THREE.DoubleSide});
+  const polo = required(createReferencePolo(geometry, neckline, required(geometry.index).count, material));
+  const hem = required(polo.meshes.find((mesh) => mesh.name === 'polo_hem_facing'));
+  const seam = hem.geometry.getAttribute('position');
+  const shading = hem.geometry.getAttribute('normal');
+  const sourceNormal = geometry.getAttribute('normal');
+  const bottom = seam.getY(1);
+  expect(bottom).toBeLessThan(1.45 - 24 * 0.017);
+  for (let vertex = 1; vertex < seam.count; vertex += 2) expect(seam.getY(vertex)).toBe(bottom);
+  // Matching upper-edge normals avoids a bright zig-zag band even when the
+  // geometry spans different source cut heights.
+  for (let row = 0; row < 64; row++) {
+    const normal = new THREE.Vector3().fromBufferAttribute(shading, row * 2);
+    let closest = 0;
+    for (let vertex = 24 * 64; vertex < 25 * 64; vertex++) {
+      closest = Math.max(closest, normal.dot(new THREE.Vector3().fromBufferAttribute(sourceNormal, vertex)));
+    }
+    expect(closest).toBeGreaterThan(0.9999);
+  }
+  geometry.setIndex(polo.index);
+  const scene = new THREE.Group();
+  scene.add(new THREE.Mesh(geometry, material), polo.group);
+  scene.updateMatrixWorld(true);
+  for (const angle of [-0.7, -0.3, 0, 0.3, 0.7]) {
+    const ray = new THREE.Raycaster(
+      new THREE.Vector3(Math.sin(angle), bottom + 0.006, Math.cos(angle)),
+      new THREE.Vector3(-Math.sin(angle), 0, -Math.cos(angle)),
+    );
+    expect(ray.intersectObject(scene, true)[0]?.object).toBe(hem);
   }
   polo.dispose(); geometry.dispose(); material.dispose();
 });

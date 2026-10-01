@@ -111,6 +111,12 @@ surface patch or retopology; widening the outer locks enough to hide it can
 introduce an unnatural bend. The current profile retains the source skin and
 attachment rather than deleting that anatomy.
 
+For the reviewed revision-110 pair, the separate
+[posterior neck repair](REPAIR_REFERENCE_NECK.md) now supplies that fitted patch
+and removes confirmed detached skin/hair fragments beside the throat. It writes
+a new candidate with guarded source hashes; it does not change this refinement
+command or rewrite historical v1/v2 outputs.
+
 For an actual candidate, compare protected triangle coordinates against both
 input assets, compare head X/Y coordinates and neck positions/normals against
 the prior saved surface, and check finite normals, relative colors and glTF

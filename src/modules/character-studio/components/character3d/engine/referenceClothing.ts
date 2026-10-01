@@ -123,13 +123,28 @@ export function createReferencePolo(
   const depth = neckWidth * 0.55;
   const halfOpening = neckWidth * 0.34;
   const tipY = center.y - depth;
+  let tshirtReach = neckWidth * 0.5;
+  for (let i = 0; i < count; i++) {
+    tshirtReach = Math.max(tshirtReach, Math.abs(position.getX(sourceIndex.getX(i)) - center.x));
+  }
+  // The generic T-shirt mask reaches towards the elbow in the template pose.
+  // A reference polo ends on the upper arm. Derive the shorter cut from that
+  // existing reach, keeping all original vertex IDs for body morphs/picking.
+  const sleeveReach = neckWidth * 0.5 + (tshirtReach - neckWidth * 0.5) * 0.62;
   const frontTriangles: number[] = [];
+  const sleeveIndices: number[] = [];
   const kept: number[] = [];
   const sources: number[] = [];
   for (let i = 0; i < count; i += 3) {
     const a = sourceIndex.getX(i);
     const b = sourceIndex.getX(i + 1);
     const c = sourceIndex.getX(i + 2);
+    if (Math.max(
+      Math.abs(position.getX(a) - center.x),
+      Math.abs(position.getX(b) - center.x),
+      Math.abs(position.getX(c) - center.x),
+    ) > sleeveReach) continue;
+    sleeveIndices.push(a, b, c);
     const x = (position.getX(a) + position.getX(b) + position.getX(c)) / 3;
     const y = (position.getY(a) + position.getY(b) + position.getY(c)) / 3;
     const z = (position.getZ(a) + position.getZ(b) + position.getZ(c)) / 3;
@@ -236,9 +251,11 @@ export function createReferencePolo(
   // Join the actual cut edge to a smooth inner V. The old centroid mask leaves
   // small teeth; a sewn facing bridges them instead of leaving jagged skin gaps.
   const alternateIndex = new THREE.BufferAttribute(Uint32Array.from(kept), 1);
+  const sleeveIndex = new THREE.BufferAttribute(Uint32Array.from(sleeveIndices), 1);
+  const shirtBoundaries = boundaryLoops(sleeveIndex, sleeveIndex.count);
   const edgeKey = (a: number, b: number): string => `${Math.min(a, b)}:${Math.max(a, b)}`;
   const originalEdges = new Set<string>();
-  for (const loop of boundaryLoops(sourceIndex, count)) {
+  for (const loop of shirtBoundaries) {
     loop.forEach((vertex, i) => originalEdges.add(edgeKey(vertex, loop[(i + 1) % loop.length])));
   }
   const cutNeighbors = new Map<number, number[]>();
@@ -295,17 +312,17 @@ export function createReferencePolo(
   const attachedDetails = [...facing, ...plackets];
 
   const neighborIds = new Map<number, Set<number>>();
-  for (let i = 0; i < count; i += 3) {
+  for (let i = 0; i < sleeveIndex.count; i += 3) {
     for (let corner = 0; corner < 3; corner++) {
-      const vertex = sourceIndex.getX(i + corner);
+      const vertex = sleeveIndex.getX(i + corner);
       const neighbors = neighborIds.get(vertex) ?? new Set<number>();
-      neighbors.add(sourceIndex.getX(i + (corner + 1) % 3));
-      neighbors.add(sourceIndex.getX(i + (corner + 2) % 3));
+      neighbors.add(sleeveIndex.getX(i + (corner + 1) % 3));
+      neighbors.add(sleeveIndex.getX(i + (corner + 2) % 3));
       neighborIds.set(vertex, neighbors);
     }
   }
   const neckSet = new Set(neckline);
-  const cuffs = boundaryLoops(sourceIndex, count).filter((loop) => {
+  const cuffs = shirtBoundaries.filter((loop) => {
     const x = loop.reduce((sum, vertex) => sum + position.getX(vertex), 0) / loop.length;
     return Math.abs(x - center.x) > neckWidth && !loop.some((vertex) => neckSet.has(vertex));
   }).map((loop, index) => {
@@ -316,6 +333,33 @@ export function createReferencePolo(
     details.push(detail);
     return {detail, loop, inner};
   });
+  const hemLoop = shirtBoundaries.filter((loop) => {
+    const x = loop.reduce((sum, vertex) => sum + position.getX(vertex), 0) / loop.length;
+    return Math.abs(x - center.x) < neckWidth && !loop.some((vertex) => neckSet.has(vertex));
+  }).sort((a, b) =>
+    a.reduce((sum, vertex) => sum + position.getY(vertex), 0) / a.length
+    - b.reduce((sum, vertex) => sum + position.getY(vertex), 0) / b.length,
+  )[0] ?? [];
+  const hem = hemLoop.length ? surface(hemLoop.length + 1, 2, fabric, 'polo_hem_facing') : null;
+  if (hem) {
+    // Boundary traversal has no promised winding. Match the torso's outward
+    // front faces before sharing its shading normals across the overlap.
+    const area = hemLoop.reduce((sum, vertex, i) => {
+      const next = hemLoop[(i + 1) % hemLoop.length];
+      return sum + position.getX(vertex) * position.getZ(next) - position.getX(next) * position.getZ(vertex);
+    }, 0);
+    const hemIndex = hem.mesh.geometry.index;
+    if (area < 0 && hemIndex) {
+      for (let i = 0; i < hemIndex.count; i += 3) {
+        const b = hemIndex.getX(i + 1);
+        hemIndex.setX(i + 1, hemIndex.getX(i + 2));
+        hemIndex.setX(i + 2, b);
+      }
+    }
+    details.push(hem);
+  }
+  const hemSamples = new Float32Array(hemLoop.length * 3);
+  const smoothHemSamples = new Float32Array(hemSamples.length);
 
   const buttons = [0.18, 0.37, 0.56].map((distance, index) => {
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), buttonMaterial);
@@ -433,6 +477,42 @@ export function createReferencePolo(
         }
       }
     }
+    if (hem) {
+      let bottomY = Infinity;
+      const hemCenter = point.set(0, 0, 0);
+      for (let i = 0; i < hemLoop.length; i++) {
+        base.fromBufferAttribute(livePosition, hemLoop[i]);
+        hemCenter.add(base);
+        bottomY = Math.min(bottomY, base.y);
+        base.toArray(hemSamples, i * 3);
+      }
+      hemCenter.divideScalar(hemLoop.length);
+      // Only the lower seam is regularized. The upper row overlaps the actual
+      // source edge, bridging its teeth without changing body correspondence.
+      for (let pass = 0; pass < 3; pass++) {
+        for (let row = 0; row < hemLoop.length; row++) {
+          const previous = (row + hemLoop.length - 1) % hemLoop.length;
+          const next = (row + 1) % hemLoop.length;
+          for (let axis = 0; axis < 3; axis++) {
+            smoothHemSamples[row * 3 + axis] = hemSamples[row * 3 + axis] * 0.5
+              + (hemSamples[previous * 3 + axis] + hemSamples[next * 3 + axis]) * 0.25;
+          }
+        }
+        hemSamples.set(smoothHemSamples);
+      }
+      bottomY -= width * 0.055;
+      for (let row = 0; row <= hemLoop.length; row++) {
+        const sample = row % hemLoop.length;
+        const vertex = hemLoop[sample];
+        base.fromBufferAttribute(livePosition, vertex);
+        direction.set(base.x - hemCenter.x, 0, base.z - hemCenter.z).normalize();
+        base.addScaledVector(direction, width * 0.012);
+        base.y += width * 0.035;
+        hem.position.setXYZ(row * 2, base.x, base.y, base.z);
+        base.fromArray(hemSamples, sample * 3).addScaledVector(direction, width * 0.035);
+        hem.position.setXYZ(row * 2 + 1, base.x, bottomY, base.z);
+      }
+    }
     buttonMaterial.color.copy(fabric.color).multiplyScalar(0.67);
     for (const {mesh, attachment} of buttons) {
       read(attachment);
@@ -441,6 +521,19 @@ export function createReferencePolo(
       mesh.scale.set(width * 0.030, width * 0.037, width * 0.010);
     }
     details.forEach(finish);
+    if (hem && liveNormal) {
+      const hemNormal = hem.mesh.geometry.getAttribute('normal') as THREE.BufferAttribute;
+      for (let row = 0; row <= hemLoop.length; row++) {
+        normal.fromBufferAttribute(liveNormal, hemLoop[row % hemLoop.length]).normalize();
+        // The upper facing overlaps the body shell and must shade as the same
+        // cloth. Keep just a subtle, more vertical folded edge at the bottom.
+        hemNormal.setXYZ(row * 2, normal.x, normal.y, normal.z);
+        normal.y *= 0.65;
+        normal.normalize();
+        hemNormal.setXYZ(row * 2 + 1, normal.x, normal.y, normal.z);
+      }
+      hemNormal.needsUpdate = true;
+    }
   };
   update();
   return {

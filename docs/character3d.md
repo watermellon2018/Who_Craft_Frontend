@@ -76,8 +76,11 @@ the neck. Do not infer these landmarks from the legacy coarse face bounds: that
 placed this character's mouth about 24 mm above its actual geometry.
 
 The polo style adds a real neck opening, collar stand/leaves, facing, placket,
-buttons, piping and cuffs. Details follow barycentric anchors on the changing
-garment. It is fitted geometric clothing, without cloth simulation.
+buttons, piping and cuffs. Its short-sleeve subset retains the source body vertex
+mapping, so sleeve cuts and cuffs follow body edits. A continuous hem facing
+covers the waist junction, with shading matched to the garment above it. Details
+follow barycentric anchors on the changing garment. It is fitted geometric
+clothing, without cloth simulation.
 
 ## Mouse editing and saved versions
 
@@ -110,10 +113,13 @@ not visually identical to every reference angle. Asymmetry, custom ear/hand/foot
 shape and several legacy numeric controls remain unsupported and are disabled.
 Body fitting remains the existing 16-beta baseline plus local controls.
 
-The source posterior jaw/neck has an incomplete surface below the ear. A narrow
-strip and the crown-to-lock transition remain visible at some angles. Repair
-requires a fitted local patch/retopology; deleting the apparent strip removes
-real jaw/neck triangles. This is a known remaining visual defect.
+The posterior jaw/neck repair fills the source gap below the ear, removes the
+isolated skin strip, and cleans small hair fragments protruding through the
+neck. It preserves the original face coordinates and body-fit parameters. The
+repair is a separate, checksum-guarded offline step for this reviewed asset
+pair; it does not change the historical v1/v2 preparation commands. See
+`tools/reconstruction/REPAIR_REFERENCE_NECK.md` for its inputs and validation.
+The crown-to-lock transition remains visible at some angles.
 
 Local experimental media and check receipts stay outside Git. Visual acceptance
 and real viewport drag/export checks accompany automated engine/page tests;
@@ -121,18 +127,24 @@ authenticated history and signed-media round trips run against a PostgreSQL test
 database. A standalone viewport harness is not a full authenticated application
 browser test.
 
-The October 2026 local checkpoint stores angry_dog as revision **110**, asset
-version **3**, with the original body fit unchanged. Both newly selected files
+The October 2026 local checkpoint stores angry_dog as revision **111**, asset
+version **4**, with all revision-110 parameters and the original body fit
+unchanged. The neck repair preserves head scale and vertical/depth placement;
+removing a false neck edge shifts head X by only 0.046 mm. Both selected files
 were read back through signed media routes and matched the reviewed SHA-256
-hashes. Revision 109 and its original files remain available.
+hashes. Revisions 109 and 110 and their original files remain available.
 
-Verification for this checkpoint: **182** editor tests, **79** contract tests,
-**19** surface-tool tests, and **94** backend cases (93 passed, one platform
+Verification for this checkpoint and the polo follow-up: **184** editor tests
+(172 component/engine tests and 12 page tests), **79** contract tests,
+**19** surface-tool tests, **8** neck-repair tests (including the actual reviewed
+source pair), and **94** backend cases (93 passed, one platform
 skip). TypeScript, API generation check, ESLint and production build passed;
 ESLint reports existing/project test warnings. Real viewport nose/mouth/thigh
 drags and gesture undo/redo were checked in the browser. GLB export preserves
 visible garment triangle cuts on a cloned snapshot and retains morph weights;
-the live rig is never changed by export.
+the live rig is never changed by export. The final revision-111 browser export
+contains 34 meshes and 294,578 triangles, with finite vertex, normal and morph
+attributes; its visible shorts cut is retained.
 
 ## Verification commands
 
