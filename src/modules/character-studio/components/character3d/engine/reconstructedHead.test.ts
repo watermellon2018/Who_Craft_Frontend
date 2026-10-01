@@ -89,6 +89,43 @@ const makeBody = (): THREE.Mesh => {
 };
 
 describe('reconstructed head integration', () => {
+  it('keeps the fitted head attached and scales head size around the neck', () => {
+    const body = makeBody();
+    const positions = body.geometry.getAttribute('position');
+    const neckY = 1.7 * 0.855;
+    body.geometry.setAttribute('position', new THREE.Float32BufferAttribute([
+      ...Array.from(positions.array),
+      -0.06, neckY, 0, 0.06, neckY, 0, 0, neckY, 0.05,
+    ], 3));
+    body.geometry.setIndex([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    const delta = new Float32Array(27);
+    for (let vertex = 0; vertex < 9; vertex++) {
+      delta[vertex * 3 + 1] = vertex < 3 ? -0.04 : 0.08;
+      delta[vertex * 3 + 2] = vertex < 3 ? 0 : 0.02;
+    }
+    body.geometry.morphAttributes.position = [new THREE.Float32BufferAttribute(delta, 3)];
+    const rig = MorphRig.fromMesh(body);
+    rig.attachReconstructedHead(makeReconstructedHead());
+    rig.applyParams({});
+    const head = rig.nodeByName('reconstructed_head') as THREE.Group;
+    const base = head.position.clone();
+    const scale = head.scale.x;
+    rig.applyParams({body_fit: {beta00: 0.5}});
+    expect(head.position.y - base.y).toBeCloseTo(0.06, 6);
+    expect(head.position.z - base.z).toBeCloseTo(0.01, 6);
+    const fittedPosition = head.position.clone();
+    const neckBottomY = head.position.y + 0.14 * head.scale.y;
+    rig.applyParams({body_fit: {beta00: 0.5}, head_neck: {headSize: 0.5}});
+    expect(head.scale.x).toBeCloseTo(scale * 1.1, 6);
+    expect(head.position.y + 0.14 * head.scale.y).toBeCloseTo(neckBottomY, 6);
+    rig.applyParams({body_fit: {beta00: 0.5}});
+    expect(head.position.distanceTo(fittedPosition)).toBeLessThan(1e-7);
+    rig.applyParams({});
+    expect(head.position.distanceTo(base)).toBeLessThan(1e-7);
+    expect(head.scale.x).toBeCloseTo(scale, 6);
+    rig.dispose();
+  });
+
   it('crops the generated plinth and creates editable skin/hair groups', () => {
     const prepared = prepareReconstructedHead(makeReconstructedHead());
     const skinMesh = prepared.skinMeshes[0];
@@ -160,6 +197,20 @@ describe('reconstructed head integration', () => {
     expect(prepared.hairMeshes[0].geometry.getIndex()?.count).toBe(3);
     expect(prepared.hairBounds.max.y).toBeCloseTo(0.31, 6);
     expect(prepared.hairSurfaces[0].baseCanonicalPositions).toHaveLength(9);
+
+    disposeReconstructedHead(prepared);
+  });
+  it('keeps each pupil visible in front of the iris from the front of the eye', () => {
+    const prepared = prepareReconstructedHead(makeEyeSocketHead(0.155));
+    prepared.root.updateMatrixWorld(true);
+
+    prepared.eyes.roots.forEach((eye) => {
+      const origin = eye.localToWorld(new THREE.Vector3(0, 0, prepared.eyes.radius * 3));
+      const direction = new THREE.Vector3(0, 0, -1).transformDirection(eye.matrixWorld);
+      const intersections = new THREE.Raycaster(origin, direction).intersectObjects(eye.children);
+
+      expect(intersections[0]?.object.name).toBe(`${eye.name}_pupil`);
+    });
 
     disposeReconstructedHead(prepared);
   });

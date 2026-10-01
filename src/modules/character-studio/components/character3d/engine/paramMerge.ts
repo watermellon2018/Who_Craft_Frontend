@@ -7,12 +7,22 @@ const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 // Defensive by design: the payload crossed the network and may come from an
 // older client / future registry, so every leaf is type-checked against the
 // parameter definition and numbers are clamped to the declared range.
-// Unknown zones/params are dropped — the editor can't render them anyway.
+// Unknown zones/params are dropped, except the validated hidden reference fit.
 export function mergeSavedParams(saved: unknown): ZoneParams {
   const out = buildInitialZoneParams();
   if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return out;
 
   for (const [zoneId, zoneValues] of Object.entries(saved as Record<string, unknown>)) {
+    if (zoneId === 'body_fit' && zoneValues && typeof zoneValues === 'object' && !Array.isArray(zoneValues)) {
+      const weights: Record<string, number> = {};
+      for (const [name, value] of Object.entries(zoneValues)) {
+        if (/^beta(?:0[0-9]|1[0-5])$/.test(name) && typeof value === 'number' && Number.isFinite(value)) {
+          weights[name] = Math.max(-1, Math.min(1, value));
+        }
+      }
+      if (Object.keys(weights).length) out.body_fit = weights;
+      continue;
+    }
     const zone = ZONE_INDEX[zoneId];
     if (!zone?.parameters || !zoneValues || typeof zoneValues !== 'object' || Array.isArray(zoneValues)) {
       continue;

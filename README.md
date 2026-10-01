@@ -163,6 +163,24 @@ supports parametric zones, canonical views, snapshot/GLB export, autofit state,
 and optional reconstructed head/hair assets. The heavy Hunyuan runtime belongs
 to the backend worker's separate Python/Conda environment.
 
+Reference-fitted bodies may store a hidden `body_fit` zone with normalized
+`beta00`–`beta15` weights. The 3D editor preserves these on load/save and adds
+the usual body sliders to that fitted base. Feet stay on the floor, the
+reconstructed head follows the live neck, and `head_neck.headSize` scales that
+head around its neck attachment. Zone resets leave the base fit; **Reset all**
+deliberately clears it with the other edits. Saving uses the existing project
+edit permission and revision flow. This is a measured local fitting workflow,
+not an automatic photo-to-body service; see [the fitting tool](tools/smpl/README.md#reference-body-fitting).
+Clothes obscure the body and a frontal image cannot determine its depth.
+
+Curated reconstructed assets can opt into `stylized_reference_v1`: measured
+almond-shaped eyes, fitted lids and brows, editable relative skin/hair colors,
+and a fitted blue headband. Optical parts and eyelids share the face deformation
+field so eye and face controls remain attached. This currently targets the
+reviewed angry_dog reconstruction; unmarked assets retain the existing renderer.
+The preparation workflow, coordinate and color contract, and limitations are in
+[reference surface refinement](tools/reconstruction/REFINE_REFERENCE_SURFACE.md).
+
 ## Reference Library
 
 The visual-reference creation page at

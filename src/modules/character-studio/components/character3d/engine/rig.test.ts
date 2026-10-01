@@ -668,6 +668,21 @@ describe('resolveSelectableZone', () => {
 });
 
 describe('mergeSavedParams', () => {
+  it('roundtrips the hidden reference fit while rejecting unknown and nonnumeric weights', () => {
+    const saved = {
+      body_fit: {beta00: 0, beta01: -0.4, beta15: 4, beta16: 1, beta03: '0.2', beta02: NaN},
+      head_neck: {headSize: 0.8},
+      thigh: {thighLength: 0.2},
+    };
+    const merged = mergeSavedParams(saved);
+    expect(merged.body_fit).toEqual({beta00: 0, beta01: -0.4, beta15: 1});
+    expect(mergeSavedParams(JSON.parse(JSON.stringify(merged)))).toEqual(merged);
+    expect(merged.head_neck.headSize).toBe(0.8);
+    expect(merged.thigh.thighLength).toBe(0.2);
+    expect(mergeSavedParams({body_fit: []}).body_fit).toBeUndefined();
+    // A full reset deliberately removes the fit together with all other edits.
+    expect(buildInitialZoneParams().body_fit).toBeUndefined();
+  });
   it('overlays saved values onto defaults with clamping', () => {
     const merged = mergeSavedParams({torso: {chestWidth: 7}, eyes: {eyeColor: '#244a2a'}});
     expect(merged.torso.chestWidth).toBe(1);

@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import {buildReferenceEyes, cutReferenceEyeOpenings, readReferenceFace} from './referenceFace';
+import type {ReferenceEyeBoundary} from './referenceFace';
+import {buildReferenceHeadband} from './referenceHair';
 
 export const RECONSTRUCTED_HEAD_GLB_URL = '/models/reconstructed-head.glb';
 
@@ -26,6 +29,9 @@ export interface PreparedReconstructedEyes {
   radius: number;
   roots: [THREE.Group, THREE.Group];
   span: number;
+  surfaceFitted?: boolean;
+  browMaterial?: THREE.MeshStandardMaterial;
+  faceMeshes?: THREE.Mesh[];
 }
 
 export interface PreparedReconstructedFaceSurface {
@@ -57,6 +63,7 @@ export interface PreparedReconstructedHead {
   root: THREE.Object3D;
   skinMeshes: THREE.Mesh[];
   skinMaterial: THREE.MeshStandardMaterial;
+  accessoryMaterials: THREE.Material[];
 }
 
 const pushTriangle = (target: number[], a: number, b: number, c: number): void => {
@@ -391,14 +398,19 @@ const buildReconstructedEyes = (
 
     const pupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
     pupil.name = `${eyeRoot.name}_pupil`;
-    pupil.position.z = radius * 0.86;
+    // The pupil must sit in front of the curved iris, including its thickness.
+    pupil.position.z = iris.position.z + radius * RECONSTRUCTED_IRIS_RADIUS_RATIO * iris.scale.z;
     pupil.scale.z = 0.14;
     pupil.castShadow = true;
     pupil.userData.zoneId = 'eyes';
 
     const highlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
     highlight.name = eyeRoot.name + '_highlight';
-    highlight.position.set(-radius * 0.11, radius * 0.13, radius * 0.9);
+    highlight.position.set(
+      -radius * 0.11,
+      radius * 0.13,
+      pupil.position.z + radius * RECONSTRUCTED_PUPIL_RADIUS_RATIO * pupil.scale.z,
+    );
     highlight.scale.set(1, 0.78, 0.12);
     highlight.userData.zoneId = 'eyes';
 
@@ -476,6 +488,7 @@ export const prepareReconstructedHead = (
   const hairMeshes: THREE.Mesh[] = [];
   const faceSurfaces: PreparedReconstructedFaceSurface[] = [];
   const hairSurfaces: PreparedReconstructedHairSurface[] = [];
+  const accessoryMaterials: THREE.Material[] = [];
   const centroid = new THREE.Vector3();
   const point = new THREE.Vector3();
   const visibleBounds = new THREE.Box3();
@@ -493,6 +506,22 @@ export const prepareReconstructedHead = (
     const mesh = object as THREE.Mesh;
     if (mesh.isMesh) sourceMeshes.push(mesh);
   });
+  const referenceFace = readReferenceFace(sourceMeshes);
+  const referenceEyeBoundaries: ReferenceEyeBoundary[] = [];
+  const referenceSurfaces = referenceFace ? sourceMeshes.map((mesh) => {
+    const sample = new THREE.Mesh(mesh.geometry, mesh.material);
+    sample.matrixAutoUpdate = false;
+    sample.matrix.copy(mesh.matrixWorld);
+    sample.matrixWorld.copy(mesh.matrixWorld);
+    return sample;
+  }) : [];
+  const relativeColors = sourceMeshes.some((mesh) =>
+    (mesh.userData.sourceProfile === 'stylized_reference_v1'
+      && mesh.userData.colorMode === 'relative_linear')
+    || (mesh.geometry.userData.sourceProfile === 'stylized_reference_v1'
+      && mesh.geometry.userData.colorMode === 'relative_linear'));
+  skinMaterial.vertexColors = relativeColors;
+  hairMaterial.vertexColors = relativeColors;
   const semanticSkinOnly =
     !!separateHairRoot
     && sourceMeshes.length > 0
@@ -509,6 +538,8 @@ export const prepareReconstructedHead = (
     importedGeometries.add(sourceGeometry);
     const oldMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     oldMaterials.forEach((material) => importedMaterials.add(material));
+
+    if (referenceFace) referenceEyeBoundaries.push(...cutReferenceEyeOpenings(sourceGeometry, mesh.matrixWorld, referenceFace));
 
     const indices = sourceIndices(sourceGeometry);
     const skinIndices: number[] = [];
@@ -676,6 +707,18 @@ export const prepareReconstructedHead = (
     }
   }
 
+  if (referenceFace && hairMeshes.length) {
+    const headband = buildReferenceHeadband(hairMeshes);
+    hairGroup.add(headband);
+    hairMeshes.push(headband);
+    meshes.push(headband);
+    accessoryMaterials.push(headband.material as THREE.Material);
+    hairSurfaces.push({
+      mesh: headband,
+      localFromCanonical: new THREE.Matrix4(),
+      baseCanonicalPositions: new Float32Array(headband.geometry.getAttribute('position').array),
+    });
+  }
   importedGeometries.forEach((geometry) => geometry.dispose());
   importedMaterials.forEach((material) => material.dispose());
   if (!skinMeshes.length && !hairMeshes.length) {
@@ -712,13 +755,31 @@ export const prepareReconstructedHead = (
   const facialEyeSurfaces = skinMeshes.filter(
     (mesh) => !mesh.name.includes('_backing_'),
   );
-  const eyes = buildReconstructedEyes(
+  const eyes = referenceFace ? buildReferenceEyes(root, referenceSurfaces, referenceFace, skinMaterial, referenceEyeBoundaries)
+    : buildReconstructedEyes(
     root,
     eyeFaceBounds,
     facialEyeSurfaces.length ? facialEyeSurfaces : skinMeshes,
   );
+  root.updateWorldMatrix(true, true);
+  for (const mesh of eyes.faceMeshes ?? []) {
+    const position = mesh.geometry.getAttribute('position');
+    const canonicalPositions: number[] = [];
+    const weights: number[] = [];
+    for (let vertex = 0; vertex < position.count; vertex++) {
+      point.fromBufferAttribute(position, vertex).applyMatrix4(mesh.matrixWorld);
+      canonicalPositions.push(point.x, point.y, point.z);
+      weights.push(reconstructedFaceWeight(point.x, point.y, point.z));
+    }
+    faceSurfaces.push({mesh,
+      baseCanonicalPositions: new Float32Array(canonicalPositions),
+      faceWeights: new Float32Array(weights),
+      faceVertexIndices: Uint32Array.from({length: position.count}, (_, i) => i),
+      localFromCanonical: mesh.matrixWorld.clone().invert()});
+  }
 
   return {
+    accessoryMaterials,
     bounds,
     eyes,
     faceBounds: eyeFaceBounds.clone(),
@@ -740,6 +801,7 @@ export const disposeReconstructedHead = (head: PreparedReconstructedHead): void 
   head.meshes.forEach((mesh) => mesh.geometry.dispose());
   head.eyes.geometries.forEach((geometry) => geometry.dispose());
   head.eyes.materials.forEach((material) => material.dispose());
+  head.accessoryMaterials.forEach((material) => material.dispose());
   head.skinMaterial.dispose();
   head.hairMaterial.dispose();
 };

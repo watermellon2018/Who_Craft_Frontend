@@ -47,6 +47,11 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument("--height-metres", type=float, default=0.30)
     parser.add_argument("--render-size", type=int, default=640)
     parser.add_argument("--min-component-faces", type=int, default=100)
+    parser.add_argument(
+        "--preserve-source-surface",
+        action="store_true",
+        help="Opt in to experimental reference segmentation without remeshing",
+    )
     return parser.parse_args()
 
 
@@ -164,6 +169,7 @@ def _render_mesh(
     yaw_degrees: float,
     size: int,
     clay_rgb: Sequence[int] = (205, 164, 135),
+    face_rgb: np.ndarray | None = None,
 ) -> None:
     if size < 256:
         raise ValueError("render size must be at least 256 pixels")
@@ -198,22 +204,22 @@ def _render_mesh(
     order = np.argsort(triangle_vertices[:, :, 2].mean(axis=1))
     light = np.asarray((0.35, 0.55, 1.0), dtype=np.float64)
     light /= np.linalg.norm(light)
-    base_bgr = np.asarray(tuple(reversed(clay_rgb)), dtype=np.float64)
+    normals = np.cross(
+        triangle_vertices[:, 1] - triangle_vertices[:, 0],
+        triangle_vertices[:, 2] - triangle_vertices[:, 0],
+    )
+    lengths = np.linalg.norm(normals, axis=1)
+    normals /= np.maximum(lengths, 1e-12)[:, None]
+    shades = 0.38 + 0.62 * np.abs(normals @ light)
+    base_rgb = np.asarray(clay_rgb if face_rgb is None else face_rgb)
+    colors = np.clip(base_rgb[..., ::-1] * shades[:, None], 0, 255).astype(np.uint8)
     for face_index in order:
-        triangle = triangle_vertices[face_index]
-        normal = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
-        normal_length = np.linalg.norm(normal)
-        if normal_length < 1e-12:
+        if lengths[face_index] < 1e-12:
             continue
-        normal /= normal_length
-        shade = 0.38 + 0.62 * abs(float(normal @ light))
-        colour = tuple(
-            int(value) for value in np.clip(base_bgr * shade, 0, 255)
-        )
         cv2.fillConvexPoly(
             canvas,
             pixels[faces[face_index]],
-            colour,
+            tuple(int(value) for value in colors[face_index]),
             lineType=cv2.LINE_AA,
         )
 
@@ -488,6 +494,8 @@ def _compact_submesh(
     vertices: np.ndarray,
     faces: np.ndarray,
     face_mask: np.ndarray,
+    *,
+    vertex_normals: np.ndarray | None = None,
 ) -> trimesh.Trimesh:
     """Return a compact mesh containing exactly the selected triangles."""
     selected_faces = np.asarray(faces, dtype=np.int64)[face_mask]
@@ -499,6 +507,11 @@ def _compact_submesh(
     return trimesh.Trimesh(
         vertices=np.asarray(vertices)[used_vertices],
         faces=remap[selected_faces],
+        vertex_normals=(
+            np.asarray(vertex_normals)[used_vertices]
+            if vertex_normals is not None
+            else None
+        ),
         process=False,
     )
 
@@ -527,6 +540,7 @@ def _split_head_and_hair(
     profile_reference: Path | None = None,
     hair_color: str = "#1e1a18",
     skin_color: str = "#d8ab8a",
+    preserve_source_surface: bool = False,
 ) -> tuple[
     trimesh.Trimesh | trimesh.Scene,
     trimesh.Trimesh | trimesh.Scene,
@@ -537,6 +551,29 @@ def _split_head_and_hair(
     centroids = vertices[faces].mean(axis=1)
     visible = centroids[:, 1] >= HEAD_CUT_Y
     base_skin = visible & _skin_point_mask(centroids)
+    if preserve_source_surface and front_reference is None:
+        raise ValueError("source surface preservation requires a front reference")
+    if preserve_source_surface and front_reference is not None:
+        from preserve_hunyuan_surface import (
+            _reference_guided_skin_mask as source_skin_mask,
+        )
+
+        skin = source_skin_mask(
+            vertices, faces, visible, base_skin, front_reference,
+            profile_reference=profile_reference,
+            hair_color=hair_color,
+            skin_color=skin_color,
+        )
+        head_mesh = _compact_submesh(
+            vertices, faces, skin, vertex_normals=mesh.vertex_normals,
+        )
+        hair_mesh = _compact_submesh(
+            vertices, faces, visible & ~skin,
+            vertex_normals=mesh.vertex_normals,
+        )
+        head_mesh.metadata["name"] = "reconstructed_skin_surface_v4"
+        hair_mesh.metadata["name"] = "generated_hair_surface_v4"
+        return head_mesh, hair_mesh
     if front_reference is None:
         skin = base_skin
     else:
@@ -638,6 +675,9 @@ def _split_head_and_hair(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
+    preserve_surface = bool(getattr(args, "preserve_source_surface", False))
+    if preserve_surface and args.front_reference is None:
+        raise ValueError("source surface preservation requires a front reference")
     mesh = _load_mesh(args.input.resolve())
     mesh, dropped_components = _filter_components(
         mesh,
@@ -655,6 +695,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     normalized_mesh = trimesh.Trimesh(
         vertices=normalized,
         faces=np.asarray(mesh.faces),
+        vertex_normals=(
+            np.asarray(mesh.vertex_normals) @ basis if preserve_surface else None
+        ),
         process=False,
     )
     head_mesh, hair_mesh = _split_head_and_hair(
@@ -663,6 +706,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         profile_reference=args.profile_reference,
         hair_color=args.hair_color,
         skin_color=args.skin_color,
+        preserve_source_surface=preserve_surface,
     )
     output = args.output.resolve()
     hair_output = args.hair_output.resolve()
@@ -677,18 +721,35 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ("profile.png", 90.0),
     )
     preview_dir = args.preview_dir.resolve()
+    preview_vertices = normalized
+    preview_faces = np.asarray(mesh.faces)
+    preview_colors = None
+    if preserve_surface:
+        preview_vertices = np.concatenate((head_mesh.vertices, hair_mesh.vertices))
+        preview_faces = np.concatenate((
+            head_mesh.faces, hair_mesh.faces + len(head_mesh.vertices),
+        ))
+        preview_colors = np.repeat(
+            np.asarray((
+                _parse_hex_rgb(args.skin_color), _parse_hex_rgb(args.hair_color),
+            )),
+            (len(head_mesh.faces), len(hair_mesh.faces)),
+            axis=0,
+        )
     for filename, yaw in previews:
         _render_mesh(
-            normalized,
-            np.asarray(mesh.faces),
+            preview_vertices,
+            preview_faces,
             preview_dir / filename,
             yaw_degrees=yaw,
             size=args.render_size,
+            face_rgb=preview_colors,
         )
 
     metadata_path = args.metadata.resolve()
     metadata = _read_metadata(metadata_path)
     metadata["normalization"] = {
+        "preserve_source_surface": preserve_surface,
         "source_up": args.source_up,
         "source_front": args.source_front,
         "target_up": "+y",
@@ -709,6 +770,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "extents": head_mesh.extents.tolist(),
             "semantic_skin_only": args.front_reference is not None,
             "reference_guided_segmentation": args.front_reference is not None,
+            "source_surface_preserved": preserve_surface,
+            "neck_cut_y_metres": HEAD_CUT_Y,
             "legacy_fused_hair_compatibility": args.front_reference is None,
         },
         "hair_output": {
@@ -717,9 +780,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "bounds": hair_mesh.bounds.tolist(),
             "extents": hair_mesh.extents.tolist(),
             "generation_method": (
-                "multiview_hunyuan_voxel_remesh_with_inset_backing_v3"
+                "reference_segmented_source_surface_v4"
+                if preserve_surface
+                else "multiview_hunyuan_voxel_remesh_with_inset_backing_v3"
             ),
-            "voxel_pitch_metres": HAIR_VOXEL_PITCH,
+            "source_surface_preserved": preserve_surface,
+            "neck_cut_y_metres": HEAD_CUT_Y,
+            "voxel_pitch_metres": None if preserve_surface else HAIR_VOXEL_PITCH,
         },
         "previews": [
             str((preview_dir / filename).resolve())
@@ -727,12 +794,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ],
     }
     limitations = metadata.setdefault("known_limitations", [])
+    source_limitation = (
+        "Reference-guided skin/hair labels are approximate; source "
+        "triangles and normals above the shared neck cut are preserved."
+    )
+    voxel_limitation = (
+        "Hair is reconstructed as a new smoothed voxel topology from the "
+        "multi-view hair volume and exported as a separate asset."
+    )
+    obsolete_limitation = voxel_limitation if preserve_surface else source_limitation
+    if obsolete_limitation in limitations:
+        limitations.remove(obsolete_limitation)
     new_limitations = (
         "Shape-only output has no texture or character eye/hair colours.",
-        (
-            "Hair is reconstructed as a new smoothed voxel topology from the "
-            "multi-view hair volume and exported as a separate asset."
-        ),
+        source_limitation if preserve_surface else voxel_limitation,
         "The mesh has no facial rig, blend shapes, or SMPL-X neck seam.",
         (
             "The 0.30 m height normalization is provisional for later "
