@@ -80,6 +80,24 @@ function makeHair(): THREE.Group {
   return root;
 }
 
+function makeRefinedHead(): THREE.Group {
+  const head = makeReferenceHead();
+  head.traverse((object) => {
+    if (!(object as THREE.Mesh).isMesh) return;
+    if (object.name === 'reconstructed_skin_reference_0') {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry.dispose();
+      mesh.geometry = new THREE.PlaneGeometry(0.13, 0.19, 26, 38).translate(0, 0.155, 0.09);
+      addWhiteColors(mesh.geometry);
+    }
+    object.userData = {...profile, sourceProfile: 'stylized_reference_v2', referenceFace: {
+      ...referenceFace, eyeWidth: 0.035, eyeHeight: 0.018, irisDiameter: 0.019,
+      anchors: {chinY: 0.0607, mouthY: 0.096, noseY: 0.1275},
+    }};
+  });
+  return head;
+}
+
 function makeColoredTriangles(optIn: boolean): THREE.Group {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute([
@@ -369,6 +387,116 @@ describe('opt-in reference appearance', () => {
       const colors = seam.geometry.getAttribute('color');
       expect(colors.count).toBe(seam.geometry.getAttribute('position').count);
       expect(Array.from(colors.array).every((value) => value === 1)).toBe(true);
+    } finally {
+      rig.dispose();
+    }
+  });
+
+  it('uses rounded recessed eyes only for the v2 profile while retaining editable colors', () => {
+    const oldHead = prepareReconstructedHead(makeReferenceHead(), makeHair());
+    const head = prepareReconstructedHead(makeRefinedHead(), makeHair());
+    try {
+      expect(head.skinMaterial.vertexColors).toBe(true);
+      expect(head.hairMaterial.vertexColors).toBe(true);
+      head.eyes.roots.forEach((eye, index) => {
+        const oldEye = oldHead.eyes.roots[index];
+        const sclera = eye.getObjectByName(`${eye.name}_sclera`) as THREE.Mesh;
+        const oldSclera = oldEye.getObjectByName(`${oldEye.name}_sclera`) as THREE.Mesh;
+        const position = sclera.geometry.getAttribute('position');
+        const oldPosition = oldSclera.geometry.getAttribute('position');
+        // Mid-arc fullness distinguishes an almond from the v1 diamond. This
+        // also checks actual exported optical geometry, not a helper formula.
+        const ringStart = position.count - 64;
+        expect(position.getY(ringStart + 8) / 0.01008)
+          .toBeGreaterThan(oldPosition.getY(oldPosition.count - 64 + 8) / 0.00756 + 0.1);
+        expect(head.eyes.canonicalPositions[index].z)
+          .toBeLessThan(oldHead.eyes.canonicalPositions[index].z - 0.0008);
+        expect(liveBounds(sclera).max.z).toBeLessThan(liveBounds(oldSclera).max.z);
+        expect(firstVisiblePart(head.root, eye, 0.001)).toBe(`${eye.name}_pupil`);
+        expect(firstVisiblePart(head.root, eye, 0.005)).toBe(`${eye.name}_iris`);
+        expect(firstVisiblePart(head.root, eye, 0.011)).toBe(`${eye.name}_sclera`);
+      });
+    } finally {
+      disposeReconstructedHead(head);
+      disposeReconstructedHead(oldHead);
+    }
+  });
+
+  it('keeps v2 optical surfaces visible through combined facial edits and exact reset', () => {
+    const rig = MorphRig.fromMesh(makeBody());
+    rig.attachReconstructedHead(makeRefinedHead(), makeHair());
+    try {
+      rig.applyParams({});
+      const head = rig.nodeByName('reconstructed_head') as THREE.Group;
+      const initial = meshPositions(head);
+      const eyes = (rig.nodeByName('reconstructed_eyes') as THREE.Group).children;
+      for (const value of [-1, 1]) {
+        rig.applyParams({eyes: {eyeSize: value, eyeDistance: value}, face_shape: {faceDepth: value}});
+        expect(meshPositions(head).every(Number.isFinite)).toBe(true);
+        eyes.forEach((eye) => expect(firstVisiblePart(head, eye, 0.001)).toBe(`${eye.name}_pupil`));
+      }
+      rig.applyParams({});
+      expect(meshPositions(head)).toEqual(initial);
+    } finally {
+      rig.dispose();
+    }
+  });
+
+  it('targets the measured v2 lips, mouth corners and chin while keeping the neck fixed', () => {
+    const rig = MorphRig.fromMesh(makeBody());
+    rig.attachReconstructedHead(makeRefinedHead(), makeHair());
+    try {
+      rig.applyParams({});
+      const head = rig.nodeByName('reconstructed_head') as THREE.Group;
+      const face = head.getObjectByName('reconstructed_skin_reference_0_skin') as THREE.Mesh;
+      const neck = head.getObjectByName('reconstructed_skin_reference_1_skin') as THREE.Mesh;
+      const position = face.geometry.getAttribute('position');
+      const initial = Array.from(position.array);
+      const neckInitial = Array.from(neck.geometry.getAttribute('position').array);
+      const nearest = (x: number, y: number): number => {
+        let best = 0;
+        for (let i = 1; i < position.count; i++) {
+          if (Math.hypot(initial[i * 3] - x, initial[i * 3 + 1] - y)
+            < Math.hypot(initial[best * 3] - x, initial[best * 3 + 1] - y)) best = i;
+        }
+        return best;
+      };
+      const lip = nearest(0, 0.10);
+      const nose = nearest(0, 0.1275);
+      const corner = nearest(0.035, 0.096);
+      const chin = nearest(0, 0.075);
+      rig.applyParams({mouth: {upperLip: 1, cornerLift: 1}});
+      expect(position.getZ(lip) - initial[lip * 3 + 2]).toBeGreaterThan(0.003);
+      expect(position.getZ(nose)).toBeCloseTo(initial[nose * 3 + 2], 7);
+      expect(position.getY(corner) - initial[corner * 3 + 1]).toBeGreaterThan(0.0001);
+      rig.applyParams({jaw_chin: {chinLength: 1}});
+      expect(position.getY(chin)).toBeLessThan(initial[chin * 3 + 1] - 0.001);
+      expect(Array.from(neck.geometry.getAttribute('position').array)).toEqual(neckInitial);
+      rig.applyParams({});
+      expect(Array.from(position.array)).toEqual(initial);
+    } finally {
+      rig.dispose();
+    }
+  });
+
+  it('picks actual face triangles using the full rest mesh rather than compact deformation vertices', () => {
+    const rig = MorphRig.fromMesh(makeBody());
+    rig.attachReconstructedHead(makeRefinedHead(), makeHair());
+    try {
+      rig.applyParams({mouth: {upperLip: 0.7}, jaw_chin: {chinLength: 0.5}});
+      rig.root.position.set(0.3, 0.1, -0.2);
+      rig.root.rotation.y = 0.3;
+      rig.root.updateMatrixWorld(true);
+      const head = rig.nodeByName('reconstructed_head') as THREE.Group;
+      const face = head.getObjectByName('reconstructed_skin_reference_0_skin') as THREE.Mesh;
+      for (const [y, zone] of [[0.126, 'nose'], [0.096, 'mouth'], [0.075, 'jaw_chin']] as const) {
+        const target = face.localToWorld(new THREE.Vector3(0.002, y, 0.09));
+        const direction = new THREE.Vector3(0, 0, -1).transformDirection(face.matrixWorld);
+        const ray = new THREE.Raycaster(target.clone().addScaledVector(direction, -1), direction);
+        const hit = ray.intersectObject(face)[0];
+        expect(hit).toBeDefined();
+        expect(rig.resolveHit(hit)?.zoneId).toBe(zone);
+      }
     } finally {
       rig.dispose();
     }

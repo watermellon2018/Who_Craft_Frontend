@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import type {PreparedReconstructedEyes} from './reconstructedHead';
 
 export interface ReferenceFace {
+  profile?: 'stylized_reference_v1' | 'stylized_reference_v2';
   eyeCenters: [[number, number, number], [number, number, number]];
   eyeWidth: number;
   eyeHeight: number;
   irisDiameter: number;
+  anchors?: {chinY: number; mouthY: number; noseY: number};
 }
 
 export interface ReferenceEyeBoundary {
@@ -16,21 +18,27 @@ export interface ReferenceEyeBoundary {
 }
 
 const PROFILE = 'stylized_reference_v1';
+const REFINED_PROFILE = 'stylized_reference_v2';
 const SEGMENTS = 64;
 const LID_OUTER_SCALE = 1.85;
 
 /** These measured controls belong to an opt-in asset, never to every character. */
 export function readReferenceFace(meshes: THREE.Mesh[]): ReferenceFace | null {
   for (const mesh of meshes) {
-    const data = mesh.userData.sourceProfile === PROFILE ? mesh.userData : mesh.geometry.userData;
+    const data = [PROFILE, REFINED_PROFILE].includes(mesh.userData.sourceProfile) ? mesh.userData : mesh.geometry.userData;
     const face = data.referenceFace as ReferenceFace | undefined;
-    if (data.sourceProfile !== PROFILE || !face) continue;
+    if (![PROFILE, REFINED_PROFILE].includes(data.sourceProfile) || !face) continue;
     if (!Array.isArray(face.eyeCenters) || face.eyeCenters.length !== 2
       || !face.eyeCenters.every((point) => Array.isArray(point) && point.length === 3
         && point.every((value) => typeof value === 'number' && Number.isFinite(value)))) continue;
     if (![face.eyeWidth, face.eyeHeight, face.irisDiameter].every((value) =>
       typeof value === 'number' && Number.isFinite(value) && value > 0 && value < 0.06)) continue;
-    return face;
+    const anchors = face.anchors;
+    const validAnchors = data.sourceProfile === REFINED_PROFILE && anchors && [anchors.chinY, anchors.mouthY, anchors.noseY]
+      .every((value) => typeof value === 'number' && Number.isFinite(value))
+      && anchors.chinY > 0.055 && anchors.chinY < anchors.mouthY
+      && anchors.mouthY < anchors.noseY && anchors.noseY < face.eyeCenters[0][1];
+    return {...face, anchors: validAnchors ? anchors : undefined, profile: data.sourceProfile};
   }
   return null;
 }
@@ -193,6 +201,7 @@ export function buildReferenceEyes(
 ): PreparedReconstructedEyes {
   root.updateMatrixWorld(true);
   const surface = surfaceSampler(meshes);
+  const refined = face.profile === REFINED_PROFILE;
   const group = new THREE.Group();
   group.name = 'reconstructed_eyes';
   group.userData.zoneId = 'eyes';
@@ -211,7 +220,7 @@ export function buildReferenceEyes(
   const halfWidth = face.eyeWidth / 2;
   const upperHeight = face.eyeHeight * 0.56;
   const lowerHeight = face.eyeHeight * 0.44;
-  const domeDepth = 0.0026;
+  const domeDepth = refined ? 0.0032 : 0.0026;
 
   for (let eye = 0; eye < 2; eye++) {
     const [cx, cy, cz] = face.eyeCenters[eye];
@@ -219,8 +228,11 @@ export function buildReferenceEyes(
     const leftDepth = surface(cx - halfWidth, cy).z;
     const rightDepth = surface(cx + halfWidth, cy).z;
     const depthSlope = THREE.MathUtils.clamp((rightDepth - leftDepth) / face.eyeWidth, -0.65, 0.65);
-    const origin = new THREE.Vector3(cx, cy, Math.max(cz + 0.0065,
-      (leftDepth + rightDepth) / 2 + 0.0005));
+    // V2 follows the actual socket instead of forcing a lens forward of the
+    // face. The old construction remains available for saved v1 assets.
+    const edgeDepth = (leftDepth + rightDepth) / 2;
+    const origin = new THREE.Vector3(cx, cy, refined ? edgeDepth - 0.0004
+      : Math.max(cz + 0.0065, edgeDepth + 0.0005));
     const eyeRoot = new THREE.Group();
     eyeRoot.name = eye === 0 ? 'reconstructed_eye_left' : 'reconstructed_eye_right';
     eyeRoot.userData.zoneId = 'eyes';
@@ -232,11 +244,14 @@ export function buildReferenceEyes(
       const s = Math.sin(angle);
       const x = halfWidth * Math.cos(angle);
       return new THREE.Vector3(x,
-        s * Math.abs(s) * (s >= 0 ? upperHeight : lowerHeight), depthSlope * x);
+        s * Math.abs(s) ** (refined ? 0.15 : 1) * (s >= 0 ? upperHeight : lowerHeight),
+        depthSlope * x - (refined ? 0.0012 * (x / halfWidth) ** 2 : 0));
     };
     const domeZ = (x: number, y: number): number => {
-      const q = Math.min(1, (x / halfWidth) ** 2 + Math.abs(y) / (y >= 0 ? upperHeight : lowerHeight));
-      return domeDepth * (1 - q * q) + depthSlope * x;
+      const q = Math.min(1, (x / halfWidth) ** 2
+        + (Math.abs(y) / (y >= 0 ? upperHeight : lowerHeight)) ** (refined ? 2 / 1.15 : 1));
+      return domeDepth * (1 - q * q) + depthSlope * x
+        - (refined ? 0.0012 * (x / halfWidth) ** 2 : 0);
     };
     const add = (name: string, geometry: THREE.BufferGeometry, material: THREE.Material): THREE.Mesh => {
       const mesh = new THREE.Mesh(geometry, material);
@@ -274,7 +289,8 @@ export function buildReferenceEyes(
       const point = inner.lerp(new THREE.Vector3(outerX, outerY, 0), t);
       const sample = surface(cx + outerX, cy + outerY);
       const blend = t * t * (3 - 2 * t);
-      point.z = depthSlope * point.x * (1 - blend) + (sample.z - origin.z) * blend + 0.00055;
+      point.z = (refined ? depthSlope * point.x - 0.0012 * (point.x / halfWidth) ** 2
+        : depthSlope * point.x) * (1 - blend) + (sample.z - origin.z) * blend + 0.00055;
       return {point, color: sample.color};
       });
       const positions: number[] = [];
@@ -302,10 +318,19 @@ export function buildReferenceEyes(
           const point = inner.clone().lerp(smoothed[i], t);
           const blend = t * t * (3 - 2 * t);
           point.z = inner.z * (1 - blend) + smoothed[i].z * blend;
+          if (refined) {
+            // A continuous raised rim and a restrained upper-lid fold give the
+            // eye depth; both taper out before the exact source boundary.
+            const upper = Math.max(0, Math.sin(angle));
+            point.z += 0.0007 * (1 - t) ** 3
+              + upper * (0.0010 * Math.exp(-(((t - 0.13) / 0.10) ** 2))
+              - 0.00065 * Math.exp(-(((t - 0.32) / 0.10) ** 2))) * (1 - t);
+          }
           point.addScaledVector(outer.sub(smoothed[i]), t ** 10);
           positions.push(point.x, point.y, point.z);
           const color = boundary.colors[i];
-          colors.push(color.r, color.g, color.b);
+          const warmLid = refined ? Math.max(0, Math.sin(angle)) * (1 - t) ** 2 : 0;
+          colors.push(color.r, color.g * (1 - 0.08 * warmLid), color.b * (1 - 0.12 * warmLid));
           if (ring) {
             const a = (ring - 1) * count + i;
             const b = ring * count + i;
@@ -329,8 +354,10 @@ export function buildReferenceEyes(
         for (let i = 0; i < count; i++) {
           const outerNormal = new THREE.Vector3();
           for (let j = -6; j <= 6; j++) outerNormal.add(boundary.normals[(i + j + count) % count]);
-          const normal = new THREE.Vector3(-depthSlope, 0.02, 1).normalize()
-            .lerp(outerNormal.normalize(), t ** 3).normalize();
+          const smoothNormal = new THREE.Vector3(-depthSlope, 0.02, 1).normalize();
+          const normal = refined ? new THREE.Vector3().fromBufferAttribute(normals, ring * count + i)
+            .lerp(smoothNormal, 0.72).normalize() : smoothNormal;
+          normal.lerp(outerNormal.normalize(), t ** (refined ? 8 : 3)).normalize();
           normals.setXYZ(ring * count + i, normal.x, normal.y, normal.z);
         }
       }
@@ -346,7 +373,7 @@ export function buildReferenceEyes(
     add('iris', radialGeometry(12, (radius, angle) => {
       const x = irisRadius * radius * Math.cos(angle);
       let y = irisRadius * radius * Math.sin(angle);
-      const aperture = Math.max(0, 1 - (x / halfWidth) ** 2);
+      const aperture = Math.max(0, 1 - (x / halfWidth) ** 2) ** (refined ? 0.575 : 1);
       y = THREE.MathUtils.clamp(y, -lowerHeight * aperture, upperHeight * aperture);
       const brightness = radius > 0.88 ? 0.35 : 0.73 + 0.20 * Math.sin(radius * Math.PI)
         + 0.055 * Math.sin(angle * 34 + radius * 12);
@@ -369,11 +396,11 @@ export function buildReferenceEyes(
       for (let i = 0; i <= 40; i++) {
         const angle = (upper ? 0 : Math.PI) + i / 40 * Math.PI;
         const point = rimPoint(angle);
-        point.z += 0.0006;
+        point.z += refined ? 0.0010 : 0.0006;
         path.push(point);
       }
       add(upper ? 'upper_lash' : 'lower_lash', new THREE.TubeGeometry(
-        new THREE.CatmullRomCurve3(path), 48, upper ? 0.00048 : 0.00016, 5, false,
+        new THREE.CatmullRomCurve3(path), 48, upper ? (refined ? 0.00038 : 0.00048) : 0.00016, 5, false,
       ), lashMaterial);
     }
 
@@ -384,7 +411,8 @@ export function buildReferenceEyes(
     for (let i = 0; i <= 32; i++) {
       const t = i / 32;
       const x = side * (Math.abs(cx) - halfWidth * 1.06 + t * halfWidth * 2.24);
-      const y = cy + face.eyeHeight * 1.12 + 0.0038 * Math.sin(t * Math.PI) - 0.0012 * t;
+      const y = cy + (refined ? 0.018 : face.eyeHeight * 1.12)
+        + 0.0038 * Math.sin(t * Math.PI) - 0.0012 * t;
       const thickness = (0.0012 + 0.0016 * Math.sin(t * Math.PI)) * (1 - t * 0.87);
       for (const edge of [-1, 1]) {
         const by = y + edge * thickness;
@@ -405,6 +433,13 @@ export function buildReferenceEyes(
     brow.setIndex(browIndices);
     brow.computeVertexNormals();
     const browMesh = add('brow', brow, browMaterial);
+    if (refined) {
+      brow.setAttribute('color', new THREE.Float32BufferAttribute(browPositions.map((_, component) => {
+        const t = Math.floor(component / 6) / 32;
+        return 0.80 + 0.20 * Math.sin(Math.PI * t);
+      }), 3));
+      browMaterial.vertexColors = true;
+    }
     // Keep skin in the head frame; optical parts retain their local transforms.
     // Both are registered in the same canonical face deformation field below.
     for (const mesh of [lids, browMesh]) {

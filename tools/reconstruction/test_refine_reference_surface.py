@@ -12,10 +12,13 @@ import numpy as np
 import trimesh
 
 from refine_reference_surface import (
+    LEGACY_PROFILE,
     PROFILE,
     _back_hair_shell,
     _export,
     _hair_colors,
+    _polish_face,
+    _polished_hair,
     _relative_color,
     _remove_scraps,
     _skin_colors,
@@ -204,12 +207,81 @@ class ReferenceSurfaceTests(unittest.TestCase):
         exported = document["meshes"][0]
         self.assertEqual(exported["extras"]["sourceProfile"], PROFILE)
         self.assertEqual(exported["extras"]["colorMode"], "relative_linear")
-        self.assertEqual(exported["extras"]["referenceFace"]["eyeHeight"], 0.0135)
+        self.assertEqual(exported["extras"]["referenceFace"]["eyeHeight"], 0.018)
+        self.assertEqual(exported["extras"]["referenceFace"]["irisDiameter"], 0.019)
+        self.assertEqual(exported["extras"]["referenceFace"]["anchors"], {
+            "chinY": 0.0607, "mouthY": 0.096, "noseY": 0.1275,
+        })
         attribute = exported["primitives"][0]["attributes"]["COLOR_0"]
         accessor = document["accessors"][attribute]
         self.assertEqual(accessor["count"], len(mesh.vertices))
         self.assertTrue(accessor["normalized"])
         self.assertEqual(accessor["componentType"], 5121)
+
+    def test_legacy_export_retains_original_profile_and_eye_dimensions(self) -> None:
+        mesh = trimesh.creation.icosphere(subdivisions=1, radius=0.1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "head.glb"
+            _export(mesh, path, "reconstructed_skin_surface_v5", np.ones((len(mesh.vertices), 3)), profile=LEGACY_PROFILE)
+            data = path.read_bytes()
+        json_length = struct.unpack_from("<I", data, 12)[0]
+        extras = json.loads(data[20:20 + json_length])["meshes"][0]["extras"]
+        self.assertEqual(extras["sourceProfile"], LEGACY_PROFILE)
+        self.assertEqual(extras["referenceFace"]["eyeWidth"], 0.030)
+        self.assertEqual(extras["referenceFace"]["eyeHeight"], 0.0135)
+        self.assertEqual(extras["referenceFace"]["irisDiameter"], 0.0158)
+        self.assertNotIn("anchors", extras["referenceFace"])
+
+    def test_face_polish_flattens_brow_relief_but_preserves_neck_and_landmarks(self) -> None:
+        x, y = np.meshgrid(np.linspace(-0.08, 0.08, 101), np.linspace(0.04, 0.25, 121))
+        bump = 0.003 * np.exp(-((x - 0.052) / 0.002) ** 2 - ((y - 0.185) / 0.005) ** 2)
+        z = 0.080 - 1.4 * x ** 2 + bump
+        vertices = np.column_stack((x.ravel(), y.ravel(), z.ravel()))
+        faces = []
+        for row in range(120):
+            for column in range(100):
+                a = row * 101 + column
+                faces.extend(((a, a + 1, a + 101), (a + 1, a + 102, a + 101)))
+        mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+        result, report = _polish_face(mesh)
+        peak = np.argmax(bump.ravel())
+        self.assertLess(result.vertices[peak, 2], vertices[peak, 2] - 0.001)
+        np.testing.assert_array_equal(result.vertices[:, :2], vertices[:, :2])
+        np.testing.assert_array_equal(result.faces, mesh.faces)
+        neck = vertices[:, 1] <= 0.10
+        np.testing.assert_array_equal(result.vertices[neck], vertices[neck])
+        np.testing.assert_array_equal(result.vertex_normals[neck], mesh.vertex_normals[neck])
+        self.assertLessEqual(report["maximumDisplacementM"], 0.0029)
+        self.assertTrue(report["xyLandmarksUnchanged"])
+        self.assertTrue(report["neckVerticesUnchanged"])
+
+    def test_polished_hair_has_closed_locks_clear_of_attachment_and_ears(self) -> None:
+        theta, height = np.meshgrid(np.linspace(0, 2 * np.pi, 65), np.linspace(0.044, 0.30, 61))
+        radius = 0.09 - 0.7 * np.maximum(height - 0.23, 0)
+        vertices = np.column_stack(((radius * np.sin(theta)).ravel(), height.ravel(), (-0.018 + radius * np.cos(theta)).ravel()))
+        faces = []
+        for row in range(60):
+            for column in range(64):
+                a = row * 65 + column
+                faces.extend(((a, a + 1, a + 65), (a + 1, a + 66, a + 65)))
+        mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+        result, report = _polished_hair(mesh)
+        self.assertEqual(report["broadLowerLocks"], 10)
+        self.assertTrue(report["closedLockMeshes"])
+        self.assertLessEqual(report["retainedCrownMaximumDisplacementM"], 0.0012 + 1e-9)
+        self.assertTrue(np.isfinite(result.vertices).all())
+        locks = result.vertices[-report["lockVertices"]:]
+        attachment = (np.abs(locks[:, 0]) < 0.055) & (locks[:, 2] > -0.052) & (locks[:, 1] <= 0.055)
+        self.assertFalse(attachment.any())
+        ears = (locks[:, 1] > 0.143) & (locks[:, 1] < 0.175)
+        self.assertLess(locks[ears, 2].max(), 0.0)
+        self.assertGreater(np.ptp(locks[locks[:, 1] < 0.06, 1]), 0.012)
+        backing = result.vertices[
+            -report["lockVertices"] - report["backingVertices"]:-report["lockVertices"]
+        ]
+        # The recessed scalp must not leave a flat forward panel next to the
+        # lower neck, even though it reaches farther forward above the ear.
+        self.assertLess(backing[backing[:, 1] < 0.105, 2].max(), 0.001)
 
 
 if __name__ == "__main__":

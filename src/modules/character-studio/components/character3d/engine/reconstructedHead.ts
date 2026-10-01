@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {buildReferenceEyes, cutReferenceEyeOpenings, readReferenceFace} from './referenceFace';
-import type {ReferenceEyeBoundary} from './referenceFace';
+import type {ReferenceEyeBoundary, ReferenceFace} from './referenceFace';
 import {buildReferenceHeadband} from './referenceHair';
 
 export const RECONSTRUCTED_HEAD_GLB_URL = '/models/reconstructed-head.glb';
@@ -36,6 +36,7 @@ export interface PreparedReconstructedEyes {
 
 export interface PreparedReconstructedFaceSurface {
   baseCanonicalPositions: Float32Array;
+  hitCanonicalPositions: Float32Array;
   faceVertexIndices: Uint32Array;
   faceWeights: Float32Array;
   localFromCanonical: THREE.Matrix4;
@@ -52,6 +53,7 @@ export interface PreparedReconstructedHead {
   bounds: THREE.Box3;
   eyes: PreparedReconstructedEyes;
   faceBounds: THREE.Box3;
+  referenceFace?: ReferenceFace;
   faceSurfaces: PreparedReconstructedFaceSurface[];
   hairBounds: THREE.Box3;
   hairGroup: THREE.Group;
@@ -98,6 +100,19 @@ const reconstructedFaceWeight = (x: number, y: number, z: number): number => {
   const upperFade = Math.max(0, Math.min(1, (0.263 - y) / 0.022));
   const depthFade = Math.max(0, Math.min(1, (z - 0.012) / 0.025));
   return horizontalFade * lowerFade * upperFade * depthFade;
+};
+
+/** The curated v2 face extends below the legacy coarse semantic mask. Keep the
+ * source neck fixed while allowing its actual mouth corners and chin to move. */
+const referenceFaceWeight = (x: number, y: number, z: number, face: ReferenceFace | null): number => {
+  if (face?.profile !== 'stylized_reference_v2' || !face.anchors) return reconstructedFaceWeight(x, y, z);
+  const chin = face.anchors.chinY;
+  const lower = THREE.MathUtils.smoothstep(y, chin - 0.005, chin + 0.012);
+  const upper = 1 - THREE.MathUtils.smoothstep(y, 0.241, 0.263);
+  const halfWidth = THREE.MathUtils.lerp(0.045, 0.074, THREE.MathUtils.smoothstep(y, chin, 0.145));
+  const horizontal = 1 - THREE.MathUtils.smoothstep(Math.abs(x), halfWidth - 0.012, halfWidth);
+  const depth = THREE.MathUtils.smoothstep(z, 0.045, 0.075);
+  return lower * upper * horizontal * depth;
 };
 
 const isNeckPoint = (x: number, y: number, z: number): boolean =>
@@ -516,9 +531,9 @@ export const prepareReconstructedHead = (
     return sample;
   }) : [];
   const relativeColors = sourceMeshes.some((mesh) =>
-    (mesh.userData.sourceProfile === 'stylized_reference_v1'
+    (['stylized_reference_v1', 'stylized_reference_v2'].includes(mesh.userData.sourceProfile)
       && mesh.userData.colorMode === 'relative_linear')
-    || (mesh.geometry.userData.sourceProfile === 'stylized_reference_v1'
+    || (['stylized_reference_v1', 'stylized_reference_v2'].includes(mesh.geometry.userData.sourceProfile)
       && mesh.geometry.userData.colorMode === 'relative_linear'));
   skinMaterial.vertexColors = relativeColors;
   hairMaterial.vertexColors = relativeColors;
@@ -578,7 +593,9 @@ export const prepareReconstructedHead = (
         visibleBounds.expandByPoint(point);
         if (target === hairIndices) hairBounds.expandByPoint(point);
         if (isLowerNeck) neckBounds.expandByPoint(point);
-        if (isFacePoint(centroid.x, centroid.y, centroid.z)) faceBounds.expandByPoint(point);
+        if (referenceFace?.anchors
+          ? referenceFaceWeight(centroid.x, centroid.y, centroid.z, referenceFace) > 0
+          : isFacePoint(centroid.x, centroid.y, centroid.z)) faceBounds.expandByPoint(point);
       }
     }
 
@@ -598,13 +615,15 @@ export const prepareReconstructedHead = (
       const localFromCanonical = canonicalFromLocal.clone().invert();
       const position = skinGeometry.getAttribute('position') as THREE.BufferAttribute;
       const baseCanonicalPositions: number[] = [];
+      const hitCanonicalPositions = new Float32Array(position.count * 3);
       const faceVertexIndices: number[] = [];
       const faceWeights: number[] = [];
       for (let vertex = 0; vertex < position.count; vertex++) {
         point
           .set(position.getX(vertex), position.getY(vertex), position.getZ(vertex))
           .applyMatrix4(canonicalFromLocal);
-        const weight = reconstructedFaceWeight(point.x, point.y, point.z);
+        point.toArray(hitCanonicalPositions, vertex * 3);
+        const weight = referenceFaceWeight(point.x, point.y, point.z, referenceFace);
         if (weight <= 0) continue;
         faceVertexIndices.push(vertex);
         faceWeights.push(weight);
@@ -612,6 +631,7 @@ export const prepareReconstructedHead = (
       }
       faceSurfaces.push({
         baseCanonicalPositions: new Float32Array(baseCanonicalPositions),
+        hitCanonicalPositions,
         faceVertexIndices: new Uint32Array(faceVertexIndices),
         faceWeights: new Float32Array(faceWeights),
         localFromCanonical,
@@ -708,7 +728,7 @@ export const prepareReconstructedHead = (
   }
 
   if (referenceFace && hairMeshes.length) {
-    const headband = buildReferenceHeadband(hairMeshes);
+    const headband = buildReferenceHeadband(hairMeshes, referenceFace.profile === 'stylized_reference_v2');
     hairGroup.add(headband);
     hairMeshes.push(headband);
     meshes.push(headband);
@@ -769,10 +789,12 @@ export const prepareReconstructedHead = (
     for (let vertex = 0; vertex < position.count; vertex++) {
       point.fromBufferAttribute(position, vertex).applyMatrix4(mesh.matrixWorld);
       canonicalPositions.push(point.x, point.y, point.z);
-      weights.push(reconstructedFaceWeight(point.x, point.y, point.z));
+      weights.push(referenceFaceWeight(point.x, point.y, point.z, referenceFace));
     }
+    const restPositions = new Float32Array(canonicalPositions);
     faceSurfaces.push({mesh,
-      baseCanonicalPositions: new Float32Array(canonicalPositions),
+      baseCanonicalPositions: restPositions,
+      hitCanonicalPositions: restPositions,
       faceWeights: new Float32Array(weights),
       faceVertexIndices: Uint32Array.from({length: position.count}, (_, i) => i),
       localFromCanonical: mesh.matrixWorld.clone().invert()});
@@ -783,6 +805,7 @@ export const prepareReconstructedHead = (
     bounds,
     eyes,
     faceBounds: eyeFaceBounds.clone(),
+    referenceFace: referenceFace ?? undefined,
     faceSurfaces,
     hairBounds,
     hairGroup,

@@ -27,7 +27,7 @@
 
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   height: 100%;
   min-height: 0;
   color: var(--c3d-text);
@@ -1996,3 +1996,26 @@
   background: rgba(245, 180, 0, 0.4);
   border-radius: 999px;
 }
+.c3d-saved-revisions {
+  padding: 10px 20px;
+  color: var(--c3d-text);
+  background: var(--c3d-bg-deep);
+  border-top: 1px solid var(--c3d-line);
+  font-size: 13px;
+  max-height: 25vh;
+  overflow: auto;
+}
+.c3d-saved-revisions summary { cursor: pointer; }
+.c3d-saved-revisions p { margin: 8px 0; }
+.c3d-saved-revisions label { display: inline-flex; align-items: center; gap: 8px; }
+.c3d-saved-revisions select, .c3d-saved-revisions button {
+  margin: 4px 8px 4px 0;
+  padding: 7px 10px;
+  border: 1px solid var(--c3d-line-strong);
+  border-radius: 6px;
+  background: var(--c3d-bg-2);
+  color: inherit;
+  max-width: min(70vw, 520px);
+}
+.c3d-saved-revisions button:disabled { opacity: .5; cursor: not-allowed; }
+.c3d-saved-revisions :focus-visible { outline: 2px solid #f5b400; outline-offset: 3px; }

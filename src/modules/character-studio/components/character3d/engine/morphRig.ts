@@ -11,6 +11,11 @@ import {
 } from './reconstructedHead';
 import type {PreparedReconstructedHead} from './reconstructedHead';
 import type {Rig, ZoneParams} from './rig';
+import {bodyHitZone, faceHitZone, restPointForHit} from './hitZones';
+import type {AnatomicalHit, RigHit} from './hitZones';
+import {limbVolumeOffsets} from './limbVolume';
+import {createReferencePolo} from './referenceClothing';
+import type {ReferencePolo} from './referenceClothing';
 
 // SMPL morph-target engine (A1). The SECOND 3D engine, sitting RIGHT NEXT TO
 // the procedural CharacterRig (engine/rig.ts) and implementing the same public
@@ -178,7 +183,7 @@ const GARMENT_BANDS: Record<string, {yLo: number; yHi: number}> = {
 };
 
 const GARMENT_STYLE_ORDER: Record<string, string[]> = {
-  clothing_top: ['sleeveless', 'tshirt', 'long_sleeve'],
+  clothing_top: ['sleeveless', 'tshirt', 'polo', 'long_sleeve'],
   clothing_bottom: ['shorts', 'trousers'],
 };
 
@@ -206,6 +211,8 @@ interface SurfaceShellSlot {
 }
 
 interface GarmentSlot extends SurfaceShellSlot {
+  sourceIndex: THREE.BufferAttribute | null;
+  polo: ReferencePolo | null;
   neckline: number[];
   // Cumulative index counts for nested style silhouettes. setDrawRange lets a
   // single independent garment asset expose different reference-derived cuts.
@@ -313,6 +320,7 @@ const REGION_BANDS: RegionBand[] = [
 
 export class MorphRig implements Rig {
   readonly root: THREE.Group;
+  readonly supportsAsymmetricEditing = false;
 
   private mesh: THREE.Mesh;
   private material: THREE.MeshStandardMaterial;
@@ -841,6 +849,16 @@ export class MorphRig implements Rig {
       mesh.visible = k > 0;
 
       this.root.add(mesh);
+      const neckline = id === 'clothing_top'
+        ? upperBoundary(geometry, this.baseMinY + h * 0.8, h * 0.15) : [];
+      const sourceIndex = geometry.index;
+      const polo = id === 'clothing_top'
+        ? createReferencePolo(geometry, neckline, styleCounts.tshirt, material) : null;
+      if (polo) {
+        styleCounts.polo = polo.index.count;
+        this.root.add(polo.group);
+        polo.group.visible = false;
+      }
       this.garments.push({
         id,
         mesh,
@@ -849,8 +867,9 @@ export class MorphRig implements Rig {
         localToBodyVid: Int32Array.from(localToBody),
         localIndex: Uint32Array.from(localTris),
         styleCounts,
-        neckline: id === 'clothing_top'
-          ? upperBoundary(geometry, this.baseMinY + h * 0.8, h * 0.15) : [],
+        neckline,
+        sourceIndex,
+        polo,
         style: GARMENT_DEFAULT_STYLE[id] ?? GARMENT_STYLE_ORDER[id]?.[0] ?? '',
         thick: GARMENT_THICKNESS[id] ?? 0.012,
         scratchPos: new Float32Array(k * 3),
@@ -1195,6 +1214,7 @@ export class MorphRig implements Rig {
         g.geometry.computeBoundingBox();
         g.geometry.computeBoundingSphere();
       }
+      if (g.polo && g.style === 'polo') g.polo.update();
     }
   }
 
@@ -1568,11 +1588,12 @@ export class MorphRig implements Rig {
     const eyeCenterX = (leftEye.x + rightEye.x) / 2;
     const eyeY = (leftEye.y + rightEye.y) / 2;
     const eyeSpan = Math.max(Math.abs(leftEye.x - rightEye.x), faceSize.x * 0.32, 1e-6);
-    const chinY = head.faceBounds.min.y;
+    const anchors = head.referenceFace?.anchors;
+    const chinY = anchors?.chinY ?? head.faceBounds.min.y;
     const foreheadY = head.faceBounds.max.y;
     const faceHeight = Math.max(foreheadY - chinY, eyeSpan * 1.7, 1e-6);
     const faceHalfWidth = Math.max(faceSize.x * 0.5, eyeSpan * 0.78);
-    const mouthY = chinY + (eyeY - chinY) * 0.42;
+    const mouthY = anchors?.mouthY ?? chinY + (eyeY - chinY) * 0.42;
 
     const shapeName =
       typeof params.face_shape?.shape === 'string' ? params.face_shape.shape : 'oval';
@@ -1634,7 +1655,7 @@ export class MorphRig implements Rig {
           + 0.04 * chinShape * chinWeight
         );
 
-        const noseCenterY = mouthY + (eyeY - mouthY) * 0.46;
+        const noseCenterY = anchors?.noseY ?? mouthY + (eyeY - mouthY) * 0.46;
         const noseWeight =
           bell(baseX, eyeCenterX, Math.max(eyeSpan * 0.43, faceHalfWidth * 0.22))
           * bell(baseY, noseCenterY, faceHeight * 0.23)
@@ -1990,6 +2011,44 @@ export class MorphRig implements Rig {
     return null;
   }
 
+  /** Real hit triangles keep their anatomical meaning through every edit. */
+  resolveHit(hit: RigHit, selectedZoneId: string | null = null): AnatomicalHit | null {
+    const garment = this.garments.find((slot) => slot.mesh === hit.object);
+    const taggedZone = this.resolveZoneFromObject(hit.object);
+    if (garment && !selectedZoneId?.startsWith('clothing')) {
+      const rest = restPointForHit(hit, garment.mesh, this.bodyBasePositions, garment.localToBodyVid);
+      if (rest) return bodyHitZone(rest, this.baseMinY, this.baseMaxY);
+    }
+    if (hit.object === this.mesh) {
+      const rest = restPointForHit(hit, this.mesh, this.bodyBasePositions);
+      if (rest) return bodyHitZone(rest, this.baseMinY, this.baseMaxY);
+    }
+    const head = this.reconstructedHead;
+    const faceSurface = head?.faceSurfaces.find((surface) => surface.mesh === hit.object);
+    if (head && faceSurface && taggedZone !== 'hair') {
+      const rest = restPointForHit(hit, faceSurface.mesh, faceSurface.hitCanonicalPositions);
+      if (rest) return faceHitZone(rest, ...head.eyes.canonicalPositions, head.faceBounds, head.referenceFace?.anchors);
+    }
+    return taggedZone ? {zoneId: taggedZone, side: null} : null;
+  }
+
+  supportsParameter(zoneId: string, parameterId: string): boolean {
+    if (BETA_MAPPING[zoneId]?.[parameterId]) return true;
+    const controls: Record<string, string[]> = {
+      head_neck: ['headSize'],
+      upper_arm: ['volume', 'length'], forearm: ['thickness', 'length'],
+      thigh: ['thighVolume', 'thighLength'], calf: ['calfVolume', 'calfLength'],
+      face_shape: ['cheekbones', 'faceDepth'],
+      eyes: ['eyeSize', 'eyeDistance', 'eyeTilt'],
+      nose: ['noseLength', 'noseWidth', 'noseTip', 'bridgeHeight'],
+      mouth: ['mouthWidth', 'upperLip', 'lowerLip', 'cornerLift'],
+      jaw_chin: ['jawWidth', 'chinLength', 'chinShape'],
+      hair: ['hairLength', 'hairVolume'],
+      skin_color: ['skinSaturation'],
+    };
+    return controls[zoneId]?.includes(parameterId) ?? false;
+  }
+
   // The SMPL body is a single mesh with no per-side split, so we can't recover
   // which half was grabbed. Asymmetric editing isn't supported in morph mode
   // (A1 is symmetric shape only) — always null.
@@ -2114,7 +2173,7 @@ export class MorphRig implements Rig {
     // Clothing zones outline their own garment mesh (only while it's visible).
     const garment = (zone: string | null): THREE.Mesh[] => {
       const g = this.garments.find((s) => s.id === zone && s.mesh.visible);
-      return g ? [g.mesh] : [];
+      return g ? [g.mesh, ...(g.style === 'polo' ? g.polo?.meshes ?? [] : [])] : [];
     };
     if (selected && selected.startsWith('clothing')) return {selected: garment(selected), hovered: []};
     if (hovered && hovered.startsWith('clothing')) return {selected: [], hovered: garment(hovered)};
@@ -2138,6 +2197,7 @@ export class MorphRig implements Rig {
     this.hairMaterial?.dispose();
 
     this.garments.forEach((g) => {
+      g.polo?.dispose();
       g.geometry.dispose();
       g.material.dispose();
     });
@@ -2210,6 +2270,26 @@ export class MorphRig implements Rig {
     if (this.lipMat) this.lipMat.color.copy(skin.clone().lerp(new THREE.Color('#b0524f'), 0.6));
 
     const mb = this.computeMorphedBodyPositions();
+    const volumeOffsets = limbVolumeOffsets(this.bodyBasePositions, mb, this.baseMinY, this.baseMaxY, params);
+    if (volumeOffsets) {
+      const position = this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+      for (let vertex = 0; vertex < position.count; vertex++) {
+        const offset = vertex * 3;
+        position.setXYZ(vertex, position.getX(vertex) + volumeOffsets[offset], position.getY(vertex) + volumeOffsets[offset + 1], position.getZ(vertex) + volumeOffsets[offset + 2]);
+        for (let axis = 0; axis < 3; axis++) mb[offset + axis] += volumeOffsets[offset + axis];
+      }
+      position.needsUpdate = true;
+      const surface = new THREE.BufferGeometry();
+      surface.setAttribute('position', new THREE.BufferAttribute(mb, 3));
+      surface.setIndex(this.mesh.geometry.index);
+      surface.computeVertexNormals();
+      const normal = this.mesh.geometry.getAttribute('normal') as THREE.BufferAttribute;
+      normal.copyArray(surface.getAttribute('normal').array);
+      normal.needsUpdate = true;
+      this.mesh.geometry.boundingBox = new THREE.Box3().setFromBufferAttribute(surface.getAttribute('position') as THREE.BufferAttribute);
+      this.mesh.geometry.boundingSphere = this.mesh.geometry.boundingBox.getBoundingSphere(new THREE.Sphere());
+      surface.dispose();
+    }
     this.alignReferenceBody(params, mb);
     this.updateNeckSeam(mb);
 
@@ -2226,12 +2306,14 @@ export class MorphRig implements Rig {
         ? requestedStyle
         : defaultStyle;
       const drawCount = g.styleCounts[g.style] ?? g.localIndex.length;
+      g.geometry.setIndex(g.style === 'polo' && g.polo ? g.polo.index : g.sourceIndex);
       g.geometry.setDrawRange(0, drawCount);
       // `enabled` defaults ON: only an explicit false hides a garment. An empty
       // style (no kept triangles) can never become visible.
       const enabled = zone?.enabled !== false && drawCount > 0;
       g.visible = enabled;
       g.mesh.visible = enabled;
+      if (g.polo) g.polo.group.visible = enabled && g.style === 'polo';
       const colorHex =
         typeof zone?.color === 'string' ? zone.color : GARMENT_DEFAULT_COLOR[g.id] ?? '#3b5266';
       g.material.color.set(colorHex);

@@ -180,6 +180,8 @@ field so eye and face controls remain attached. This currently targets the
 reviewed angry_dog reconstruction; unmarked assets retain the existing renderer.
 The preparation workflow, coordinate and color contract, and limitations are in
 [reference surface refinement](tools/reconstruction/REFINE_REFERENCE_SURFACE.md).
+The full editing, persistence and visual-verification workflow is maintained in
+[the editable character guide](docs/character3d.md).
 
 ## Reference Library
 

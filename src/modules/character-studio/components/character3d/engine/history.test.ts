@@ -4,6 +4,27 @@ import type {ZoneParams} from './rig';
 const state = (v: number): ZoneParams => ({torso: {chestWidth: v}});
 
 describe('ParamHistory', () => {
+  it('keeps long pauses in one gesture and separates rapid successive gestures', () => {
+    const h = new ParamHistory();
+    h.beginGesture();
+    h.record(state(0), 0);
+    h.record(state(.2), 3000);
+    h.endGesture();
+    h.beginGesture();
+    h.record(state(.4), 3100);
+    h.record(state(.6), 3200);
+    h.endGesture();
+    expect(h.undo(state(.8))).toEqual(state(.4));
+    expect(h.undo(state(.4))).toEqual(state(0));
+    expect(h.canUndo).toBe(false);
+  });
+
+  it('does not create an undo entry for a click with no movement', () => {
+    const h = new ParamHistory();
+    h.beginGesture();
+    h.endGesture();
+    expect(h.canUndo).toBe(false);
+  });
   it('undoes and redoes through recorded states', () => {
     const h = new ParamHistory();
     h.record(state(0), 0);

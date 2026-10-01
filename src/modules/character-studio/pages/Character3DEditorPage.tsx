@@ -22,7 +22,8 @@ import {
 import type {EditableZone, ZoneGroup} from '../components/character3d/zones';
 
 import {characterApi} from '../api/characterApi';
-import type {GenerationJob, Model3DReconstruction} from '../types/character.types';
+import type {CharacterRevision, GenerationJob, Model3DReconstruction} from '../types/character.types';
+import {clampParameter} from '../components/character3d/engine/dragBindings';
 import {collapseSideOverrides, mergeSavedParams} from '../components/character3d/engine/paramMerge';
 import {useCharacter} from '../hooks/useCharacter';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
@@ -72,6 +73,7 @@ const Character3DEditorPageContent: React.FC = () => {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [zoomZoneId, setZoomZoneId] = useState<string | null>(null);
   const [symmetryEnabled, setSymmetryEnabled] = useState<boolean>(true);
+  const [asymmetricSupported, setAsymmetricSupported] = useState(false);
   type ZoneParamsState = Record<string, Record<string, number | string | boolean>>;
   const [zoneParams, setZoneParams] = useState<ZoneParamsState>(() => buildInitialZoneParams());
   // Apply changes the Cancel target, while Save alone changes persistence.
@@ -100,6 +102,36 @@ const Character3DEditorPageContent: React.FC = () => {
   const pageActiveRef = useRef(true);
   // Turntable on/off — owned here so the toggle button reflects the state.
   const [turntableOn, setTurntableOn] = useState(false);
+  const [revisions, setRevisions] = useState<CharacterRevision[]>([]);
+  const [revisionId, setRevisionId] = useState('');
+  const [revisionListBusy, setRevisionListBusy] = useState(false);
+  const revisionListRequestRef = useRef(0);
+  // A synchronous lock protects all model writes, including callbacks captured
+  // before React renders a disabled button. Listing history never releases it.
+  const modelMutationRef = useRef<'save' | 'restore' | 'retry' | null>(null);
+  const [modelMutation, setModelMutation] = useState<'save' | 'restore' | 'retry' | null>(null);
+  const modelEpochRef = useRef(0);
+  const revisionBusy = modelMutation !== null;
+  const [revisionError, setRevisionError] = useState(false);
+  const [revisionReloadFailed, setRevisionReloadFailed] = useState(false);
+
+  const loadRevisions = useCallback(async () => {
+    if (!projectId || !characterId) return;
+    const request = ++revisionListRequestRef.current;
+    setRevisionListBusy(true);
+    setRevisionError(false);
+    try {
+      const response = await characterApi.listRevisions(projectId, characterId);
+      if (!pageActiveRef.current || request !== revisionListRequestRef.current) return;
+      const data = response.data;
+      const items: CharacterRevision[] = Array.isArray(data) ? data : data?.results ?? data?.revisions ?? [];
+      setRevisions(items.filter((revision) => Object.prototype.hasOwnProperty.call(revision.after_snapshot ?? {}, 'model3d_params')));
+    } catch {
+      if (pageActiveRef.current && request === revisionListRequestRef.current) setRevisionError(true);
+    } finally {
+      if (pageActiveRef.current && request === revisionListRequestRef.current) setRevisionListBusy(false);
+    }
+  }, [projectId, characterId]);
 
   useEffect(() => {
     pageActiveRef.current = true;
@@ -119,24 +151,73 @@ const Character3DEditorPageContent: React.FC = () => {
   // Single entry point for parameter mutations — records undo history.
   const mutateParams = useCallback(
     (producer: (prev: ZoneParamsState) => ZoneParamsState) => {
+      if (modelMutationRef.current || modelLoadState !== 'ready' || autofitBusy) return;
       const prev = zoneParamsRef.current;
       const next = producer(prev);
       if (next === prev) return;
       historyRef.current.record(prev, Date.now());
       commitParams(next);
     },
-    [commitParams],
+    [commitParams, modelLoadState, autofitBusy],
   );
 
   const handleUndo = useCallback(() => {
+    if (modelMutationRef.current) return;
     const restored = historyRef.current.undo(zoneParamsRef.current);
     if (restored) commitParams(restored);
   }, [commitParams]);
 
   const handleRedo = useCallback(() => {
+    if (modelMutationRef.current) return;
     const restored = historyRef.current.redo(zoneParamsRef.current);
     if (restored) commitParams(restored);
   }, [commitParams]);
+
+  const handleGestureStart = useCallback(() => {
+    if (!modelMutationRef.current) historyRef.current.beginGesture();
+  }, []);
+  const handleGestureEnd = useCallback(() => historyRef.current.endGesture(), []);
+
+  const handleRestoreRevision = useCallback(async () => {
+    if (!projectId || !characterId || !revisionId || modelMutationRef.current
+      || modelLoadState !== 'ready' || autofitBusy || reconstructionRetryBusy) return;
+    if (JSON.stringify(zoneParamsRef.current) !== JSON.stringify(savedBaseline)) return;
+    modelMutationRef.current = 'restore';
+    setModelMutation('restore');
+    modelEpochRef.current++;
+    setRevisionError(false);
+    setRevisionReloadFailed(false);
+    let persisted = false;
+    try {
+      await characterApi.restoreRevision(projectId, characterId, revisionId);
+      persisted = true;
+      const response = await characterApi.getModel3D(projectId, characterId);
+      if (!pageActiveRef.current) return;
+      const restored = mergeSavedParams(response.data.params ?? {});
+      historyRef.current.reset();
+      commitParams(restored);
+      setSavedBaseline(restored);
+      setCancelBaseline(restored);
+      setReconstruction(response.data.reconstruction ?? null);
+      setHoveredZoneId(null);
+      setTurntableOn(false);
+      setModelLoadState('ready');
+      setRevisionId('');
+      message.success(t('characterStudio3d.revisions.restored'));
+    } catch {
+      if (pageActiveRef.current) {
+        if (persisted) {
+          setModelLoadState('failed');
+          setRevisionReloadFailed(true);
+        }
+        setRevisionError(true);
+        message.error(t(persisted ? 'characterStudio3d.revisions.restoreReloadError' : 'characterStudio3d.revisions.restoreError'));
+      }
+    } finally {
+      modelMutationRef.current = null;
+      if (pageActiveRef.current) setModelMutation(null);
+    }
+  }, [projectId, characterId, revisionId, modelLoadState, autofitBusy, reconstructionRetryBusy, commitParams, savedBaseline, t]);
 
   // ─── Open the 3D stage: load saved state, or auto-fit on the first open ───
   //
@@ -213,6 +294,7 @@ const Character3DEditorPageContent: React.FC = () => {
   // Poll only while it is active; a ready URL stops polling and is loaded once.
   useEffect(() => {
     if (!projectId || !characterId) return;
+    if (modelMutation) return;
     if (
       reconstruction?.status !== 'queued' &&
       reconstruction?.status !== 'processing'
@@ -220,9 +302,10 @@ const Character3DEditorPageContent: React.FC = () => {
     let alive = true;
     let timer: number | undefined;
     const poll = async () => {
+      const epoch = modelEpochRef.current;
       try {
         const response = await characterApi.getModel3D(projectId, characterId);
-        if (alive) setReconstruction(response.data.reconstruction);
+        if (alive && epoch === modelEpochRef.current && !modelMutationRef.current) setReconstruction(response.data.reconstruction);
       } catch {
         // Keep the last known state; the next polling tick can recover.
       } finally {
@@ -234,7 +317,7 @@ const Character3DEditorPageContent: React.FC = () => {
       alive = false;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [projectId, characterId, reconstruction?.status]);
+  }, [projectId, characterId, reconstruction?.status, modelMutation]);
 
   // ─── Derived state ───
   const selectedZone: EditableZone | null = useMemo(() => findZone(selectedZoneId), [selectedZoneId]);
@@ -246,7 +329,7 @@ const Character3DEditorPageContent: React.FC = () => {
   );
   // Side-scoped editing is active only for symmetric zones with symmetry off.
   const editSide: 'L' | 'R' | null =
-    selectedZone?.isSymmetric && !symmetryEnabled ? selectedSide : null;
+    asymmetricSupported && selectedZone?.isSymmetric && !symmetryEnabled ? selectedSide : null;
   const hasUnappliedChanges = useMemo(
     () => JSON.stringify(zoneParams) !== JSON.stringify(cancelBaseline),
     [cancelBaseline, zoneParams],
@@ -283,23 +366,28 @@ const Character3DEditorPageContent: React.FC = () => {
 
   const handleParameterChange = useCallback(
     (zoneId: string, paramId: string, value: number | string | boolean, side?: 'L' | 'R' | null) => {
+      if (modelMutationRef.current) return;
+      if (side && !asymmetricSupported) return;
+      const nextValue = typeof value === 'number' ? clampParameter(zoneId, paramId, value) : value;
       mutateParams((prev) => {
         const zone = {...(prev[zoneId] ?? {})};
+        const key = side ? `${paramId}__${side}` : paramId;
+        if (zone[key] === nextValue && (side || (zone[`${paramId}__L`] === undefined && zone[`${paramId}__R`] === undefined))) return prev;
         if (side) {
           // Asymmetric edit: write the per-side override, the shared value
           // keeps serving the other side.
-          zone[`${paramId}__${side}`] = value;
+          zone[`${paramId}__${side}`] = nextValue;
         } else {
           // Symmetric edit: set the shared value and drop stale overrides so
           // both sides actually follow the slider.
-          zone[paramId] = value;
+          zone[paramId] = nextValue;
           delete zone[`${paramId}__L`];
           delete zone[`${paramId}__R`];
         }
         return {...prev, [zoneId]: zone};
       });
     },
-    [mutateParams],
+    [mutateParams, asymmetricSupported],
   );
 
   const handleZoomToggle = useCallback(() => {
@@ -308,6 +396,8 @@ const Character3DEditorPageContent: React.FC = () => {
   }, [selectedZoneId]);
 
   const handleSymmetryToggle = useCallback(() => {
+    if (modelMutationRef.current) return;
+    if (!asymmetricSupported) return;
     setSymmetryEnabled((prev) => {
       const next = !prev;
       if (next && selectedZoneId) {
@@ -317,7 +407,7 @@ const Character3DEditorPageContent: React.FC = () => {
       }
       return next;
     });
-  }, [selectedZoneId, selectedSide, mutateParams]);
+  }, [selectedZoneId, selectedSide, mutateParams, asymmetricSupported]);
 
   const handleReset = useCallback(() => {
     // Reset only the currently-selected zone's params to defaults — the
@@ -336,6 +426,7 @@ const Character3DEditorPageContent: React.FC = () => {
   }, [cancelBaseline, mutateParams]);
 
   const handleApply = useCallback(() => {
+    if (modelMutationRef.current) return;
     setCancelBaseline(zoneParams);
     message.success(t('characterStudio3d.messages.changesApplied'));
   }, [t, zoneParams]);
@@ -414,11 +505,14 @@ const Character3DEditorPageContent: React.FC = () => {
   }, [handleUndo, handleRedo]);
 
   const handleSave = useCallback(() => {
+    if (modelMutationRef.current) return;
     if (!projectId || !characterId || modelLoadState !== 'ready') {
       message.error(t('characterStudio3d.messages.saveUnavailable'));
       return;
     }
     const savedParams = zoneParams;
+    modelMutationRef.current = 'save';
+    setModelMutation('save');
     characterApi
       .saveModel3D(projectId, characterId, savedParams)
       .then(() => {
@@ -431,6 +525,10 @@ const Character3DEditorPageContent: React.FC = () => {
         if (pageActiveRef.current) {
           message.error(t('characterStudio3d.messages.modelSaveFailed'));
         }
+      })
+      .finally(() => {
+        modelMutationRef.current = null;
+        if (pageActiveRef.current) setModelMutation(null);
       });
   }, [characterId, modelLoadState, projectId, t, zoneParams]);
 
@@ -451,7 +549,10 @@ const Character3DEditorPageContent: React.FC = () => {
   }, [zoomZoneId, selectedZoneId, handleSelectZone]);
 
   const handleRetryReconstruction = useCallback(() => {
-    if (!projectId || !characterId || reconstructionRetryBusy) return;
+    if (!projectId || !characterId || reconstructionRetryBusy || modelMutationRef.current) return;
+    modelMutationRef.current = 'retry';
+    setModelMutation('retry');
+    modelEpochRef.current++;
     setReconstructionRetryBusy(true);
     characterApi
       .retryModel3DReconstruction(projectId, characterId)
@@ -464,7 +565,11 @@ const Character3DEditorPageContent: React.FC = () => {
         }
       })
       .finally(() => {
-        if (pageActiveRef.current) setReconstructionRetryBusy(false);
+        modelMutationRef.current = null;
+        if (pageActiveRef.current) {
+          setReconstructionRetryBusy(false);
+          setModelMutation(null);
+        }
       });
   }, [characterId, projectId, reconstructionRetryBusy, t]);
 
@@ -491,6 +596,7 @@ const Character3DEditorPageContent: React.FC = () => {
   }, [reconstruction]);
 
   const handleGenerationJobStarted = useCallback((nextJobId: string, sourceJob: GenerationJob) => {
+    if (modelMutationRef.current) return;
     if (sourceJob.job_id !== reconstruction?.job_id) return;
     setReconstruction((current) => ({
       status: 'queued',
@@ -547,6 +653,7 @@ const Character3DEditorPageContent: React.FC = () => {
 
         <main className="c3d-stage">
           <CharacterViewport
+            key={reconstruction?.asset_id ?? 'pending'}
             hoveredZoneId={hoveredZoneId}
 
             selectedZoneId={selectedZoneId}
@@ -555,6 +662,9 @@ const Character3DEditorPageContent: React.FC = () => {
             onHoverZone={handleHoverZone}
             onSelectZone={handleSelectZone}
             onParameterChange={handleParameterChange}
+            onGestureStart={handleGestureStart}
+            onGestureEnd={handleGestureEnd}
+            onAsymmetricCapabilityChange={setAsymmetricSupported}
             editSide={editSide}
             onSideChange={setSelectedSide}
             onApiReady={setViewportApi}
@@ -582,6 +692,8 @@ const Character3DEditorPageContent: React.FC = () => {
               ancestors={ancestors}
               zoneParams={zoneParams[selectedZoneId ?? ''] ?? {}}
               symmetryEnabled={symmetryEnabled}
+              asymmetricSupported={asymmetricSupported}
+              supportsParameter={viewportApi?.supportsParameter}
               editSide={editSide}
               onSideChange={setSelectedSide}
               isZoomed={!!zoomZoneId && zoomZoneId === selectedZoneId}
@@ -595,11 +707,40 @@ const Character3DEditorPageContent: React.FC = () => {
               onCancel={handleCancel}
               onApply={handleApply}
               onSave={handleSave}
-              saveDisabled={modelLoadState !== 'ready'}
+              saveDisabled={modelLoadState !== 'ready' || revisionBusy}
             />
           </div>
         </main>
       </div>
+
+      <details className="c3d-saved-revisions" onToggle={(event) => {
+        if (event.currentTarget.open) void loadRevisions();
+      }}>
+        <summary>{t('characterStudio3d.revisions.title')}</summary>
+        <p>{t('characterStudio3d.revisions.hint')}</p>
+        <label>
+          {t('characterStudio3d.revisions.select')}
+          <select value={revisionId} disabled={revisionBusy || revisionListBusy} onChange={(event) => setRevisionId(event.target.value)}>
+            <option value="">{t('characterStudio3d.revisions.placeholder')}</option>
+            {revisions.map((revision) => <option key={revision.revision_id} value={revision.revision_id}>
+              #{revision.revision_number} · {revision.change_summary || revision.created_at}
+            </option>)}
+          </select>
+        </label>
+        <button type="button" disabled={!revisionId || revisionBusy || hasUnsavedChanges || modelLoadState !== 'ready' || autofitBusy || reconstructionRetryBusy} onClick={handleRestoreRevision}>
+          {t('characterStudio3d.revisions.restore')}
+        </button>
+        <button type="button" disabled={revisionListBusy} onClick={() => void loadRevisions()}>
+          {t('characterStudio3d.revisions.refresh')}
+        </button>
+        {revisionId && !revisions.find((revision) => revision.revision_id === revisionId)?.after_snapshot?.model3d_reconstruction
+          && !Object.prototype.hasOwnProperty.call(revisions.find((revision) => revision.revision_id === revisionId)?.after_snapshot ?? {}, 'model3d_asset_id')
+          ? <p>{t('characterStudio3d.revisions.legacy')}</p> : null}
+        {hasUnsavedChanges ? <p>{t('characterStudio3d.revisions.unsaved')}</p> : null}
+        {revisionReloadFailed
+          ? <p role="alert">{t('characterStudio3d.revisions.restoreReloadError')}</p>
+          : revisionError ? <p role="alert">{t('characterStudio3d.revisions.error')}</p> : null}
+      </details>
 
       <BottomQuickBar
         generationHistory={(
@@ -616,8 +757,8 @@ const Character3DEditorPageContent: React.FC = () => {
         selectedZone={selectedZone}
         zoneParams={zoneParams[selectedZoneId ?? ''] ?? {}}
         hasChanges={hasUnappliedChanges}
-        canUndo={historyRef.current.canUndo}
-        canRedo={historyRef.current.canRedo}
+        canUndo={!revisionBusy && historyRef.current.canUndo}
+        canRedo={!revisionBusy && historyRef.current.canRedo}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onSnapshot={viewportApi ? handleSnapshot : undefined}
@@ -630,7 +771,7 @@ const Character3DEditorPageContent: React.FC = () => {
         onCancel={handleCancel}
         onApply={handleApply}
         onSave={handleSave}
-        saveDisabled={modelLoadState !== 'ready'}
+        saveDisabled={modelLoadState !== 'ready' || revisionBusy}
       />
     </div>
   );

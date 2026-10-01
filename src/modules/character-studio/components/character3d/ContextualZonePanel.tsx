@@ -8,6 +8,8 @@ interface Props {
   ancestors: EditableZone[];
   zoneParams: Record<string, number | string | boolean>;
   symmetryEnabled: boolean;
+  asymmetricSupported?: boolean;
+  supportsParameter?: (zoneId: string, parameterId: string) => boolean;
   // 'L' | 'R' when a symmetric zone is edited with symmetry off; sliders
   // then read/write per-side overrides (`paramId__L` / `paramId__R`).
   editSide: 'L' | 'R' | null;
@@ -39,6 +41,8 @@ const ContextualZonePanel: React.FC<Props> = ({
   ancestors,
   zoneParams,
   symmetryEnabled,
+  asymmetricSupported = true,
+  supportsParameter,
   editSide,
   onSideChange,
   isZoomed,
@@ -105,6 +109,7 @@ const ContextualZonePanel: React.FC<Props> = ({
 
         {zone.parameters && zone.parameters.length > 0 ? (
           <ZoneParameters
+            supportsParameter={supportsParameter}
             zone={zone}
             zoneParams={zoneParams}
             editSide={editSide}
@@ -115,6 +120,7 @@ const ContextualZonePanel: React.FC<Props> = ({
 
         {zone.isSymmetric ? (
           <SymmetryToggle
+            supported={asymmetricSupported}
             enabled={symmetryEnabled}
             onToggle={onSymmetryToggle}
             editSide={editSide}
@@ -222,12 +228,13 @@ const ZoneChildrenList: React.FC<{zone: EditableZone; onSelectZone: (id: string)
 
 // ─────────── Parameters ───────────
 const ZoneParameters: React.FC<{
+  supportsParameter?: (zoneId: string, parameterId: string) => boolean;
   zone: EditableZone;
   zoneParams: Record<string, number | string | boolean>;
   editSide: 'L' | 'R' | null;
   onChange: (paramId: string, value: number | string | boolean, side?: 'L' | 'R' | null) => void;
   onReset: () => void;
-}> = ({zone, zoneParams, editSide, onChange, onReset}) => {
+}> = ({zone, zoneParams, editSide, onChange, onReset, supportsParameter}) => {
   const {t} = useTranslation();
 
   return (
@@ -257,6 +264,7 @@ const ZoneParameters: React.FC<{
             : zoneParams[param.id] ?? param.defaultValue;
           return (
             <ParameterControl
+              disabled={(param.ui === 'slider' || param.ui === 'drag') && supportsParameter?.(zone.id, param.id) === false}
               key={sided ? `${param.id}__${editSide}` : param.id}
               param={param}
               value={value}
@@ -270,14 +278,15 @@ const ZoneParameters: React.FC<{
 };
 
 const ParameterControl: React.FC<{
+  disabled?: boolean;
   param: EditableParameter;
   value: number | string | boolean;
   onChange: (value: number | string | boolean) => void;
-}> = ({param, value, onChange}) => {
+}> = ({param, value, onChange, disabled}) => {
   switch (param.ui) {
     case 'slider':
     case 'drag':
-      return <SliderControl param={param} value={value as number} onChange={onChange} />;
+      return <SliderControl param={param} value={value as number} onChange={onChange} disabled={disabled} />;
     case 'swatch':
       return <SwatchControl param={param} value={value as string} onChange={onChange} />;
     case 'preset':
@@ -290,10 +299,11 @@ const ParameterControl: React.FC<{
 };
 
 const SliderControl: React.FC<{
+  disabled?: boolean;
   param: EditableParameter;
   value: number;
   onChange: (v: number) => void;
-}> = ({param, value, onChange}) => {
+}> = ({param, value, onChange, disabled}) => {
   const {t} = useTranslation();
   const min = param.min ?? -1;
   const max = param.max ?? 1;
@@ -308,6 +318,7 @@ const SliderControl: React.FC<{
       </div>
       <input
         type="range"
+        disabled={disabled}
         className="c3d-param-slider"
         min={min}
         max={max}
@@ -317,7 +328,7 @@ const SliderControl: React.FC<{
         style={{['--c3d-slider-fill' as never]: `${norm * 100}%`}}
         aria-label={t(param.translationKey)}
       />
-      {param.ui === 'drag' && param.hintTranslationKey ? (
+      {disabled ? <small className="c3d-param-row__hint">{t('characterStudio3d.parameters.unsupported')}</small> : param.ui === 'drag' && param.hintTranslationKey ? (
         <small className="c3d-param-row__hint">{t(param.hintTranslationKey)}</small>
       ) : null}
     </div>
@@ -413,11 +424,12 @@ const ToggleControl: React.FC<{
 
 // ─────────── Symmetry toggle ───────────
 const SymmetryToggle: React.FC<{
+  supported: boolean;
   enabled: boolean;
   onToggle: () => void;
   editSide: 'L' | 'R' | null;
   onSideChange: (side: 'L' | 'R') => void;
-}> = ({enabled, onToggle, editSide, onSideChange}) => {
+}> = ({supported, enabled, onToggle, editSide, onSideChange}) => {
   const {t} = useTranslation();
 
   const sides = [
@@ -431,7 +443,7 @@ const SymmetryToggle: React.FC<{
         <div className="c3d-symmetry__copy">
           <strong>{t('characterStudio3d.symmetry.title')}</strong>
           <small>
-            {enabled
+            {!supported ? t('characterStudio3d.symmetry.unsupportedHint') : enabled
               ? t('characterStudio3d.symmetry.enabledHint')
               : t('characterStudio3d.symmetry.disabledHint')}
           </small>
@@ -440,13 +452,15 @@ const SymmetryToggle: React.FC<{
           type="button"
           className={`c3d-toggle ${enabled ? 'c3d-toggle--on' : ''}`}
           onClick={onToggle}
+          disabled={!supported}
+          aria-label={t('characterStudio3d.symmetry.title')}
           role="switch"
           aria-checked={enabled}
         >
           <span className="c3d-toggle__knob" />
         </button>
       </div>
-      {!enabled ? (
+      {!enabled && supported ? (
         <div className="c3d-symmetry__sides">
           <div
             className="c3d-segment"

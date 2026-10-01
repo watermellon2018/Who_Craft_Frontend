@@ -736,6 +736,28 @@ describe('MorphRig clothing (A5)', () => {
     expect(bottom.geometry.drawRange.count).toBe(shortsCount);
   });
 
+  it('polo adds a tracked collar and restores the original shirt index when switched off', () => {
+    const top = rig.nodeByName('clothing_top') as THREE.Mesh;
+    const originalIndex = top.geometry.index;
+    const originalPositions = Array.from(top.geometry.getAttribute('position').array);
+    rig.applyParams(withParams({clothing_top: {style: 'polo'}}));
+    const polo = rig.root.getObjectByName('reference_polo') as THREE.Group;
+    expect(polo).toBeDefined();
+    expect(polo.visible).toBe(true);
+    expect(top.geometry.index).not.toBe(originalIndex);
+    const collar = polo.getObjectByName('polo_folded_collar') as THREE.Mesh;
+    const initialCollar = Array.from(collar.geometry.getAttribute('position').array);
+    rig.applyParams(withParams({clothing_top: {style: 'polo'}, thigh: {thighLength: 1}}));
+    expect(Array.from(collar.geometry.getAttribute('position').array)).not.toEqual(initialCollar);
+    expect(Array.from(collar.geometry.getAttribute('position').array).every(Number.isFinite)).toBe(true);
+    rig.applyParams(withParams({clothing_top: {style: 'polo', enabled: false}}));
+    expect(polo.visible).toBe(false);
+    rig.applyParams(withParams({clothing_top: {style: 'tshirt'}}));
+    expect(top.geometry.index).toBe(originalIndex);
+    expect(polo.visible).toBe(false);
+    expect(Array.from(top.geometry.getAttribute('position').array)).toEqual(originalPositions);
+  });
+
   it('garments default to ENABLED (a fresh character is dressed)', () => {
     // buildInitialZoneParams() (the neutral state applied in beforeEach) leaves
     // both garments visible, because the clothing 'enabled' toggle defaults true.

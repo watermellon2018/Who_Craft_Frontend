@@ -234,5 +234,3 @@ def _reference_guided_skin_mask(
     )
     skin[visible & neck] = True
     return skin & visible
-
-
