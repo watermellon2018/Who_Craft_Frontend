@@ -15,6 +15,7 @@ import ProfilePage from "./modules/profile/ProfileDashboardPage";
 import ProfileEditPage from "./modules/profile/ProfileEditPage";
 import ProfileSettingsPage from './modules/profile/ProfileSettingsPage';
 import SubscriptionsPage from "./modules/subscriptions/SubscriptionsPage";
+import MessagesPage from './modules/messaging/MessagesPage';
 import ProjectCreatePage from "./page/creation/projects/newProjectPage";
 import ProjectListPage from "./page/movie/library/own/list";
 import ProjectPage from "./page/movie/projectPage/projectPage";
@@ -62,6 +63,7 @@ const ProtectedProfilePage = withAuth(ProfilePage);
 const ProtectedProfileEditPage = withAuth(ProfileEditPage);
 const ProtectedProfileSettingsPage = withAuth(ProfileSettingsPage);
 const ProtectedSubscriptionsPage = withAuth(SubscriptionsPage);
+const ProtectedMessagesPage = withAuth(MessagesPage);
 const ProtectedCreditWalletPage = withAuth(CreditWalletPage);
 const ProtectedProjectCreatePage = withAuth(ProjectCreatePage);
 const ProtectedProjectListPage = withAuth(ProjectListPage);
@@ -110,6 +112,8 @@ export const APP_ROUTES = [
         { key: 'profileEdit', path: PathConstants.PROFILE_EDIT, component: <ProtectedProfileEditPage /> },
         { key: 'profileSettings', path: PathConstants.PROFILE_SETTINGS, component: <ProtectedProfileSettingsPage /> },
         { key: 'profileSubscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS, component: <ProtectedSubscriptionsPage /> },
+        { key: 'profileMessages', path: PathConstants.PROFILE_MESSAGES, component: <ProtectedMessagesPage /> },
+        { key: 'profileConversation', path: PathConstants.PROFILE_CONVERSATION, component: <ProtectedMessagesPage /> },
         { key: 'credits', path: PathConstants.CREDITS, component: <ProtectedCreditWalletPage /> },
         { key: 'createProject', path: PathConstants.CREATE_PROJECT, component: <ProtectedProjectCreatePage /> },
         { key: 'editProject', path: PathConstants.EDIT_PROJECT, component: <ProtectedProjectCreatePage /> },

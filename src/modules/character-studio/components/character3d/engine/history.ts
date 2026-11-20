@@ -11,22 +11,40 @@ export class ParamHistory {
   private past: ZoneParams[] = [];
   private future: ZoneParams[] = [];
   private lastRecordAt = -Infinity;
+  private gestureActive = false;
+  private gestureRecorded = false;
 
   constructor(private limit = 60, private coalesceMs = 600) {}
+
+  /** Explicit pointer gestures stay separate regardless of speed or pauses. */
+  beginGesture(): void {
+    this.gestureActive = true;
+    this.gestureRecorded = false;
+    this.lastRecordAt = -Infinity;
+  }
+
+  endGesture(): void {
+    this.gestureActive = false;
+    this.gestureRecorded = false;
+    this.lastRecordAt = -Infinity;
+  }
 
   /** Call BEFORE applying a change, with the state being replaced. */
   record(previous: ZoneParams, now: number): void {
     this.future = [];
-    if (now - this.lastRecordAt < this.coalesceMs) {
+    if (this.gestureActive && this.gestureRecorded) return;
+    if (!this.gestureActive && now - this.lastRecordAt < this.coalesceMs) {
       this.lastRecordAt = now;
       return;
     }
     this.lastRecordAt = now;
+    if (this.gestureActive) this.gestureRecorded = true;
     this.past.push(previous);
     if (this.past.length > this.limit) this.past.shift();
   }
 
   undo(current: ZoneParams): ZoneParams | null {
+    this.endGesture();
     const previous = this.past.pop();
     if (!previous) return null;
     this.future.push(current);
@@ -36,6 +54,7 @@ export class ParamHistory {
   }
 
   redo(current: ZoneParams): ZoneParams | null {
+    this.endGesture();
     const next = this.future.pop();
     if (!next) return null;
     this.past.push(current);
@@ -52,6 +71,7 @@ export class ParamHistory {
   }
 
   reset(): void {
+    this.endGesture();
     this.past = [];
     this.future = [];
     this.lastRecordAt = -Infinity;

@@ -1,9 +1,8 @@
-import {Alert, Button, Select} from 'antd';
-import React, {useMemo, useState} from 'react';
-import {useTranslation} from 'react-i18next';
+import React from 'react';
 
 import i18n from '../../../i18n';
 import {craftModal} from '../../../theme/CraftModalHost';
+import {GenerationApproval} from '../../credits/components/GenerationCostGuard';
 import {estimateGenerationSeconds, formatElapsedTime} from '../generationTiming';
 import type {
   StoryboardShotListConfiguration,
@@ -15,105 +14,28 @@ interface ShotListAiModalContentProps {
   onDecision: (configuration: StoryboardShotListConfiguration | null) => void;
 }
 
-function formatUsd(value: string): string {
-  return new Intl.NumberFormat(i18n.language, {
-    currency: 'USD',
-    maximumFractionDigits: 6,
-    minimumFractionDigits: 2,
-    style: 'currency',
-  }).format(Number(value));
-}
-
-function ShotListAiModalContent({
-  onDecision,
-  options,
-}: ShotListAiModalContentProps) {
-  const {t} = useTranslation();
-  const firstAvailableModel = options.models.find(({available}) => available)?.id;
-  const initialModel = options.models.some((model) => (
-    model.id === options.defaultModel && model.available
-  )) ? options.defaultModel : firstAvailableModel;
-  const [modelId, setModelId] = useState(initialModel);
-  const selectedModel = useMemo(
-    () => options.models.find(({id}) => id === modelId),
-    [modelId, options.models],
-  );
-  return (
-    <div className="storyboard-ai-modal">
-      <label className="storyboard-ai-modal__label" htmlFor="storyboard-shot-list-model">
-        {t('storyboard.ai.modal.model')}
-      </label>
-      <Select
-        aria-label={t('storyboard.ai.modal.model')}
-        id="storyboard-shot-list-model"
-        onChange={setModelId}
-        options={options.models.map((model) => ({
-          disabled: !model.available,
-          label: model.available
-            ? model.label
-            : `${model.label} · ${model.unavailableReason
-              ? t(`storyboard.ai.modal.unavailable.${model.unavailableReason}`)
-              : t('storyboard.ai.modal.noModels')}`,
-          value: model.id,
-        }))}
-        placeholder={t('storyboard.ai.modal.modelPlaceholder')}
-        value={modelId}
-      />
-
-      {selectedModel ? (
-        <div className="storyboard-ai-modal__estimate" aria-live="polite">
-          <div>
-            <span>{t('storyboard.ai.modal.estimatedCost')}</span>
-            <strong>
-              {selectedModel.estimatedCostUsd
-                ? `≈ ${formatUsd(selectedModel.estimatedCostUsd)}`
-                : t('storyboard.ai.modal.costUnavailable')}
-            </strong>
-          </div>
-          <small>
-            {t('storyboard.ai.modal.provider', {provider: selectedModel.provider})}
-          </small>
-          <small>
-            {t('storyboard.ai.modal.tokenEstimate', {
-              input: selectedModel.estimatedInputTokens,
-              output: selectedModel.estimatedOutputTokens,
-            })}
-          </small>
-          <small>{t('storyboard.ai.modal.costHint')}</small>
-          <small>{t('storyboard.ai.timing.estimate', {
-            time: formatElapsedTime(estimateGenerationSeconds(selectedModel)),
-          })}</small>
-          <small>{t('storyboard.ai.timing.hint')}</small>
-        </div>
-      ) : (
-        <Alert
-          message={t('storyboard.ai.modal.noModels')}
-          showIcon
-          type="warning"
-        />
-      )}
-
-      <div className="storyboard-ai-modal__actions">
-        <Button
-          className="craft-action-button craft-action-button--secondary"
-          onClick={() => onDecision(null)}
-        >
-          {t('common.cancel')}
-        </Button>
-        <Button
-          className="craft-action-button"
-          disabled={!selectedModel?.available}
-          onClick={() => selectedModel && onDecision({
-            maxShots: options.maxShots,
-            model: selectedModel.id,
-          })}
-          type="primary"
-        >
-          {t('storyboard.ai.modal.generate')}
-        </Button>
-      </div>
-    </div>
-  );
+function ShotListAiModalContent({onDecision, options}: ShotListAiModalContentProps) {
+  return <GenerationApproval intent={{domain: 'text', operation: 'structured', modelKey: options.defaultModel}}
+    platformModels={options.models.map((model) => ({value: model.id, label: model.label, disabled: !model.available}))}
+    modelLabel={i18n.t('storyboard.ai.modal.model')} confirmLabel={i18n.t('storyboard.ai.modal.generate')}
+    platformDetails={(estimate) => {
+      const selected = options.models.find((model) => model.id === estimate.modelKey);
+      if (!selected) return null;
+      return <div className="storyboard-ai-modal__estimate" aria-live="polite">
+        <div><span>{i18n.t('storyboard.ai.modal.estimatedCost')}</span><strong>
+          {selected.estimatedCostUsd ? `≈ ${new Intl.NumberFormat(i18n.language, {
+            currency: 'USD', maximumFractionDigits: 6, minimumFractionDigits: 2, style: 'currency',
+          }).format(Number(selected.estimatedCostUsd))}` : i18n.t('storyboard.ai.modal.costUnavailable')}
+        </strong></div>
+        <small>{i18n.t('storyboard.ai.modal.provider', {provider: selected.provider})}</small>
+        <small>{i18n.t('storyboard.ai.modal.tokenEstimate', {input: selected.estimatedInputTokens, output: selected.estimatedOutputTokens})}</small>
+        <small>{i18n.t('storyboard.ai.modal.costHint')}</small>
+        <small>{i18n.t('storyboard.ai.timing.estimate', {time: formatElapsedTime(estimateGenerationSeconds(selected))})}</small>
+      </div>;
+    }}
+    onDecision={(estimate) => onDecision(estimate ? {
+      maxShots: options.maxShots, model: estimate.modelKey, generationAccessToken: estimate.generationAccessToken, generationSource: estimate.generationSource,
+    } : null)} />;
 }
 
 export function chooseShotListAiConfiguration(

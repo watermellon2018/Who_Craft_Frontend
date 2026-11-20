@@ -85,6 +85,7 @@ const CLOTHING_COLORS = [
 
 const CLOTHING_TOP_STYLES = [
   {value: 'tshirt', translationKey: 'characterStudio3d.options.clothingTop.tshirt'},
+  {value: 'polo', translationKey: 'characterStudio3d.options.clothingTop.polo'},
   {value: 'sleeveless', translationKey: 'characterStudio3d.options.clothingTop.sleeveless'},
   {value: 'long_sleeve', translationKey: 'characterStudio3d.options.clothingTop.longSleeve'},
 ];

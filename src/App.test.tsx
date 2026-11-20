@@ -4,6 +4,7 @@ import PathConstants, {
   characterVariantsPath,
   isProjectEditPath,
   isScriptWorkspacePath,
+  messagingConversationPath,
   projectDashboardPath,
   projectEditPath,
   projectPosterPath,
@@ -38,6 +39,8 @@ test('defines character studio and project routes', () => {
   expect(PathConstants.CHARACTER_STUDIO_EDITOR).toBe('/project/:projectId/characters/:characterId/edit');
   expect(PathConstants.CREDITS).toBe('/credits');
   expect(PathConstants.PROFILE_SETTINGS).toBe('/profile/settings');
+  expect(PathConstants.PROFILE_MESSAGES).toBe('/profile/messages');
+  expect(messagingConversationPath('chat id')).toBe('/profile/messages/chat%20id');
   expect(videoPath(42)).toBe('/project/42/video');
   expect(videoPreparationPath(42)).toBe('/project/42/video/preparation');
   expect(videoGenerationPath(42)).toBe('/project/42/video/generate');
@@ -48,6 +51,8 @@ test('defines character studio and project routes', () => {
   expect(APP_ROUTES.some(({path}) => path === PathConstants.VIDEO_GENERATE)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.CREDITS)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.PROFILE_SETTINGS)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.PROFILE_MESSAGES)).toBe(true);
+  expect(APP_ROUTES.some(({path}) => path === PathConstants.PROFILE_CONVERSATION)).toBe(true);
   expect(APP_ROUTES.some(({path}) => path === PathConstants.PROJECT_ROADMAP)).toBe(true);
 });
 

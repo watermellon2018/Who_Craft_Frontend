@@ -39,11 +39,15 @@ test('adds the selected image model to a reference multipart request', async () 
     name: 'Hero',
     entityType: 'human',
     imageModel: 'openrouter-images:openai/gpt-image-1',
+    generationSource: 'personal',
+    generationAccessToken: 'signed-approval',
     referenceImage,
   });
 
   const form = mockedApi.post.mock.calls[0][1] as FormData;
   expect(form.get('image_model')).toBe('openrouter-images:openai/gpt-image-1');
+  expect(form.get('generationSource')).toBe('personal');
+  expect(form.get('generationAccessToken')).toBe('signed-approval');
 });
 
 test('requests the model catalog and optionally previews with an explicit model', async () => {

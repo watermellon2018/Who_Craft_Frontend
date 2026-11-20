@@ -58,6 +58,8 @@ export interface SoundEffectCapabilities extends SoundEffectModelCapabilities {
 }
 
 export interface SoundEffectCreateRequest {
+  generationSource?: import('../../api/generated/contracts').GenerationSource;
+  generationAccessToken?: string;
   durationSeconds: number | null;
   loop: boolean;
   modelKey: string;

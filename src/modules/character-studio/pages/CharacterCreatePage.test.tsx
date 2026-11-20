@@ -44,10 +44,6 @@ jest.mock('../components/create/AppearanceDescriptionSection', () => {
 });
 jest.mock('../components/create/PersonalitySection', () => () => null);
 jest.mock('../components/create/TipsPanel', () => () => null);
-jest.mock('../components/create/VisualStyleSelector', () => ({
-  __esModule: true,
-  default: () => null,
-}));
 jest.mock('../components/create/GenerationSettingsPanel', () => ({
   __esModule: true,
   default: ({onChange}: {onChange: (value: {
@@ -142,7 +138,7 @@ beforeEach(() => {
     name: 'Hero',
     character_type: 'human',
     role: 'main',
-    visual_style: 'cinematic_realism',
+    visual_style: 'noir',
     identity_locked: false,
     appearance: {appearance_prompt: 'Tall warrior'},
   }} as never);
@@ -161,6 +157,7 @@ beforeEach(() => {
 test('retries a failed first generation for the same draft character', async () => {
   renderPage();
 
+  expect(screen.queryByRole('heading', {name: 'Визуальный стиль'})).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('character-name'), {target: {value: 'Hero'}});
   fireEvent.change(screen.getByLabelText('appearance-description'), {target: {value: 'Tall warrior'}});
   fireEvent.click(screen.getByRole('button', {name: 'Сгенерировать'}));
@@ -171,6 +168,8 @@ test('retries a failed first generation for the same draft character', async () 
   expect(screen.getByRole('button', {name: 'Удалить черновик'})).toBeInTheDocument();
   expect(mockedApi.create).toHaveBeenCalledTimes(1);
   expect(mockedApi.generateInitial).toHaveBeenCalledTimes(1);
+  expect(mockedApi.create.mock.calls[0][1]).not.toHaveProperty('visual_style');
+  expect(mockedApi.generateInitial.mock.calls[0][2]).not.toHaveProperty('visual_style');
   expect(screen.getByTestId('location')).toHaveTextContent(
     '/project/proj-1/characters/create?draftId=char-1&treeNodeId=tree-node-1',
   );
@@ -208,6 +207,8 @@ test('restores the failed draft from the URL after refresh instead of creating a
   expect(mockedApi.update).toHaveBeenCalledTimes(1);
   expect(mockedApi.generateInitial).toHaveBeenCalledTimes(2);
   expect(mockedApi.generateInitial.mock.calls[1][1]).toBe('char-1');
+  expect(mockedApi.update.mock.calls[0][2]).not.toHaveProperty('visual_style');
+  expect(mockedApi.generateInitial.mock.calls[1][2]).not.toHaveProperty('visual_style');
 });
 test('removes the durable draft id from the URL after deleting the draft', async () => {
   renderPage();

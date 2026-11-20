@@ -18,6 +18,13 @@ import type {
   CreditTransferResponse,
   GenerationCostEstimate,
   GenerationCostEstimateRequest,
+  GenerationModality,
+  PersonalApiConnection,
+  PersonalApiConnectionCreate,
+  PersonalApiConnectionUpdate,
+  PersonalApiPreference,
+  PersonalApiPreferenceUpdate,
+  PersonalApiSettings,
   ProjectCreditBudget,
   ProjectCreditBudgetList,
   ProjectCreditBudgetUpdateRequest,
@@ -36,6 +43,24 @@ const treeNodePath = (template: string, projectId: ProjectId, nodeId: string) =>
 
 export function createGeneratedApiClient(http: AxiosInstance) {
   return {
+    async getPersonalApiSettings(): Promise<PersonalApiSettings> {
+      return (await http.get<PersonalApiSettings>('api/personal-api/settings/')).data;
+    },
+    async createPersonalApiConnection(payload: PersonalApiConnectionCreate): Promise<PersonalApiConnection> {
+      return (await http.post<PersonalApiConnection>('api/personal-api/connections/', payload)).data;
+    },
+    async updatePersonalApiConnection(connectionId: string, payload: PersonalApiConnectionUpdate): Promise<PersonalApiConnection> {
+      const path = 'api/personal-api/connections/{connectionId}/'.replace('{connectionId}', encodeURIComponent(connectionId));
+      return (await http.patch<PersonalApiConnection>(path, payload)).data;
+    },
+    async deletePersonalApiConnection(connectionId: string): Promise<void> {
+      const path = 'api/personal-api/connections/{connectionId}/'.replace('{connectionId}', encodeURIComponent(connectionId));
+      await http.delete(path);
+    },
+    async updatePersonalApiPreference(modality: GenerationModality, payload: PersonalApiPreferenceUpdate): Promise<PersonalApiPreference> {
+      const path = 'api/personal-api/preferences/{modality}/'.replace('{modality}', encodeURIComponent(modality));
+      return (await http.put<PersonalApiPreference>(path, payload)).data;
+    },
     async getCreditSummary(): Promise<CreditSummary> {
       const response = await http.get<CreditSummary>('api/credits/summary/');
       return response.data;

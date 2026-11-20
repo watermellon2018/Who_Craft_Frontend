@@ -3,6 +3,24 @@ import type {AxiosInstance} from 'axios';
 import {createGeneratedApiClient} from './client';
 
 describe('generated API client', () => {
+  it('keeps personal secrets in request bodies and encodes credential identifiers', async () => {
+    const http = {get: jest.fn().mockResolvedValue({data: {connections: []}}),
+      post: jest.fn().mockResolvedValue({data: {id: 'connection', keyHint: '••••1234'}}),
+      patch: jest.fn().mockResolvedValue({data: {id: 'connection', keyHint: '••••5678'}}),
+      put: jest.fn().mockResolvedValue({data: {modality: 'image', source: 'personal', routes: []}}),
+      delete: jest.fn().mockResolvedValue({status: 204})} as unknown as AxiosInstance;
+    const client = createGeneratedApiClient(http);
+    await client.getPersonalApiSettings();
+    await client.createPersonalApiConnection({name: 'Personal', provider: 'gemini', apiKey: 'test-only-key'});
+    await client.updatePersonalApiConnection('connection/other', {apiKey: 'replacement-test-key'});
+    await client.updatePersonalApiPreference('image', {source: 'personal', routes: []});
+    await client.deletePersonalApiConnection('connection/other');
+    expect(http.get).toHaveBeenCalledWith('api/personal-api/settings/');
+    expect(http.post).toHaveBeenCalledWith('api/personal-api/connections/', {name: 'Personal', provider: 'gemini', apiKey: 'test-only-key'});
+    expect(http.patch).toHaveBeenCalledWith('api/personal-api/connections/connection%2Fother/', {apiKey: 'replacement-test-key'});
+    expect(http.put).toHaveBeenCalledWith('api/personal-api/preferences/image/', {source: 'personal', routes: []});
+    expect(http.delete).toHaveBeenCalledWith('api/personal-api/connections/connection%2Fother/');
+  });
   it('uses canonical credit paths, query parameters and idempotency headers', async () => {
     const summary = {
       account: {availableBalance: '125.00', reservedBalance: '5.00', totalBalance: '130.00'},

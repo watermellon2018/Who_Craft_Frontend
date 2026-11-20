@@ -8,6 +8,8 @@ const PathConstants = {
     PROFILE_EDIT: '/profile/edit',
     PROFILE_SETTINGS: '/profile/settings',
     PROFILE_SUBSCRIPTIONS: '/profile/subscriptions',
+    PROFILE_MESSAGES: '/profile/messages',
+    PROFILE_CONVERSATION: '/profile/messages/:conversationId',
     CREDITS: '/credits',
 
     CREATE_PROJECT: '/create-project',
@@ -52,6 +54,10 @@ const PathConstants = {
     CHARACTER_STUDIO_REFERENCES: '/project/:projectId/characters/:characterId/references',
     CHARACTER_STUDIO_3D: '/project/:projectId/characters/:characterId/3d-model',
 
+}
+
+export function messagingConversationPath(conversationId: string): string {
+    return PathConstants.PROFILE_CONVERSATION.replace(':conversationId', encodeURIComponent(conversationId));
 }
 
 export function projectDashboardPath(projectId: string | number): string {

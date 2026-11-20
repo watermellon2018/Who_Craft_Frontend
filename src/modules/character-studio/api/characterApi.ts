@@ -119,6 +119,8 @@ export const characterApi = {
     if (payload.imageModel !== undefined) {
       form.append('image_model', payload.imageModel);
     }
+    if (payload.generationSource) form.append('generationSource', payload.generationSource);
+    if (payload.generationAccessToken) form.append('generationAccessToken', payload.generationAccessToken);
     const fileIntent = {
       ...payload,
       referenceImage: {
@@ -330,6 +332,8 @@ export const characterApi = {
       preserve_identity?: boolean;
       image_model?: string;
       routing_mode?: import('../../../api/generated/contracts').GenerationRoutingMode;
+      generationSource?: import('../../../api/generated/contracts').GenerationSource;
+      generationAccessToken?: string;
     },
   ) {
     return api.post(
@@ -358,6 +362,8 @@ export const characterApi = {
       preserve_identity?: boolean;
       image_model?: string;
       routing_mode?: import('../../../api/generated/contracts').GenerationRoutingMode;
+      generationSource?: import('../../../api/generated/contracts').GenerationSource;
+      generationAccessToken?: string;
     },
   ) {
     return api.post(

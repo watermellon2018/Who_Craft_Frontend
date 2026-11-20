@@ -5,6 +5,18 @@ App 5. It consumes the sibling Django backend and contains project/team, poster,
 script, Character Studio, Music Studio, Reference Library, profile, and social
 subscription experiences.
 
+Authenticated users can open **Messages** at `/profile/messages` to find any
+active user by name or username and start a private text conversation. Messages
+support author-only editing and deletion for both participants; deleting a chat
+hides only the acting user's old history. New messages bring the chat back
+without restoring that history. The page shows unread counts and read receipts,
+refreshes visible conversations every three seconds, and refreshes unread counts
+every five seconds. Messages are limited to 4,000 Unicode characters. Drafts are
+kept in memory while switching conversations and after failed sends; reloading
+or signing out clears them. The feature requires the authenticated backend
+messaging API and its migrations, with no additional frontend configuration.
+Groups, attachments, presence, and typing indicators are not included.
+
 The protected `/credits` route is the Craft wallet. It shows available and
 reserved credits, 30-day movement statistics, and the append-only operation
 history. In demo environments it can add test credits; staff can transfer
@@ -13,11 +25,33 @@ owners can set a lifetime generation budget and see spent, reserved, and
 remaining credits. The client never connects to a bank or provider balance
 directly.
 
-Paid generation screens request a backend estimate before enqueue. They block
-when the available balance is insufficient and otherwise show a confirmation
-with the provider-native estimated cost. The backend remains authoritative: it
-reserves at enqueue, settles after provider completion, and refreshes the
-visible balance when the request starts.
+**Personal API** in `/profile/settings#personal-api` manages named connections
+to Gemini, OpenRouter, Stability, ElevenLabs and MiniMax. Several keys from one
+service can be saved. Text, image, music and sound-effect preferences each store
+their own Craft/personal source and an ordered list of connection/model pairs.
+The catalog contains models and operations supported by Craft; an API key does
+not grant access to every model. Keys are submitted to the authenticated backend,
+then cleared from the form. The client only receives masked metadata and never
+stores provider keys in browser storage. Backend encrypted storage must be
+configured before adding keys; creating a connection does not make a paid test
+request or guarantee provider quota.
+
+Before generation, the source dialog shows the actual model and connection and
+remembers the choice for that modality. Personal generation requires explicit
+confirmation even when its Craft estimate is zero: the external provider charges
+the user's account, and the Craft wallet is neither checked nor debited. Missing
+or incompatible routes block the operation and link to settings. Automatic
+fallback stays within the configured personal routes and never switches to a
+paid Craft account; an uncertain provider result is not automatically repeated
+against another key.
+
+Paid models through API Craft require a paid Craft subscription, which is not
+implemented yet. A positive wallet balance is not a subscription. Explicitly
+free Craft functions, including storyboard title/description suggestions, remain
+available without a subscription or personal text key. A text prompt passed to
+an image model does not itself require a separate text-model connection. These
+rules are enforced by the backend as well as the interface. This feature does
+not add video generation or arbitrary API base URLs.
 
 The wallet also stores the user's generation-routing preference (manual,
 lower-cost, faster, balanced, or quality), shows low-balance/frozen warnings,
@@ -128,6 +162,26 @@ Character Studio uses React Three Fiber/Three.js around an SMPL morph rig. It
 supports parametric zones, canonical views, snapshot/GLB export, autofit state,
 and optional reconstructed head/hair assets. The heavy Hunyuan runtime belongs
 to the backend worker's separate Python/Conda environment.
+
+Reference-fitted bodies may store a hidden `body_fit` zone with normalized
+`beta00`–`beta15` weights. The 3D editor preserves these on load/save and adds
+the usual body sliders to that fitted base. Feet stay on the floor, the
+reconstructed head follows the live neck, and `head_neck.headSize` scales that
+head around its neck attachment. Zone resets leave the base fit; **Reset all**
+deliberately clears it with the other edits. Saving uses the existing project
+edit permission and revision flow. This is a measured local fitting workflow,
+not an automatic photo-to-body service; see [the fitting tool](tools/smpl/README.md#reference-body-fitting).
+Clothes obscure the body and a frontal image cannot determine its depth.
+
+Curated reconstructed assets can opt into `stylized_reference_v1`: measured
+almond-shaped eyes, fitted lids and brows, editable relative skin/hair colors,
+and a fitted blue headband. Optical parts and eyelids share the face deformation
+field so eye and face controls remain attached. This currently targets the
+reviewed angry_dog reconstruction; unmarked assets retain the existing renderer.
+The preparation workflow, coordinate and color contract, and limitations are in
+[reference surface refinement](tools/reconstruction/REFINE_REFERENCE_SURFACE.md).
+The full editing, persistence and visual-verification workflow is maintained in
+[the editable character guide](docs/character3d.md).
 
 ## Reference Library
 
@@ -420,6 +474,29 @@ charge. A queued job waits for a worker to become available.
   initialize the scene storyboard when necessary, create the shot with
   `POST /api/projects/{projectId}/storyboard/{storyboardId}/shots/`, replace the
   working draft with the server response and update production-readiness metrics.
+
+## Video generation
+
+Open `/project/:projectId/video` to generate individual clips from storyboard
+plans. The page uses the shared header/theme and links back to characters,
+visual references, script and storyboard. All plans of the selected scene must
+be ready; other scenes can remain incomplete. The initial and optional final
+image condition one clip. Intermediate images and final-film assembly are not
+part of this release. Effective supported duration is shown before submission;
+storyboard duration is preserved.
+
+Configure the **Video** modality and ordered personal connection/model pairs in
+profile settings. Source selection lives there. Craft mode shows its model
+catalog; personal mode uses the configured priorities. Paid Craft access remains
+unavailable until subscription entitlement is implemented. Personal generation
+is paid directly at the external provider. A key may lack video access or quota.
+
+Accepted jobs survive navigation/reload and are polled automatically. History
+shows changes to source conditions; viewing a version does not choose it as the
+final result. Selecting a final version is explicit and permission/version
+checked. Initial motion drafts are temporary until the first accepted job;
+existing video shots have an explicit save action. See the backend
+[video reference](../backend/docs/video.md) for worker and key configuration.
 
 ## Contract changes
 

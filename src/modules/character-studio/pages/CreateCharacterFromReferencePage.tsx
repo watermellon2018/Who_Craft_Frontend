@@ -14,10 +14,9 @@ import {
 import CharacterCreateHeader from '../components/create/CharacterCreateHeader';
 import GenerationSettingsPanel, {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
 import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
-import VisualStyleSelector from '../components/create/VisualStyleSelector';
-import type {VisualStyleValue} from '../components/create/VisualStyleSelector';
 import {getCharacterTypeOptions, getGenderApplicabilityOptions, getRoleOptions} from '../components/create/characterCreateOptions';
 import {characterApi} from '../api/characterApi';
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import {characterVariantsPath} from '../../../routes/pathConstant';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import './CharacterCreatePage.css';
@@ -30,7 +29,6 @@ const tipKeys = ['clearFace', 'avoidBlur', 'portraitOrFullBody', 'preserveFace',
 
 type CharacterTypeValue = 'human' | 'animal' | 'creature' | 'robot' | 'object' | 'other';
 type GenderValue = 'female' | 'male' | 'other';
-type CharacterStyle = VisualStyleValue;
 
 interface ReferenceUploadCardProps {
   file: File | null;
@@ -127,7 +125,6 @@ export function CreateCharacterFromReferenceContent() {
   const [gender, setGender] = useState<GenderValue | undefined>();
   const [role, setRole] = useState('main');
   const [preserveIdentity, setPreserveIdentity] = useState(true);
-  const [style, setStyle] = useState<CharacterStyle>('cinematic_realism');
   const [refinement, setRefinement] = useState('');
   const [generationOptions, setGenerationOptions] = useState<GenerationOptions>(defaultGenerationOptions);
   const [nameTouched, setNameTouched] = useState(false);
@@ -176,17 +173,22 @@ export function CreateCharacterFromReferenceContent() {
     }
     try {
       setIsGenerating(true);
+      const estimate = await confirmGenerationCost({domain: 'character', operation: 'reference',
+        modelKey: generationOptions.imageModel, variantCount: generationOptions.count,
+        promptLength: refinement.length});
+      if (!estimate) return;
       const response = await characterApi.createFromReference(projectId, {
         name: name.trim(),
         entityType: characterType,
         role,
         lifecycleStage,
         gender,
-        visualStyle: style,
         refinement,
         variantsCount: generationOptions.count,
         preserveIdentity,
-        imageModel: generationOptions.imageModel,
+        imageModel: estimate.modelKey,
+        generationAccessToken: estimate.generationAccessToken,
+        generationSource: estimate.generationSource,
         referenceImage: file,
       });
       const {character, generation_job: job} = response.data;
@@ -240,7 +242,6 @@ export function CreateCharacterFromReferenceContent() {
           onPreserveIdentityChange={setPreserveIdentity}
         />
 
-        <VisualStyleSelector value={style} onChange={setStyle} />
         <OptionalRefinementBox value={refinement} onChange={setRefinement} />
 
         <div className="character-create-actions">

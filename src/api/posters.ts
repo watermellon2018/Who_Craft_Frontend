@@ -8,7 +8,7 @@
 import {v4 as uuidv4} from 'uuid';
 
 import api from './http';
-import type {GenerationBilling, GenerationRoutingMode} from './generated/contracts';
+import type {GenerationBilling, GenerationRoutingMode, GenerationSource} from './generated/contracts';
 
 type ProjectId = number | string;
 export type PosterJobStatus =
@@ -51,6 +51,10 @@ interface GeneratePosterOptions {
     referenceFile?: File | null;
     imageModel?: string;
     routingMode?: GenerationRoutingMode;
+
+    generationSource?: GenerationSource;
+
+    generationAccessToken?: string;
 }
 
 interface EditPosterParams {
@@ -58,6 +62,10 @@ interface EditPosterParams {
     instruction: string;
     imageModel?: string;
     routingMode?: GenerationRoutingMode;
+
+    generationSource?: GenerationSource;
+
+    generationAccessToken?: string;
 }
 
 const POSTER_POLL_INTERVAL_MS = 1000;
@@ -169,7 +177,7 @@ export async function generatePoster(
     prompt: string,
     options: GeneratePosterOptions = {},
 ): Promise<PosterVariant> {
-    const {style, format, referenceFile, imageModel, routingMode} = options;
+    const {style, format, referenceFile, imageModel, routingMode, generationSource, generationAccessToken} = options;
     const url = `api/projects/${projectId}/poster/generate/`;
     const headers = idempotencyHeaders();
 
@@ -180,6 +188,8 @@ export async function generatePoster(
         if (format) form.append('format', format);
         if (imageModel) form.append('image_model', imageModel);
         if (routingMode) form.append('routing_mode', routingMode);
+        if (generationSource) form.append('generationSource', generationSource);
+        if (generationAccessToken) form.append('generationAccessToken', generationAccessToken);
         form.append('reference_image', referenceFile);
 
         const response = await api.post<PosterOperationResponse>(url, form, {headers});
@@ -194,6 +204,8 @@ export async function generatePoster(
             format,
             image_model: imageModel,
             routing_mode: routingMode,
+            generationSource,
+            generationAccessToken,
         },
         {headers},
     );
@@ -220,6 +232,8 @@ export async function editPoster(
             instruction: params.instruction,
             image_model: params.imageModel,
             routing_mode: params.routingMode,
+            generationSource: params.generationSource,
+            generationAccessToken: params.generationAccessToken,
         },
         {headers: idempotencyHeaders()},
     );

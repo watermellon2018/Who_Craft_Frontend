@@ -8,6 +8,7 @@ import ProfileSidebar from './components/ProfileSidebar';
 import SettingsCard from './components/SettingsCard';
 import type {ProfileSettings} from './types';
 import NotificationBell from '../notifications/NotificationBell';
+import PersonalApiSettings from '../personal-api/components/PersonalApiSettings';
 import './profile.css';
 
 export default function ProfileSettingsPage() {
@@ -76,6 +77,7 @@ export default function ProfileSettingsPage() {
             {!loading && !error && settings && (
               <>
                 <SettingsCard settings={settings} onChange={setSettings} />
+                <PersonalApiSettings />
                 <AccountDeletionCard />
               </>
             )}

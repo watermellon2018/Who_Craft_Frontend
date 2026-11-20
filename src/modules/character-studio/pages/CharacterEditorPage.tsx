@@ -364,6 +364,7 @@ function CharacterEditorPageContent() {
     const costEstimate = await confirmGeneration(plannedTypes);
     if (!costEstimate) return;
     const diff = diffControls(controlsFromCharacter(character), editor.controls);
+    setZoneEditOpen(false);
     setGeneratingImageType(imageType);
     const persisted = await persistAllEdits();
     if (!persisted.saved) {
@@ -396,6 +397,10 @@ function CharacterEditorPageContent() {
         current_asset_id: activeImage?.asset_id || null,
         activate_image: false,
         image_model: costEstimate.modelKey,
+        generationAccessToken: costEstimate.generationAccessToken,
+
+        generationSource: costEstimate.generationSource,
+
         routing_mode: costEstimate.routingMode,
       });
       setSelectedVariant(null);
@@ -442,6 +447,10 @@ function CharacterEditorPageContent() {
         instruction: zone.instruction,
         selection: zone.selection,
         image_model: costEstimate.modelKey,
+        generationAccessToken: costEstimate.generationAccessToken,
+
+        generationSource: costEstimate.generationSource,
+
         routing_mode: costEstimate.routingMode,
         variant_count: 1,
       });
@@ -598,6 +607,7 @@ function CharacterEditorPageContent() {
     const costEstimate = await confirmGeneration(['portrait', 'full_body', 'scene']);
     if (!costEstimate) return;
     const diff = diffControls(controlsFromCharacter(character), editor.controls);
+    setZoneEditOpen(false);
     setSequentialRunning(true);
 
     const STEPS: Array<{type: CharacterImageType; region: CharacterRegion; label: string}> = [
@@ -647,6 +657,10 @@ function CharacterEditorPageContent() {
           current_asset_id: activeImage?.asset_id || null,
           activate_image: false,
           image_model: costEstimate.modelKey,
+          generationAccessToken: costEstimate.generationAccessToken,
+
+          generationSource: costEstimate.generationSource,
+
           routing_mode: costEstimate.routingMode,
         }, idempotencyKey);
 

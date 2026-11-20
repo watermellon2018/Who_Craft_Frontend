@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {getAncestors} from '../zones';
+import type {AnatomicalHit, RigHit} from './hitZones';
 import {
   browGeometry,
   buildLoft,
@@ -148,6 +149,9 @@ export type ZoneParams = Record<string, ZoneParamValues>;
 // `Rig` and swap implementations behind a flag without `any`.
 export interface Rig {
   readonly root: THREE.Group;
+  readonly supportsAsymmetricEditing?: boolean;
+  resolveHit?(hit: RigHit, selectedZoneId?: string | null): AnatomicalHit | null;
+  supportsParameter?(zoneId: string, parameterId: string): boolean;
   applyParams(params: ZoneParams): void;
   setHighlight(hoveredZoneId: string | null, selectedZoneId: string | null): void;
   highlightedMeshes(): {selected: THREE.Mesh[]; hovered: THREE.Mesh[]};

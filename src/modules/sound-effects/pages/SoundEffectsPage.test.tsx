@@ -96,6 +96,8 @@ beforeEach(() => {
   });
   mockedRunGenerationWithCredits.mockImplementation((intent, operation) => operation({
     modelKey: 'elevenlabs-sfx-v2-canonical',
+    generationSource: 'personal',
+    generationAccessToken: 'signed-sfx-route',
   } as never));
 });
 
@@ -129,6 +131,8 @@ test('renders the separate workspace and enqueues canonical model, duration, loo
     durationSeconds: 7.5,
     loop: true,
     modelKey: 'elevenlabs-sfx-v2-canonical',
+    generationSource: 'personal',
+    generationAccessToken: 'signed-sfx-route',
     sceneId: 42,
   }));
   await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(

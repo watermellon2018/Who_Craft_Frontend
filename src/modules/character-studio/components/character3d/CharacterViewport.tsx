@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import {Canvas, ThreeEvent, useFrame, useThree} from '@react-three/fiber';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls';
 import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment';
-import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter';
 import {EffectComposer} from 'three/examples/jsm/postprocessing/EffectComposer';
 import {RenderPass} from 'three/examples/jsm/postprocessing/RenderPass';
 import {GTAOPass} from 'three/examples/jsm/postprocessing/GTAOPass';
@@ -13,7 +12,10 @@ import {OutlinePass} from 'three/examples/jsm/postprocessing/OutlinePass';
 import {OutputPass} from 'three/examples/jsm/postprocessing/OutputPass';
 import type {Rig, ZoneParams} from './engine/rig';
 import {MorphRig} from './engine/morphRig';
-import {dragBindingFor} from './engine/dragBindings';
+import {clampParameter, dragBindingFor, dragStartValue} from './engine/dragBindings';
+import type {RigHit} from './engine/hitZones';
+import {trackPointerGesture} from './engine/pointerGesture';
+import {exportRigGlb} from './engine/exportRig';
 import {resolveSelectableZone} from './engine/zoneSelection';
 
 // Canonical camera angles for reference-frame capture. The video pipeline
@@ -25,6 +27,7 @@ export type ViewAngle = 'front' | 'threeQuarter' | 'side' | 'sideLeft' | 'back';
 // PNG snapshots, GLB export, and canonical camera moves. The page receives
 // it via onApiReady.
 export interface ViewportApi {
+  supportsParameter?: (zoneId: string, parameterId: string) => boolean;
   snapshotPng: () => string;
   exportGlb: () => Promise<Blob>;
   // Glide the camera onto a canonical reference angle (reuses the same lerp
@@ -42,6 +45,9 @@ interface Props {
   onHoverZone: (zoneId: string | null) => void;
   onSelectZone: (zoneId: string | null) => void;
   onParameterChange?: (zoneId: string, paramId: string, value: number, side?: 'L' | 'R' | null) => void;
+  onGestureStart?: () => void;
+  onGestureEnd?: () => void;
+  onAsymmetricCapabilityChange?: (supported: boolean) => void;
   // Non-null while asymmetric editing is active; drags then write per-side
   // overrides for the half that was actually grabbed.
   editSide?: 'L' | 'R' | null;
@@ -69,6 +75,9 @@ const CharacterViewport: React.FC<Props> = ({
   onHoverZone,
   onSelectZone,
   onParameterChange,
+  onGestureStart,
+  onGestureEnd,
+  onAsymmetricCapabilityChange,
   editSide = null,
   onSideChange,
   onApiReady,
@@ -125,6 +134,7 @@ const CharacterViewport: React.FC<Props> = ({
 
   const controlsRef = useRef<OrbitControls | null>(null);
   const draggingRef = useRef(false);
+  const finishGestureRef = useRef<(() => void) | null>(null);
   // True while the camera is being orbited/panned, so hover doesn't update
   // (and stick) mid-gesture. Cleared on the OrbitControls 'end' event.
   const orbitingRef = useRef(false);
@@ -146,13 +156,19 @@ const CharacterViewport: React.FC<Props> = ({
     rig?.setHighlight(hoveredZoneId, selectedZoneId);
   }, [rig, hoveredZoneId, selectedZoneId]);
 
-  const selectedBinding = useMemo(() => dragBindingFor(selectedZoneId), [selectedZoneId]);
+  const selectedBinding = useMemo(() => dragBindingFor(selectedZoneId, rig), [selectedZoneId, rig]);
   const isZoomed = !!zoomZoneId;
 
+  useEffect(() => {
+    onAsymmetricCapabilityChange?.(rig?.supportsAsymmetricEditing ?? false);
+  }, [rig, onAsymmetricCapabilityChange]);
+
+  useEffect(() => () => { finishGestureRef.current?.(); }, [rig, selectedZoneId]);
+
   const resolveHit = useCallback(
-    (object: THREE.Object3D | null) => {
+    (hit: RigHit) => {
       if (!rig) return null;
-      return resolveSelectableZone(rig.resolveZoneFromObject(object), selectedZoneId, ancestorIds);
+      return resolveSelectableZone(rig.resolveHit(hit, selectedZoneId)?.zoneId ?? null, selectedZoneId, ancestorIds);
     },
     [rig, selectedZoneId, ancestorIds],
   );
@@ -163,7 +179,7 @@ const CharacterViewport: React.FC<Props> = ({
       // Don't re-resolve hover while dragging a zone or orbiting the camera —
       // the latter would leave a stale highlight stuck under a moving figure.
       if (draggingRef.current || orbitingRef.current) return;
-      const zone = resolveHit(event.object);
+      const zone = resolveHit(event);
       if (zone !== hoveredZoneId) onHoverZone(zone);
     },
     [resolveHit, hoveredZoneId, onHoverZone],
@@ -190,7 +206,7 @@ const CharacterViewport: React.FC<Props> = ({
     (event: ThreeEvent<MouseEvent>) => {
       if (event.delta > 6) return;
       event.stopPropagation();
-      const zone = resolveHit(event.object);
+      const zone = resolveHit(event);
       if (zone) onSelectZone(zone);
     },
     [resolveHit, onSelectZone],
@@ -201,13 +217,14 @@ const CharacterViewport: React.FC<Props> = ({
     (event: ThreeEvent<PointerEvent>) => {
       if (!rig || !onParameterChange || !selectedZoneId || !selectedBinding) return;
       if (event.button !== 0) return;
-      const zone = resolveHit(event.object);
+      const zone = resolveHit(event);
       if (zone !== selectedZoneId) return;
 
       event.stopPropagation();
       // With symmetry off, the drag edits the half that was grabbed — pulling
       // the left arm changes the left arm. The side selector follows along.
-      const grabbedSide = editSide ? rig.resolveSideFromObject() ?? editSide : null;
+      const grabbedSide = editSide && rig.supportsAsymmetricEditing
+        ? rig.resolveHit(event, selectedZoneId)?.side ?? editSide : null;
       if (grabbedSide && onSideChange && grabbedSide !== editSide) onSideChange(grabbedSide);
       const native = event.nativeEvent;
       const canvas = native.target as HTMLElement;
@@ -216,8 +233,8 @@ const CharacterViewport: React.FC<Props> = ({
       const startX = native.clientX;
       const startY = native.clientY;
       const startValues = {
-        x: numberParam(zoneParams, selectedZoneId, selectedBinding.x, grabbedSide),
-        y: numberParam(zoneParams, selectedZoneId, selectedBinding.y, grabbedSide),
+        x: dragStartValue(zoneParams, selectedZoneId, selectedBinding.x, grabbedSide),
+        y: dragStartValue(zoneParams, selectedZoneId, selectedBinding.y, grabbedSide),
       };
 
       // This press is a zone edit, not a camera gesture — undo the orbit
@@ -226,28 +243,28 @@ const CharacterViewport: React.FC<Props> = ({
       draggingRef.current = true;
       setIsDragging(true);
       if (controlsRef.current) controlsRef.current.enabled = false;
+      onGestureStart?.();
 
       const onMove = (move: PointerEvent) => {
         const dx = ((move.clientX - startX) / viewportHeight) * sensitivity;
         const dy = ((startY - move.clientY) / viewportHeight) * sensitivity; // up = +
         if (selectedBinding.x && startValues.x !== null) {
-          onParameterChange(selectedZoneId, selectedBinding.x, clamp01(startValues.x + dx), grabbedSide);
+          onParameterChange(selectedZoneId, selectedBinding.x, clampParameter(selectedZoneId, selectedBinding.x, startValues.x + dx), grabbedSide);
         }
         if (selectedBinding.y && startValues.y !== null) {
-          onParameterChange(selectedZoneId, selectedBinding.y, clamp01(startValues.y + dy), grabbedSide);
+          onParameterChange(selectedZoneId, selectedBinding.y, clampParameter(selectedZoneId, selectedBinding.y, startValues.y + dy), grabbedSide);
         }
       };
-      const onUp = () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
+      finishGestureRef.current = trackPointerGesture(window, native.pointerId, onMove, () => {
+        finishGestureRef.current = null;
         draggingRef.current = false;
+        orbitingRef.current = false;
         setIsDragging(false);
         if (controlsRef.current) controlsRef.current.enabled = true;
-      };
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', onUp);
+        onGestureEnd?.();
+      });
     },
-    [onParameterChange, selectedZoneId, selectedBinding, resolveHit, zoneParams, editSide, onSideChange, rig],
+    [onParameterChange, selectedZoneId, selectedBinding, resolveHit, zoneParams, editSide, onSideChange, rig, onGestureStart, onGestureEnd],
   );
 
   const hoverIsDraggable =
@@ -437,25 +454,6 @@ const CharacterViewport: React.FC<Props> = ({
     </div>
   );
 };
-
-function clamp01(v: number): number {
-  return Math.max(-1, Math.min(1, v));
-}
-
-function numberParam(
-  params: ZoneParams,
-  zoneId: string,
-  paramId?: string,
-  side?: 'L' | 'R' | null,
-): number | null {
-  if (!paramId) return null;
-  if (side) {
-    const override = params[zoneId]?.[`${paramId}__${side}`];
-    if (typeof override === 'number' && Number.isFinite(override)) return override;
-  }
-  const v = params[zoneId]?.[paramId];
-  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
-}
 
 // ─────────── Orbit controls (three/examples, no extra deps) ───────────
 const Controls: React.FC<{controlsRef: React.MutableRefObject<OrbitControls | null>}> = ({controlsRef}) => {
@@ -790,6 +788,7 @@ const ApiBridge: React.FC<{
   useEffect(() => {
     if (!onApiReady) return undefined;
     onApiReady({
+      supportsParameter: (zoneId, parameterId) => rig.supportsParameter?.(zoneId, parameterId) ?? true,
       snapshotPng: () => {
         // Render through the composer so the snapshot includes the outline
         // and the same tone mapping as the live view. The camera is wherever
@@ -799,16 +798,7 @@ const ApiBridge: React.FC<{
         else gl.render(scene, camera);
         return gl.domElement.toDataURL('image/png');
       },
-      exportGlb: () =>
-        new Promise<Blob>((resolve, reject) => {
-          const exporter = new GLTFExporter();
-          exporter.parse(
-            rig.root,
-            (result) => resolve(new Blob([result as ArrayBuffer], {type: 'model/gltf-binary'})),
-            (error) => reject(error),
-            {binary: true},
-          );
-        }),
+      exportGlb: () => exportRigGlb(rig.root),
       setView: (angle) => cameraControlRef.current?.setView(angle),
       toggleTurntable: (on) => cameraControlRef.current?.setTurntable(on),
     });

@@ -73,6 +73,7 @@ export const characterStudio3dResources = {
         },
         clothingTop: {
           longSleeve: 'Длинный рукав',
+          polo: 'Поло',
           sleeveless: 'Без рукавов',
           tshirt: 'Футболка',
         },
@@ -117,6 +118,7 @@ export const characterStudio3dResources = {
         },
       },
       parameters: {
+        unsupported: 'Этот параметр пока не поддерживается моделью',
         armsForward: 'Руки вперёд/назад',
         armsRaise: 'Подъём рук',
         backWidth: 'Ширина спины',
@@ -204,6 +206,7 @@ export const characterStudio3dResources = {
         variants: 'Варианты',
       },
       symmetry: {
+        unsupportedHint: 'Эта модель поддерживает только симметричное изменение формы',
         disabledHint: 'Слайдеры формы меняют только выбранную сторону',
         enabledHint: 'Изменения применяются к обеим сторонам',
         left: 'Левая',
@@ -213,6 +216,20 @@ export const characterStudio3dResources = {
         rightSide: 'правая сторона',
         sideLabel: 'Редактируемая сторона',
         title: 'Применять симметрично',
+      },
+      revisions: {
+        title: 'Сохранённые версии 3D',
+        hint: 'Восстановление создаёт новую ревизию. Отмена последнего движения мышью доступна отдельно через Ctrl+Z.',
+        select: 'Версия',
+        placeholder: 'Выберите сохранённую версию',
+        restore: 'Восстановить версию',
+        refresh: 'Обновить список',
+        legacy: 'В этой ранней версии сохранены только параметры. Текущий файл 3D-модели будет сохранён.',
+        restored: 'Сохранённая версия 3D восстановлена',
+        restoreError: 'Не удалось восстановить версию 3D',
+        restoreReloadError: 'Версия восстановлена, но модель не загрузилась. Обновите страницу.',
+        error: 'Не удалось загрузить или восстановить версию. Повторите попытку.',
+        unsaved: 'Сохраните текущие изменения или отмените их перед восстановлением версии.',
       },
       viewport: {
         backgroundHint: 'Создание продолжается в фоне и может занять несколько минут.',
@@ -335,6 +352,7 @@ export const characterStudio3dResources = {
         },
         clothingTop: {
           longSleeve: 'Long sleeve',
+          polo: 'Polo',
           sleeveless: 'Sleeveless',
           tshirt: 'T-shirt',
         },
@@ -379,6 +397,7 @@ export const characterStudio3dResources = {
         },
       },
       parameters: {
+        unsupported: 'This parameter is not supported by this model yet',
         armsForward: 'Arms forward/back',
         armsRaise: 'Arm raise',
         backWidth: 'Back width',
@@ -466,6 +485,7 @@ export const characterStudio3dResources = {
         variants: 'Variants',
       },
       symmetry: {
+        unsupportedHint: 'This model supports symmetrical shape editing only',
         disabledHint: 'Shape sliders change only the selected side',
         enabledHint: 'Changes apply to both sides',
         left: 'Left',
@@ -475,6 +495,20 @@ export const characterStudio3dResources = {
         rightSide: 'right side',
         sideLabel: 'Side to edit',
         title: 'Apply symmetrically',
+      },
+      revisions: {
+        title: 'Saved 3D versions',
+        hint: 'Restoring creates a new revision. Undo the last mouse gesture separately with Ctrl+Z.',
+        select: 'Version',
+        placeholder: 'Choose a saved version',
+        restore: 'Restore version',
+        refresh: 'Refresh list',
+        legacy: 'This early version stores parameters only. The current 3D asset will be kept.',
+        restored: 'Saved 3D version restored',
+        restoreError: 'Could not restore the 3D version',
+        restoreReloadError: 'The version was restored, but the model could not be loaded. Reload the page.',
+        error: 'Could not load or restore the version. Please try again.',
+        unsaved: 'Save or cancel current changes before restoring a version.',
       },
       viewport: {
         backgroundHint: 'Creation continues in the background and may take several minutes.',

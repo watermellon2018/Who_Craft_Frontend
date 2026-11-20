@@ -169,16 +169,19 @@ test('disables seed when Auto resolves to a default model without seed support',
   expect(screen.getByRole('checkbox')).toBeDisabled();
 });
 
-test('disables reference-incompatible and unconfigured models with safe reasons', async () => {
+test('disables incompatible models but permits personal-source approval without a Craft provider key', async () => {
   mockedApi.getImageModelCatalog.mockResolvedValue({data: catalog} as never);
   render(<Harness operation="reference" />);
 
   fireEvent.mouseDown(screen.getByRole('combobox', {name: 'Модель изображения'}));
 
   const incompatibleReason = await screen.findByText('Не поддерживает работу с референсом');
-  const unconfiguredReason = screen.getByText('Провайдер не настроен');
   expect(incompatibleReason.closest('.ant-select-item-option')).toHaveClass('ant-select-item-option-disabled');
-  expect(unconfiguredReason.closest('.ant-select-item-option')).toHaveClass('ant-select-item-option-disabled');
+  const personalCandidate = screen.getByText('Gemini Image');
+  expect(personalCandidate.closest('.ant-select-item-option')).not.toHaveClass('ant-select-item-option-disabled');
+  fireEvent.click(personalCandidate);
+  expect(screen.getByTestId('generation-options')).toHaveTextContent('"imageModel":"openrouter-images:google/gemini-image"');
+  expect(screen.queryByText('Провайдер не настроен')).not.toBeInTheDocument();
   expect(screen.queryByText('ANOTHER_SECRET_ENV_NAME')).not.toBeInTheDocument();
 });
 

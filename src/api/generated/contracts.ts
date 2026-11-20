@@ -6,8 +6,102 @@ export const API_CONSTRAINTS = {
   "posterPromptMaxLength": 1000,
   "projectAnnotationMaxLength": 800,
   "projectSynopsisMaxLength": 2000,
-  "projectPosterMaxBytes": 5242880
+  "projectPosterMaxBytes": 5242880,
+  "messagingTextMaxLength": 4000
 } as const;
+
+export interface MessagingUser {
+  id: number;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  is_active: boolean;
+}
+
+export interface MessagingMessage {
+  id: number;
+  conversation_id: string;
+  sequence: number;
+  sender_id: number;
+  is_own: boolean;
+  text: string;
+  created_at: string;
+  edited_at: string | null;
+  deleted_at: string | null;
+  version: number;
+  client_id: string;
+}
+
+export interface MessagingConversation {
+  id: string;
+  peer: MessagingUser;
+  last_message: MessagingMessage | null;
+  unread_count: number;
+  last_sequence: number;
+  revision: number;
+  read_through: number;
+  peer_read_through: number;
+  cleared_through: number;
+  is_hidden: boolean;
+  can_send: boolean;
+  updated_at: string;
+}
+
+export interface MessagingUserList {
+  items: Array<MessagingUser>;
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface MessagingUnread {
+  unread_count: number;
+}
+
+export interface MessagingConversationList {
+  items: Array<MessagingConversation>;
+  total: number;
+  limit: number;
+  offset: number;
+  unread_count: number;
+}
+
+export interface MessagingHistory {
+  items: Array<MessagingMessage>;
+  next_before: number | null;
+  sync_revision: number;
+  conversation: MessagingConversation;
+}
+
+export interface MessagingChanges {
+  items: Array<MessagingMessage>;
+  next_revision: number;
+  has_more: boolean;
+  conversation: MessagingConversation;
+}
+
+export interface MessagingMutation {
+  message: MessagingMessage;
+  conversation: MessagingConversation;
+}
+
+export interface MessagingConversationCreate {
+  recipient_id: number;
+}
+
+export interface MessagingMessageCreate {
+  text: string;
+  client_id: string;
+}
+
+export interface MessagingMessageUpdate {
+  text: string;
+  expected_version: number;
+}
+
+export interface MessagingReadRequest {
+  through_sequence: number;
+}
 
 export interface StoryboardShotListJob {
   jobId: string;
@@ -36,6 +130,8 @@ export interface StoryboardShotListJobCreate {
   maxShots?: number;
   requestId: string;
   estimatedSeconds?: number;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardShotListJobApply {
@@ -181,6 +277,7 @@ export interface CharacterSecondaryAssetsQuoteRequest {
   image_types: Array<CharacterSecondaryAssetType>;
   image_model?: string | null;
   routing_mode?: "manual" | "economy" | "fast" | "balanced" | "quality";
+  generationSource?: GenerationSource;
 }
 
 export interface CharacterSecondaryAssetQuoteItem {
@@ -201,6 +298,7 @@ export interface CharacterSecondaryAssetsQuote {
   available_balance: CreditAmount;
   sufficient_balance: boolean;
   account_frozen: boolean;
+  generationSource?: GenerationSource;
 }
 
 export interface CharacterSecondaryAssetsGenerateRequest {
@@ -410,6 +508,73 @@ export interface CreditAdminAudit {
   items: Array<CreditAdminAuditEvent>;
 }
 
+export type GenerationSource = "platform" | "personal";
+
+export type GenerationModality = "text" | "image" | "music" | "sound_effect" | "video";
+
+export interface PersonalApiConnection {
+  id: string;
+  name: string;
+  provider: string;
+  keyHint: string;
+  isActive: boolean;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PersonalApiRoute {
+  connectionId: string;
+  modelKey: string;
+}
+
+export interface PersonalApiPreference {
+  modality: GenerationModality;
+  source: GenerationSource;
+  routes: Array<PersonalApiRoute>;
+}
+
+export interface PersonalApiProvider {
+  id: string;
+  label: string;
+  modalities: Array<GenerationModality>;
+}
+
+export interface PersonalApiModel {
+  key: string;
+  label: string;
+  modality: GenerationModality;
+  providers: Array<string>;
+  operations: Array<string>;
+  isFree: boolean;
+}
+
+export interface PersonalApiSettings {
+  connections: Array<PersonalApiConnection>;
+  preferences: Array<PersonalApiPreference>;
+  providers: Array<PersonalApiProvider>;
+  models: Array<PersonalApiModel>;
+  hasPaidSubscription: boolean;
+  storageAvailable: boolean;
+}
+
+export interface PersonalApiConnectionCreate {
+  name: string;
+  provider: string;
+  apiKey: string;
+}
+
+export interface PersonalApiConnectionUpdate {
+  name?: string;
+  apiKey?: string;
+  isActive?: boolean;
+}
+
+export interface PersonalApiPreferenceUpdate {
+  source: GenerationSource;
+  routes: Array<PersonalApiRoute>;
+}
+
 export type GenerationRoutingMode = "manual" | "economy" | "fast" | "balanced" | "quality";
 
 export interface GenerationRouteCandidate {
@@ -420,14 +585,15 @@ export interface GenerationRouteCandidate {
 }
 
 export interface GenerationCostEstimateRequest {
-  domain: "character" | "poster" | "reference" | "music" | "sound_effect" | "model3d";
-  operation?: "generate" | "edit" | "reference";
+  domain: "character" | "poster" | "reference" | "music" | "sound_effect" | "model3d" | "text";
+  operation?: "generate" | "edit" | "reference" | "structured";
   modelKey?: string;
   variantCount?: number;
   promptLength?: number;
   durationSeconds?: number | null;
   resolution?: "512" | "1K" | "2K" | "4K";
   routingMode?: GenerationRoutingMode;
+  generationSource?: GenerationSource;
 }
 
 export interface GenerationCostEstimate {
@@ -447,6 +613,11 @@ export interface GenerationCostEstimate {
   routingMode: GenerationRoutingMode;
   routingReason: string;
   routeCandidates: Array<GenerationRouteCandidate>;
+  generationSource?: GenerationSource;
+  modality?: GenerationModality;
+  connectionName?: string;
+  isFree?: boolean;
+  generationAccessToken?: string;
 }
 
 export interface GenerationBilling {
@@ -494,6 +665,8 @@ export interface PosterGenerateRequest {
   reference_image_asset_id?: number;
   image_model?: string;
   routing_mode?: GenerationRoutingMode;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export type PosterGenerateMultipartRequest = PosterGenerateRequest & { reference_image?: File; };
@@ -510,6 +683,11 @@ export interface PosterOperationResponse {
   billing?: GenerationBilling | null;
 }
 
+export interface ProjectGenerationSettings {
+  image_generation_model?: string;
+  visual_style?: "cinematic_realism" | "anime" | "pixar_like" | "stylized_3d" | "dark_fantasy" | "cyberpunk" | "noir" | "watercolor" | "comic_book";
+}
+
 export interface ProjectMutationRequest {
   title?: string;
   format?: "short_film" | "feature_film" | "series" | "clip" | "commercial" | "other";
@@ -519,6 +697,7 @@ export interface ProjectMutationRequest {
   synopsis?: string;
   status?: string;
   is_favorite?: boolean;
+  generation_settings?: ProjectGenerationSettings;
   poster_image_data?: string;
   poster_url?: string | null;
 }
@@ -541,7 +720,7 @@ export interface ProjectMutationResponse {
   annotation?: string;
   synopsis?: string;
   posterUrl?: string | null;
-  generationSettings?: Record<string, unknown>;
+  generationSettings?: ProjectGenerationSettings;
   createdAt?: string | null;
 }
 
@@ -813,6 +992,8 @@ export interface StoryboardSuggestShotsRequest {
   language?: "ru" | "en";
   model?: string;
   maxShots?: number;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardShotMetadataRequest {
@@ -958,6 +1139,8 @@ export interface StoryboardGenerationReferencesReplace {
 export interface StoryboardGenerateRequest {
   imageModel?: string;
   routingMode?: "manual" | "economy" | "fast" | "balanced" | "quality";
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardGeneration {
@@ -1244,6 +1427,8 @@ export interface MusicGenerationCreateRequest {
   referenceAssetId?: string | null;
   variantCount?: 1 | 2;
   brief: MusicBrief;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface MusicGenerationAccepted {
@@ -1436,6 +1621,8 @@ export interface SoundEffectGenerationCreateRequest {
   promptInfluence?: number;
   targetEffectId?: number | null;
   sceneId?: number | null;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface SoundEffectGenerationAccepted {
@@ -1653,6 +1840,8 @@ export interface ReferenceGenerationCreateRequest {
   routingMode?: GenerationRoutingMode;
   brief?: ReferenceBrief;
   editInstruction?: string;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface ReferenceGenerationError {
@@ -1744,6 +1933,8 @@ export interface StoryboardEditorFrameCreate {
   imageModel: string;
   routingMode?: "manual";
   requestId: string;
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
 }
 
 export interface StoryboardEditorFrameModelOption {
@@ -1784,4 +1975,155 @@ export interface StoryboardEditorFrameJob {
 
 export interface StoryboardEditorFrameJobList {
   jobs: Array<StoryboardEditorFrameJob>;
+}
+
+export interface VideoBlocker {
+  code: string;
+  detail: string;
+}
+
+export interface VideoFrame {
+  assetId: number;
+  imageUrl: string;
+  label: string;
+}
+
+export interface VideoJob {
+  id: string;
+  videoShotId: number;
+  sceneId: number;
+  sourceKind: "editor_draft" | "structured";
+  sourceShotId: string;
+  status: "queued" | "processing" | "completed" | "failed" | "outcome_unknown";
+  stage: "queued" | "submitting" | "polling" | "downloading" | "completed" | "failed" | "outcome_unknown";
+  modelId: string;
+  modelLabel: string;
+  generationSource: GenerationSource;
+  requestedDurationSeconds: number;
+  effectiveDurationSeconds: number;
+  motionPrompt: string;
+  aspectRatio: string;
+  resolution: string;
+  sourceFingerprint: string;
+  stale: boolean;
+  staleReasons: Array<string>;
+  assetId: number | null;
+  videoUrl: string | null;
+  error: { code: string; detail: string; retryable: boolean; } | null;
+  createdAt: string;
+  completedAt: string | null;
+  pollAfterMs: number;
+}
+
+export interface VideoSourceShot {
+  sourceKind: "editor_draft" | "structured";
+  sourceShotId: string;
+  sceneId: number;
+  title: string;
+  order: number;
+  description: string;
+  durationSeconds: number;
+  aspectRatio: string;
+  startFrame: VideoFrame | null;
+  endFrame: VideoFrame | null;
+  fingerprint: string;
+  ready: boolean;
+  blockers: Array<VideoBlocker>;
+  videoShotId: number | null;
+  videoShotVersion: number | null;
+  motionPrompt: string;
+  selectedJobId: string | null;
+  jobs: Array<VideoJob>;
+  sourceRemoved?: boolean;
+  intermediateFrameCount?: number;
+  inheritedCamera?: Record<string, unknown>;
+  references?: Array<{ id: string; title: string; kind: string; imageUrl?: string | null; usage: "context_only" | "sent"; }>;
+}
+
+export interface VideoScene {
+  id: number;
+  title: string;
+  order: number;
+  ready: boolean;
+  blockers: Array<VideoBlocker>;
+  shots: Array<VideoSourceShot>;
+}
+
+export interface VideoWorkspace {
+  projectId: number;
+  projectTitle: string;
+  permissions: { canView: boolean; canEdit: boolean; canRunGeneration: boolean; };
+  generationSource: GenerationSource;
+  scenes: Array<VideoScene>;
+  archivedShots: Array<VideoSourceShot>;
+}
+
+export interface VideoModelOption {
+  id: string;
+  label: string;
+  provider: string;
+  compatible: boolean;
+  unavailableReason: string;
+  durations: Array<number>;
+  aspectRatios: Array<string>;
+  resolutions: Array<string>;
+}
+
+export interface VideoOptionsRequest {
+  sceneId: number;
+  sourceKind: "editor_draft" | "structured";
+  sourceShotId: string;
+  modelId?: string;
+  motionPrompt?: string;
+  aspectRatio?: string;
+  resolution?: string;
+}
+
+export interface VideoOptions {
+  generationSource: GenerationSource;
+  models: Array<VideoModelOption>;
+  selectedModelId: string | null;
+  requestedDurationSeconds: number;
+  effectiveDurationSeconds: number | null;
+  durationAdjusted: boolean;
+  canGenerate: boolean;
+  blockers: Array<VideoBlocker>;
+  preflightToken: string | null;
+  expiresInSeconds: number;
+}
+
+export interface VideoJobCreateRequest {
+  preflightToken: string;
+  clientRequestId: string;
+}
+
+export interface VideoJobAccepted {
+  job: VideoJob;
+  idempotentReplay: boolean;
+}
+
+export interface VideoJobList {
+  items: Array<VideoJob>;
+}
+
+export interface VideoShotSelectRequest {
+  jobId: string;
+  expectedVideoShotVersion: number;
+}
+
+export interface VideoShotSelectResponse {
+  videoShotId: number;
+  videoShotVersion: number;
+  selectedJobId: string;
+}
+
+export interface VideoShotMotionRequest {
+  motionPrompt: string;
+  expectedVideoShotVersion: number;
+}
+
+export interface VideoShotMotionResponse {
+  videoShotId: number;
+  videoShotVersion: number;
+  motionPrompt: string;
 }

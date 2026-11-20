@@ -5,6 +5,7 @@ import Cookies from 'js-cookie';
 import PathConstants from '../../../routes/pathConstant';
 import LogoButton from '../../../page/main/logo';
 import { logout } from '../../../api/http';
+import {MessagingUnreadBadge} from '../../messaging/MessagingUnreadBadge';
 
 interface MenuItem {
   icon: string;
@@ -15,7 +16,7 @@ interface MenuItem {
 
 const mainItems: MenuItem[] = [
   { icon: '🏠', labelKey: 'profile.sidebar.profile', path: PathConstants.PROFILE },
-  { icon: '💬', labelKey: 'profile.sidebar.messages', disabled: true },
+  { icon: '💬', labelKey: 'profile.sidebar.messages', path: PathConstants.PROFILE_MESSAGES },
   { icon: '👥', labelKey: 'profile.sidebar.subscriptions', path: PathConstants.PROFILE_SUBSCRIPTIONS },
   { icon: '📺', labelKey: 'profile.sidebar.history', disabled: true },
   { icon: '📊', labelKey: 'profile.sidebar.statistics', disabled: true },
@@ -42,6 +43,9 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
   const isActive = (item: MenuItem) => {
     if (item.path === PathConstants.PROFILE) {
       return pathname === PathConstants.PROFILE || pathname === PathConstants.PROFILE_EDIT;
+    }
+    if (item.path === PathConstants.PROFILE_MESSAGES) {
+      return pathname === item.path || pathname.startsWith(`${item.path}/`);
     }
     if (item.path) return pathname === item.path;
     return activeItem === t(item.labelKey);
@@ -100,6 +104,7 @@ const ProfileSidebar: React.FC<Props> = ({ mobileOpen, onClose, activeItem }) =>
             >
               <span className="text-base">{item.icon}</span>
               {t(item.labelKey)}
+              {item.path === PathConstants.PROFILE_MESSAGES && <MessagingUnreadBadge />}
             </button>
           ))}
         </nav>

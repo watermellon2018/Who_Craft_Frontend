@@ -14,6 +14,7 @@ from PIL import Image
 import trimesh
 
 import postprocess_hunyuan_mesh as postprocess
+import preserve_hunyuan_surface as source_surface
 import run_hunyuan_multiview as benchmark
 from prepare_hunyuan_views import (
     FaceBox,
@@ -259,12 +260,155 @@ class PostprocessTests(unittest.TestCase):
                 front_reference=reference,
                 hair_color="#1f2022",
                 skin_color="#e2af91",
+                preserve_source_surface=True,
             )
 
-        self.assertEqual(head.metadata["name"], "reconstructed_skin_v2")
+        self.assertEqual(head.metadata["name"], "reconstructed_skin_surface_v4")
         self.assertEqual(len(head.faces), 1)
-        self.assertGreater(len(hair.faces), 1)
+        self.assertEqual(len(hair.faces), 1)
+        self.assertEqual(hair.metadata["name"], "generated_hair_surface_v4")
+        np.testing.assert_array_equal(head.triangles, mesh.triangles[:1])
+        np.testing.assert_array_equal(hair.triangles, mesh.triangles[1:])
+
+    def test_reference_surface_preservation_is_opt_in(self) -> None:
+        vertices = np.asarray([
+            [-0.04, 0.12, 0.08], [0.04, 0.12, 0.08], [0.0, 0.16, 0.09],
+            [-0.04, 0.23, 0.08], [0.04, 0.23, 0.08], [0.0, 0.28, 0.09],
+        ])
+        mesh = trimesh.Trimesh(
+            vertices=vertices, faces=np.asarray([[0, 1, 2], [3, 4, 5]]),
+            process=False,
+        )
+        with mock.patch.object(
+            postprocess, "_reference_guided_skin_mask",
+            return_value=np.asarray([True, False]),
+        ) as legacy_classifier:
+            head, hair = postprocess._split_head_and_hair(
+                mesh, front_reference=Path("unused.png"),
+            )
+        legacy_classifier.assert_called_once()
+        self.assertEqual(head.metadata["name"], "reconstructed_skin_v2")
         self.assertEqual(hair.metadata["name"], "generated_hair_v2")
+        self.assertGreater(len(hair.faces), 1)
+
+    def test_surface_preservation_requires_a_front_reference(self) -> None:
+        args = argparse.Namespace(
+            preserve_source_surface=True, front_reference=None,
+        )
+        with self.assertRaisesRegex(ValueError, "front reference"):
+            postprocess.run(args)
+
+    def test_reference_split_shares_neck_cut_and_preserves_surface_normals(
+        self,
+    ) -> None:
+        mesh = trimesh.creation.icosphere(subdivisions=3, radius=0.1)
+        mesh.vertices[:, 1] = (mesh.vertices[:, 1] + 0.1) * 1.5
+        visible = mesh.triangles_center[:, 1] >= postprocess.HEAD_CUT_Y
+        skin_mask = visible & (mesh.triangles_center[:, 2] >= 0.0)
+        hair_mask = visible & ~skin_mask
+        original_normals = mesh.vertex_normals.copy()
+        with mock.patch.object(
+            source_surface, "_reference_guided_skin_mask", return_value=skin_mask,
+        ):
+            head, hair = postprocess._split_head_and_hair(
+                mesh, front_reference=Path("unused.png"),
+                preserve_source_surface=True,
+            )
+
+        self.assertEqual(len(head.faces) + len(hair.faces), int(visible.sum()))
+        np.testing.assert_array_equal(head.triangles, mesh.triangles[skin_mask])
+        np.testing.assert_array_equal(hair.triangles, mesh.triangles[hair_mask])
+        for region, selected in ((head, skin_mask), (hair, hair_mask)):
+            used = np.unique(mesh.faces[selected])
+            np.testing.assert_allclose(region.vertex_normals, original_normals[used])
+            self.assertTrue(np.all(
+                region.triangles_center[:, 1] >= postprocess.HEAD_CUT_Y,
+            ))
+
+    def test_shadowed_neck_and_disconnected_brow_are_not_scalp_hair(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reference = Path(directory) / "front.png"
+            image = np.full((160, 160, 4), (188, 130, 98, 255), dtype=np.uint8)
+            cv2.ellipse(image, (80, 77), (43, 55), 0, 0, 360,
+                        (222, 172, 150, 255), thickness=-1)
+            image[124:, 62:99] = (143, 91, 73, 255)
+            image[65:69, 59:75] = (45, 30, 23, 255)
+            Image.fromarray(image, mode="RGBA").save(reference)
+
+            hair, _, _ = source_surface._reference_hair_region(
+                reference, hair_color="#bc8262", skin_color="#deac96",
+            )
+
+        self.assertTrue(hair[10, 80])
+        self.assertTrue(hair[95, 20])
+        self.assertFalse(hair[145, 80])
+        self.assertFalse(hair[67, 67])
+        self.assertFalse(hair[78, 80])
+
+    def test_reference_projection_uses_source_bounds_before_neck_cut(self) -> None:
+        vertices = np.asarray([
+            [0.049, 0.109, 0.06], [0.051, 0.109, 0.06], [0.05, 0.112, 0.06],
+            [-0.1, 0.0, -0.1], [0.1, 0.3, 0.1],
+        ])
+        hair = np.zeros((128, 128), dtype=bool)
+        hair[:20] = True
+        hair[90:] = True
+        reference_result = (hair, np.full((128, 128), 255), (0, 0, 127, 127))
+        with mock.patch.object(
+            source_surface, "_reference_hair_region", return_value=reference_result,
+        ):
+            skin = source_surface._reference_guided_skin_mask(
+                vertices, np.asarray([[0, 1, 2]]), np.asarray([True]),
+                np.asarray([False]), Path("front.png"),
+                profile_reference=None, hair_color="#111111", skin_color="#eeeeee",
+            )
+        self.assertTrue(skin[0])
+
+    def test_transparent_eye_hole_keeps_anatomical_skin_prior(self) -> None:
+        vertices = np.asarray([
+            [0.019, 0.15, 0.08], [0.021, 0.15, 0.08], [0.02, 0.153, 0.08],
+            [-0.1, 0.0, -0.1], [0.1, 0.3, 0.1],
+        ])
+        alpha = np.full((128, 128), 255)
+        alpha[45:90, 50:108] = 0
+        reference_result = (
+            np.zeros((128, 128), dtype=bool), alpha, (0, 0, 127, 127),
+        )
+        with mock.patch.object(
+            source_surface, "_reference_hair_region", return_value=reference_result,
+        ):
+            skin = source_surface._reference_guided_skin_mask(
+                vertices, np.asarray([[0, 1, 2]]), np.asarray([True]),
+                np.asarray([True]), Path("front.png"),
+                profile_reference=None, hair_color="#111111", skin_color="#eeeeee",
+            )
+        self.assertTrue(skin[0])
+
+    def test_profile_keeps_front_back_direction_on_both_sides(self) -> None:
+        vertices = []
+        for x, z in ((0.08, 0.09), (-0.08, 0.09), (0.08, -0.09), (-0.08, -0.09)):
+            vertices.extend([[x - 0.001, 0.15, z], [x + 0.001, 0.15, z], [x, 0.153, z]])
+        vertices.extend([[-0.1, 0.0, -0.1], [0.1, 0.3, 0.1]])
+        faces = np.arange(12).reshape(-1, 3)
+        alpha = np.full((128, 128), 255)
+        for facing_left in (True, False):
+            with self.subTest(facing_left=facing_left):
+                profile_hair = np.zeros((128, 128), dtype=bool)
+                profile_hair[:, 64:] = facing_left
+                profile_hair[:, :64] = not facing_left
+                with mock.patch.object(
+                    source_surface, "_reference_hair_region", side_effect=[
+                        (np.ones((128, 128), dtype=bool), alpha, (0, 0, 127, 127)),
+                        (profile_hair, alpha, (0, 0, 127, 127)),
+                    ],
+                ):
+                    skin = source_surface._reference_guided_skin_mask(
+                        np.asarray(vertices), faces, np.ones(4, dtype=bool),
+                        np.zeros(4, dtype=bool), Path("front.png"),
+                        profile_reference=Path("profile.png"),
+                        hair_color="#111111", skin_color="#eeeeee",
+                    )
+                np.testing.assert_array_equal(skin, [True, True, False, False])
 
 if __name__ == "__main__":
     unittest.main()

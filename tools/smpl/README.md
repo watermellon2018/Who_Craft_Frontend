@@ -53,3 +53,41 @@ the assets or the GLB.
 
 A1 bakes **shape only** (body silhouette). Pose/skeleton (A2) and the face
 (SMPL-X / FLAME, Phase 5) are intentionally not included.
+
+## Reference body fitting
+
+`fit_reference_body.py` proposes editable proportions from measured frontal
+reference landmarks and clothed cross-sections. It requires NumPy, SciPy,
+the locally licensed `SMPLX_NEUTRAL.npz`, and its matching 16-target `body.glb`.
+It validates the template/topology and does not download models or write to
+the database. From this directory:
+
+```sh
+python fit_reference_body.py --body ../../public/models/body.glb \
+  --model ../../../smpl_assets/smplx/SMPLX_NEUTRAL.npz \
+  --measurements /path/to/reference-body-measurements.json \
+  --out /path/to/fit-candidate.json --qa /path/to/qa-posing.json
+python -m unittest test_fit_reference_body
+```
+
+The input includes a `pose_detections` entry with `model: "heavy"`, named
+landmarks with pixel coordinates, and a `metrics.pixels` map of measured joint
+spans/segment lengths. `clothed_silhouette_sections` provides each section's
+`pixel_y`, `width_pixels` and optional `edge_uncertainty_pixels`.
+See `reference_targets` in the script for the exact measurement keys. All lengths
+are relative to the shoulder–hip torso span, avoiding assumptions about
+absolute height or shoe thickness. The optimization fixes beta zero, uses
+regularization for unobserved shape/depth, and accounts for clothing clearance.
+
+Review `measurements` and the rendered silhouette before applying `params`
+through the existing model3d state/revision flow. `body_fit` contains normalized
+beta weights; limb length controls remain independently editable. The proposal
+resets all old beta-mapped body slider offsets to zero. Preserve unrelated colors,
+face settings and other edits when merging. A reconstructed head's relative
+size may need separate visual adjustment with `head_neck.headSize`.
+
+`--qa` emits locally derived joint/weight data for a comparison pose only; it
+does not change the editable T-pose or add runtime pose controls. Keep this
+licensed derivative private alongside generated media. A clothed frontal
+reference constrains the visible silhouette, not a unique underlying anatomy
+or a reliable side profile. The tool never claims a complete 3D reconstruction.

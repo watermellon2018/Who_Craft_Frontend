@@ -38,9 +38,9 @@ export const projectResources = {
         notifications: {updated: 'Изменения сохранены', created: 'Проект успешно создан'},
         validation: {
           titleRequired: 'Заполните поле «Название»', genreRequired: 'Выберите жанр',
-          annotationMin: 'Аннотация должна содержать не менее {{count}} символов',
+          annotationRequired: 'Аннотация не должна быть пустой',
           annotationMax: 'Аннотация должна содержать не более {{count}} символов',
-          synopsisMin: 'Синопсис должен содержать не менее {{count}} символов',
+          synopsisRequired: 'Синопсис не должен быть пустым',
           synopsisMax: 'Синопсис должен содержать не более {{count}} символов',
           audienceRequired: 'Выберите целевую аудиторию', posterType: 'Можно загрузить только JPG или PNG.',
           posterSize: 'Размер изображения не должен превышать {{size}} МБ.',
@@ -58,6 +58,7 @@ export const projectResources = {
           nameHelp: 'Название будет отображаться в списке проектов и в рабочем пространстве фильма.',
           namePlaceholder: 'Введите название', format: 'Формат', formatPlaceholder: 'Выберите формат',
           genre: 'Жанр', genrePlaceholder: 'Выберите жанр',
+          visualStyle: 'Визуальный стиль', visualStyleHelp: 'Применяется к новым персонажам проекта.',
         },
         audience: {title: 'Целевая аудитория', description: 'Выберите одну или несколько групп, для которых создаётся проект.'},
         description: {
@@ -284,9 +285,9 @@ export const projectResources = {
         notifications: {updated: 'Changes saved', created: 'Project created'},
         validation: {
           titleRequired: 'Enter a project name', genreRequired: 'Select a genre',
-          annotationMin: 'The annotation must contain at least {{count}} characters',
+          annotationRequired: 'The annotation cannot be empty',
           annotationMax: 'The annotation must contain no more than {{count}} characters',
-          synopsisMin: 'The synopsis must contain at least {{count}} characters',
+          synopsisRequired: 'The synopsis cannot be empty',
           synopsisMax: 'The synopsis must contain no more than {{count}} characters',
           audienceRequired: 'Select a target audience', posterType: 'Upload a JPG or PNG image.',
           posterSize: 'The image must be no larger than {{size}} MB.',
@@ -302,6 +303,7 @@ export const projectResources = {
           title: 'Basic information', name: 'Name', nameHelp: 'The name appears in the project list and the film workspace.',
           namePlaceholder: 'Enter a name', format: 'Format', formatPlaceholder: 'Select a format',
           genre: 'Genre', genrePlaceholder: 'Select a genre',
+          visualStyle: 'Visual style', visualStyleHelp: 'Applies to new characters in this project.',
         },
         audience: {title: 'Target audience', description: 'Select one or more groups this project is intended for.'},
         description: {

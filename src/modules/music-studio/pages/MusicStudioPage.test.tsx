@@ -569,6 +569,8 @@ test('selects the configured catalog default and enqueues the estimate canonical
   }} as never);
   mockedRunGenerationWithCredits.mockImplementationOnce((intent, operation) => operation({
     modelKey: 'lyria-3-pro-canonical',
+    generationSource: 'personal',
+    generationAccessToken: 'signed-music-route',
     routingMode: 'manual',
   } as never));
   const enqueue = jest.spyOn(musicApi, 'enqueueJob').mockResolvedValue({data: {
@@ -594,6 +596,8 @@ test('selects the configured catalog default and enqueues the estimate canonical
   );
   expect(enqueue.mock.calls[0][1]).toEqual(expect.objectContaining({
     modelKey: 'lyria-3-pro-canonical',
+    generationSource: 'personal',
+    generationAccessToken: 'signed-music-route',
   }));
 });
 

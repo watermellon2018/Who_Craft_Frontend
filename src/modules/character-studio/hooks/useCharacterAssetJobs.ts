@@ -1,7 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import i18n from '../../../i18n';
 import {characterApi} from '../api/characterApi';
-import {getGenerationRoutingMode} from '../../credits/api/creditApi';
+import {confirmGenerationCost} from '../../credits/components/GenerationCostGuard';
 import type {CharacterImageType, GenerationJob, StudioCharacter} from '../types/character.types';
 
 export type AssetJobStatus = 'idle' | 'queued' | 'processing' | 'cancellation_requested' | 'completed' | 'failed';
@@ -180,6 +180,8 @@ export function useCharacterAssetJobs(
         return undefined;
       }
       const region = REGION_BY_TYPE[type];
+      const estimate = await confirmGenerationCost({domain: 'character', operation: 'edit', variantCount: 1});
+      if (!estimate || activeOwnerKeyRef.current !== requestOwnerKey) return undefined;
       updateJob(type, {revisionId, status: 'queued', errorMessage: undefined}, requestOwnerKey);
       try {
         const response = await characterApi.generateEdit(projectId, character.character_id, {
@@ -190,9 +192,12 @@ export function useCharacterAssetJobs(
           variant_count: 1,
           current_image_url: character.images?.portrait?.image_url || null,
           current_asset_id: character.images?.portrait?.asset_id || null,
-          routing_mode: getGenerationRoutingMode(),
+          routing_mode: estimate.routingMode,
+          image_model: estimate.modelKey,
+          generationAccessToken: estimate.generationAccessToken,
+          generationSource: estimate.generationSource,
         } as never,
-        `${character.character_id}:${type}:${revisionId}`);
+        `${character.character_id}:${type}:${revisionId}:${estimate.generationSource}:${estimate.modelKey}`);
         if (activeOwnerKeyRef.current !== requestOwnerKey) return undefined;
 
         const jobId = response.data?.job_id;

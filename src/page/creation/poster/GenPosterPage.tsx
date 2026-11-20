@@ -668,6 +668,10 @@ const GenPosterPage: React.FC = () => {
                     format: selectedFormat,
                     referenceFile,
                     imageModel: estimate.modelKey,
+                    generationAccessToken: estimate.generationAccessToken,
+
+                    generationSource: estimate.generationSource,
+
                     routingMode: estimate.routingMode,
                 }),
             );
@@ -697,6 +701,10 @@ const GenPosterPage: React.FC = () => {
                     sourceVariantId,
                     instruction: correctionText,
                     imageModel: estimate.modelKey,
+                    generationAccessToken: estimate.generationAccessToken,
+
+                    generationSource: estimate.generationSource,
+
                     routingMode: estimate.routingMode,
                 }),
             );

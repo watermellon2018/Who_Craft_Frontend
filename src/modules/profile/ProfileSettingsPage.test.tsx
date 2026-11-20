@@ -9,6 +9,7 @@ import AccountDeletionCard from './components/AccountDeletionCard';
 import ProfileSettingsPage from './ProfileSettingsPage';
 
 jest.mock('../../api/http', () => ({
+  ...jest.requireActual('../../api/http'),
   __esModule: true,
   clearStoredUserToken: jest.fn(),
   default: {delete: jest.fn(), get: jest.fn(), patch: jest.fn()},
@@ -24,6 +25,11 @@ jest.mock('./api/profileApi', () => ({
   fetchSettings: jest.fn(),
   logoutAllSessions: jest.fn(),
   updateSettings: jest.fn(),
+}));
+
+jest.mock('../personal-api/components/PersonalApiSettings', () => ({
+  __esModule: true,
+  default: () => <section aria-label="Личные API" />,
 }));
 
 const mockedDeleteAccount = deleteAccount as jest.MockedFunction<typeof deleteAccount>;
@@ -81,6 +87,7 @@ describe('ProfileSettingsPage', () => {
     expect(screen.getByRole('switch', {name: 'В интерфейсе'})).toBeInTheDocument();
     expect(screen.getByRole('switch', {name: 'По email'})).toBeInTheDocument();
     expect(screen.getByRole('heading', {name: 'Безопасность'})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'Личные API'})).toBeInTheDocument();
     expect(screen.getByRole('button', {name: /Настройки/})).toHaveAttribute('aria-current', 'page');
   });
 

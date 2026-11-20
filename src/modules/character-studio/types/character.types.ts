@@ -1,4 +1,4 @@
-import type {GenerationBilling, GenerationRoutingMode} from '../../../api/generated/contracts';
+import type {GenerationBilling, GenerationRoutingMode, GenerationSource} from '../../../api/generated/contracts';
 
 export type CharacterRegion = 'face' | 'hair' | 'body' | 'outfit' | 'style' | 'full_character';
 
@@ -270,6 +270,10 @@ export interface EditRequest {
   activate_image?: boolean;
   image_model?: string;
   routing_mode?: GenerationRoutingMode;
+
+  generationSource?: GenerationSource;
+
+  generationAccessToken?: string;
 }
 
 export interface ZoneSelection {
@@ -286,6 +290,10 @@ export interface ZoneEditRequest {
   variant_count?: number;
   image_model?: string;
   routing_mode?: GenerationRoutingMode;
+
+  generationSource?: GenerationSource;
+
+  generationAccessToken?: string;
 }
 
 export interface ZoneEditResponse {
@@ -386,6 +394,8 @@ export interface ProceedTo3DResponse {
 }
 
 export interface CreateCharacterFromReferencePayload {
+  generationSource?: GenerationSource;
+  generationAccessToken?: string;
   name: string;
   entityType: string;
   role?: string;

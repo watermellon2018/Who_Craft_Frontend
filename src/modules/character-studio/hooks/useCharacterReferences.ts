@@ -285,6 +285,10 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           correction_prompt: opts?.correction_prompt,
           preserve_identity: true,
           image_model: estimate.modelKey,
+          generationAccessToken: estimate.generationAccessToken,
+
+          generationSource: estimate.generationSource,
+
           routing_mode: estimate.routingMode,
         });
         if (!isCurrentOwner(requestOwnerKey)) return;
@@ -332,6 +336,10 @@ export function useCharacterReferences(projectId: string | number, characterId: 
           correction_prompt: correctionPrompt,
           preserve_identity: true,
           image_model: estimate.modelKey,
+          generationAccessToken: estimate.generationAccessToken,
+
+          generationSource: estimate.generationSource,
+
           routing_mode: estimate.routingMode,
         });
         if (!isCurrentOwner(requestOwnerKey)) return;

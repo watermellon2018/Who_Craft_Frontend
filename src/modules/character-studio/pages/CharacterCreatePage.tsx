@@ -7,12 +7,11 @@ import {characterApi} from '../api/characterApi';
 import AppearanceDescriptionSection from '../components/create/AppearanceDescriptionSection';
 import BasicInformationSection from '../components/create/BasicInformationSection';
 import CharacterCreateHeader from '../components/create/CharacterCreateHeader';
-import {CharacterCreateMode} from '../components/create/CharacterCreateTabs';
+import type {CharacterCreateMode} from '../components/create/CharacterCreateTabs';
 import GenerationSettingsPanel, {defaultGenerationOptions} from '../components/create/GenerationSettingsPanel';
 import type {GenerationOptions} from '../components/create/GenerationSettingsPanel';
 import PersonalitySection from '../components/create/PersonalitySection';
 import TipsPanel from '../components/create/TipsPanel';
-import VisualStyleSelector, {VisualStyleValue} from '../components/create/VisualStyleSelector';
 import {useProjectIdFromRoute} from '../hooks/useProjectIdFromRoute';
 import {characterVariantsPath} from '../../../routes/pathConstant';
 import {characterToFormValues, CharacterCreateFormValues} from '../types/characterForm';
@@ -84,9 +83,6 @@ function CreateCharacterFromDescriptionContent() {
   const [generationOptions, setGenerationOptions] = useState<GenerationOptions>(
     {...defaultGenerationOptions, ...routeState?.generationOptions},
   );
-  const [visualStyle, setVisualStyle] = useState<VisualStyleValue>(
-    (returnFormValues?.visual_style as VisualStyleValue | undefined) ?? 'cinematic_realism',
-  );
   const characterName = Form.useWatch('name', form);
   const characterType = Form.useWatch('character_type', form);
   const appearanceDescription = Form.useWatch('appearance_description', form);
@@ -100,9 +96,6 @@ function CreateCharacterFromDescriptionContent() {
     let cancelled = false;
     if (returnFormValues) {
       form.setFieldsValue(returnFormValues);
-      if (returnFormValues.visual_style) {
-        setVisualStyle(returnFormValues.visual_style as VisualStyleValue);
-      }
       return () => { cancelled = true; };
     }
     if (returnedCharacterId) {
@@ -110,11 +103,7 @@ function CreateCharacterFromDescriptionContent() {
       characterApi.get(projectId, returnedCharacterId)
         .then((response) => {
           if (cancelled) return;
-          const recoveredValues = characterToFormValues(response.data);
-          form.setFieldsValue(recoveredValues);
-          if (recoveredValues.visual_style) {
-            setVisualStyle(recoveredValues.visual_style as VisualStyleValue);
-          }
+          form.setFieldsValue(characterToFormValues(response.data));
         })
         .catch(() => {
           if (!cancelled) message.error(t('characterStudio.create.draftLoadError'));
@@ -124,11 +113,6 @@ function CreateCharacterFromDescriptionContent() {
     }
     return () => { cancelled = true; };
   }, [form, initialCharacterName, projectId, returnFormValues, returnedCharacterId, t]);
-
-  const handleVisualStyleChange = (value: VisualStyleValue) => {
-    setVisualStyle(value);
-    form.setFieldsValue({visual_style: value});
-  };
 
   const launchGeneration = async (characterId: string, context: GenerationRetryContext) => {
     const jobResponse = await runGenerationWithCredits(
@@ -145,6 +129,10 @@ function CreateCharacterFromDescriptionContent() {
         {
           ...context.generationPayload,
           image_model: estimate.modelKey,
+          generationAccessToken: estimate.generationAccessToken,
+
+          generationSource: estimate.generationSource,
+
           routing_mode: estimate.routingMode,
         },
         `character:${characterId}:portrait:attempt:${uuidv4()}`,
@@ -175,7 +163,8 @@ function CreateCharacterFromDescriptionContent() {
       setSaving(true);
       setGenerationError(null);
       await form.validateFields(['name', 'character_type', 'appearance_description']);
-      const values = form.getFieldsValue(true);
+      const values = {...form.getFieldsValue(true)};
+      delete values.visual_style;
       const parsedAge = typeof values.age === 'number'
         ? values.age
         : typeof values.lifecycle_stage === 'string' && /^\d+$/.test(values.lifecycle_stage.trim())
@@ -186,7 +175,6 @@ function CreateCharacterFromDescriptionContent() {
         name: values.name?.trim(),
         age: parsedAge,
         species: values.character_type || 'human',
-        visual_style: values.visual_style || 'cinematic_realism',
       };
 
       if (activeCharacterId) {
@@ -219,7 +207,6 @@ function CreateCharacterFromDescriptionContent() {
             ? Number(generationOptionsSnapshot.seed)
             : undefined,
           lock_seed: generationOptionsSnapshot.lockSeed,
-          visual_style: payload.visual_style,
           text_refinement: payload.appearance_description,
           character_type: payload.character_type,
           age: payload.age,
@@ -298,7 +285,6 @@ function CreateCharacterFromDescriptionContent() {
       requiredMark={false}
       initialValues={{
         character_type: 'human',
-        visual_style: 'cinematic_realism',
         role: 'main',
         gender: 'female',
         ...returnFormValues,
@@ -311,10 +297,6 @@ function CreateCharacterFromDescriptionContent() {
           <BasicInformationSection />
           <AppearanceDescriptionSection />
           <PersonalitySection />
-          <Form.Item name="visual_style" hidden>
-            <input type="hidden" />
-          </Form.Item>
-          <VisualStyleSelector value={visualStyle} onChange={handleVisualStyleChange} />
 
           {generationError && draftCharacterId && (
             <div className="character-create-generation-error" role="alert">

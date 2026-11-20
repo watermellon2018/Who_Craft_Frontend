@@ -173,6 +173,56 @@ describe('MorphRig', () => {
     expect(position.getY(crownVertex)).toBeCloseTo(baseCrownY, 7);
   });
 
+  it('adds editable sliders to the stored reference fit and ignores invalid weights', () => {
+    const mesh = rig.nodeByName('body') as THREE.Mesh;
+    rig.applyParams(withParams({
+      body_fit: {beta00: 0.4, beta01: -0.5, beta02: NaN, beta03: 8, beta99: 1},
+      torso: {chestWidth: 0.6},
+    }));
+    expect(mesh.morphTargetInfluences?.[0]).toBeCloseTo(0.4);
+    expect(mesh.morphTargetInfluences?.[1]).toBeCloseTo(-0.5 + 0.6 * 0.7 / 3);
+    expect(mesh.morphTargetInfluences?.[2]).toBe(0);
+    expect(mesh.morphTargetInfluences?.[3]).toBe(1);
+    rig.applyParams(buildInitialZoneParams());
+    expect(mesh.morphTargetInfluences?.every((value) => value === 0)).toBe(true);
+  });
+
+  it('grounds the live fitted surface without accumulating offsets or baking morphs', () => {
+    const mesh = rig.nodeByName('body') as THREE.Mesh;
+    const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const base = Array.from(position.array);
+    const fit = withParams({body_fit: {beta01: -0.7, beta04: 0.8}});
+    rig.applyParams(fit);
+    const first = Array.from(position.array);
+    const minimumY = (): number => Math.min(...Array.from(
+      {length: position.count}, (_, vertex) => morphedBodyPos(mesh, vertex).y,
+    ));
+    expect(minimumY()).toBeCloseTo(0, 7);
+    expect(mesh.morphTargetInfluences?.[4]).toBeCloseTo(0.8);
+    rig.applyParams(fit);
+    expect(Array.from(position.array)).toEqual(first);
+    expect(minimumY()).toBeCloseTo(0, 7);
+    rig.applyParams(buildInitialZoneParams());
+    expect(Array.from(position.array)).toEqual(base);
+  });
+
+  it('resets all fallback face-overlay offsets after removing a reference fit', () => {
+    const mesh = makeIndexedMorphMesh();
+    const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
+    for (let vertex = 14 * TUBE_AROUND; vertex < 15 * TUBE_AROUND; vertex++) {
+      position.setY(vertex, TUBE_HEIGHT * 0.855);
+    }
+    const delta = mesh.geometry.morphAttributes.position[1] as THREE.BufferAttribute;
+    for (let vertex = 0; vertex < delta.count; vertex++) delta.setXYZ(vertex, 0.01, 0, 0.02);
+    const bodyRig = MorphRig.fromMesh(mesh, makeTubeFaceAnchors());
+    const overlay = bodyRig.root.getObjectByName('smpl_face_overlay') as THREE.Group;
+    bodyRig.applyParams({body_fit: {beta01: 1}});
+    expect(overlay.position.z).toBeCloseTo(0.02, 6);
+    bodyRig.applyParams({});
+    expect(overlay.position.toArray()).toEqual([0, 0, 0]);
+    bodyRig.dispose();
+  });
+
   it('applies full-body arm lengths symmetrically and resets deterministically', () => {
     const mesh = makeMorphMesh();
     const position = mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
@@ -684,6 +734,28 @@ describe('MorphRig clothing (A5)', () => {
 
     rig.applyParams(withParams({clothing_bottom: {style: 'unknown'}}));
     expect(bottom.geometry.drawRange.count).toBe(shortsCount);
+  });
+
+  it('polo adds a tracked collar and restores the original shirt index when switched off', () => {
+    const top = rig.nodeByName('clothing_top') as THREE.Mesh;
+    const originalIndex = top.geometry.index;
+    const originalPositions = Array.from(top.geometry.getAttribute('position').array);
+    rig.applyParams(withParams({clothing_top: {style: 'polo'}}));
+    const polo = rig.root.getObjectByName('reference_polo') as THREE.Group;
+    expect(polo).toBeDefined();
+    expect(polo.visible).toBe(true);
+    expect(top.geometry.index).not.toBe(originalIndex);
+    const collar = polo.getObjectByName('polo_folded_collar') as THREE.Mesh;
+    const initialCollar = Array.from(collar.geometry.getAttribute('position').array);
+    rig.applyParams(withParams({clothing_top: {style: 'polo'}, thigh: {thighLength: 1}}));
+    expect(Array.from(collar.geometry.getAttribute('position').array)).not.toEqual(initialCollar);
+    expect(Array.from(collar.geometry.getAttribute('position').array).every(Number.isFinite)).toBe(true);
+    rig.applyParams(withParams({clothing_top: {style: 'polo', enabled: false}}));
+    expect(polo.visible).toBe(false);
+    rig.applyParams(withParams({clothing_top: {style: 'tshirt'}}));
+    expect(top.geometry.index).toBe(originalIndex);
+    expect(polo.visible).toBe(false);
+    expect(Array.from(top.geometry.getAttribute('position').array)).toEqual(originalPositions);
   });
 
   it('garments default to ENABLED (a fresh character is dressed)', () => {

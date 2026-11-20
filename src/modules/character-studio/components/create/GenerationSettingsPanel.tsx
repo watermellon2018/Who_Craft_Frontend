@@ -61,7 +61,6 @@ function getProviderLabel(model: ImageModelCatalogEntry) {
 }
 
 function getUnavailableReason(model: ImageModelCatalogEntry, operation: 'generate' | 'reference', t: TFunction) {
-  if (!model.configured) return t('characterStudio.create.generation.providerNotConfigured');
   if (!model.supports_generate) return t('characterStudio.create.generation.generateUnsupported');
   if (operation === 'reference' && !model.supports_reference) {
     return t('characterStudio.create.generation.referenceUnsupported');

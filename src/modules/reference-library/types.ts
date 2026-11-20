@@ -1,4 +1,4 @@
-import type {GenerationBilling, GenerationRoutingMode} from '../../api/generated/contracts';
+import type {GenerationBilling, GenerationRoutingMode, GenerationSource} from '../../api/generated/contracts';
 
 export type ReferenceCategory = 'location' | 'prop' | 'wardrobe' | 'vehicle' | 'symbol' | 'other';
 
@@ -204,6 +204,10 @@ export interface ReferenceEnqueueRequest {
   expectedReferenceVersion: number;
   imageModel: string;
   routingMode?: GenerationRoutingMode;
+
+  generationSource?: GenerationSource;
+
+  generationAccessToken?: string;
   operation: 'generate' | 'edit';
   sourceVersionId: string | null;
   variantCount: number;
