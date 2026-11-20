@@ -1,7 +1,7 @@
 import React from 'react';
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
-import {create_project, fetch_project} from '../../api/projects/properties/project';
+import {create_project, fetch_project, patch_project} from '../../api/projects/properties/project';
 import {openNotificationWithIcon} from '../../utils/global/notification';
 import GenPosterPage from './poster/GenPosterPage';
 import {ProjectCreatePage} from './projects/newProjectPage';
@@ -28,6 +28,7 @@ jest.mock('./edit_generation', () => () => null);
 
 const mockedFetchProject = fetch_project as jest.MockedFunction<typeof fetch_project>;
 const mockedCreateProject = create_project as jest.MockedFunction<typeof create_project>;
+const mockedPatchProject = patch_project as jest.MockedFunction<typeof patch_project>;
 
 function renderRoute(path: string, element: React.ReactNode, routePath: string, destination?: React.ReactNode) {
   return render(
@@ -60,12 +61,40 @@ test('restores project edit data from the project id in the URL', async () => {
     audience: ['all'],
     genre: ['drama'],
     posterUrl: '',
+    generationSettings: {image_generation_model: 'mock', visual_style: 'noir'},
   } as never);
 
   renderRoute('/projects/77/edit', <ProjectCreatePage />, '/projects/:projectId/edit');
 
   await waitFor(() => expect(mockedFetchProject).toHaveBeenCalledWith('77'));
   expect(await screen.findByDisplayValue('Recovered project')).toBeInTheDocument();
+  expect(screen.getByText('Нуар')).toBeInTheDocument();
+});
+
+test('saves a changed project style without resending the image model', async () => {
+  const project = {
+    id: 77,
+    title: 'Recovered project',
+    format: 'feature_film' as const,
+    annotation: 'Recovered annotation',
+    synopsis: 'Recovered synopsis',
+    audience: ['all'],
+    genre: ['drama'],
+    generationSettings: {image_generation_model: 'mock', visual_style: 'noir' as const},
+  };
+  mockedFetchProject.mockResolvedValue(project);
+  mockedPatchProject.mockResolvedValue({
+    ...project, generationSettings: {...project.generationSettings, visual_style: 'watercolor'},
+  });
+  renderRoute('/projects/77/edit', <ProjectCreatePage />, '/projects/:projectId/edit');
+
+  fireEvent.mouseDown(await screen.findByRole('combobox', {name: 'Визуальный стиль'}));
+  fireEvent.click(screen.getByText('Акварель'));
+  fireEvent.click(screen.getByRole('button', {name: /Сохранить изменения/}));
+
+  await waitFor(() => expect(mockedPatchProject).toHaveBeenCalledWith('77', expect.objectContaining({
+    generation_settings: {visual_style: 'watercolor'},
+  })));
 });
 
 test('shows an explicit forbidden state on direct project edit open', async () => {
@@ -99,19 +128,24 @@ test('keeps poster generation disabled until a new project is saved', () => {
   expect(mockedFetchProject).not.toHaveBeenCalled();
 });
 
-test('opens the dashboard for the newly created project', async () => {
+test('creates the project with the selected style and then opens its dashboard', async () => {
   mockedCreateProject.mockResolvedValue({id: 77, title: 'New project'});
   renderRoute(
     '/create-project', <ProjectCreatePage />, '/create-project',
     <Route path="/projects/77" element={<h1>New project dashboard</h1>} />,
   );
   fillProjectBasics();
+  expect(screen.getByText('Кинематографичный реализм')).toBeInTheDocument();
+  fireEvent.mouseDown(screen.getByRole('combobox', {name: 'Визуальный стиль'}));
+  fireEvent.click(screen.getByText('Аниме'));
   fireEvent.change(screen.getByPlaceholderText('Опишите идею проекта…'), {target: {value: 'Annotation'}});
   fireEvent.change(screen.getByPlaceholderText('Опишите сюжет и ключевые события…'), {target: {value: 'Synopsis'}});
   fireEvent.click(screen.getByRole('button', {name: /Создать проект/}));
 
   expect(await screen.findByRole('heading', {name: 'New project dashboard'})).toBeInTheDocument();
-  expect(mockedCreateProject).toHaveBeenCalledWith(expect.objectContaining({title: 'New project'}));
+  expect(mockedCreateProject).toHaveBeenCalledWith(expect.objectContaining({
+    title: 'New project', generation_settings: {visual_style: 'anime'},
+  }));
 });
 
 test('reports empty annotation and synopsis as required fields', () => {

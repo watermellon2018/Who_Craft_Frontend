@@ -38,6 +38,8 @@ import {
     PROJECT_GENRE_OPTIONS,
     GENRE_VALUES,
 } from "../../../constants/projectOptions";
+import {DEFAULT_VISUAL_STYLE, VISUAL_STYLES} from '../../../constants/visualStyles';
+import type {VisualStyle} from '../../../constants/visualStyles';
 import {
     PROJECT_ANNOTATION_MAX_LENGTH,
     PROJECT_SYNOPSIS_MAX_LENGTH,
@@ -73,17 +75,19 @@ const COLORS = {
 interface FieldProps {
     label: string;
     helper?: string;
+    htmlFor?: string;
+    helperId?: string;
     children: ReactNode;
     counter?: { current: number; max: number };
 }
 
-const Field: React.FC<FieldProps> = ({ label, helper, children, counter }) => (
+const Field: React.FC<FieldProps> = ({ label, helper, htmlFor, helperId, children, counter }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontSize: 14, fontWeight: 500, color: COLORS.textPrimary }}>{label}</label>
+        <label htmlFor={htmlFor} style={{ fontSize: 14, fontWeight: 500, color: COLORS.textPrimary }}>{label}</label>
         {children}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, minHeight: 16 }}>
             {helper ? (
-                <span style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.4, flex: 1 }}>{helper}</span>
+                <span id={helperId} style={{ fontSize: 12, color: COLORS.textMuted, lineHeight: 1.4, flex: 1 }}>{helper}</span>
             ) : (
                 <span style={{ flex: 1 }} />
             )}
@@ -218,6 +222,7 @@ export const ProjectCreatePage = () => {
     // Single genre value, e.g. "fantasy". Empty string means no selection.
     const [genre, setGenre] = useState<string>('');
     const [format, setFormat] = useState<ProjectFormat>('feature_film');
+    const [visualStyle, setVisualStyle] = useState<VisualStyle>(DEFAULT_VISUAL_STYLE);
     const [selectedAudience, setSelectedAudience] = useState<string[]>(['all']);
     const [annotation, setAnnotation] = useState<string>('');
     const [description, setDescription] = useState<string>('');
@@ -244,6 +249,7 @@ export const ProjectCreatePage = () => {
             setImageUrl(data.posterUrl || '');
             setTitle(data.title || '');
             setFormat(data.format || 'feature_film');
+            setVisualStyle(data.generationSettings?.visual_style ?? DEFAULT_VISUAL_STYLE);
             setAnnotation(data.annotation || '');
             setDescription(data.synopsis || '');
             setSelectedAudience(
@@ -344,6 +350,7 @@ export const ProjectCreatePage = () => {
             audience: selectedAudience,
             annotation,
             synopsis: description,
+            generation_settings: {visual_style: visualStyle},
         };
         if (posterDataUrl) {
             payload.poster_image_data = posterDataUrl;
@@ -369,6 +376,7 @@ export const ProjectCreatePage = () => {
             // Sync local state with the persisted version returned by the API.
             setTitle(data.title || title);
             setFormat(data.format || format);
+            setVisualStyle(data.generationSettings?.visual_style ?? visualStyle);
             setAnnotation(data.annotation ?? annotation);
             setDescription(data.synopsis ?? description);
             if (Array.isArray(data.genre)) setGenre(data.genre[0] || '');
@@ -923,6 +931,26 @@ export const ProjectCreatePage = () => {
                                                 </div>
                                             </Field>
                                         </div>
+                                        <Field
+                                            label={t('project.editor.basic.visualStyle')}
+                                            helper={t('project.editor.basic.visualStyleHelp')}
+                                            htmlFor="project-visual-style"
+                                            helperId="project-visual-style-help"
+                                        >
+                                            <div className="craft-field">
+                                                <Select<VisualStyle>
+                                                    id="project-visual-style"
+                                                    aria-describedby="project-visual-style-help"
+                                                    value={visualStyle}
+                                                    onChange={setVisualStyle}
+                                                    options={VISUAL_STYLES.map((value) => ({
+                                                        value,
+                                                        label: t(`characterStudio.options.visualStyle.${value}`),
+                                                    }))}
+                                                    style={{width: '100%'}}
+                                                />
+                                            </div>
+                                        </Field>
                                     </div>
                                 </Card>
 

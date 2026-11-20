@@ -134,8 +134,16 @@ jest.mock('../components/CharacterEditorLayout', () => ({
 
 jest.mock('../components/CharacterPreview', () => ({
   __esModule: true,
-  default: ({onGenerateImage}: {onGenerateImage: () => void}) => (
-    <button onClick={onGenerateImage}>Generate primary</button>
+  default: ({onGenerateImage, onZoneEditToggle, zoneEditOpen}: {
+    onGenerateImage: () => void;
+    onZoneEditToggle: (open: boolean) => void;
+    zoneEditOpen: boolean;
+  }) => (
+    <>
+      <button onClick={onGenerateImage}>Generate primary</button>
+      <button onClick={() => onZoneEditToggle(true)}>Edit zone</button>
+      {zoneEditOpen && <span>Zone editor open</span>}
+    </>
   ),
   viewModeToImageType: () => 'portrait',
 }));
@@ -409,4 +417,15 @@ it('shows a generation polling error and retries it', () => {
     name: '\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c',
   }));
   expect(mockRetryGenerationJob).toHaveBeenCalledTimes(1);
+});
+
+it.each([/Generate primary/, /Обновить/])('closes zone editing when %s starts regeneration', async (action) => {
+  render(<CharacterEditorPage />);
+  fireEvent.click(screen.getByRole('button', {name: 'Edit zone'}));
+  expect(screen.getByText('Zone editor open')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', {name: action}));
+
+  await waitFor(() => expect(mockedApi.generateEdit).toHaveBeenCalled());
+  expect(screen.queryByText('Zone editor open')).not.toBeInTheDocument();
 });

@@ -80,6 +80,7 @@ export default function CharacterPreview({
   const hasImage = !!reference && !imageBroken;
   const canInteractWithImage = hasImage && !isGeneratingCurrent && !isSecondaryFailed;
   const canZoneEdit = canInteractWithImage && !generatingImageType;
+  const showZoneEditor = zoneEditOpen && canZoneEdit && !zoneEditSubmitting;
 
   // --- Drawing state (transient — not yet committed) ---
   const subjectRef = useRef<HTMLDivElement | null>(null);
@@ -222,7 +223,7 @@ export default function CharacterPreview({
   // The selection to render visually: drawing (in progress) or saved zone.
   const visibleSelection = drawingSelection ?? (zoneEditOpen ? savedZone?.selection ?? null : null);
 
-  const canApply = !!savedZone?.instruction.trim() && !!savedZone?.selection && !zoneEditSubmitting;
+  const canApply = Boolean(savedZone?.instruction.trim());
 
   return (
     <section className={`character-preview character-preview--${activeViewMode}`}>
@@ -287,12 +288,12 @@ export default function CharacterPreview({
         {activeViewMode === 'scene' && <SceneBackdrop />}
         <div
           ref={subjectRef}
-          className={`character-preview-subject character-preview-subject--${activeViewMode}${zoneEditOpen && canInteractWithImage ? ' character-preview-subject--zone-edit' : ''}`}
-          onPointerDown={zoneEditOpen && canInteractWithImage ? handlePointerDown : undefined}
-          onPointerMove={zoneEditOpen && canInteractWithImage ? handlePointerMove : undefined}
-          onPointerUp={zoneEditOpen && canInteractWithImage ? handlePointerUp : undefined}
+          className={`character-preview-subject character-preview-subject--${activeViewMode}${showZoneEditor ? ' character-preview-subject--zone-edit' : ''}`}
+          onPointerDown={showZoneEditor ? handlePointerDown : undefined}
+          onPointerMove={showZoneEditor ? handlePointerMove : undefined}
+          onPointerUp={showZoneEditor ? handlePointerUp : undefined}
           style={
-            zoneEditOpen && canInteractWithImage
+            showZoneEditor
               ? {position: 'relative', cursor: 'crosshair', userSelect: 'none', touchAction: 'none'}
               : {position: 'relative'}
           }
@@ -336,9 +337,9 @@ export default function CharacterPreview({
             <ZoneEditLoadingOverlay />
           )}
 
-          {/* Selection rectangle — hidden while submitting */}
-          {zoneEditOpen && hasImage && !zoneEditSubmitting && visibleSelection && (
+          {showZoneEditor && visibleSelection && (
             <div
+              className="character-preview-zone-selection"
               aria-hidden="true"
               style={{
                 position: 'absolute',
@@ -355,12 +356,12 @@ export default function CharacterPreview({
           )}
 
           {/* Zone marker — shown when a prompt is saved and popover is closed */}
-          {zoneEditOpen && hasImage && savedZone && !popoverOpen && !zoneEditSubmitting && (
+          {showZoneEditor && savedZone && !popoverOpen && (
             <ZoneMarker zone={savedZone} onClick={handleMarkerClick} />
           )}
 
           {/* Floating popover — shown while drawing selection or editing prompt */}
-          {zoneEditOpen && hasImage && drawingSelection && popoverOpen && !zoneEditSubmitting && (
+          {showZoneEditor && drawingSelection && popoverOpen && (
             <ZonePopover
               selection={drawingSelection}
               instruction={draftInstruction}
@@ -372,7 +373,7 @@ export default function CharacterPreview({
           )}
 
           {/* Hint strip at the bottom of the image when no zone is drawn yet */}
-          {zoneEditOpen && hasImage && !savedZone && !drawingSelection && !zoneEditSubmitting && (
+          {showZoneEditor && !savedZone && !drawingSelection && (
             <div
               aria-live="polite"
               style={{
@@ -395,7 +396,7 @@ export default function CharacterPreview({
       </div>
 
       {/* Bottom action bar — shown only when there is a saved zone to apply */}
-      {zoneEditOpen && hasImage && savedZone && (
+      {showZoneEditor && savedZone && (
         <div
           className="character-preview-zone-bar"
           style={{
@@ -422,7 +423,7 @@ export default function CharacterPreview({
           </span>
           <button
             type="button"
-            onClick={() => savedZone && onZoneEditApply?.(savedZone)}
+            onClick={() => onZoneEditApply?.(savedZone)}
             disabled={!canApply}
             style={{
               flexShrink: 0,
@@ -440,27 +441,11 @@ export default function CharacterPreview({
               transition: 'background 0.15s',
             }}
           >
-            {zoneEditSubmitting && (
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 13,
-                  height: 13,
-                  border: '2px solid #000',
-                  borderTopColor: 'transparent',
-                  borderRadius: '50%',
-                  animation: 'zone-edit-spin 0.7s linear infinite',
-                }}
-              />
-            )}
-            {zoneEditSubmitting
-              ? t('characterStudio.preview.applying')
-              : t('characterStudio.variant.apply')}
+            {t('characterStudio.variant.apply')}
           </button>
           <button
             type="button"
             onClick={() => onZoneEditToggle?.(false)}
-            disabled={zoneEditSubmitting}
             style={{
               flexShrink: 0,
               padding: '8px 14px',
@@ -468,9 +453,9 @@ export default function CharacterPreview({
               fontWeight: 500,
               borderRadius: 6,
               border: '1px solid #444',
-              cursor: zoneEditSubmitting ? 'not-allowed' : 'pointer',
+              cursor: 'pointer',
               background: 'transparent',
-              color: zoneEditSubmitting ? '#555' : '#aaa',
+              color: '#aaa',
               transition: 'color 0.15s, border-color 0.15s',
             }}
           >

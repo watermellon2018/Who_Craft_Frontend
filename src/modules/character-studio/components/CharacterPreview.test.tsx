@@ -85,6 +85,32 @@ describe('CharacterPreview – portrait tab', () => {
     renderPreview({activeViewMode: 'portrait', character: makeCharacter()});
     expect(screen.getByText('Портрет пока не создан')).toBeInTheDocument();
   });
+
+  it('keeps a saved zone hidden after submission while generation is still running', () => {
+    const props = {
+      ...defaultProps,
+      character: makeCharacter({
+        portrait: {image_id: 'i1', image_type: 'portrait', image_url: 'http://example.com/portrait.png', is_active: true},
+      }),
+      zoneEditOpen: true,
+      savedZone: {
+        instruction: 'Изменить цвет глаз',
+        selection: {x: 0.2, y: 0.2, width: 0.5, height: 0.3},
+      },
+    };
+    const {container, rerender} = render(<CharacterPreview {...props} />);
+    const selection = () => container.querySelector('.character-preview-zone-selection');
+    expect(selection()).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Применить'})).toBeEnabled();
+
+    rerender(<CharacterPreview {...props} zoneEditSubmitting generatingImageType="portrait" />);
+    expect(selection()).not.toBeInTheDocument();
+
+    rerender(<CharacterPreview {...props} generatingImageType="portrait" />);
+    expect(selection()).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: 'Применить'})).not.toBeInTheDocument();
+    expect(screen.getByText('Генерируем портрет…')).toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -58,6 +58,7 @@ export const projectResources = {
           nameHelp: 'Название будет отображаться в списке проектов и в рабочем пространстве фильма.',
           namePlaceholder: 'Введите название', format: 'Формат', formatPlaceholder: 'Выберите формат',
           genre: 'Жанр', genrePlaceholder: 'Выберите жанр',
+          visualStyle: 'Визуальный стиль', visualStyleHelp: 'Применяется к новым персонажам проекта.',
         },
         audience: {title: 'Целевая аудитория', description: 'Выберите одну или несколько групп, для которых создаётся проект.'},
         description: {
@@ -302,6 +303,7 @@ export const projectResources = {
           title: 'Basic information', name: 'Name', nameHelp: 'The name appears in the project list and the film workspace.',
           namePlaceholder: 'Enter a name', format: 'Format', formatPlaceholder: 'Select a format',
           genre: 'Genre', genrePlaceholder: 'Select a genre',
+          visualStyle: 'Visual style', visualStyleHelp: 'Applies to new characters in this project.',
         },
         audience: {title: 'Target audience', description: 'Select one or more groups this project is intended for.'},
         description: {

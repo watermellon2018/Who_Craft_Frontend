@@ -1,8 +1,7 @@
 import React from 'react';
 import {Form, Select} from 'antd';
 import {useTranslation} from 'react-i18next';
-
-const VISUAL_STYLES = ['cinematic_realism', 'anime', 'pixar_like', 'stylized_3d', 'dark_fantasy', 'cyberpunk', 'noir', 'watercolor', 'comic_book'] as const;
+import {VISUAL_STYLES} from '../../../constants/visualStyles';
 
 export default function StyleControls({value, onChange}: {value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void}) {
   const {t} = useTranslation();

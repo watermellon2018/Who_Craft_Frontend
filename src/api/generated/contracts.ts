@@ -683,6 +683,11 @@ export interface PosterOperationResponse {
   billing?: GenerationBilling | null;
 }
 
+export interface ProjectGenerationSettings {
+  image_generation_model?: string;
+  visual_style?: "cinematic_realism" | "anime" | "pixar_like" | "stylized_3d" | "dark_fantasy" | "cyberpunk" | "noir" | "watercolor" | "comic_book";
+}
+
 export interface ProjectMutationRequest {
   title?: string;
   format?: "short_film" | "feature_film" | "series" | "clip" | "commercial" | "other";
@@ -692,6 +697,7 @@ export interface ProjectMutationRequest {
   synopsis?: string;
   status?: string;
   is_favorite?: boolean;
+  generation_settings?: ProjectGenerationSettings;
   poster_image_data?: string;
   poster_url?: string | null;
 }
@@ -714,7 +720,7 @@ export interface ProjectMutationResponse {
   annotation?: string;
   synopsis?: string;
   posterUrl?: string | null;
-  generationSettings?: Record<string, unknown>;
+  generationSettings?: ProjectGenerationSettings;
   createdAt?: string | null;
 }
 
