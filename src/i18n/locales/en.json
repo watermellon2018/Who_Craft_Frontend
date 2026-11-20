@@ -1230,8 +1230,8 @@
         "agePlaceholder": "E.g.: 35",
         "lifecycle": "Life stage",
         "lifecyclePlaceholder": "E.g.: adult, ancient, unknown",
-        "gender": "Gender / applicability",
-        "genderPlaceholder": "Pick gender or applicability"
+        "gender": "Gender",
+        "genderPlaceholder": "Select a gender"
       },
       "generation": {
         "title": "Generation parameters",

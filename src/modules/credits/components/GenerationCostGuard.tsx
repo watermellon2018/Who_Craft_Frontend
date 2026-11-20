@@ -52,7 +52,6 @@ function EstimateDetails({estimate}: {estimate: GenerationCostEstimate}) {
   const {t} = useTranslation();
   if (estimate.generationSource === 'personal') return (
     <div className="generation-cost-confirmation">
-      <Alert showIcon type="info" message={t('personalApi.guard.external')} />
       <dl>
         <div><dt>{t('personalApi.guard.connection')}</dt><dd>{estimate.connectionName}</dd></div>
         <div><dt>{t('personalApi.guard.model')}</dt><dd>{estimate.modelName || estimate.modelKey}</dd></div>

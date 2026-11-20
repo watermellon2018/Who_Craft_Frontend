@@ -38,9 +38,9 @@ export const projectResources = {
         notifications: {updated: 'Изменения сохранены', created: 'Проект успешно создан'},
         validation: {
           titleRequired: 'Заполните поле «Название»', genreRequired: 'Выберите жанр',
-          annotationMin: 'Аннотация должна содержать не менее {{count}} символов',
+          annotationRequired: 'Аннотация не должна быть пустой',
           annotationMax: 'Аннотация должна содержать не более {{count}} символов',
-          synopsisMin: 'Синопсис должен содержать не менее {{count}} символов',
+          synopsisRequired: 'Синопсис не должен быть пустым',
           synopsisMax: 'Синопсис должен содержать не более {{count}} символов',
           audienceRequired: 'Выберите целевую аудиторию', posterType: 'Можно загрузить только JPG или PNG.',
           posterSize: 'Размер изображения не должен превышать {{size}} МБ.',
@@ -284,9 +284,9 @@ export const projectResources = {
         notifications: {updated: 'Changes saved', created: 'Project created'},
         validation: {
           titleRequired: 'Enter a project name', genreRequired: 'Select a genre',
-          annotationMin: 'The annotation must contain at least {{count}} characters',
+          annotationRequired: 'The annotation cannot be empty',
           annotationMax: 'The annotation must contain no more than {{count}} characters',
-          synopsisMin: 'The synopsis must contain at least {{count}} characters',
+          synopsisRequired: 'The synopsis cannot be empty',
           synopsisMax: 'The synopsis must contain no more than {{count}} characters',
           audienceRequired: 'Select a target audience', posterType: 'Upload a JPG or PNG image.',
           posterSize: 'The image must be no larger than {{size}} MB.',

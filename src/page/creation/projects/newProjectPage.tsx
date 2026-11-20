@@ -31,7 +31,7 @@ import {
 import type {ProjectEditPayload} from "../../../api/projects/properties/project";
 import {getApiStatus} from '../../../api/errors';
 import withAuth from "../../../utils/auth/check_auth";
-import PathConstants, {projectEditPath, projectPosterPath} from "../../../routes/pathConstant";
+import PathConstants, {projectDashboardPath, projectPosterPath} from "../../../routes/pathConstant";
 import { openNotificationWithIcon } from "../../../utils/global/notification";
 import {
     PROJECT_FORMAT_OPTIONS,
@@ -45,9 +45,7 @@ import {
     validateProjectPosterFile,
 } from './projectFormContract';
 
-const BOTTOM_LEN_ANNOT = 0;
 const UP_LEN_ANNOT = PROJECT_ANNOTATION_MAX_LENGTH;
-const BOTTOM_LEN_DESC = 0;
 const UP_LEN_DESC = PROJECT_SYNOPSIS_MAX_LENGTH;
 type ProjectFormat = NonNullable<ProjectEditPayload['format']>;
 
@@ -313,22 +311,22 @@ export const ProjectCreatePage = () => {
             return false;
         }
 
-        if (!annotation || annotation.length < BOTTOM_LEN_ANNOT) {
+        if (!annotation.trim()) {
             setErrorAnnot(true);
-            openNotificationWithIcon(t('project.editor.validation.annotationMin', {count: BOTTOM_LEN_ANNOT}));
+            openNotificationWithIcon(t('project.editor.validation.annotationRequired'));
             return false;
         }
-        if (!annotation || annotation.length > UP_LEN_ANNOT) {
+        if (annotation.length > UP_LEN_ANNOT) {
             setErrorAnnot(true);
             openNotificationWithIcon(t('project.editor.validation.annotationMax', {count: UP_LEN_ANNOT}));
             return false;
         }
-        if (!description || description.length < BOTTOM_LEN_DESC) {
+        if (!description.trim()) {
             setErrorDesc(true);
-            openNotificationWithIcon(t('project.editor.validation.synopsisMin', {count: BOTTOM_LEN_DESC}));
+            openNotificationWithIcon(t('project.editor.validation.synopsisRequired'));
             return false;
         }
-        if (!description || description.length > UP_LEN_DESC) {
+        if (description.length > UP_LEN_DESC) {
             setErrorDesc(true);
             openNotificationWithIcon(t('project.editor.validation.synopsisMax', {count: UP_LEN_DESC}));
             return false;
@@ -394,7 +392,7 @@ export const ProjectCreatePage = () => {
         try {
             const data = await create_project(payload);
             openNotificationWithIcon(t('project.editor.notifications.created'), t('project.common.done'), 'success');
-            navigate(projectEditPath(data.id), {replace: true});
+            navigate(projectDashboardPath(data.id), {replace: true});
         } catch {
             openNotificationWithIcon(formatBackendError(), t('project.common.error'), 'error');
         } finally {
@@ -416,16 +414,14 @@ export const ProjectCreatePage = () => {
 
     const handleAnnotationsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setAnnotation(e.target.value);
-        const len = e.target.value.length;
-        if (len >= BOTTOM_LEN_ANNOT && len <= UP_LEN_ANNOT) {
+        if (e.target.value.trim() && e.target.value.length <= UP_LEN_ANNOT) {
             setErrorAnnot(false);
         }
     };
 
     const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setDescription(e.target.value);
-        const len = e.target.value.length;
-        if (len >= BOTTOM_LEN_DESC && len <= UP_LEN_DESC) {
+        if (e.target.value.trim() && e.target.value.length <= UP_LEN_DESC) {
             setErrorDesc(false);
         }
     };
@@ -498,8 +494,10 @@ export const ProjectCreatePage = () => {
                     color: ${COLORS.textPrimary} !important;
                     border-radius: 10px !important;
                 }
+                .craft-field .ant-select-single {
+                    height: 44px;
+                }
                 .craft-field .ant-select-single .ant-select-selector {
-                    height: 44px !important;
                     padding: 0 40px 0 14px !important;
                     display: flex;
                     align-items: center;

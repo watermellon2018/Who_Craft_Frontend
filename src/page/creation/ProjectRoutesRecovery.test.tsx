@@ -1,7 +1,8 @@
 import React from 'react';
-import {render, screen, waitFor} from '@testing-library/react';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
-import {fetch_project} from '../../api/projects/properties/project';
+import {create_project, fetch_project} from '../../api/projects/properties/project';
+import {openNotificationWithIcon} from '../../utils/global/notification';
 import GenPosterPage from './poster/GenPosterPage';
 import {ProjectCreatePage} from './projects/newProjectPage';
 
@@ -26,15 +27,23 @@ jest.mock('../../api/posters', () => ({
 jest.mock('./edit_generation', () => () => null);
 
 const mockedFetchProject = fetch_project as jest.MockedFunction<typeof fetch_project>;
+const mockedCreateProject = create_project as jest.MockedFunction<typeof create_project>;
 
-function renderRoute(path: string, element: React.ReactNode, routePath: string) {
+function renderRoute(path: string, element: React.ReactNode, routePath: string, destination?: React.ReactNode) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path={routePath} element={element} />
+        {destination}
       </Routes>
     </MemoryRouter>,
   );
+}
+
+function fillProjectBasics() {
+  fireEvent.change(screen.getByPlaceholderText('Введите название'), {target: {value: 'New project'}});
+  fireEvent.mouseDown(screen.getByText('Выберите жанр'));
+  fireEvent.click(screen.getByText('Драма'));
 }
 
 beforeEach(() => {
@@ -88,4 +97,34 @@ test('keeps poster generation disabled until a new project is saved', () => {
   expect(screen.getByRole('button', {name: /Сгенерировать постер/})).toBeDisabled();
   expect(screen.getByText('Сначала создайте проект, чтобы открыть генератор постера.')).toBeInTheDocument();
   expect(mockedFetchProject).not.toHaveBeenCalled();
+});
+
+test('opens the dashboard for the newly created project', async () => {
+  mockedCreateProject.mockResolvedValue({id: 77, title: 'New project'});
+  renderRoute(
+    '/create-project', <ProjectCreatePage />, '/create-project',
+    <Route path="/projects/77" element={<h1>New project dashboard</h1>} />,
+  );
+  fillProjectBasics();
+  fireEvent.change(screen.getByPlaceholderText('Опишите идею проекта…'), {target: {value: 'Annotation'}});
+  fireEvent.change(screen.getByPlaceholderText('Опишите сюжет и ключевые события…'), {target: {value: 'Synopsis'}});
+  fireEvent.click(screen.getByRole('button', {name: /Создать проект/}));
+
+  expect(await screen.findByRole('heading', {name: 'New project dashboard'})).toBeInTheDocument();
+  expect(mockedCreateProject).toHaveBeenCalledWith(expect.objectContaining({title: 'New project'}));
+});
+
+test('reports empty annotation and synopsis as required fields', () => {
+  renderRoute('/create-project', <ProjectCreatePage />, '/create-project');
+  fillProjectBasics();
+  const submit = screen.getByRole('button', {name: /Создать проект/});
+
+  fireEvent.click(submit);
+  expect(openNotificationWithIcon).toHaveBeenLastCalledWith('Аннотация не должна быть пустой');
+
+  fireEvent.change(screen.getByPlaceholderText('Опишите идею проекта…'), {target: {value: 'Annotation'}});
+  fireEvent.change(screen.getByPlaceholderText('Опишите сюжет и ключевые события…'), {target: {value: '   '}});
+  fireEvent.click(submit);
+  expect(openNotificationWithIcon).toHaveBeenLastCalledWith('Синопсис не должен быть пустым');
+  expect(mockedCreateProject).not.toHaveBeenCalled();
 });

@@ -47,7 +47,8 @@ test('personal zero-Craft-cost work requires explicit approval even with a froze
   const dialog = await screen.findByRole('dialog');
   await waitFor(() => expect(within(dialog).getByRole('button', {name: 'Start generation'})).toBeEnabled());
   expect(operation).not.toHaveBeenCalled();
-  expect(within(dialog).getByText(/The provider charges your account/)).toBeInTheDocument();
+  expect(within(dialog).queryByText(/The provider charges your account/)).not.toBeInTheDocument();
+  expect(within(dialog).getByText('My Gemini')).toBeInTheDocument();
   expect(mockedEstimate).toHaveBeenCalledWith(expect.objectContaining({generationSource: 'personal', modelKey: undefined}));
   fireEvent.click(within(dialog).getByRole('button', {name: 'Start generation'}));
   await expect(result).resolves.toBe('job');

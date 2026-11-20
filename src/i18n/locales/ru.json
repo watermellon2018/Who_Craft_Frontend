@@ -1311,8 +1311,8 @@
         "agePlaceholder": "Например: 35",
         "lifecycle": "Стадия жизни",
         "lifecyclePlaceholder": "Например: взрослый, древний, неизвестно",
-        "gender": "Пол / применимость",
-        "genderPlaceholder": "Выберите пол или применимость"
+        "gender": "Пол",
+        "genderPlaceholder": "Выберите пол"
       },
       "generation": {
         "title": "Параметры генерации",
